@@ -1,98 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Palepail - Personal Website</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>palepail - Personal Website</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
     <div class="container">
-        <!-- Left Navigation Bar -->
-        <nav class="sidebar">
-            <div class="logo">
-                <h2>Palepail</h2>
-            </div>
-            <ul class="nav-links">
-                <li><a href="#home" class="active">Home</a></li>
-                <li><a href="#projects">Projects</a></li>
-                <li><a href="#hobbies">Hobbies</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
+      <!-- Left Navigation Bar -->
+      <nav class="sidebar">
+        <div class="logo">
+          <h2>palepail</h2>
+        </div>
+        <ul class="nav-links">
+          <li><a href="#home" class="active">Home</a></li>
+          <li><a href="#projects">Projects</a></li>
+          <li><a href="#hobbies">Hobbies</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
 
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Home Section -->
-            <section id="home" class="section active">
-                <h1>Welcome to My Digital Space</h1>
-                <p class="intro-text">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-                </p>
-                <p class="intro-text">
-                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-                </p>
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <!-- Home Section -->
+        <section id="home" class="section active">
+          <h1>Welcome to My Digital Space</h1>
+          <p class="intro-text">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+            incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+            exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+          </p>
+          <p class="intro-text">
+            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
+            nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
+            officia deserunt mollit anim id est laborum.
+          </p>
 
-                <!-- Carousel -->
-                <div class="carousel-container">
-                    <h2>Featured Work</h2>
-                    <div class="carousel">
-                        <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
-                        <div class="carousel-track">
-                            <div class="carousel-slide active">
-                                <div class="placeholder-image">Project Screenshot 1</div>
-                                <p class="slide-caption">Featured Project Alpha</p>
-                            </div>
-                            <div class="carousel-slide">
-                                <div class="placeholder-image">Project Screenshot 2</div>
-                                <p class="slide-caption">Featured Project Beta</p>
-                            </div>
-                            <div class="carousel-slide">
-                                <div class="placeholder-image">Hobby Screenshot 1</div>
-                                <p class="slide-caption">Personal Hobby Project</p>
-                            </div>
-                            <div class="carousel-slide">
-                                <div class="placeholder-image">Hobby Screenshot 2</div>
-                                <p class="slide-caption">Creative Endeavor</p>
-                            </div>
-                        </div>
-                        <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
-                    </div>
-                    <div class="carousel-dots">
-                        <span class="dot active" onclick="currentSlide(0)"></span>
-                        <span class="dot" onclick="currentSlide(1)"></span>
-                        <span class="dot" onclick="currentSlide(2)"></span>
-                        <span class="dot" onclick="currentSlide(3)"></span>
-                    </div>
+          <!-- Carousel -->
+          <div class="carousel-container">
+            <h2>Featured Work</h2>
+            <div class="carousel">
+              <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+              <div class="carousel-track">
+                <div class="carousel-slide active">
+                  <div class="placeholder-image">Project Screenshot 1</div>
+                  <p class="slide-caption">Featured Project Alpha</p>
                 </div>
-            </section>
+                <div class="carousel-slide">
+                  <div class="placeholder-image">Project Screenshot 2</div>
+                  <p class="slide-caption">Featured Project Beta</p>
+                </div>
+                <div class="carousel-slide">
+                  <div class="placeholder-image">Hobby Screenshot 1</div>
+                  <p class="slide-caption">Personal Hobby Project</p>
+                </div>
+                <div class="carousel-slide">
+                  <div class="placeholder-image">Hobby Screenshot 2</div>
+                  <p class="slide-caption">Creative Endeavor</p>
+                </div>
+              </div>
+              <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+            </div>
+            <div class="carousel-dots">
+              <span class="dot active" onclick="currentSlide(0)"></span>
+              <span class="dot" onclick="currentSlide(1)"></span>
+              <span class="dot" onclick="currentSlide(2)"></span>
+              <span class="dot" onclick="currentSlide(3)"></span>
+            </div>
+          </div>
+        </section>
 
-            <!-- Projects Section -->
-            <section id="projects" class="section">
-                <h1>Projects</h1>
-                <p class="intro-text">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris vel ipsum at nulla facilisis venenatis. Integer ac turpis vel erat dignissim hendrerit.
-                </p>
-            </section>
+        <!-- Projects Section -->
+        <section id="projects" class="section">
+          <h1>Projects</h1>
+          <p class="intro-text">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris vel ipsum at nulla
+            facilisis venenatis. Integer ac turpis vel erat dignissim hendrerit.
+          </p>
+        </section>
 
-            <!-- Hobbies Section -->
-            <section id="hobbies" class="section">
-                <h1>Hobbies</h1>
-                <p class="intro-text">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus imperdiet, nulla et dictum interdum, nisi lorem egestas odio, vitae scelerisque enim ligula venenatis dolor.
-                </p>
-            </section>
+        <!-- Hobbies Section -->
+        <section id="hobbies" class="section">
+          <h1>Hobbies</h1>
+          <p class="intro-text">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus imperdiet, nulla et
+            dictum interdum, nisi lorem egestas odio, vitae scelerisque enim ligula venenatis dolor.
+          </p>
+        </section>
 
-            <!-- Contact Section -->
-            <section id="contact" class="section">
-                <h1>Contact</h1>
-                <p class="intro-text">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ornare, massa vel volutpat condimentum, velit massa accumsan massa, id bibendum velit velit vel nisi.
-                </p>
-            </section>
-        </main>
+        <!-- Contact Section -->
+        <section id="contact" class="section">
+          <h1>Contact</h1>
+          <p class="intro-text">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ornare, massa vel volutpat
+            condimentum, velit massa accumsan massa, id bibendum velit velit vel nisi.
+          </p>
+        </section>
+      </main>
     </div>
 
     <script src="script.js"></script>
-</body>
+  </body>
 </html>

@@ -1,4 +1,4 @@
-<h1>Welcome to My Digital Space</h1>
+<h1>{{ homeData?.content?.title }}</h1>
 <p class="intro-text">
     Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
 </p>
@@ -7,34 +7,26 @@
 </p>
 
 <!-- Carousel -->
-<div class="carousel-container">
+<div class="carousel-container" *ngIf="carouselItems.length > 0">
     <h2>Featured Work</h2>
     <div class="carousel">
         <button class="carousel-btn prev" (click)="moveSlide(-1)">&#10094;</button>
         <div class="carousel-track">
-            <div class="carousel-slide active">
-                <div class="placeholder-image">Project Screenshot 1</div>
-                <p class="slide-caption">Featured Project Alpha</p>
-            </div>
-            <div class="carousel-slide">
-                <div class="placeholder-image">Project Screenshot 2</div>
-                <p class="slide-caption">Featured Project Beta</p>
-            </div>
-            <div class="carousel-slide">
-                <div class="placeholder-image">Hobby Screenshot 1</div>
-                <p class="slide-caption">Personal Hobby Project</p>
-            </div>
-            <div class="carousel-slide">
-                <div class="placeholder-image">Hobby Screenshot 2</div>
-                <p class="slide-caption">Creative Endeavor</p>
+            <div *ngFor="let item of carouselItems; let i = index"
+                 class="carousel-slide"
+                 [class.active]="i === 0">
+                <div class="placeholder-image">
+                    <img [src]="item.image" [alt]="item.caption" />
+                </div>
+                <p class="slide-caption">{{ item.caption }}</p>
             </div>
         </div>
         <button class="carousel-btn next" (click)="moveSlide(1)">&#10095;</button>
     </div>
     <div class="carousel-dots">
-        <span class="dot active" (click)="currentSlide(0)"></span>
-        <span class="dot" (click)="currentSlide(1)"></span>
-        <span class="dot" (click)="currentSlide(2)"></span>
-        <span class="dot" (click)="currentSlide(3)"></span>
+        <span *ngFor="let item of carouselItems; let i = index"
+              class="dot"
+              [class.active]="i === 0"
+              (click)="currentSlide(i)"></span>
     </div>
 </div>

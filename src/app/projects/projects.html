@@ -1,4 +1,29 @@
-<h1>Projects</h1>
+<h1>{{ projectsData?.name }}</h1>
 <p class="intro-text">
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris vel ipsum at nulla facilisis venenatis. Integer ac turpis vel erat dignissim hendrerit.
+  Explore my portfolio of projects across different domains and technologies.
 </p>
+
+<div *ngIf="subtabs.length === 0" class="loading">Loading projects...</div>
+
+<div class="categories-container" *ngIf="subtabs.length > 0">
+  <div *ngFor="let subtab of subtabs" class="category">
+    <h2>{{ subtab.name }}</h2>
+    <p class="category-description">{{ subtab.description }}</p>
+
+    <div class="projects-grid" *ngIf="subtab.projects && subtab.projects.length > 0">
+      <div *ngFor="let project of subtab.projects" class="project-card">
+        <div class="project-image">
+          <img [src]="project.image" [alt]="project.title" />
+        </div>
+        <div class="project-content">
+          <h3>{{ project.title }}</h3>
+          <p>{{ project.description }}</p>
+          <div class="technologies">
+            <span *ngFor="let tech of project.technologies" class="tech-tag">{{ tech }}</span>
+          </div>
+          <a [href]="project.link" class="project-link" target="_blank">View Project</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

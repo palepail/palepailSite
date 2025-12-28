@@ -5,10 +5,10 @@
             <h2>palepail</h2>
         </div>
         <ul class="nav-links">
-            <li><a routerLink="/home" routerLinkActive="active">Home</a></li>
-            <li><a routerLink="/projects" routerLinkActive="active">Projects</a></li>
-            <li><a routerLink="/hobbies" routerLinkActive="active">Hobbies</a></li>
-            <li><a routerLink="/contact" routerLinkActive="active">Contact</a></li>
+            <li><a routerLink="/home" routerLinkActive="active" (click)="onNavClick('/home')">Home</a></li>
+            <li><a routerLink="/projects" routerLinkActive="active" (click)="onNavClick('/projects')">Projects</a></li>
+            <li><a routerLink="/hobbies" routerLinkActive="active" (click)="onNavClick('/hobbies')">Hobbies</a></li>
+            <li><a routerLink="/contact" routerLinkActive="active" (click)="onNavClick('/contact')">Contact</a></li>
         </ul>
     </nav>
 

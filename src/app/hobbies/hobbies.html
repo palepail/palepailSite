@@ -1,4 +1,24 @@
-<h1>Hobbies</h1>
+<h1>{{ hobbiesData?.name }}</h1>
 <p class="intro-text">
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus imperdiet, nulla et dictum interdum, nisi lorem egestas odio, vitae scelerisque enim ligula venenatis dolor.
+    Discover my passions and interests outside of work.
 </p>
+
+<div class="categories-container">
+    <div *ngFor="let subtab of subtabs" class="category">
+        <h2>{{ subtab.name }}</h2>
+        <p class="category-description">{{ subtab.description }}</p>
+
+        <div class="activities-grid" *ngIf="subtab.activities">
+            <div *ngFor="let activity of subtab.activities" class="activity-card">
+                <div class="activity-image">
+                    <img [src]="activity.image" [alt]="activity.title" />
+                </div>
+                <div class="activity-content">
+                    <h3>{{ activity.title }}</h3>
+                    <p>{{ activity.description }}</p>
+                    <p class="activity-details">{{ activity.details }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
