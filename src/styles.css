@@ -35,6 +35,24 @@ body {
     padding: 0 1rem;
 }
 
+.profile-picture {
+    margin-bottom: 1rem;
+}
+
+.profile-picture img {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    border: 3px solid #e8ecf1;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.profile-picture img:hover {
+    transform: scale(1.05);
+}
+
 .logo h2 {
     font-size: 1.8rem;
     font-weight: 600;
@@ -318,9 +336,10 @@ h1 {
 /* Projects Grid */
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, 280px);
     gap: 2rem;
     margin-top: 2rem;
+    justify-content: start;
 }
 
 .project-card {
@@ -403,9 +422,10 @@ h1 {
 /* Activities Grid */
 .activities-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, 280px);
     gap: 2rem;
     margin-top: 2rem;
+    justify-content: start;
 }
 
 .activity-card {
@@ -422,7 +442,7 @@ h1 {
 }
 
 .activity-image {
-    height: 180px;
+    height: 200px;
     overflow: hidden;
 }
 
@@ -442,7 +462,7 @@ h1 {
 }
 
 .activity-content h3 {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     color: #3d4e63;
     margin-bottom: 0.5rem;
     font-weight: 600;
