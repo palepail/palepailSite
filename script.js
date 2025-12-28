@@ -1,9 +1,12 @@
 // Carousel functionality
 let currentSlideIndex = 0;
+let slides = [];
+let dots = [];
+let carouselInterval = null;
 
 function moveSlide(direction) {
-    const slides = document.querySelectorAll('.carousel-slide');
-    const dots = document.querySelectorAll('.dot');
+    // Bounds checking
+    if (slides.length === 0 || dots.length === 0) return;
     
     // Remove active class from current slide and dot
     slides[currentSlideIndex].classList.remove('active');
@@ -25,8 +28,8 @@ function moveSlide(direction) {
 }
 
 function currentSlide(index) {
-    const slides = document.querySelectorAll('.carousel-slide');
-    const dots = document.querySelectorAll('.dot');
+    // Bounds checking
+    if (slides.length === 0 || dots.length === 0 || index < 0 || index >= slides.length) return;
     
     // Remove active class from current slide and dot
     slides[currentSlideIndex].classList.remove('active');
@@ -42,6 +45,10 @@ function currentSlide(index) {
 
 // Navigation functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Cache DOM elements
+    slides = document.querySelectorAll('.carousel-slide');
+    dots = document.querySelectorAll('.dot');
+    
     const navLinks = document.querySelectorAll('.nav-links a');
     const sections = document.querySelectorAll('.section');
     
@@ -66,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Auto-advance carousel every 5 seconds
-    setInterval(() => {
+    carouselInterval = setInterval(() => {
         moveSlide(1);
     }, 5000);
 });
