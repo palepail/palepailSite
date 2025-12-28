@@ -258,7 +258,40 @@ footer {
     padding: 2rem 0;
 }
 
+/* Notification System */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 5px;
+    color: #fff;
+    font-weight: 500;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    z-index: 2000;
+    max-width: 350px;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification-success {
+    background-color: #28a745;
+}
+
+.notification-error {
+    background-color: #dc3545;
+}
+
+.notification-info {
+    background-color: #17a2b8;
+}
+
 /* Animations */
+/* fadeInUp is used in the hero section for the heading and paragraph */
 @keyframes fadeInUp {
     from {
         opacity: 0;

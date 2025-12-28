@@ -25,12 +25,31 @@ if (contactForm) {
         
         // Simple validation
         if (name && email && message) {
-            alert('Thank you for your message! We will get back to you soon.');
+            showNotification('Thank you for your message! We will get back to you soon.', 'success');
             this.reset();
         } else {
-            alert('Please fill in all fields.');
+            showNotification('Please fill in all fields.', 'error');
         }
     });
+}
+
+// Toast notification system
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
 }
 
 // Add active class to nav items on scroll
@@ -42,7 +61,7 @@ window.addEventListener('scroll', () => {
     sections.forEach(section => {
         const sectionTop = section.offsetTop;
         const sectionHeight = section.clientHeight;
-        if (pageYOffset >= (sectionTop - 100)) {
+        if (window.scrollY >= (sectionTop - 100)) {
             current = section.getAttribute('id');
         }
     });
