@@ -1,0 +1,61 @@
+{
+  "hobbies": [
+    {
+      "id": "reading",
+      "name": "Reading",
+      "description": "Books, articles, and continuous learning",
+      "activities": [
+        {
+          "title": "Technical Books",
+          "description": "Deep dives into programming, algorithms, and system design",
+          "image": "/assets/images/hobbies/reading-tech.jpg",
+          "details": "Currently reading 'Clean Code' and 'Designing Data-Intensive Applications'"
+        },
+        {
+          "title": "Science Fiction",
+          "description": "Exploring futuristic concepts and imaginative worlds",
+          "image": "/assets/images/hobbies/reading-sci-fi.jpg",
+          "details": "Favorite authors: Isaac Asimov, Neal Stephenson, and Philip K. Dick"
+        }
+      ]
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "description": "Video games, board games, and strategic thinking",
+      "activities": [
+        {
+          "title": "Strategy Games",
+          "description": "Complex strategy and real-time strategy games",
+          "image": "/assets/images/hobbies/gaming-strategy.jpg",
+          "details": "Currently playing Civilization VI and StarCraft II"
+        },
+        {
+          "title": "Board Games",
+          "description": "Tabletop games with friends and family",
+          "image": "/assets/images/hobbies/board-games.jpg",
+          "details": "Regularly play Settlers of Catan, Ticket to Ride, and Wingspan"
+        }
+      ]
+    },
+    {
+      "id": "photography",
+      "name": "Photography",
+      "description": "Capturing moments and exploring visual storytelling",
+      "activities": [
+        {
+          "title": "Landscape Photography",
+          "description": "Natural scenes and outdoor adventures",
+          "image": "/assets/images/hobbies/photography-landscape.jpg",
+          "details": "Specializing in golden hour shots and mountain landscapes"
+        },
+        {
+          "title": "Street Photography",
+          "description": "Urban life and candid moments",
+          "image": "/assets/images/hobbies/photography-street.jpg",
+          "details": "Documenting city life and human interactions"
+        }
+      ]
+    }
+  ]
+}
