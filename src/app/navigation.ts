@@ -13,6 +13,7 @@ export interface Project {
   technologies: string[];
   image: string;
   link: string;
+  status: { name: string }[];
 }
 
 export interface Activity {

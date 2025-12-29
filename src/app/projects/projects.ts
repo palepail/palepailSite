@@ -24,4 +24,17 @@ export class Projects implements OnInit {
       this.subtabs = navigationData.projects || [];
     }
   }
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'Completed':
+        return 'status-completed';
+      case 'In Development':
+        return 'status-in-development';
+      case 'Defunct':
+        return 'status-defunct';
+      default:
+        return 'status-default';
+    }
+  }
 }

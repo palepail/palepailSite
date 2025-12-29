@@ -6,18 +6,50 @@
       "description": "Full-stack web applications and responsive websites",
       "projects": [
         {
-          "title": "E-commerce Platform",
-          "description": "A modern e-commerce solution with React and Node.js",
-          "technologies": ["React", "Node.js", "MongoDB"],
-          "image": "/assets/images/projects/ecommerce.jpg",
-          "link": "#"
+          "title": "palepail.com",
+          "description": "Personal portfolio website built with Angular and TypeScript",
+          "technologies": ["Angular", "TypeScript", "SCSS", "HTML", "CSS"],
+          "image": "/resources/images/projects/website/palepailv1.1.png",
+          "link": "#",
+          "status": [{"name": "Completed"}]
         },
         {
-          "title": "Portfolio Website",
-          "description": "Personal portfolio with Angular and TypeScript",
-          "technologies": ["Angular", "TypeScript", "SCSS"],
-          "image": "/assets/images/projects/portfolio.jpg",
-          "link": "#"
+          "title": "palepail.com Overhaul",
+          "description": "Personal portfolio with Angular and TypeScript using AI tools",
+          "technologies": ["Angular", "TypeScript", "Copilot", "Grok"],
+          "image": "/resources/images/projects/website/palepailv1.0.png",
+          "link": "#",
+          "status": [{"name": "In Development"}]
+        }
+      ]
+    },
+    {
+      "id": "tools-utilities",
+      "name": "Tools & Utilities",
+      "description": "Development tools, bots, and utility applications",
+      "projects": [
+        {
+          "title": "palebot",
+          "description": "IRC chat moderation bot for Twitch.tv channels",
+          "technologies": ["Java", "PIRCBotX", "Swing"],
+          "image": "/resources/images/projects/palebot/palebot0.png",
+          "link": "https://github.com/palepail/palebot",
+          "status": [{"name": "Defunct"}]
+        }
+      ]
+    },
+    {
+      "id": "game-development",
+      "name": "Game Development",
+      "description": "Video games and interactive entertainment projects",
+      "projects": [
+        {
+          "title": "Shooter",
+          "description": "A danmaku shooter game in the style of Touhou franchise",
+          "technologies": ["Java", "LibGDX"],
+          "image": "/resources/images/projects/shooter/shooter0.png",
+          "link": "https://bitbucket.org/palepail/shooter",
+          "status": [{"name": "Completed"}]
         }
       ]
     },
@@ -27,25 +59,12 @@
       "description": "Cross-platform mobile apps for iOS and Android",
       "projects": [
         {
-          "title": "Fitness Tracker",
-          "description": "React Native app for tracking workouts and nutrition",
-          "technologies": ["React Native", "Firebase", "Redux"],
-          "image": "/assets/images/projects/fitness.jpg",
-          "link": "#"
-        }
-      ]
-    },
-    {
-      "id": "data-science",
-      "name": "Data Science & AI",
-      "description": "Machine learning models and data analysis projects",
-      "projects": [
-        {
-          "title": "Predictive Analytics Dashboard",
-          "description": "Interactive dashboard for business intelligence",
-          "technologies": ["Python", "Pandas", "Plotly"],
-          "image": "/assets/images/projects/analytics.jpg",
-          "link": "#"
+          "title": "EarTrainer",
+          "description": "Android application to help discern musical tones by ear",
+          "technologies": ["Java", "Android"],
+          "image": "/resources/images/projects/eartrainer/eartrainer0.png",
+          "link": "https://play.google.com/store/apps/details?id=ear.trainer",
+          "status": [{"name": "In Development"}]
         }
       ]
     }
