@@ -1,0 +1,42 @@
+{
+  "hobbies": [
+    {
+      "id": "reading",
+      "name": "Reading",
+      "description": "Books, articles, and continuous learning",
+      "activities": [
+        {
+          "title": "Technical Books",
+          "description": "Deep dives into programming, algorithms, and system design",
+          "image": "/assets/images/hobbies/reading-tech.jpg",
+          "details": "Currently reading 'Clean Code' and 'Designing Data-Intensive Applications'"
+        },
+        {
+          "title": "Science Fiction",
+          "description": "Exploring futuristic concepts and imaginative worlds",
+          "image": "/assets/images/hobbies/reading-sci-fi.jpg",
+          "details": "Favorite authors: Isaac Asimov, Neal Stephenson, and Philip K. Dick"
+        }
+      ]
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "description": "Video games, board games, and strategic thinking",
+      "activities": [
+        {
+          "title": "Fighting Games",
+          "description": "Competitive fighting games with friends",
+          "image": "/assets/images/hobbies/fighting-games.jpg",
+          "details": "Enjoying Street Fighter and Mortal Kombat tournaments"
+        },
+        {
+          "title": "Mobile Games",
+          "description": "Casual gaming on mobile devices",
+          "image": "/assets/images/hobbies/mobile-games.jpg",
+          "details": "Playing puzzle games and RPGs on my phone"
+        }
+      ]
+    }
+  ]
+}
