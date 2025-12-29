@@ -50,6 +50,14 @@
           "image": "/resources/images/projects/shooter/shooter0.png",
           "link": "https://bitbucket.org/palepail/shooter",
           "status": [{ "name": "Completed" }]
+        },
+        {
+          "title": "Match 3 Game",
+          "description": "Potion-themed match 3 puzzle game inspired by Bejeweled, Puzzle Quest, and Slay the Spire",
+          "technologies": ["Java", "LibGDX"],
+          "image": "/resources/images/projects/match3/match30.png",
+          "link": "#",
+          "status": [{ "name": "In Development" }]
         }
       ]
     },

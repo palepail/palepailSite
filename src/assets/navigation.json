@@ -7,23 +7,23 @@
       "hasSubtabs": false,
       "content": {
         "title": "Welcome to My Digital Space",
-        "intro": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+        "intro": "I'm a full-stack developer and software engineer passionate about creating innovative solutions across web development, game development, and mobile applications. My work focuses on clean, efficient code and user-centered design. Beyond development, I enjoy exploring music, gaming, and hands-on technical projects.",
         "carousel": [
           {
-            "image": "/assets/images/home/project-alpha.jpg",
-            "caption": "Featured Project Alpha"
+            "image": "/resources/images/projects/website/palepailv1.1.png",
+            "caption": "Angular Portfolio Website"
           },
           {
-            "image": "/assets/images/home/project-beta.jpg",
-            "caption": "Featured Project Beta"
+            "image": "/resources/images/projects/shooter/shooter0.png",
+            "caption": "Java Game Development - Danmaku Shooter"
           },
           {
-            "image": "/assets/images/home/hobby-project.jpg",
-            "caption": "Personal Hobby Project"
+            "image": "/resources/images/projects/eartrainer/eartrainer0.png",
+            "caption": "Android Ear Training App"
           },
           {
-            "image": "/assets/images/home/creative-work.jpg",
-            "caption": "Creative Endeavor"
+            "image": "/resources/images/hobbies/music-violin.jpg",
+            "caption": "Violin Practice & Musical Exploration"
           }
         ]
       }
