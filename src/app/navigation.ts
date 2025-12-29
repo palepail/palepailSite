@@ -21,6 +21,8 @@ export interface Activity {
   description: string;
   image: string;
   details: string;
+  skillLevel?: string;
+  status: string;
 }
 
 export interface Subtab {

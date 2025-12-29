@@ -1,40 +1,76 @@
 {
   "hobbies": [
     {
-      "id": "reading",
-      "name": "Reading",
-      "description": "Books, articles, and continuous learning",
+      "id": "music",
+      "name": "Music",
+      "description": "Playing musical instruments and exploring melodies",
       "activities": [
         {
-          "title": "Technical Books",
-          "description": "Deep dives into programming, algorithms, and system design",
-          "image": "/assets/images/hobbies/reading-tech.jpg",
-          "details": "Currently reading 'Clean Code' and 'Designing Data-Intensive Applications'"
+          "title": "Trumpet",
+          "description": "Learning to play the trumpet",
+          "image": "/resources/images/hobbies/music-trumpet.jpg",
+          "details": "Exploring brass instruments and basic music theory",
+          "skillLevel": "Novice",
+          "status": "Inactive"
         },
         {
-          "title": "Science Fiction",
-          "description": "Exploring futuristic concepts and imaginative worlds",
-          "image": "/assets/images/hobbies/reading-sci-fi.jpg",
-          "details": "Favorite authors: Isaac Asimov, Neal Stephenson, and Philip K. Dick"
+          "title": "Violin",
+          "description": "Practicing violin techniques and classical pieces",
+          "image": "/resources/images/hobbies/music-violin.jpg",
+          "details": "Working on bowing techniques and musical expression",
+          "skillLevel": "Novice",
+          "status": "Active"
         }
       ]
     },
     {
       "id": "gaming",
       "name": "Gaming",
-      "description": "Video games, board games, and strategic thinking",
+      "description": "Video games, competitive play, and gaming culture",
       "activities": [
         {
-          "title": "Fighting Games",
-          "description": "Competitive fighting games with friends",
-          "image": "/assets/images/hobbies/fighting-games.jpg",
-          "details": "Enjoying Street Fighter and Mortal Kombat tournaments"
+          "title": "Street Fighter",
+          "description": "Competitive fighting game with deep mechanics",
+          "image": "/resources/images/hobbies/gaming-streetfighter.jpg",
+          "details": "Learning character matchups and execution",
+          "skillLevel": "Intermediate",
+          "status": "Inactive"
         },
         {
-          "title": "Mobile Games",
-          "description": "Casual gaming on mobile devices",
-          "image": "/assets/images/hobbies/mobile-games.jpg",
-          "details": "Playing puzzle games and RPGs on my phone"
+          "title": "Guilty Gear",
+          "description": "2D fighting game with unique combat system",
+          "image": "/resources/images/hobbies/gaming-guiltygear.jpg",
+          "details": "Exploring the Dustloop system and character diversity",
+          "skillLevel": "Intermediate",
+          "status": "Inactive"
+        }
+      ]
+    },
+    {
+      "id": "board-games",
+      "name": "Board & Card Games",
+      "description": "Strategic games and tabletop entertainment",
+      "activities": [
+        {
+          "title": "Magic: The Gathering",
+          "description": "Collectible card game with strategic depth",
+          "image": "/resources/images/hobbies/board-magic.jpg",
+          "details": "Building decks and learning card interactions",
+          "status": "Inactive"
+        }
+      ]
+    },
+    {
+      "id": "science-technical",
+      "name": "Science & Technical",
+      "description": "Exploring scientific concepts and technical skills",
+      "activities": [
+        {
+          "title": "Metallurgy",
+          "description": "Study of metals and their properties",
+          "image": "/resources/images/hobbies/science-metallurgy.jpg",
+          "details": "Smelting and casting aluminum",
+          "status": "Inactive"
         }
       ]
     }

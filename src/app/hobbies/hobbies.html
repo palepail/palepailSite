@@ -15,6 +15,14 @@
                 </div>
                 <div class="activity-content">
                     <h3>{{ activity.title }}</h3>
+                    <div class="activity-tags">
+                        <span *ngIf="activity.skillLevel" class="skill-tag" [ngClass]="getSkillClass(activity.skillLevel)">
+                            {{ activity.skillLevel }}
+                        </span>
+                        <span class="status-tag" [ngClass]="getStatusClass(activity.status)">
+                            {{ activity.status }}
+                        </span>
+                    </div>
                     <p>{{ activity.description }}</p>
                     <p class="activity-details">{{ activity.details }}</p>
                 </div>

@@ -24,4 +24,28 @@ export class Hobbies implements OnInit {
       this.subtabs = navigationData.hobbies || [];
     }
   }
+
+  getSkillClass(skill: string): string {
+    switch (skill) {
+      case 'Novice':
+        return 'skill-novice';
+      case 'Intermediate':
+        return 'skill-intermediate';
+      case 'Expert':
+        return 'skill-expert';
+      default:
+        return 'skill-default';
+    }
+  }
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'Active':
+        return 'status-active';
+      case 'Inactive':
+        return 'status-inactive';
+      default:
+        return 'status-default';
+    }
+  }
 }
