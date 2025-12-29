@@ -47,6 +47,8 @@ export interface NavigationTab {
 
 export interface NavigationData {
   navigation: NavigationTab[];
+  projects?: Subtab[];
+  hobbies?: Subtab[];
 }
 
 @Injectable({

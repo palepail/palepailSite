@@ -21,7 +21,7 @@ export class Projects implements OnInit {
     if (navigationData) {
       const projectsTab = navigationData.navigation.find((tab: NavigationTab) => tab.id === 'projects');
       this.projectsData = projectsTab;
-      this.subtabs = projectsTab?.subtabs || [];
+      this.subtabs = navigationData.projects || [];
     }
   }
 }

@@ -21,7 +21,7 @@ export class Hobbies implements OnInit {
     if (navigationData) {
       const hobbiesTab = navigationData.navigation.find((tab: NavigationTab) => tab.id === 'hobbies');
       this.hobbiesData = hobbiesTab;
-      this.subtabs = hobbiesTab?.subtabs || [];
+      this.subtabs = navigationData.hobbies || [];
     }
   }
 }
