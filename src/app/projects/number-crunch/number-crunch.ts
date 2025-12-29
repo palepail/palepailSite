@@ -13,7 +13,8 @@ enum GameState {
   MENU = 'menu',
   PLAYING = 'playing',
   OPTIONS = 'options',
-  GAME_OVER = 'game_over'
+  GAME_OVER = 'game_over',
+  CHOOSE_UPGRADE = 'choose_upgrade'
 }
 
 interface GameSettings {
@@ -49,8 +50,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
   score = 0;
   level = 1;
   playerHealth = 100;
-  enemyHealth = 100;
+  enemyHealth = 75; // Increased from 67
   timeLeft = 60; // seconds (placeholder, not used)
+
+  // Upgrade system
+  damageMultiplier = 1.0;
 
   // Selection state
   isSelecting = false;
@@ -157,7 +161,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.currentState = GameState.GAME_OVER;
     }
     if (this.enemyHealth <= 0) {
-      this.nextLevel();
+      this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
     }
   }
 
@@ -176,6 +180,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
       case GameState.GAME_OVER:
         this.renderGameOver();
+        break;
+      case GameState.CHOOSE_UPGRADE:
+        this.renderChooseUpgrade();
         break;
     }
   }
@@ -286,6 +293,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 300, 180, 50, '#2196F3', '#1976D2');
   }
 
+  private renderChooseUpgrade() {
+    // Background
+    this.ctx.fillStyle = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+
+    // Victory text
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 32px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Level Complete!', this.CANVAS_SIZE / 2, 80);
+
+    // Upgrade choice text
+    this.ctx.font = '18px Arial';
+    this.ctx.fillStyle = '#e8f5e8';
+    this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 120);
+
+    // Health upgrade button
+    this.drawButton('Health +15%', this.CANVAS_SIZE / 2, 180, 160, 50, '#FF9800', '#F57C00');
+
+    // Damage upgrade button
+    this.drawButton('Damage +15%', this.CANVAS_SIZE / 2, 250, 160, 50, '#FF5722', '#D84315');
+  }
+
   private drawButton(text: string, x: number, y: number, width: number, height: number, color: string, hoverColor: string) {
     // Button background
     this.ctx.fillStyle = color;
@@ -380,24 +410,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.drawCharacter(50, this.CANVAS_SIZE + 25, 'Player', this.playerHealth, '#4CAF50');
     this.drawCharacter(this.CANVAS_SIZE - 50, this.CANVAS_SIZE + 25, 'Enemy', this.enemyHealth, '#f44336');
 
-    // Draw scramble button if available (positioned above target, between player and enemy)
+    // Draw scramble button if available (lowered to avoid grid overlap)
     if (this.scramblesRemaining > 0 && !this.isScrambling) {
-      this.drawButton('Scramble', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 30, 120, 35, '#FF9800', '#F57C00');
+      this.drawButton('Scramble', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35, '#FF9800', '#F57C00');
     } else if (this.isScrambling) {
-      this.drawButton('Scrambling...', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 30, 120, 35, '#757575', '#616161');
+      this.drawButton('Scrambling...', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35, '#757575', '#616161');
     }
 
-    // Draw target and score below scramble button
+    // Draw target below scramble button
     this.ctx.fillStyle = '#333';
     this.ctx.font = '18px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(`Target: ${this.targetNumber}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50);
+    this.ctx.fillText(`Target: ${this.targetNumber}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 90);
 
+    // Draw level and scramble info on same line
     this.ctx.font = '14px Arial';
-    this.ctx.fillText(`Score: ${this.score} | Level: ${this.level}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 70);
-
-    // Draw scramble info
-    this.ctx.fillText(`Scrambles: ${this.scramblesRemaining}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 85);
+    this.ctx.fillText(`Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 110);
   }
 
   private drawCharacter(x: number, y: number, label: string, health: number, color: string) {
@@ -437,6 +465,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case GameState.GAME_OVER:
         this.handleGameOverClick(x, y);
         break;
+      case GameState.CHOOSE_UPGRADE:
+        this.handleChooseUpgradeClick(x, y);
+        break;
     }
   }
 
@@ -457,9 +488,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return;
     }
 
-    // Check if scramble button was clicked
+    // Check if scramble button was clicked (updated y position)
     if (this.scramblesRemaining > 0 && !this.isScrambling &&
-        this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 30, 120, 35)) {
+        this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35)) {
       this.scrambleBoard();
       return;
     }
@@ -507,6 +538,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private handleChooseUpgradeClick(x: number, y: number) {
+    // Health upgrade button
+    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 180, 160, 50)) {
+      this.playerHealth = Math.floor(this.playerHealth * 1.15); // +15% health
+      this.nextLevel();
+    }
+    // Damage upgrade button
+    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 250, 160, 50)) {
+      this.damageMultiplier *= 1.15; // +15% damage
+      this.nextLevel();
+    }
+  }
+
   private isClickInButton(clickX: number, clickY: number, buttonX: number, buttonY: number, buttonWidth: number, buttonHeight: number): boolean {
     return clickX >= buttonX - buttonWidth / 2 &&
            clickX <= buttonX + buttonWidth / 2 &&
@@ -549,12 +593,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.score = 0;
     this.level = 1;
     this.playerHealth = 100;
-    this.enemyHealth = 100;
+    this.enemyHealth = 75; // Increased from 67
     this.enemyAttackTimer = 0;
     this.playerAttackTimer = 0;
     this.scramblesRemaining = 3; // Reset scrambles
     this.isScrambling = false;
     this.scrambleTimer = 0;
+    this.damageMultiplier = 1.0; // Reset damage multiplier
     this.clearSelection();
     this.createGrid();
 
@@ -678,8 +723,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Update score
-    this.score += (endX - startX + 1) * (endY - startY + 1) * 10;
+    // Update score with damage multiplier
+    this.score += (endX - startX + 1) * (endY - startY + 1) * 10 * this.damageMultiplier;
 
     // Clear selection
     this.clearSelection();
@@ -690,21 +735,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.score = 0;
     this.level = 1;
     this.playerHealth = 100;
-    this.enemyHealth = 100;
+    this.enemyHealth = 75; // Increased from 67
     this.scramblesRemaining = 3; // Reset scrambles
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.scrambleAnimation = [];
+    this.damageMultiplier = 1.0; // Reset damage multiplier
     this.createGrid();
   }
 
   private nextLevel() {
     this.level++;
     this.score = 0;
-    this.enemyHealth = 100 + (this.level - 1) * 20; // Harder enemies
-    this.targetNumber = 10 + this.level; // Harder targets
+    this.enemyHealth = 75; // Increased from 67
+    this.targetNumber = 9 + this.level + (Math.floor(Math.random() * 3) + 1); // Random increase of 1-3
     this.scramblesRemaining = 3; // Reset scrambles for new level
+    
+    // Reset player health to maximum for new level
+    this.applyDifficultySettings();
+    
     this.createGrid();
+    this.currentState = GameState.PLAYING; // Return to playing after upgrade choice
   }
 
   restartGame() {
