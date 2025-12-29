@@ -1,6 +1,21 @@
 {
   "projects": [
     {
+      "id": "interactable",
+      "name": "Interactable",
+      "description": "Play browser-based games and interactive experiences",
+      "projects": [
+        {
+          "title": "Number Crunch",
+          "description": "A fun number and math puzzle game",
+          "technologies": ["JavaScript", "HTML5", "CSS3"],
+          "image": "/resources/images/projects/numbercrunch/numbercrunch0.png",
+          "link": "/projects/interactable/number-crunch",
+          "status": [{ "name": "In Development" }]
+        }
+      ]
+    },
+    {
       "id": "web-development",
       "name": "Web Development",
       "description": "Full-stack web applications and responsive websites",

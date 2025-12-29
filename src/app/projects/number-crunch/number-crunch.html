@@ -1,0 +1,42 @@
+<div class="game-container">
+  <h1>Number Crunch</h1>
+  <p class="game-description">A strategic number puzzle game - select rectangular groups that sum to the target!</p>
+
+  <div class="game-area">
+    <div class="game-board">
+      <canvas #gameCanvas class="game-canvas"></canvas>
+
+      <div class="game-controls" *ngIf="currentState === 'playing'">
+        <button class="restart-btn" (click)="restartGame()">Restart Game</button>
+      </div>
+    </div>
+
+    <div class="game-info">
+      <h3>How to Play:</h3>
+      <ul>
+        <li>Click and drag to select a rectangular group of numbers</li>
+        <li>The selected numbers must sum to the target value</li>
+        <li>Successful matches remove the numbers (no shifting)</li>
+        <li>Use the Scramble button (3 uses per level) to reorganize remaining tiles</li>
+        <li>Scrambling takes 2 seconds and can help when stuck</li>
+        <li>Beat the enemy by reaching higher scores!</li>
+        <li>The enemy attacks every 2 seconds - don't let your health reach zero!</li>
+      </ul>
+
+      <div class="game-stats">
+        <h4>Game Mechanics:</h4>
+        <ul>
+          <li><strong>Selection:</strong> Click and drag for rectangular selection</li>
+          <li><strong>Matching:</strong> Sum must equal target number</li>
+          <li><strong>Scoring:</strong> Points based on selection size</li>
+          <li><strong>Levels:</strong> Harder targets and stronger enemies</li>
+          <li><strong>Time Pressure:</strong> Enemy attacks every 2 seconds</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="back-button">
+    <a routerLink="/projects" class="back-link">← Back to Projects</a>
+  </div>
+</div>

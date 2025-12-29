@@ -37,4 +37,8 @@ export class Projects implements OnInit {
         return 'status-default';
     }
   }
+
+  isExternalLink(link: string): boolean {
+    return link.startsWith('http');
+  }
 }

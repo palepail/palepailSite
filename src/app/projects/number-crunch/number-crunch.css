@@ -1,0 +1,153 @@
+.game-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.game-container h1 {
+  color: #3d4e63;
+  margin-bottom: 0.5rem;
+  font-size: 2.5rem;
+}
+
+.game-description {
+  color: #5a6c7d;
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.game-area {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.game-board {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-canvas {
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  background: white;
+  cursor: crosshair;
+}
+
+.game-controls {
+  margin-top: 1rem;
+}
+
+.restart-btn {
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.restart-btn:hover {
+  background: #ff5252;
+}
+
+.game-info {
+  background: #f8f9fa;
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.game-info h3 {
+  color: #3d4e63;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.game-info ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.game-info li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  color: #5a6c7d;
+  line-height: 1.5;
+}
+
+.game-info li:last-child {
+  border-bottom: none;
+}
+
+.game-stats h4 {
+  color: #3d4e63;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.game-stats ul {
+  list-style: none;
+  padding: 0;
+}
+
+.game-stats li {
+  padding: 0.25rem 0;
+  color: #5a6c7d;
+  font-size: 0.9rem;
+}
+
+.game-stats strong {
+  color: #3d4e63;
+}
+
+.back-button {
+  margin-top: 2rem;
+}
+
+.back-link {
+  display: inline-block;
+  background: #4a5f7f;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.back-link:hover {
+  background: #3d4e63;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .game-area {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .game-container h1 {
+    font-size: 2rem;
+  }
+
+  .game-board {
+    padding: 1rem;
+  }
+
+  .game-info {
+    padding: 1.5rem;
+  }
+}
