@@ -9,17 +9,17 @@
           "title": "palepail.com",
           "description": "Personal portfolio website built with Angular and TypeScript",
           "technologies": ["Angular", "TypeScript", "SCSS", "HTML", "CSS"],
-          "image": "/assets/images/projects/website.jpg",
+          "image": "/resources/images/projects/website/palepailv1.1.png",
           "link": "#",
-          "status": [{"name": "Completed"}]
+          "status": [{ "name": "Completed" }]
         },
         {
           "title": "palepail.com Overhaul",
           "description": "Personal portfolio with Angular and TypeScript using AI tools",
           "technologies": ["Angular", "TypeScript", "Copilot", "Grok"],
-          "image": "/assets/images/projects/Overhaul.jpg",
+          "image": "/resources/images/projects/website/palepailv1.0.png",
           "link": "#",
-          "status": [{"name": "In Development"}]
+          "status": [{ "name": "In Development" }]
         }
       ]
     },
@@ -32,9 +32,9 @@
           "title": "palebot",
           "description": "IRC chat moderation bot for Twitch.tv channels",
           "technologies": ["Java", "PIRCBotX", "Swing"],
-          "image": "/assets/images/projects/palebot.jpg",
+          "image": "/resources/images/projects/palebot/palebot0.png",
           "link": "https://github.com/palepail/palebot",
-          "status": [{"name": "Defunct"}]
+          "status": [{ "name": "Defunct" }]
         }
       ]
     },
@@ -47,9 +47,9 @@
           "title": "Shooter",
           "description": "A danmaku shooter game in the style of Touhou franchise",
           "technologies": ["Java", "LibGDX"],
-          "image": "/assets/images/projects/shooter.jpg",
+          "image": "/resources/images/projects/shooter/shooter0.png",
           "link": "https://bitbucket.org/palepail/shooter",
-          "status": [{"name": "Completed"}]
+          "status": [{ "name": "Completed" }]
         }
       ]
     },
@@ -62,9 +62,9 @@
           "title": "EarTrainer",
           "description": "Android application to help discern musical tones by ear",
           "technologies": ["Java", "Android"],
-          "image": "/assets/images/projects/eartrainer.jpg",
+          "image": "/resources/images/projects/eartrainer/eartrainer0.png",
           "link": "https://play.google.com/store/apps/details?id=ear.trainer",
-          "status": [{"name": "In Development"}]
+          "status": [{ "name": "Defunct" }]
         }
       ]
     }
