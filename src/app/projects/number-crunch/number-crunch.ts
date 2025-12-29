@@ -14,7 +14,7 @@ enum GameState {
   PLAYING = 'playing',
   OPTIONS = 'options',
   GAME_OVER = 'game_over',
-  CHOOSE_UPGRADE = 'choose_upgrade'
+  CHOOSE_UPGRADE = 'choose_upgrade',
 }
 
 interface GameSettings {
@@ -36,22 +36,58 @@ export class NumberCrunch implements OnInit, OnDestroy {
   currentState: GameState = GameState.MENU;
   settings: GameSettings = {
     soundEnabled: true,
-    difficulty: 'normal'
+    difficulty: 'normal',
   };
 
   // Game constants
   private readonly GRID_SIZE = 10;
   private readonly CELL_SIZE = 40;
   private readonly CANVAS_SIZE = this.GRID_SIZE * this.CELL_SIZE;
+  private readonly CANVAS_UI_HEIGHT = 100;
+
+  // Health constants
+  private readonly MAX_HEALTH = 100;
+  private readonly EASY_HEALTH = 150;
+  private readonly HARD_HEALTH = 75;
+
+  // Combat constants
+  private readonly ENEMY_ATTACK_DAMAGE = 4;
+  private readonly ENEMY_ATTACK_INTERVAL = 4000; // milliseconds
+
+  // Scramble constants
+  private readonly SCRAMBLES_PER_LEVEL = 3;
+  private readonly SCRAMBLE_ANIMATION_DURATION = 2000; // milliseconds
+
+  // Upgrade constants
+  private readonly UPGRADE_MULTIPLIER = 1.15; // 15% increase
+
+  // Scoring constants
+  private readonly POINTS_PER_TILE = 10;
+
+  // Target number constants
+  private readonly TARGET_BASE = 9;
+  private readonly TARGET_RANDOM_MIN = 1;
+  private readonly TARGET_RANDOM_MAX = 3;
+
+  // Grid generation constants
+  private readonly CELL_VALUE_MIN = 1;
+  private readonly CELL_VALUE_MAX = 9;
+
+  // UI constants
+  private readonly CHARACTER_SIZE = 30;
+  private readonly HEALTH_BAR_WIDTH = 40;
+  private readonly GRID_BACKGROUND_COLOR = '#f8f9fa'; // Light gray background for grid cells
+  private readonly BACKGROUND_COLOR = '#e3f2fd'; // Light blue-gray background for all screens
 
   // Game state
   grid: GameCell[][] = [];
   targetNumber = 10;
   score = 0;
   level = 1;
-  playerHealth = 100;
-  enemyHealth = 75; // Increased from 67
+  playerHealth = this.MAX_HEALTH;
+  enemyHealth = this.MAX_HEALTH; // Set to max health
   timeLeft = 60; // seconds (placeholder, not used)
+  nextTarget = 0; // Fixed next target for upgrade screen
 
   // Upgrade system
   damageMultiplier = 1.0;
@@ -64,14 +100,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Animation state
   enemyAttackTimer = 0;
-  playerAttackTimer = 0;
   lastTime = 0;
 
   // Scramble system
   scramblesRemaining = 3;
   isScrambling = false;
   scrambleTimer = 0;
-  scrambleAnimation: { oldPos: {x: number, y: number}, newPos: {x: number, y: number}, value: number }[] = [];
+  scrambleAnimation: {
+    oldPos: { x: number; y: number };
+    newPos: { x: number; y: number };
+    value: number;
+  }[] = [];
 
   // Game loop
   private animationFrameId: number = 0;
@@ -98,10 +137,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.grid[y] = [];
       for (let x = 0; x < this.GRID_SIZE; x++) {
         this.grid[y][x] = {
-          value: Math.floor(Math.random() * 9) + 1,
+          value:
+            Math.floor(Math.random() * (this.CELL_VALUE_MAX - this.CELL_VALUE_MIN + 1)) +
+            this.CELL_VALUE_MIN,
           selected: false,
           x,
-          y
+          y,
         };
       }
     }
@@ -110,7 +151,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private setupCanvas() {
     const canvas = this.canvas.nativeElement;
     canvas.width = this.CANVAS_SIZE;
-    canvas.height = this.CANVAS_SIZE + 100; // Extra space for UI
+    canvas.height = this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT; // Extra space for UI
     this.ctx = canvas.getContext('2d')!;
   }
 
@@ -134,7 +175,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Handle scrambling animation
     if (this.isScrambling) {
       this.scrambleTimer += deltaTime;
-      if (this.scrambleTimer >= 2000) { // 2 seconds
+      if (this.scrambleTimer >= this.SCRAMBLE_ANIMATION_DURATION) {
+        // Animation duration
         this.finishScrambling();
       }
       return; // Don't update other game logic while scrambling
@@ -142,18 +184,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Update enemy attack timer
     this.enemyAttackTimer += deltaTime;
-    if (this.enemyAttackTimer >= 2000) { // 2 seconds
+    if (this.enemyAttackTimer >= this.ENEMY_ATTACK_INTERVAL) {
+      // Attack interval
       this.enemyAttackTimer = 0;
-      this.playerHealth = Math.max(0, this.playerHealth - 2); // Reduced damage from 5 to 2
-    }
-
-    // Update player attack timer when score increases
-    if (this.score > 0) {
-      this.playerAttackTimer += deltaTime;
-      if (this.playerAttackTimer >= 1000) { // 1 second
-        this.playerAttackTimer = 0;
-        this.enemyHealth = Math.max(0, this.enemyHealth - 1);
-      }
+      this.playerHealth = Math.max(0, this.playerHealth - this.ENEMY_ATTACK_DAMAGE);
     }
 
     // Check win/lose conditions
@@ -161,12 +195,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.currentState = GameState.GAME_OVER;
     }
     if (this.enemyHealth <= 0) {
+      this.nextTarget = this.calculateNextTarget(); // Calculate next target once
       this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
     }
   }
 
   private render() {
-    this.ctx.clearRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+    // Note: Each render method now sets its own background, so no global clear needed
 
     switch (this.currentState) {
       case GameState.MENU:
@@ -188,6 +223,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private renderGame() {
+    // Background
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
+
     // Draw grid
     this.drawGrid();
 
@@ -207,18 +246,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private renderMenu() {
     // Background
-    this.ctx.fillStyle = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
     // Title
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = '#1976d2';
     this.ctx.font = 'bold 32px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Number Crunch', this.CANVAS_SIZE / 2, 80);
 
     // Subtitle
     this.ctx.font = '18px Arial';
-    this.ctx.fillStyle = '#e0e0e0';
+    this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 110);
 
     // Play button
@@ -228,19 +267,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.drawButton('Options', this.CANVAS_SIZE / 2, 250, 200, 50, '#2196F3', '#1976D2');
 
     // Instructions
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = '#424242';
     this.ctx.font = '14px Arial';
-    this.ctx.fillText('Click and drag to select rectangular areas', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 20);
-    this.ctx.fillText('Match the target sum to score points!', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 40);
+    this.ctx.fillText(
+      'Click and drag to select rectangular areas',
+      this.CANVAS_SIZE / 2,
+      this.CANVAS_SIZE + 20
+    );
+    this.ctx.fillText(
+      'Match the target sum to score points!',
+      this.CANVAS_SIZE / 2,
+      this.CANVAS_SIZE + 40
+    );
   }
 
   private renderOptions() {
     // Background
-    this.ctx.fillStyle = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
     // Title
-    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillStyle = '#1976d2';
     this.ctx.font = 'bold 28px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Options', this.CANVAS_SIZE / 2, 60);
@@ -248,7 +295,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Sound toggle
     this.drawButton(
       `Sound: ${this.settings.soundEnabled ? 'ON' : 'OFF'}`,
-      this.CANVAS_SIZE / 2, 130, 180, 40,
+      this.CANVAS_SIZE / 2,
+      130,
+      180,
+      40,
       this.settings.soundEnabled ? '#4CAF50' : '#f44336',
       this.settings.soundEnabled ? '#45a049' : '#d32f2f'
     );
@@ -260,63 +310,95 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const isSelected = this.settings.difficulty === diff;
       this.drawButton(
         diff.charAt(0).toUpperCase() + diff.slice(1),
-        this.CANVAS_SIZE / 2, y, 150, 40,
+        this.CANVAS_SIZE / 2,
+        y,
+        150,
+        40,
         isSelected ? '#FF9800' : '#757575',
         isSelected ? '#F57C00' : '#616161'
       );
     });
 
     // Back button
-    this.drawButton('Back to Menu', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 30, 160, 40, '#9C27B0', '#7B1FA2');
+    this.drawButton(
+      'Back to Menu',
+      this.CANVAS_SIZE / 2,
+      this.CANVAS_SIZE + 30,
+      160,
+      40,
+      '#9C27B0',
+      '#7B1FA2'
+    );
   }
 
   private renderGameOver() {
     // Background
-    this.ctx.fillStyle = 'linear-gradient(135deg, #f44336 0%, #c62828 100%)';
-    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
-    // Game Over text
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.font = 'bold 36px Arial';
+    // Game Over text - larger and more prominent
+    this.ctx.fillStyle = '#c62828';
+    this.ctx.font = 'bold 48px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Game Over!', this.CANVAS_SIZE / 2, 100);
+    this.ctx.fillText('GAME OVER', this.CANVAS_SIZE / 2, 120);
+
+    // Subtitle
+    this.ctx.font = '24px Arial';
+    this.ctx.fillStyle = '#c62828';
+    this.ctx.fillText('Better luck next time!', this.CANVAS_SIZE / 2, 160);
 
     // Final score
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText(`Final Score: ${this.score}`, this.CANVAS_SIZE / 2, 140);
-    this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 170);
+    this.ctx.fillStyle = '#c62828';
+    this.ctx.font = '20px Arial';
+    this.ctx.fillText(`Final Score: ${this.score}`, this.CANVAS_SIZE / 2, 200);
+    this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
     // Play again button
-    this.drawButton('Play Again', this.CANVAS_SIZE / 2, 230, 180, 50, '#4CAF50', '#45a049');
+    this.drawButton('Play Again', this.CANVAS_SIZE / 2, 290, 180, 50, '#4CAF50', '#45a049');
 
     // Back to menu button
-    this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 300, 180, 50, '#2196F3', '#1976D2');
+    this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 360, 180, 50, '#2196F3', '#1976D2');
   }
 
   private renderChooseUpgrade() {
-    // Background
-    this.ctx.fillStyle = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
-    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + 100);
+    // Background - use consistent light blue
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
-    // Victory text
-    this.ctx.fillStyle = '#ffffff';
+    // Victory text - dark blue for readability
+    this.ctx.fillStyle = '#1976d2';
     this.ctx.font = 'bold 32px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Level Complete!', this.CANVAS_SIZE / 2, 80);
 
+    // Level and target info - show NEXT level and target
+    this.ctx.font = '20px Arial';
+    this.ctx.fillStyle = '#424242';
+    const nextLevel = this.level + 1;
+    this.ctx.fillText(`Next Level: ${nextLevel}`, this.CANVAS_SIZE / 2, 110);
+    this.ctx.fillText(`Next Target: ${this.nextTarget}`, this.CANVAS_SIZE / 2, 135);
+
     // Upgrade choice text
     this.ctx.font = '18px Arial';
-    this.ctx.fillStyle = '#e8f5e8';
-    this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 120);
+    this.ctx.fillStyle = '#424242';
+    this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 165);
 
     // Health upgrade button
-    this.drawButton('Health +15%', this.CANVAS_SIZE / 2, 180, 160, 50, '#FF9800', '#F57C00');
+    this.drawButton('Health +15%', this.CANVAS_SIZE / 2, 225, 160, 50, '#FF9800', '#F57C00');
 
     // Damage upgrade button
-    this.drawButton('Damage +15%', this.CANVAS_SIZE / 2, 250, 160, 50, '#FF5722', '#D84315');
+    this.drawButton('Damage +15%', this.CANVAS_SIZE / 2, 295, 160, 50, '#FF5722', '#D84315');
   }
 
-  private drawButton(text: string, x: number, y: number, width: number, height: number, color: string, hoverColor: string) {
+  private drawButton(
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    hoverColor: string
+  ) {
     // Button background
     this.ctx.fillStyle = color;
     this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
@@ -337,7 +419,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     for (let y = 0; y < this.GRID_SIZE; y++) {
       for (let x = 0; x < this.GRID_SIZE; x++) {
         const cell = this.grid[y][x];
-        const color = cell.selected ? '#4CAF50' : '#ffffff';
+        const color = cell.selected ? '#4CAF50' : this.GRID_BACKGROUND_COLOR;
 
         this.ctx.fillStyle = color;
         this.ctx.fillRect(x * this.CELL_SIZE, y * this.CELL_SIZE, this.CELL_SIZE, this.CELL_SIZE);
@@ -362,7 +444,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private drawScrambleAnimation() {
-    const progress = Math.min(this.scrambleTimer / 2000, 1); // 2 seconds animation
+    const progress = Math.min(this.scrambleTimer / this.SCRAMBLE_ANIMATION_DURATION, 1); // Animation duration
 
     for (const anim of this.scrambleAnimation) {
       // Interpolate position
@@ -373,11 +455,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.ctx.fillStyle = '#333';
       this.ctx.font = '20px Arial';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText(
-        anim.value.toString(),
-        currentX,
-        currentY + 7
-      );
+      this.ctx.fillText(anim.value.toString(), currentX, currentY + 7);
     }
   }
 
@@ -408,13 +486,35 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private drawUI() {
     // Draw characters at bottom
     this.drawCharacter(50, this.CANVAS_SIZE + 25, 'Player', this.playerHealth, '#4CAF50');
-    this.drawCharacter(this.CANVAS_SIZE - 50, this.CANVAS_SIZE + 25, 'Enemy', this.enemyHealth, '#f44336');
+    this.drawCharacter(
+      this.CANVAS_SIZE - 50,
+      this.CANVAS_SIZE + 25,
+      'Enemy',
+      this.enemyHealth,
+      '#f44336'
+    );
 
     // Draw scramble button if available (lowered to avoid grid overlap)
     if (this.scramblesRemaining > 0 && !this.isScrambling) {
-      this.drawButton('Scramble', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35, '#FF9800', '#F57C00');
+      this.drawButton(
+        'Scramble',
+        this.CANVAS_SIZE / 2,
+        this.CANVAS_SIZE + 50,
+        120,
+        35,
+        '#FF9800',
+        '#F57C00'
+      );
     } else if (this.isScrambling) {
-      this.drawButton('Scrambling...', this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35, '#757575', '#616161');
+      this.drawButton(
+        'Scrambling...',
+        this.CANVAS_SIZE / 2,
+        this.CANVAS_SIZE + 50,
+        120,
+        35,
+        '#757575',
+        '#616161'
+      );
     }
 
     // Draw target below scramble button
@@ -425,19 +525,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Draw level and scramble info on same line
     this.ctx.font = '14px Arial';
-    this.ctx.fillText(`Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 110);
+    this.ctx.fillText(
+      `Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`,
+      this.CANVAS_SIZE / 2,
+      this.CANVAS_SIZE + 110
+    );
   }
 
   private drawCharacter(x: number, y: number, label: string, health: number, color: string) {
     // Simple character representation
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(x - 15, y - 15, 30, 30);
+    this.ctx.fillRect(
+      x - this.CHARACTER_SIZE / 2,
+      y - this.CHARACTER_SIZE / 2,
+      this.CHARACTER_SIZE,
+      this.CHARACTER_SIZE
+    );
 
     // Health bar
     this.ctx.fillStyle = '#333';
-    this.ctx.fillRect(x - 20, y - 25, 40, 5);
+    this.ctx.fillRect(x - this.HEALTH_BAR_WIDTH / 2, y - 25, this.HEALTH_BAR_WIDTH, 5);
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(x - 20, y - 25, (health / 100) * 40, 5);
+    this.ctx.fillRect(
+      x - this.HEALTH_BAR_WIDTH / 2,
+      y - 25,
+      (health / this.MAX_HEALTH) * this.HEALTH_BAR_WIDTH,
+      5
+    );
 
     // Label
     this.ctx.fillStyle = '#333';
@@ -489,8 +603,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Check if scramble button was clicked (updated y position)
-    if (this.scramblesRemaining > 0 && !this.isScrambling &&
-        this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35)) {
+    if (
+      this.scramblesRemaining > 0 &&
+      !this.isScrambling &&
+      this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35)
+    ) {
       this.scrambleBoard();
       return;
     }
@@ -514,11 +631,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Difficulty buttons
     else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 200, 150, 40)) {
       this.settings.difficulty = 'easy';
-    }
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 260, 150, 40)) {
+    } else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 260, 150, 40)) {
       this.settings.difficulty = 'normal';
-    }
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 320, 150, 40)) {
+    } else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 320, 150, 40)) {
       this.settings.difficulty = 'hard';
     }
     // Back button
@@ -540,22 +655,31 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private handleChooseUpgradeClick(x: number, y: number) {
     // Health upgrade button
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 180, 160, 50)) {
-      this.playerHealth = Math.floor(this.playerHealth * 1.15); // +15% health
+    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 225, 160, 50)) {
+      this.playerHealth = Math.floor(this.playerHealth * this.UPGRADE_MULTIPLIER); // Health upgrade
       this.nextLevel();
     }
     // Damage upgrade button
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 250, 160, 50)) {
-      this.damageMultiplier *= 1.15; // +15% damage
+    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 295, 160, 50)) {
+      this.damageMultiplier *= this.UPGRADE_MULTIPLIER; // Damage upgrade
       this.nextLevel();
     }
   }
 
-  private isClickInButton(clickX: number, clickY: number, buttonX: number, buttonY: number, buttonWidth: number, buttonHeight: number): boolean {
-    return clickX >= buttonX - buttonWidth / 2 &&
-           clickX <= buttonX + buttonWidth / 2 &&
-           clickY >= buttonY - buttonHeight / 2 &&
-           clickY <= buttonY + buttonHeight / 2;
+  private isClickInButton(
+    clickX: number,
+    clickY: number,
+    buttonX: number,
+    buttonY: number,
+    buttonWidth: number,
+    buttonHeight: number
+  ): boolean {
+    return (
+      clickX >= buttonX - buttonWidth / 2 &&
+      clickX <= buttonX + buttonWidth / 2 &&
+      clickY >= buttonY - buttonHeight / 2 &&
+      clickY <= buttonY + buttonHeight / 2
+    );
   }
 
   @HostListener('mousemove', ['$event'])
@@ -592,11 +716,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Reset game state
     this.score = 0;
     this.level = 1;
-    this.playerHealth = 100;
-    this.enemyHealth = 75; // Increased from 67
+    this.playerHealth = this.MAX_HEALTH;
+    this.enemyHealth = this.MAX_HEALTH; // Set to max health
     this.enemyAttackTimer = 0;
-    this.playerAttackTimer = 0;
-    this.scramblesRemaining = 3; // Reset scrambles
+    this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.damageMultiplier = 1.0; // Reset damage multiplier
@@ -613,13 +736,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private applyDifficultySettings() {
     switch (this.settings.difficulty) {
       case 'easy':
-        this.playerHealth = 150; // More health
+        this.playerHealth = this.EASY_HEALTH; // More health
         break;
       case 'normal':
-        this.playerHealth = 100; // Default
+        this.playerHealth = this.MAX_HEALTH; // Default
         break;
       case 'hard':
-        this.playerHealth = 75; // Less health
+        this.playerHealth = this.HARD_HEALTH; // Less health
         break;
     }
   }
@@ -653,7 +776,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   scrambleBoard() {
-    if (this.currentState !== GameState.PLAYING || this.isScrambling || this.scramblesRemaining <= 0) {
+    if (
+      this.currentState !== GameState.PLAYING ||
+      this.isScrambling ||
+      this.scramblesRemaining <= 0
+    ) {
       return;
     }
 
@@ -662,11 +789,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.scramblesRemaining--;
 
     // Collect all non-zero cells with their positions
-    const originalCells: {x: number, y: number, value: number}[] = [];
+    const originalCells: { x: number; y: number; value: number }[] = [];
     for (let y = 0; y < this.GRID_SIZE; y++) {
       for (let x = 0; x < this.GRID_SIZE; x++) {
         if (this.grid[y][x].value !== 0) {
-          originalCells.push({x, y, value: this.grid[y][x].value});
+          originalCells.push({ x, y, value: this.grid[y][x].value });
         }
       }
     }
@@ -691,9 +818,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
           const sourceCell = originalCells[shuffledIndices[cellIndex]];
 
           this.scrambleAnimation.push({
-            oldPos: { x: sourceCell.x * this.CELL_SIZE + this.CELL_SIZE / 2, y: sourceCell.y * this.CELL_SIZE + this.CELL_SIZE / 2 },
-            newPos: { x: x * this.CELL_SIZE + this.CELL_SIZE / 2, y: y * this.CELL_SIZE + this.CELL_SIZE / 2 },
-            value: sourceCell.value
+            oldPos: {
+              x: sourceCell.x * this.CELL_SIZE + this.CELL_SIZE / 2,
+              y: sourceCell.y * this.CELL_SIZE + this.CELL_SIZE / 2,
+            },
+            newPos: {
+              x: x * this.CELL_SIZE + this.CELL_SIZE / 2,
+              y: y * this.CELL_SIZE + this.CELL_SIZE / 2,
+            },
+            value: sourceCell.value,
           });
 
           this.grid[y][x].value = sourceCell.value;
@@ -710,21 +843,38 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private processMatch() {
-    // Remove matched cells (just set to 0, don't shift)
+    // Calculate proper bounds (same as updateSelection)
     const startX = Math.min(this.selectionStart.x, this.selectionEnd.x);
     const startY = Math.min(this.selectionStart.y, this.selectionEnd.y);
     const endX = Math.max(this.selectionStart.x, this.selectionEnd.x);
     const endY = Math.max(this.selectionStart.y, this.selectionEnd.y);
 
-    // Mark cells for removal
+    // Count tiles with values using correct bounds
+    let tilesWithValues = 0;
+    for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+        if (this.grid[y][x].value !== 0) {
+          tilesWithValues++;
+        }
+      }
+    }
+
+    // Mark cells for removal using correct bounds
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
         this.grid[y][x].value = 0; // Mark for removal
       }
     }
 
-    // Update score with damage multiplier
-    this.score += (endX - startX + 1) * (endY - startY + 1) * 10 * this.damageMultiplier;
+    // Calculate score earned from this match
+    const scoreEarned = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+
+    // Update total score
+    this.score += scoreEarned;
+
+    // Deal damage to enemy proportional to score earned
+    const damageDealt = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+    this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
     // Clear selection
     this.clearSelection();
@@ -734,9 +884,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Reset game
     this.score = 0;
     this.level = 1;
-    this.playerHealth = 100;
-    this.enemyHealth = 75; // Increased from 67
-    this.scramblesRemaining = 3; // Reset scrambles
+    this.playerHealth = this.MAX_HEALTH;
+    this.enemyHealth = this.MAX_HEALTH; // Set to max health
+    this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.scrambleAnimation = [];
@@ -744,21 +894,32 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.createGrid();
   }
 
+  private calculateNextTarget(): number {
+    const nextLevel = this.level + 1;
+    return (
+      this.TARGET_BASE +
+      nextLevel +
+      (Math.floor(Math.random() * (this.TARGET_RANDOM_MAX - this.TARGET_RANDOM_MIN + 1)) +
+        this.TARGET_RANDOM_MIN)
+    );
+  }
+
   private nextLevel() {
     this.level++;
     this.score = 0;
-    this.enemyHealth = 75; // Increased from 67
-    this.targetNumber = 9 + this.level + (Math.floor(Math.random() * 3) + 1); // Random increase of 1-3
-    this.scramblesRemaining = 3; // Reset scrambles for new level
-    
+    this.enemyHealth = this.MAX_HEALTH; // Set to max health
+    this.targetNumber = this.nextTarget; // Use the pre-calculated next target
+    this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
+
     // Reset player health to maximum for new level
     this.applyDifficultySettings();
-    
+
     this.createGrid();
     this.currentState = GameState.PLAYING; // Return to playing after upgrade choice
   }
 
   restartGame() {
     this.gameOver();
+    this.currentState = GameState.MENU;
   }
 }
