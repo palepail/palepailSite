@@ -27,7 +27,8 @@ enum GameState {
 }
 
 interface GameSettings {
-  soundEnabled: boolean;
+  bgmVolume: number; // 0.0 to 1.0
+  sfxVolume: number; // 0.0 to 1.0
   difficulty: 'easy' | 'normal' | 'hard';
 }
 
@@ -44,7 +45,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game state
   currentState: GameState = GameState.MENU;
   settings: GameSettings = {
-    soundEnabled: true,
+    bgmVolume: 0.25,
+    sfxVolume: 0.35,
     difficulty: 'normal',
   };
 
@@ -162,6 +164,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private playerAttackSound1 = new Audio();
   private playerAttackSound2 = new Audio();
   private enemyAttackSound = new Audio();
+  private bgmAudio = new Audio();
 
   // Asset loading system
   private assetsToLoad: { [key: string]: boolean } = {};
@@ -178,19 +181,78 @@ export class NumberCrunch implements OnInit, OnDestroy {
     value: number;
   }[] = [];
 
+  // Slider dragging state
+  private isDraggingBGM = false;
+  private isDraggingSFX = false;
+
   // Button positions and sizes (shared between drawing and click detection)
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
-  private readonly MENU_OPTIONS_BUTTON = { x: this.CANVAS_SIZE / 2, y: 250, width: 200, height: 50 };
-  private readonly PLAYING_SCRAMBLE_BUTTON = { x: this.CANVAS_SIZE / 2, y: this.CANVAS_SIZE + 30, width: 120, height: 35 };
-  private readonly OPTIONS_SOUND_BUTTON = { x: this.CANVAS_SIZE / 2, y: 130, width: 180, height: 40 };
-  private readonly OPTIONS_EASY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 200, width: 150, height: 40 };
-  private readonly OPTIONS_NORMAL_BUTTON = { x: this.CANVAS_SIZE / 2, y: 260, width: 150, height: 40 };
-  private readonly OPTIONS_HARD_BUTTON = { x: this.CANVAS_SIZE / 2, y: 320, width: 150, height: 40 };
-  private readonly OPTIONS_BACK_BUTTON = { x: this.CANVAS_SIZE / 2, y: this.CANVAS_SIZE + 30, width: 160, height: 40 };
-  private readonly GAME_OVER_PLAY_AGAIN_BUTTON = { x: this.CANVAS_SIZE / 2, y: 300, width: 180, height: 50 };
-  private readonly GAME_OVER_MAIN_MENU_BUTTON = { x: this.CANVAS_SIZE / 2, y: 380, width: 180, height: 50 };
-  private readonly CHOOSE_UPGRADE_HEALTH_BUTTON = { x: this.CANVAS_SIZE / 2, y: 225, width: 160, height: 50 };
-  private readonly CHOOSE_UPGRADE_DAMAGE_BUTTON = { x: this.CANVAS_SIZE / 2, y: 295, width: 160, height: 50 };
+  private readonly MENU_OPTIONS_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 250,
+    width: 200,
+    height: 50,
+  };
+  private readonly PLAYING_SCRAMBLE_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: this.CANVAS_SIZE + 30,
+    width: 120,
+    height: 35,
+  };
+  private readonly OPTIONS_SOUND_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 130,
+    width: 180,
+    height: 40,
+  };
+  private readonly OPTIONS_EASY_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 230,
+    width: 150,
+    height: 40,
+  };
+  private readonly OPTIONS_NORMAL_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: this.OPTIONS_EASY_BUTTON.y + this.OPTIONS_EASY_BUTTON.height + 10,
+    width: 150,
+    height: 40,
+  };
+  private readonly OPTIONS_HARD_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: this.OPTIONS_NORMAL_BUTTON.y + this.OPTIONS_NORMAL_BUTTON.height + 10,
+    width: 150,
+    height: 40,
+  };
+  private readonly OPTIONS_BACK_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: this.CANVAS_SIZE + 30,
+    width: 160,
+    height: 40,
+  };
+  private readonly GAME_OVER_PLAY_AGAIN_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 300,
+    width: 180,
+    height: 50,
+  };
+  private readonly GAME_OVER_MAIN_MENU_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 380,
+    width: 180,
+    height: 50,
+  };
+  private readonly CHOOSE_UPGRADE_HEALTH_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 225,
+    width: 160,
+    height: 50,
+  };
+  private readonly CHOOSE_UPGRADE_DAMAGE_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 295,
+    width: 160,
+    height: 50,
+  };
 
   // Game loop
   private animationFrameId: number = 0;
@@ -304,18 +366,30 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.playerAttackSound1.oncanplaythrough = checkComplete;
       this.playerAttackSound1.onerror = handleError;
       this.playerAttackSound1.src = 'resources/audio/projects/numberCrunch/Sword Attack 2.wav';
-      this.playerAttackSound1.volume = 0.3; // Set reasonable volume
 
       this.playerAttackSound2.oncanplaythrough = checkComplete;
       this.playerAttackSound2.onerror = handleError;
       this.playerAttackSound2.src = 'resources/audio/projects/numberCrunch/Sword Attack 3.wav';
-      this.playerAttackSound2.volume = 0.3; // Set reasonable volume
 
       // Enemy attack sound
       this.enemyAttackSound.oncanplaythrough = checkComplete;
       this.enemyAttackSound.onerror = handleError;
       this.enemyAttackSound.src = 'resources/audio/projects/numberCrunch/Torch Attack Strike 1.wav';
-      this.enemyAttackSound.volume = 0.3; // Set reasonable volume
+    });
+  }
+
+  private loadBGM(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.bgmAudio.oncanplaythrough = () => {
+        this.loadedAssets['bgm'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.bgmAudio.onerror = () => {
+        reject(new Error('Failed to load BGM'));
+      };
+      this.bgmAudio.src = 'resources/audio/projects/numberCrunch/4. Ballad of Ashenwood.ogg';
+      this.bgmAudio.loop = true; // Loop the BGM
     });
   }
 
@@ -323,6 +397,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
     this.loadingProgress = totalAssets > 0 ? (loadedCount / totalAssets) * 100 : 100;
+  }
+
+  private startBGM() {
+    if (this.loadedAssets['bgm'] && this.bgmAudio && this.settings.bgmVolume > 0) {
+      this.bgmAudio.volume = this.settings.bgmVolume;
+      this.bgmAudio.currentTime = 0;
+      this.bgmAudio.play().catch(() => {}); // Ignore play errors
+    }
+  }
+
+  private stopBGM() {
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+      this.bgmAudio.currentTime = 0;
+    }
+  }
+
+  private updateBGMVolume() {
+    if (this.bgmAudio) {
+      this.bgmAudio.volume = this.settings.bgmVolume;
+    }
+  }
+
+  private updateSFXVolume() {
+    if (this.playerAttackSound1) this.playerAttackSound1.volume = this.settings.sfxVolume;
+    if (this.playerAttackSound2) this.playerAttackSound2.volume = this.settings.sfxVolume;
+    if (this.enemyAttackSound) this.enemyAttackSound.volume = this.settings.sfxVolume;
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -339,13 +440,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['runningSprite'] = false;
     this.assetsToLoad['soundEffects'] = false;
     this.loadedAssets['soundEffects'] = false;
+    this.assetsToLoad['bgm'] = false;
+    this.loadedAssets['bgm'] = false;
 
     // Load all assets
     try {
-      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite(), this.loadRunningSprite(), this.loadSoundEffects()]);
+      await Promise.all([
+        this.loadPlayerSprite(),
+        this.loadAttackSprites(),
+        this.loadEnemySprite(),
+        this.loadEnemyAttackSprite(),
+        this.loadRunningSprite(),
+        this.loadSoundEffects(),
+        this.loadBGM(),
+      ]);
       // Add more asset loading calls here as needed
-      // await this.loadBackgroundMusic();
-      // etc.
     } catch (error) {
       console.error('Failed to load assets:', error);
       // Continue with game even if assets fail to load
@@ -362,7 +471,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
-        // Assets loaded, transition to menu
+        // Assets loaded, start BGM and transition to menu
+        this.startBGM();
         this.currentState = GameState.MENU;
       })
       .catch(() => {
@@ -504,7 +614,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.enemyAttackAnimationTimer = 0;
 
         // Play enemy attack sound effect
-        if (this.settings.soundEnabled && this.loadedAssets['soundEffects'] && this.enemyAttackSound) {
+        if (
+          this.settings.sfxVolume > 0 &&
+          this.loadedAssets['soundEffects'] &&
+          this.enemyAttackSound
+        ) {
           this.enemyAttackSound.currentTime = 0; // Reset to beginning
           this.enemyAttackSound.play().catch(() => {}); // Ignore play errors
         }
@@ -589,8 +703,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 110);
 
     // Draw buttons
-    this.drawButton('Play Game', this.MENU_PLAY_BUTTON.x, this.MENU_PLAY_BUTTON.y, this.MENU_PLAY_BUTTON.width, this.MENU_PLAY_BUTTON.height, '#4CAF50', '#45a049');
-    this.drawButton('Options', this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height, '#2196F3', '#1976D2');
+    this.drawButton(
+      'Play Game',
+      this.MENU_PLAY_BUTTON.x,
+      this.MENU_PLAY_BUTTON.y,
+      this.MENU_PLAY_BUTTON.width,
+      this.MENU_PLAY_BUTTON.height,
+      '#4CAF50',
+      '#45a049'
+    );
+    this.drawButton(
+      'Options',
+      this.MENU_OPTIONS_BUTTON.x,
+      this.MENU_OPTIONS_BUTTON.y,
+      this.MENU_OPTIONS_BUTTON.width,
+      this.MENU_OPTIONS_BUTTON.height,
+      '#2196F3',
+      '#1976D2'
+    );
 
     // Draw idle animations under the options button
     const characterY = this.MENU_OPTIONS_BUTTON.y + 80; // Position below the options button
@@ -705,12 +835,106 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Options', this.CANVAS_SIZE / 2, 60);
 
-    // Draw buttons
-    this.drawButton(`Sound: ${this.settings.soundEnabled ? 'ON' : 'OFF'}`, this.OPTIONS_SOUND_BUTTON.x, this.OPTIONS_SOUND_BUTTON.y, this.OPTIONS_SOUND_BUTTON.width, this.OPTIONS_SOUND_BUTTON.height, this.settings.soundEnabled ? '#4CAF50' : '#f44336', this.settings.soundEnabled ? '#45a049' : '#d32f2f');
-    this.drawButton('Easy', this.OPTIONS_EASY_BUTTON.x, this.OPTIONS_EASY_BUTTON.y, this.OPTIONS_EASY_BUTTON.width, this.OPTIONS_EASY_BUTTON.height, this.settings.difficulty === 'easy' ? '#FF9800' : '#757575', this.settings.difficulty === 'easy' ? '#F57C00' : '#616161');
-    this.drawButton('Normal', this.OPTIONS_NORMAL_BUTTON.x, this.OPTIONS_NORMAL_BUTTON.y, this.OPTIONS_NORMAL_BUTTON.width, this.OPTIONS_NORMAL_BUTTON.height, this.settings.difficulty === 'normal' ? '#FF9800' : '#757575', this.settings.difficulty === 'normal' ? '#F57C00' : '#616161');
-    this.drawButton('Hard', this.OPTIONS_HARD_BUTTON.x, this.OPTIONS_HARD_BUTTON.y, this.OPTIONS_HARD_BUTTON.width, this.OPTIONS_HARD_BUTTON.height, this.settings.difficulty === 'hard' ? '#FF9800' : '#757575', this.settings.difficulty === 'hard' ? '#F57C00' : '#616161');
-    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height, '#9C27B0', '#7B1FA2');
+    // Draw volume sliders
+    this.drawSlider('BGM Volume', this.CANVAS_SIZE / 2, 120, 200, 20, this.settings.bgmVolume);
+    this.drawSlider('SFX Volume', this.CANVAS_SIZE / 2, 180, 200, 20, this.settings.sfxVolume);
+
+    // Draw difficulty buttons
+    this.drawButton(
+      'Easy',
+      this.OPTIONS_EASY_BUTTON.x,
+      this.OPTIONS_EASY_BUTTON.y,
+      this.OPTIONS_EASY_BUTTON.width,
+      this.OPTIONS_EASY_BUTTON.height,
+      this.settings.difficulty === 'easy' ? '#FF9800' : '#757575',
+      this.settings.difficulty === 'easy' ? '#F57C00' : '#616161'
+    );
+    this.drawButton(
+      'Normal',
+      this.OPTIONS_NORMAL_BUTTON.x,
+      this.OPTIONS_NORMAL_BUTTON.y,
+      this.OPTIONS_NORMAL_BUTTON.width,
+      this.OPTIONS_NORMAL_BUTTON.height,
+      this.settings.difficulty === 'normal' ? '#FF9800' : '#757575',
+      this.settings.difficulty === 'normal' ? '#F57C00' : '#616161'
+    );
+    this.drawButton(
+      'Hard',
+      this.OPTIONS_HARD_BUTTON.x,
+      this.OPTIONS_HARD_BUTTON.y,
+      this.OPTIONS_HARD_BUTTON.width,
+      this.OPTIONS_HARD_BUTTON.height,
+      this.settings.difficulty === 'hard' ? '#FF9800' : '#757575',
+      this.settings.difficulty === 'hard' ? '#F57C00' : '#616161'
+    );
+    this.drawButton(
+      'Back to Menu',
+      this.OPTIONS_BACK_BUTTON.x,
+      this.OPTIONS_BACK_BUTTON.y,
+      this.OPTIONS_BACK_BUTTON.width,
+      this.OPTIONS_BACK_BUTTON.height,
+      '#9C27B0',
+      '#7B1FA2'
+    );
+  }
+
+  private drawButton(
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    hoverColor: string
+  ) {
+    // Button background
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
+
+    // Button border
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(x - width / 2, y - height / 2, width, height);
+
+    // Button text
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(text, x, y + 6);
+  }
+
+  private drawSlider(
+    label: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    value: number,
+    min: number = 0,
+    max: number = 1
+  ) {
+    // Slider track
+    this.ctx.fillStyle = '#e0e0e0';
+    this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
+
+    // Slider fill
+    const fillWidth = (value / max) * width;
+    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.fillRect(x - width / 2, y - height / 2, fillWidth, height);
+
+    // Slider handle
+    const handleX = x - width / 2 + fillWidth;
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(handleX - 5, y - height / 2 - 5, 10, height + 10);
+    this.ctx.strokeStyle = '#333';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(handleX - 5, y - height / 2 - 5, 10, height + 10);
+
+    // Label
+    this.ctx.fillStyle = '#333';
+    this.ctx.font = '16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(`${label}: ${Math.round(value * 100)}%`, x, y - 25);
   }
 
   private renderGameOver() {
@@ -736,8 +960,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
     // Draw buttons
-    this.drawButton('Play Again', this.GAME_OVER_PLAY_AGAIN_BUTTON.x, this.GAME_OVER_PLAY_AGAIN_BUTTON.y, this.GAME_OVER_PLAY_AGAIN_BUTTON.width, this.GAME_OVER_PLAY_AGAIN_BUTTON.height, '#4CAF50', '#45a049');
-    this.drawButton('Main Menu', this.GAME_OVER_MAIN_MENU_BUTTON.x, this.GAME_OVER_MAIN_MENU_BUTTON.y, this.GAME_OVER_MAIN_MENU_BUTTON.width, this.GAME_OVER_MAIN_MENU_BUTTON.height, '#2196F3', '#1976D2');
+    this.drawButton(
+      'Play Again',
+      this.GAME_OVER_PLAY_AGAIN_BUTTON.x,
+      this.GAME_OVER_PLAY_AGAIN_BUTTON.y,
+      this.GAME_OVER_PLAY_AGAIN_BUTTON.width,
+      this.GAME_OVER_PLAY_AGAIN_BUTTON.height,
+      '#4CAF50',
+      '#45a049'
+    );
+    this.drawButton(
+      'Main Menu',
+      this.GAME_OVER_MAIN_MENU_BUTTON.x,
+      this.GAME_OVER_MAIN_MENU_BUTTON.y,
+      this.GAME_OVER_MAIN_MENU_BUTTON.width,
+      this.GAME_OVER_MAIN_MENU_BUTTON.height,
+      '#2196F3',
+      '#1976D2'
+    );
   }
 
   private renderChooseUpgrade() {
@@ -764,8 +1004,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 165);
 
     // Draw buttons
-    this.drawButton('Health +15%', this.CHOOSE_UPGRADE_HEALTH_BUTTON.x, this.CHOOSE_UPGRADE_HEALTH_BUTTON.y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.width, this.CHOOSE_UPGRADE_HEALTH_BUTTON.height, '#FF9800', '#F57C00');
-    this.drawButton('Damage +15%', this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height, '#FF5722', '#D84315');
+    this.drawButton(
+      'Health +15%',
+      this.CHOOSE_UPGRADE_HEALTH_BUTTON.x,
+      this.CHOOSE_UPGRADE_HEALTH_BUTTON.y,
+      this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
+      this.CHOOSE_UPGRADE_HEALTH_BUTTON.height,
+      '#FF9800',
+      '#F57C00'
+    );
+    this.drawButton(
+      'Damage +15%',
+      this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x,
+      this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y,
+      this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
+      this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height,
+      '#FF5722',
+      '#D84315'
+    );
 
     // Draw running animation at bottom center
     if (this.loadedAssets['runningSprite'] && this.runningSprite.complete) {
@@ -781,36 +1037,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
         frameWidth, // source width
         frameHeight, // source height
         this.CANVAS_SIZE / 2 - scaledWidth / 2, // destination x (centered)
-        (this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y + this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height / 2 + (this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT)) / 2 - scaledHeight / 2, // destination y (halfway between bottom of last button and bottom of screen)
+        (this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y +
+          this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height / 2 +
+          (this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT)) /
+          2 -
+          scaledHeight / 2, // destination y (halfway between bottom of last button and bottom of screen)
         scaledWidth, // destination width
         scaledHeight // destination height
       );
     }
-  }
-
-  private drawButton(
-    text: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    color: string,
-    hoverColor: string
-  ) {
-    // Button background
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
-
-    // Button border
-    this.ctx.strokeStyle = '#ffffff';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(x - width / 2, y - height / 2, width, height);
-
-    // Button text
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.font = 'bold 16px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(text, x, y + 6);
   }
 
   private drawGrid() {
@@ -902,9 +1137,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Draw buttons
     if (this.scramblesRemaining > 0 && !this.isScrambling) {
-      this.drawButton('Scramble', this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height, '#FF9800', '#F57C00');
+      this.drawButton(
+        'Scramble',
+        this.PLAYING_SCRAMBLE_BUTTON.x,
+        this.PLAYING_SCRAMBLE_BUTTON.y,
+        this.PLAYING_SCRAMBLE_BUTTON.width,
+        this.PLAYING_SCRAMBLE_BUTTON.height,
+        '#FF9800',
+        '#F57C00'
+      );
     } else if (this.isScrambling) {
-      this.drawButton('Scrambling...', this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height, '#757575', '#616161');
+      this.drawButton(
+        'Scrambling...',
+        this.PLAYING_SCRAMBLE_BUTTON.x,
+        this.PLAYING_SCRAMBLE_BUTTON.y,
+        this.PLAYING_SCRAMBLE_BUTTON.width,
+        this.PLAYING_SCRAMBLE_BUTTON.height,
+        '#757575',
+        '#616161'
+      );
     }
 
     // Draw target below scramble button
@@ -1102,11 +1353,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private handleMenuClick(x: number, y: number) {
     // Play button
-    if (this.isClickInButton(x, y, this.MENU_PLAY_BUTTON.x, this.MENU_PLAY_BUTTON.y, this.MENU_PLAY_BUTTON.width, this.MENU_PLAY_BUTTON.height)) {
+    if (
+      this.isClickInButton(
+        x,
+        y,
+        this.MENU_PLAY_BUTTON.x,
+        this.MENU_PLAY_BUTTON.y,
+        this.MENU_PLAY_BUTTON.width,
+        this.MENU_PLAY_BUTTON.height
+      )
+    ) {
       this.startGame();
     }
     // Options button
-    else if (this.isClickInButton(x, y, this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height)) {
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.MENU_OPTIONS_BUTTON.x,
+        this.MENU_OPTIONS_BUTTON.y,
+        this.MENU_OPTIONS_BUTTON.width,
+        this.MENU_OPTIONS_BUTTON.height
+      )
+    ) {
       this.currentState = GameState.OPTIONS;
     }
   }
@@ -1121,7 +1390,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (
       this.scramblesRemaining > 0 &&
       !this.isScrambling &&
-      this.isClickInButton(x, y, this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height)
+      this.isClickInButton(
+        x,
+        y,
+        this.PLAYING_SCRAMBLE_BUTTON.x,
+        this.PLAYING_SCRAMBLE_BUTTON.y,
+        this.PLAYING_SCRAMBLE_BUTTON.width,
+        this.PLAYING_SCRAMBLE_BUTTON.height
+      )
     ) {
       this.scrambleBoard();
       return;
@@ -1139,43 +1415,127 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleOptionsClick(x: number, y: number) {
-    // Sound toggle
-    if (this.isClickInButton(x, y, this.OPTIONS_SOUND_BUTTON.x, this.OPTIONS_SOUND_BUTTON.y, this.OPTIONS_SOUND_BUTTON.width, this.OPTIONS_SOUND_BUTTON.height)) {
-      this.settings.soundEnabled = !this.settings.soundEnabled;
+    // BGM slider
+    if (this.isClickInSlider(x, y, this.CANVAS_SIZE / 2, 120, 200, 20)) {
+      this.isDraggingBGM = true;
+      const sliderX = this.CANVAS_SIZE / 2 - 100;
+      const relativeX = x - sliderX;
+      this.settings.bgmVolume = Math.max(0, Math.min(1, relativeX / 200));
+      this.updateBGMVolume();
+    }
+    // SFX slider
+    else if (this.isClickInSlider(x, y, this.CANVAS_SIZE / 2, 180, 200, 20)) {
+      this.isDraggingSFX = true;
+      const sliderX = this.CANVAS_SIZE / 2 - 100;
+      const relativeX = x - sliderX;
+      this.settings.sfxVolume = Math.max(0, Math.min(1, relativeX / 200));
+      this.updateSFXVolume();
     }
     // Difficulty buttons
-    else if (this.isClickInButton(x, y, this.OPTIONS_EASY_BUTTON.x, this.OPTIONS_EASY_BUTTON.y, this.OPTIONS_EASY_BUTTON.width, this.OPTIONS_EASY_BUTTON.height)) {
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.OPTIONS_EASY_BUTTON.x,
+        this.OPTIONS_EASY_BUTTON.y,
+        this.OPTIONS_EASY_BUTTON.width,
+        this.OPTIONS_EASY_BUTTON.height
+      )
+    ) {
       this.settings.difficulty = 'easy';
-    } else if (this.isClickInButton(x, y, this.OPTIONS_NORMAL_BUTTON.x, this.OPTIONS_NORMAL_BUTTON.y, this.OPTIONS_NORMAL_BUTTON.width, this.OPTIONS_NORMAL_BUTTON.height)) {
+    } else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.OPTIONS_NORMAL_BUTTON.x,
+        this.OPTIONS_NORMAL_BUTTON.y,
+        this.OPTIONS_NORMAL_BUTTON.width,
+        this.OPTIONS_NORMAL_BUTTON.height
+      )
+    ) {
       this.settings.difficulty = 'normal';
-    } else if (this.isClickInButton(x, y, this.OPTIONS_HARD_BUTTON.x, this.OPTIONS_HARD_BUTTON.y, this.OPTIONS_HARD_BUTTON.width, this.OPTIONS_HARD_BUTTON.height)) {
+    } else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.OPTIONS_HARD_BUTTON.x,
+        this.OPTIONS_HARD_BUTTON.y,
+        this.OPTIONS_HARD_BUTTON.width,
+        this.OPTIONS_HARD_BUTTON.height
+      )
+    ) {
       this.settings.difficulty = 'hard';
     }
     // Back button
-    else if (this.isClickInButton(x, y, this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height)) {
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.OPTIONS_BACK_BUTTON.x,
+        this.OPTIONS_BACK_BUTTON.y,
+        this.OPTIONS_BACK_BUTTON.width,
+        this.OPTIONS_BACK_BUTTON.height
+      )
+    ) {
       this.currentState = GameState.MENU;
     }
   }
 
   private handleGameOverClick(x: number, y: number) {
     // Play again button
-    if (this.isClickInButton(x, y, this.GAME_OVER_PLAY_AGAIN_BUTTON.x, this.GAME_OVER_PLAY_AGAIN_BUTTON.y, this.GAME_OVER_PLAY_AGAIN_BUTTON.width, this.GAME_OVER_PLAY_AGAIN_BUTTON.height)) {
+    if (
+      this.isClickInButton(
+        x,
+        y,
+        this.GAME_OVER_PLAY_AGAIN_BUTTON.x,
+        this.GAME_OVER_PLAY_AGAIN_BUTTON.y,
+        this.GAME_OVER_PLAY_AGAIN_BUTTON.width,
+        this.GAME_OVER_PLAY_AGAIN_BUTTON.height
+      )
+    ) {
       this.startGame();
     }
     // Main menu button
-    else if (this.isClickInButton(x, y, this.GAME_OVER_MAIN_MENU_BUTTON.x, this.GAME_OVER_MAIN_MENU_BUTTON.y, this.GAME_OVER_MAIN_MENU_BUTTON.width, this.GAME_OVER_MAIN_MENU_BUTTON.height)) {
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.GAME_OVER_MAIN_MENU_BUTTON.x,
+        this.GAME_OVER_MAIN_MENU_BUTTON.y,
+        this.GAME_OVER_MAIN_MENU_BUTTON.width,
+        this.GAME_OVER_MAIN_MENU_BUTTON.height
+      )
+    ) {
       this.currentState = GameState.MENU;
     }
   }
 
   private handleChooseUpgradeClick(x: number, y: number) {
     // Health upgrade button
-    if (this.isClickInButton(x, y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.x, this.CHOOSE_UPGRADE_HEALTH_BUTTON.y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.width, this.CHOOSE_UPGRADE_HEALTH_BUTTON.height)) {
+    if (
+      this.isClickInButton(
+        x,
+        y,
+        this.CHOOSE_UPGRADE_HEALTH_BUTTON.x,
+        this.CHOOSE_UPGRADE_HEALTH_BUTTON.y,
+        this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
+        this.CHOOSE_UPGRADE_HEALTH_BUTTON.height
+      )
+    ) {
       this.playerHealth = Math.floor(this.playerHealth * this.UPGRADE_MULTIPLIER); // Health upgrade
       this.nextLevel();
     }
     // Damage upgrade button
-    else if (this.isClickInButton(x, y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height)) {
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x,
+        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y,
+        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
+        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height
+      )
+    ) {
       this.damageMultiplier *= this.UPGRADE_MULTIPLIER; // Damage upgrade
       this.nextLevel();
     }
@@ -1197,22 +1557,70 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
+  private isClickInSlider(
+    clickX: number,
+    clickY: number,
+    sliderX: number,
+    sliderY: number,
+    sliderWidth: number,
+    sliderHeight: number
+  ): boolean {
+    return (
+      clickX >= sliderX - sliderWidth / 2 &&
+      clickX <= sliderX + sliderWidth / 2 &&
+      clickY >= sliderY - sliderHeight / 2 - 10 && // Extra padding for handle
+      clickY <= sliderY + sliderHeight / 2 + 10
+    );
+  }
+
   @HostListener('mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Handle slider dragging in options menu
+    if (this.currentState === GameState.OPTIONS) {
+      if (this.isDraggingBGM) {
+        const sliderX = this.CANVAS_SIZE / 2 - 100;
+        const relativeX = x - sliderX;
+        this.settings.bgmVolume = Math.max(0, Math.min(1, relativeX / 200));
+        this.updateBGMVolume();
+      } else if (this.isDraggingSFX) {
+        const sliderX = this.CANVAS_SIZE / 2 - 100;
+        const relativeX = x - sliderX;
+        this.settings.sfxVolume = Math.max(0, Math.min(1, relativeX / 200));
+        this.updateSFXVolume();
+      }
+      return;
+    }
+
+    // Handle grid selection in playing state
     if (this.currentState !== GameState.PLAYING || !this.isSelecting) return;
 
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = Math.floor((event.clientX - rect.left) / this.CELL_SIZE);
-    const y = Math.floor((event.clientY - rect.top) / this.CELL_SIZE);
+    const gridX = Math.floor(x / this.CELL_SIZE);
+    const gridY = Math.floor(y / this.CELL_SIZE);
 
-    if (x >= 0 && x < this.GRID_SIZE && y >= 0 && y < this.GRID_SIZE) {
-      this.selectionEnd = { x, y };
+    if (gridX >= 0 && gridX < this.GRID_SIZE && gridY >= 0 && gridY < this.GRID_SIZE) {
+      this.selectionEnd = { x: gridX, y: gridY };
       this.updateSelection();
     }
   }
 
   @HostListener('mouseup', ['$event'])
   onMouseUp(event: MouseEvent) {
+    // Stop slider dragging and play test sound for SFX slider
+    const wasDraggingSFX = this.isDraggingSFX;
+    this.isDraggingBGM = false;
+    this.isDraggingSFX = false;
+
+    // Play test sound when SFX slider is released
+    if (wasDraggingSFX && this.playerAttackSound1) {
+      this.playerAttackSound1.currentTime = 0; // Reset to beginning
+      this.playerAttackSound1.volume = this.settings.sfxVolume;
+      this.playerAttackSound1.play().catch(() => {}); // Ignore play errors
+    }
+
     if (this.currentState !== GameState.PLAYING) return;
     if (!this.isSelecting) return;
 
@@ -1245,6 +1653,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Apply difficulty settings
     this.applyDifficultySettings();
+
+    // Update audio volumes
+    this.updateBGMVolume();
+    this.updateSFXVolume();
 
     // Start playing
     this.currentState = GameState.PLAYING;
@@ -1410,7 +1822,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.nextAttackSprite = this.nextAttackSprite === 1 ? 2 : 1;
 
       // Play attack sound effect
-      if (this.settings.soundEnabled && this.loadedAssets['soundEffects']) {
+      if (this.settings.sfxVolume > 0 && this.loadedAssets['soundEffects']) {
         if (this.currentAttackSprite === 1 && this.playerAttackSound1) {
           this.playerAttackSound1.currentTime = 0; // Reset to beginning
           this.playerAttackSound1.play().catch(() => {}); // Ignore play errors
