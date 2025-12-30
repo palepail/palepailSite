@@ -9,7 +9,7 @@
           "title": "Number Crunch",
           "description": "A fun number and math puzzle game",
           "technologies": ["JavaScript", "HTML5", "CSS3"],
-          "image": "/resources/images/projects/numbercrunch/numbercrunch0.png",
+          "image": "/resources/images/projects/numberCrunch/Demo.png",
           "link": "/projects/interactable/number-crunch",
           "status": [{ "name": "In Development" }]
         }

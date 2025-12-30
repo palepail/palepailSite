@@ -168,6 +168,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private playerAttackSound2 = new Audio();
   private enemyAttackSound = new Audio();
   private scrambleSound = new Audio();
+  private playerDeathSound1 = new Audio(); // Grunt Ng 1
+  private playerDeathSound2 = new Audio(); // Grunt Oh 3
+  private playerDeathSound3 = new Audio(); // Grunt Oof 1
+  private playerDeathSound4 = new Audio(); // Grunt Uoe 3
+  private enemyDeathSound = new Audio(); // Grunt Ehh 1
+  private upgradeSound = new Audio(); // harpsichord_positive_long
   private bgmAudio = new Audio();
 
   // Asset loading system
@@ -384,6 +390,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.scrambleSound.oncanplaythrough = checkComplete;
       this.scrambleSound.onerror = handleError;
       this.scrambleSound.src = 'resources/audio/projects/numberCrunch/Collect_Special_3.ogg';
+
+      // Player death sounds
+      this.playerDeathSound1.oncanplaythrough = checkComplete;
+      this.playerDeathSound1.onerror = handleError;
+      this.playerDeathSound1.src = 'resources/audio/projects/numberCrunch/Grunt Ng 1.wav';
+
+      this.playerDeathSound2.oncanplaythrough = checkComplete;
+      this.playerDeathSound2.onerror = handleError;
+      this.playerDeathSound2.src = 'resources/audio/projects/numberCrunch/Grunt Oh 3.wav';
+
+      this.playerDeathSound3.oncanplaythrough = checkComplete;
+      this.playerDeathSound3.onerror = handleError;
+      this.playerDeathSound3.src = 'resources/audio/projects/numberCrunch/Grunt Oof 1.wav';
+
+      this.playerDeathSound4.oncanplaythrough = checkComplete;
+      this.playerDeathSound4.onerror = handleError;
+      this.playerDeathSound4.src = 'resources/audio/projects/numberCrunch/Grunt Uoe 3.wav';
+
+      // Enemy death sound
+      this.enemyDeathSound.oncanplaythrough = checkComplete;
+      this.enemyDeathSound.onerror = handleError;
+      this.enemyDeathSound.src = 'resources/audio/projects/numberCrunch/Grunt Ehh 1.wav';
+
+      // Upgrade screen sound
+      this.upgradeSound.oncanplaythrough = checkComplete;
+      this.upgradeSound.onerror = handleError;
+      this.upgradeSound.src = 'resources/audio/projects/numberCrunch/harpsichord_positive_long.wav';
     });
   }
 
@@ -435,6 +468,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.playerAttackSound2) this.playerAttackSound2.volume = volume;
     if (this.enemyAttackSound) this.enemyAttackSound.volume = volume;
     if (this.scrambleSound) this.scrambleSound.volume = volume / 2;
+    if (this.playerDeathSound1) this.playerDeathSound1.volume = volume * 1.3;
+    if (this.playerDeathSound2) this.playerDeathSound2.volume = volume * 1.3;
+    if (this.playerDeathSound3) this.playerDeathSound3.volume = volume * 1.3;
+    if (this.playerDeathSound4) this.playerDeathSound4.volume = volume * 1.3;
+    if (this.enemyDeathSound) this.enemyDeathSound.volume = volume * 1.3;
+    if (this.upgradeSound) this.upgradeSound.volume = volume;
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -493,8 +532,55 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Stop game loop
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
+    }
+
+    // Stop all sounds
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+      this.bgmAudio.currentTime = 0;
+    }
+    if (this.playerAttackSound1) {
+      this.playerAttackSound1.pause();
+      this.playerAttackSound1.currentTime = 0;
+    }
+    if (this.playerAttackSound2) {
+      this.playerAttackSound2.pause();
+      this.playerAttackSound2.currentTime = 0;
+    }
+    if (this.enemyAttackSound) {
+      this.enemyAttackSound.pause();
+      this.enemyAttackSound.currentTime = 0;
+    }
+    if (this.scrambleSound) {
+      this.scrambleSound.pause();
+      this.scrambleSound.currentTime = 0;
+    }
+    if (this.playerDeathSound1) {
+      this.playerDeathSound1.pause();
+      this.playerDeathSound1.currentTime = 0;
+    }
+    if (this.playerDeathSound2) {
+      this.playerDeathSound2.pause();
+      this.playerDeathSound2.currentTime = 0;
+    }
+    if (this.playerDeathSound3) {
+      this.playerDeathSound3.pause();
+      this.playerDeathSound3.currentTime = 0;
+    }
+    if (this.playerDeathSound4) {
+      this.playerDeathSound4.pause();
+      this.playerDeathSound4.currentTime = 0;
+    }
+    if (this.enemyDeathSound) {
+      this.enemyDeathSound.pause();
+      this.enemyDeathSound.currentTime = 0;
+    }
+    if (this.upgradeSound) {
+      this.upgradeSound.pause();
+      this.upgradeSound.currentTime = 0;
     }
   }
 
@@ -640,13 +726,36 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Check win/lose conditions
     if (this.playerHealth <= 0) {
+      // Play random player death sound
+      const deathSounds = [
+        this.playerDeathSound1,
+        this.playerDeathSound2,
+        this.playerDeathSound3,
+        this.playerDeathSound4,
+      ];
+      const randomSound = deathSounds[Math.floor(Math.random() * deathSounds.length)];
+      if (randomSound) {
+        randomSound.currentTime = 0; // Reset to beginning
+        randomSound.play().catch(() => {}); // Ignore play errors
+      }
       this.currentState = GameState.GAME_OVER;
       this.cdr.detectChanges(); // Force UI update to hide restart button immediately
     }
     if (this.enemyHealth <= 0) {
+      // Play enemy death sound
+      if (this.enemyDeathSound) {
+        this.enemyDeathSound.currentTime = 0; // Reset to beginning
+        this.enemyDeathSound.play().catch(() => {}); // Ignore play errors
+      }
       this.nextTarget = this.calculateNextTarget(); // Calculate next target once
       this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
       this.cdr.detectChanges(); // Force UI update
+
+      // Play upgrade screen sound
+      if (this.upgradeSound) {
+        this.upgradeSound.currentTime = 0; // Reset to beginning
+        this.upgradeSound.play().catch(() => {}); // Ignore play errors
+      }
     }
   }
 
@@ -677,7 +786,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private renderGame() {
     // Background - change to pink when health is at 20% or lower
-    const backgroundColor = this.playerHealth <= 20 ? this.LOW_HEALTH_BACKGROUND_COLOR : this.BACKGROUND_COLOR;
+    const backgroundColor =
+      this.playerHealth <= 20 ? this.LOW_HEALTH_BACKGROUND_COLOR : this.BACKGROUND_COLOR;
     this.ctx.fillStyle = backgroundColor;
     this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
