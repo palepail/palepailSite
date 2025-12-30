@@ -31,6 +31,8 @@ jobs:
           rm -rf docs/*
           # Copy build output to docs
           cp -r dist/palepailSite/browser/* docs/
+          # Tell GitHub Pages not to process with Jekyll
+          touch docs/.nojekyll
 
       - name: Commit and push changes
         run: |
