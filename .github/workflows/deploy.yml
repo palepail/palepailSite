@@ -31,9 +31,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: |
-          npm install -g @angular/cli
-          ng build --configuration production --base-href /
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
