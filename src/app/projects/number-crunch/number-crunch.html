@@ -1,6 +1,8 @@
 <div class="game-container">
   <h1>Number Crunch</h1>
-  <p class="game-description">A strategic number puzzle game - select rectangular groups that sum to the target!</p>
+  <p class="game-description">
+    A strategic number puzzle game - select rectangular groups that sum to the target!
+  </p>
 
   <div class="game-area">
     <div class="game-board">
@@ -16,11 +18,11 @@
       <ul>
         <li>Click and drag to select a rectangular group of numbers</li>
         <li>The selected numbers must sum to the target value</li>
-        <li>Successful matches remove the numbers (no shifting)</li>
-        <li>Use the Scramble button (3 uses per level) to reorganize remaining tiles</li>
-        <li>Scrambling takes 2 seconds and can help when stuck</li>
-        <li>Beat the enemy by reaching higher scores!</li>
-        <li>The enemy attacks every 2 seconds - don't let your health reach zero!</li>
+        <li>Successful matches deal damage to the enemy</li>
+        <li>Use the Scramble button to reorganize remaining tiles (limited use)</li>
+        <li>Scrambling can help when stuck, but takes time</li>
+        <li>Defeat the enemy by reducing their health to zero!</li>
+        <li>Don't let your health reach zero!</li>
       </ul>
 
       <div class="game-stats">
@@ -28,9 +30,14 @@
         <ul>
           <li><strong>Selection:</strong> Click and drag for rectangular selection</li>
           <li><strong>Matching:</strong> Sum must equal target number</li>
-          <li><strong>Scoring:</strong> Points based on selection size</li>
-          <li><strong>Levels:</strong> Harder targets and stronger enemies</li>
-          <li><strong>Time Pressure:</strong> Enemy attacks every 2 seconds</li>
+          <li>
+            <strong>Damage:</strong> Each tile in your selection deals damage based on the number of
+            tiles matched
+          </li>
+          <li>
+            <strong>Levels:</strong> Progress through levels with increasingly difficult targets
+          </li>
+          <li><strong>Time Pressure:</strong> Enemy attacks every 4 seconds</li>
         </ul>
       </div>
     </div>

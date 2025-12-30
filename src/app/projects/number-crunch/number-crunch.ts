@@ -47,6 +47,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Health constants
   private readonly MAX_HEALTH = 100;
+  private readonly ENEMY_MAX_HEALTH = 450;
   private readonly EASY_HEALTH = 150;
   private readonly HARD_HEALTH = 75;
 
@@ -85,7 +86,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   score = 0;
   level = 1;
   playerHealth = this.MAX_HEALTH;
-  enemyHealth = this.MAX_HEALTH; // Set to max health
+  enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
   timeLeft = 60; // seconds (placeholder, not used)
   nextTarget = 0; // Fixed next target for upgrade screen
 
@@ -485,12 +486,20 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private drawUI() {
     // Draw characters at bottom
-    this.drawCharacter(50, this.CANVAS_SIZE + 25, 'Player', this.playerHealth, '#4CAF50');
+    this.drawCharacter(
+      50,
+      this.CANVAS_SIZE + 25,
+      'Player',
+      this.playerHealth,
+      this.MAX_HEALTH,
+      '#4CAF50'
+    );
     this.drawCharacter(
       this.CANVAS_SIZE - 50,
       this.CANVAS_SIZE + 25,
       'Enemy',
       this.enemyHealth,
+      this.ENEMY_MAX_HEALTH,
       '#f44336'
     );
 
@@ -532,7 +541,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
-  private drawCharacter(x: number, y: number, label: string, health: number, color: string) {
+  private drawCharacter(
+    x: number,
+    y: number,
+    label: string,
+    health: number,
+    maxHealth: number,
+    color: string
+  ) {
     // Simple character representation
     this.ctx.fillStyle = color;
     this.ctx.fillRect(
@@ -549,7 +565,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillRect(
       x - this.HEALTH_BAR_WIDTH / 2,
       y - 25,
-      (health / this.MAX_HEALTH) * this.HEALTH_BAR_WIDTH,
+      (health / maxHealth) * this.HEALTH_BAR_WIDTH,
       5
     );
 
@@ -716,8 +732,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Reset game state
     this.score = 0;
     this.level = 1;
+    this.targetNumber = 10; // Reset target to initial value
     this.playerHealth = this.MAX_HEALTH;
-    this.enemyHealth = this.MAX_HEALTH; // Set to max health
+    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.enemyAttackTimer = 0;
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
     this.isScrambling = false;
@@ -884,8 +901,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Reset game
     this.score = 0;
     this.level = 1;
+    this.targetNumber = 10; // Reset target to initial value
     this.playerHealth = this.MAX_HEALTH;
-    this.enemyHealth = this.MAX_HEALTH; // Set to max health
+    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
     this.isScrambling = false;
     this.scrambleTimer = 0;
@@ -907,7 +925,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private nextLevel() {
     this.level++;
     this.score = 0;
-    this.enemyHealth = this.MAX_HEALTH; // Set to max health
+    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
 
