@@ -63,8 +63,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly HARD_HEALTH = 75;
 
   // Combat constants
-  private readonly ENEMY_ATTACK_DAMAGE = 4;
-  private readonly ENEMY_ATTACK_INTERVAL = 4000; // milliseconds
+  private readonly ENEMY_ATTACK_DAMAGE = 8;
+  private readonly ENEMY_ATTACK_INTERVAL = 8000; // milliseconds
   private readonly PLAYER_ATTACK_DAMAGE = 10;
 
   // Scramble constants
@@ -79,8 +79,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Target number constants
   private readonly TARGET_BASE = 9;
-  private readonly TARGET_RANDOM_MIN = 1;
-  private readonly TARGET_RANDOM_MAX = 3;
+  private readonly TARGET_RANDOM_MIN = 0;
+  private readonly TARGET_RANDOM_MAX = 1;
 
   // Grid generation constants
   private readonly CELL_VALUE_MIN = 1;
