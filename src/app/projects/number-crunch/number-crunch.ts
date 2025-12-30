@@ -166,6 +166,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private playerAttackSound1 = new Audio();
   private playerAttackSound2 = new Audio();
   private enemyAttackSound = new Audio();
+  private scrambleSound = new Audio();
   private bgmAudio = new Audio();
 
   // Asset loading system
@@ -377,6 +378,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.enemyAttackSound.oncanplaythrough = checkComplete;
       this.enemyAttackSound.onerror = handleError;
       this.enemyAttackSound.src = 'resources/audio/projects/numberCrunch/Torch Attack Strike 1.wav';
+
+      // Scramble sound
+      this.scrambleSound.oncanplaythrough = checkComplete;
+      this.scrambleSound.onerror = handleError;
+      this.scrambleSound.src = 'resources/audio/projects/numberCrunch/Collect_Special_3.ogg';
     });
   }
 
@@ -427,6 +433,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.playerAttackSound1) this.playerAttackSound1.volume = volume;
     if (this.playerAttackSound2) this.playerAttackSound2.volume = volume;
     if (this.enemyAttackSound) this.enemyAttackSound.volume = volume;
+    if (this.scrambleSound) this.scrambleSound.volume = volume / 2;
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -1714,6 +1721,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.scramblesRemaining <= 0
     ) {
       return;
+    }
+
+    // Play scramble sound effect
+    if (this.scrambleSound) {
+      this.scrambleSound.currentTime = 0; // Reset to beginning
+      this.scrambleSound.play().catch(() => {}); // Ignore play errors
     }
 
     this.isScrambling = true;
