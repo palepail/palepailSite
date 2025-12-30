@@ -30,6 +30,7 @@ interface GameSettings {
   bgmVolume: number; // 0.0 to 1.0
   sfxVolume: number; // 0.0 to 1.0
   difficulty: 'easy' | 'normal' | 'hard';
+  muted: boolean;
 }
 
 @Component({
@@ -48,6 +49,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     bgmVolume: 0.25,
     sfxVolume: 0.35,
     difficulty: 'normal',
+    muted: false,
   };
 
   // Game constants
@@ -400,8 +402,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private startBGM() {
-    if (this.loadedAssets['bgm'] && this.bgmAudio && this.settings.bgmVolume > 0) {
-      this.bgmAudio.volume = this.settings.bgmVolume;
+    if (this.loadedAssets['bgm'] && this.bgmAudio) {
+      this.updateBGMVolume();
       this.bgmAudio.currentTime = 0;
       this.bgmAudio.play().catch(() => {}); // Ignore play errors
     }
@@ -416,14 +418,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private updateBGMVolume() {
     if (this.bgmAudio) {
-      this.bgmAudio.volume = this.settings.bgmVolume;
+      this.bgmAudio.volume = this.settings.muted ? 0 : this.settings.bgmVolume;
     }
   }
 
   private updateSFXVolume() {
-    if (this.playerAttackSound1) this.playerAttackSound1.volume = this.settings.sfxVolume;
-    if (this.playerAttackSound2) this.playerAttackSound2.volume = this.settings.sfxVolume;
-    if (this.enemyAttackSound) this.enemyAttackSound.volume = this.settings.sfxVolume;
+    const volume = this.settings.muted ? 0 : this.settings.sfxVolume;
+    if (this.playerAttackSound1) this.playerAttackSound1.volume = volume;
+    if (this.playerAttackSound2) this.playerAttackSound2.volume = volume;
+    if (this.enemyAttackSound) this.enemyAttackSound.volume = volume;
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -1876,5 +1879,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   restartGame() {
     this.gameOver();
     this.currentState = GameState.MENU;
+  }
+
+  toggleMute() {
+    this.settings.muted = !this.settings.muted;
+    this.updateBGMVolume();
+    this.updateSFXVolume();
+    this.cdr.markForCheck();
   }
 }

@@ -6,6 +6,11 @@
 
   <div class="game-area">
     <div class="game-board">
+      <div class="mute-controls">
+        <button class="mute-btn" (click)="toggleMute()">
+          {{ settings.muted ? '🔊' : '🔇' }}
+        </button>
+      </div>
       <canvas #gameCanvas class="game-canvas"></canvas>
 
       <div class="game-controls" *ngIf="currentState === 'playing'">
