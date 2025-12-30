@@ -93,6 +93,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly HEALTH_BAR_WIDTH = 40;
   private readonly GRID_BACKGROUND_COLOR = '#f8f9fa'; // Light gray background for grid cells
   private readonly BACKGROUND_COLOR = '#e3f2fd'; // Light blue-gray background for all screens
+  private readonly LOW_HEALTH_BACKGROUND_COLOR = '#fce4ec'; // Pink background for low health
 
   // Game state
   grid: GameCell[][] = [];
@@ -675,8 +676,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private renderGame() {
-    // Background
-    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    // Background - change to pink when health is at 20% or lower
+    const backgroundColor = this.playerHealth <= 20 ? this.LOW_HEALTH_BACKGROUND_COLOR : this.BACKGROUND_COLOR;
+    this.ctx.fillStyle = backgroundColor;
     this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
     // Draw grid
