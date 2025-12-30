@@ -355,10 +355,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
     // Play again button
-    this.drawButton('Play Again', this.CANVAS_SIZE / 2, 290, 180, 50, '#4CAF50', '#45a049');
+    this.drawButton('Play Again', this.CANVAS_SIZE / 2, 300, 180, 50, '#4CAF50', '#45a049');
 
     // Back to menu button
-    this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 360, 180, 50, '#2196F3', '#1976D2');
+    this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 380, 180, 50, '#2196F3', '#1976D2');
   }
 
   private renderChooseUpgrade() {
@@ -659,12 +659,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleGameOverClick(x: number, y: number) {
-    // Play again button
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 230, 180, 50)) {
+    // Play again button (matches renderGameOver y=300)
+    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 300, 180, 50)) {
       this.startGame();
     }
-    // Main menu button
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 300, 180, 50)) {
+    // Main menu button (matches renderGameOver y=380)
+    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 380, 180, 50)) {
       this.currentState = GameState.MENU;
     }
   }
