@@ -1,4 +1,12 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ElementRef,
+  ViewChild,
+  HostListener,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -10,6 +18,7 @@ interface GameCell {
 }
 
 enum GameState {
+  LOADING = 'loading',
   MENU = 'menu',
   PLAYING = 'playing',
   OPTIONS = 'options',
@@ -54,6 +63,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Combat constants
   private readonly ENEMY_ATTACK_DAMAGE = 4;
   private readonly ENEMY_ATTACK_INTERVAL = 4000; // milliseconds
+  private readonly PLAYER_ATTACK_DAMAGE = 10;
 
   // Scramble constants
   private readonly SCRAMBLES_PER_LEVEL = 3;
@@ -90,6 +100,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   timeLeft = 60; // seconds (placeholder, not used)
   nextTarget = 0; // Fixed next target for upgrade screen
 
+  // Combat timers
+  private enemyAttackTimer = 0;
+  private playerAttackTimer = 0;
+
   // Upgrade system
   damageMultiplier = 1.0;
 
@@ -100,8 +114,47 @@ export class NumberCrunch implements OnInit, OnDestroy {
   selectedSum = 0;
 
   // Animation state
-  enemyAttackTimer = 0;
   lastTime = 0;
+
+  // Player sprite animation
+  private playerSprite = new Image();
+  private animationFrame = 0;
+  private animationTimer = 0;
+  private readonly ANIMATION_FRAME_TIME = 150; // ms per frame (adjust for desired speed)
+  private readonly SPRITE_FRAME_WIDTH = 192; // 192px total width / 8 frames
+  private readonly SPRITE_FRAME_HEIGHT = 192; // Full height of sprite sheet
+  private readonly SPRITE_SCALE = 0.5; // Scale down to fit character size
+
+  // Enemy sprite animation
+  private enemySprite = new Image();
+  private enemyAnimationFrame = 0;
+  private enemyAnimationTimer = 0;
+  private readonly ENEMY_ANIMATION_FRAME_TIME = 150; // ms per frame (same speed as player)
+  private readonly ENEMY_TOTAL_FRAMES = 7; // 7 frames for enemy idle animation
+
+  // Enemy attack animation
+  private enemyAttackSprite = new Image();
+  private isEnemyAttacking = false;
+  private enemyAttackAnimationFrame = 0;
+  private enemyAttackAnimationTimer = 0;
+  private readonly ENEMY_ATTACK_FRAME_TIME = 100; // ms per frame (faster for attack)
+  private readonly ENEMY_ATTACK_TOTAL_FRAMES = 6; // 6 frames for enemy attack animation
+
+  // Attack animation sprites
+  private attackSprite1 = new Image();
+  private attackSprite2 = new Image();
+  private isAttacking = false;
+  private attackAnimationFrame = 0;
+  private attackAnimationTimer = 0;
+  private currentAttackSprite = 1; // 1 or 2
+  private nextAttackSprite = 1; // Alternates between 1 and 2
+  private readonly ATTACK_FRAME_TIME = 100; // ms per frame (faster for attack)
+  private readonly ATTACK_TOTAL_FRAMES = 4; // 4 frames per attack animation
+
+  // Asset loading system
+  private assetsToLoad: { [key: string]: boolean } = {};
+  private loadedAssets: { [key: string]: boolean } = {};
+  private loadingProgress = 0;
 
   // Scramble system
   scramblesRemaining = 3;
@@ -113,14 +166,142 @@ export class NumberCrunch implements OnInit, OnDestroy {
     value: number;
   }[] = [];
 
+  // Button positions and sizes (shared between drawing and click detection)
+  private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
+  private readonly MENU_OPTIONS_BUTTON = { x: this.CANVAS_SIZE / 2, y: 250, width: 200, height: 50 };
+  private readonly PLAYING_SCRAMBLE_BUTTON = { x: this.CANVAS_SIZE / 2, y: this.CANVAS_SIZE + 30, width: 120, height: 35 };
+  private readonly OPTIONS_SOUND_BUTTON = { x: this.CANVAS_SIZE / 2, y: 130, width: 180, height: 40 };
+  private readonly OPTIONS_EASY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 200, width: 150, height: 40 };
+  private readonly OPTIONS_NORMAL_BUTTON = { x: this.CANVAS_SIZE / 2, y: 260, width: 150, height: 40 };
+  private readonly OPTIONS_HARD_BUTTON = { x: this.CANVAS_SIZE / 2, y: 320, width: 150, height: 40 };
+  private readonly OPTIONS_BACK_BUTTON = { x: this.CANVAS_SIZE / 2, y: this.CANVAS_SIZE + 30, width: 160, height: 40 };
+  private readonly GAME_OVER_PLAY_AGAIN_BUTTON = { x: this.CANVAS_SIZE / 2, y: 300, width: 180, height: 50 };
+  private readonly GAME_OVER_MAIN_MENU_BUTTON = { x: this.CANVAS_SIZE / 2, y: 380, width: 180, height: 50 };
+  private readonly CHOOSE_UPGRADE_HEALTH_BUTTON = { x: this.CANVAS_SIZE / 2, y: 225, width: 160, height: 50 };
+  private readonly CHOOSE_UPGRADE_DAMAGE_BUTTON = { x: this.CANVAS_SIZE / 2, y: 295, width: 160, height: 50 };
+
   // Game loop
   private animationFrameId: number = 0;
 
   constructor(private cdr: ChangeDetectorRef) {}
 
+  // Asset loading functions
+  private loadPlayerSprite(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.playerSprite.onload = () => {
+        this.loadedAssets['playerSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.playerSprite.onerror = () => {
+        reject(new Error('Failed to load player sprite'));
+      };
+      this.playerSprite.src = 'resources/images/projects/numberCrunch/Warrior_Idle.png';
+    });
+  }
+
+  private loadAttackSprites(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let loadedCount = 0;
+      const totalSprites = 2;
+
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalSprites) {
+          this.loadedAssets['attackSprites'] = true;
+          this.updateLoadingProgress();
+          resolve();
+        }
+      };
+
+      const handleError = () => {
+        reject(new Error('Failed to load attack sprites'));
+      };
+
+      this.attackSprite1.onload = checkComplete;
+      this.attackSprite1.onerror = handleError;
+      this.attackSprite1.src = 'resources/images/projects/numberCrunch/Warrior_Attack1.png';
+
+      this.attackSprite2.onload = checkComplete;
+      this.attackSprite2.onerror = handleError;
+      this.attackSprite2.src = 'resources/images/projects/numberCrunch/Warrior_Attack2.png';
+    });
+  }
+
+  private loadEnemyAttackSprite(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.enemyAttackSprite.onload = () => {
+        this.loadedAssets['enemyAttackSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.enemyAttackSprite.onerror = () => {
+        reject(new Error('Failed to load enemy attack sprite'));
+      };
+      this.enemyAttackSprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Attack.png';
+    });
+  }
+
+  private loadEnemySprite(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.enemySprite.onload = () => {
+        this.loadedAssets['enemySprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.enemySprite.onerror = () => {
+        reject(new Error('Failed to load enemy sprite'));
+      };
+      this.enemySprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Idle.png';
+    });
+  }
+
+  private updateLoadingProgress() {
+    const totalAssets = Object.keys(this.assetsToLoad).length;
+    const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
+    this.loadingProgress = totalAssets > 0 ? (loadedCount / totalAssets) * 100 : 100;
+  }
+
+  private async loadAllAssets(): Promise<void> {
+    // Register assets to load
+    this.assetsToLoad['playerSprite'] = false;
+    this.loadedAssets['playerSprite'] = false;
+    this.assetsToLoad['attackSprites'] = false;
+    this.loadedAssets['attackSprites'] = false;
+    this.assetsToLoad['enemySprite'] = false;
+    this.loadedAssets['enemySprite'] = false;
+    this.assetsToLoad['enemyAttackSprite'] = false;
+    this.loadedAssets['enemyAttackSprite'] = false;
+
+    // Load all assets
+    try {
+      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite()]);
+      // Add more asset loading calls here as needed
+      // await this.loadBackgroundMusic();
+      // etc.
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+      // Continue with game even if assets fail to load
+    }
+  }
+
   ngOnInit() {
+    // Start in loading state
+    this.currentState = GameState.LOADING;
+
     this.initializeGame();
     this.startGameLoop();
+
+    // Load assets asynchronously
+    this.loadAllAssets()
+      .then(() => {
+        // Assets loaded, transition to menu
+        this.currentState = GameState.MENU;
+      })
+      .catch(() => {
+        // If loading fails, still start the game
+        this.currentState = GameState.MENU;
+      });
   }
 
   ngOnDestroy() {
@@ -185,11 +366,69 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return; // Don't update other game logic while scrambling
     }
 
+    // Update sprite animation
+    this.animationTimer += deltaTime;
+    if (this.animationTimer >= this.ANIMATION_FRAME_TIME) {
+      this.animationTimer = 0;
+      this.animationFrame = (this.animationFrame + 1) % 8; // 8 frames total
+    }
+
+    // Update enemy sprite animation
+    this.enemyAnimationTimer += deltaTime;
+    if (this.enemyAnimationTimer >= this.ENEMY_ANIMATION_FRAME_TIME) {
+      this.enemyAnimationTimer = 0;
+      this.enemyAnimationFrame = (this.enemyAnimationFrame + 1) % this.ENEMY_TOTAL_FRAMES; // 7 frames total
+    }
+
+    // Update attack animation
+    if (this.isAttacking) {
+      this.attackAnimationTimer += deltaTime;
+      if (this.attackAnimationTimer >= this.ATTACK_FRAME_TIME) {
+        this.attackAnimationTimer = 0;
+        this.attackAnimationFrame++;
+
+        // Check if attack animation is complete
+        if (this.attackAnimationFrame >= this.ATTACK_TOTAL_FRAMES) {
+          this.isAttacking = false;
+          this.attackAnimationFrame = 0;
+          // Reset to idle animation
+          this.animationFrame = 0;
+          this.animationTimer = 0;
+        }
+      }
+    }
+
+    // Update enemy attack animation
+    if (this.isEnemyAttacking) {
+      this.enemyAttackAnimationTimer += deltaTime;
+      if (this.enemyAttackAnimationTimer >= this.ENEMY_ATTACK_FRAME_TIME) {
+        this.enemyAttackAnimationTimer = 0;
+        this.enemyAttackAnimationFrame++;
+
+        // Check if enemy attack animation is complete
+        if (this.enemyAttackAnimationFrame >= this.ENEMY_ATTACK_TOTAL_FRAMES) {
+          this.isEnemyAttacking = false;
+          this.enemyAttackAnimationFrame = 0;
+          // Reset to idle animation
+          this.enemyAnimationFrame = 0;
+          this.enemyAnimationTimer = 0;
+        }
+      }
+    }
+
     // Update enemy attack timer
     this.enemyAttackTimer += deltaTime;
     if (this.enemyAttackTimer >= this.ENEMY_ATTACK_INTERVAL) {
       // Attack interval
       this.enemyAttackTimer = 0;
+
+      // Trigger enemy attack animation
+      if (this.loadedAssets['enemyAttackSprite'] && !this.isEnemyAttacking) {
+        this.isEnemyAttacking = true;
+        this.enemyAttackAnimationFrame = 0;
+        this.enemyAttackAnimationTimer = 0;
+      }
+
       this.playerHealth = Math.max(0, this.playerHealth - this.ENEMY_ATTACK_DAMAGE);
     }
 
@@ -209,6 +448,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Note: Each render method now sets its own background, so no global clear needed
 
     switch (this.currentState) {
+      case GameState.LOADING:
+        this.renderLoading();
+        break;
       case GameState.MENU:
         this.renderMenu();
         break;
@@ -265,11 +507,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 110);
 
-    // Play button
-    this.drawButton('Play Game', this.CANVAS_SIZE / 2, 180, 200, 50, '#4CAF50', '#45a049');
-
-    // Options button
-    this.drawButton('Options', this.CANVAS_SIZE / 2, 250, 200, 50, '#2196F3', '#1976D2');
+    // Draw buttons
+    this.drawButton('Play Game', this.MENU_PLAY_BUTTON.x, this.MENU_PLAY_BUTTON.y, this.MENU_PLAY_BUTTON.width, this.MENU_PLAY_BUTTON.height, '#4CAF50', '#45a049');
+    this.drawButton('Options', this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height, '#2196F3', '#1976D2');
 
     // Instructions
     this.ctx.fillStyle = '#424242';
@@ -286,6 +526,40 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
+  private renderLoading() {
+    // Background
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
+
+    // Loading text
+    this.ctx.fillStyle = '#1976d2';
+    this.ctx.font = 'bold 28px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Loading...', this.CANVAS_SIZE / 2, this.CANVAS_SIZE / 2 - 20);
+
+    // Progress bar background
+    this.ctx.fillStyle = '#e0e0e0';
+    this.ctx.fillRect(this.CANVAS_SIZE / 2 - 100, this.CANVAS_SIZE / 2 + 10, 200, 20);
+
+    // Progress bar fill
+    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.fillRect(
+      this.CANVAS_SIZE / 2 - 100,
+      this.CANVAS_SIZE / 2 + 10,
+      (this.loadingProgress / 100) * 200,
+      20
+    );
+
+    // Progress text
+    this.ctx.fillStyle = '#333';
+    this.ctx.font = '16px Arial';
+    this.ctx.fillText(
+      `${Math.round(this.loadingProgress)}%`,
+      this.CANVAS_SIZE / 2,
+      this.CANVAS_SIZE / 2 + 45
+    );
+  }
+
   private renderOptions() {
     // Background
     this.ctx.fillStyle = this.BACKGROUND_COLOR;
@@ -297,43 +571,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Options', this.CANVAS_SIZE / 2, 60);
 
-    // Sound toggle
-    this.drawButton(
-      `Sound: ${this.settings.soundEnabled ? 'ON' : 'OFF'}`,
-      this.CANVAS_SIZE / 2,
-      130,
-      180,
-      40,
-      this.settings.soundEnabled ? '#4CAF50' : '#f44336',
-      this.settings.soundEnabled ? '#45a049' : '#d32f2f'
-    );
-
-    // Difficulty buttons
-    const difficulties = ['easy', 'normal', 'hard'];
-    difficulties.forEach((diff, index) => {
-      const y = 200 + index * 60;
-      const isSelected = this.settings.difficulty === diff;
-      this.drawButton(
-        diff.charAt(0).toUpperCase() + diff.slice(1),
-        this.CANVAS_SIZE / 2,
-        y,
-        150,
-        40,
-        isSelected ? '#FF9800' : '#757575',
-        isSelected ? '#F57C00' : '#616161'
-      );
-    });
-
-    // Back button
-    this.drawButton(
-      'Back to Menu',
-      this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 30,
-      160,
-      40,
-      '#9C27B0',
-      '#7B1FA2'
-    );
+    // Draw buttons
+    this.drawButton(`Sound: ${this.settings.soundEnabled ? 'ON' : 'OFF'}`, this.OPTIONS_SOUND_BUTTON.x, this.OPTIONS_SOUND_BUTTON.y, this.OPTIONS_SOUND_BUTTON.width, this.OPTIONS_SOUND_BUTTON.height, this.settings.soundEnabled ? '#4CAF50' : '#f44336', this.settings.soundEnabled ? '#45a049' : '#d32f2f');
+    this.drawButton('Easy', this.OPTIONS_EASY_BUTTON.x, this.OPTIONS_EASY_BUTTON.y, this.OPTIONS_EASY_BUTTON.width, this.OPTIONS_EASY_BUTTON.height, this.settings.difficulty === 'easy' ? '#FF9800' : '#757575', this.settings.difficulty === 'easy' ? '#F57C00' : '#616161');
+    this.drawButton('Normal', this.OPTIONS_NORMAL_BUTTON.x, this.OPTIONS_NORMAL_BUTTON.y, this.OPTIONS_NORMAL_BUTTON.width, this.OPTIONS_NORMAL_BUTTON.height, this.settings.difficulty === 'normal' ? '#FF9800' : '#757575', this.settings.difficulty === 'normal' ? '#F57C00' : '#616161');
+    this.drawButton('Hard', this.OPTIONS_HARD_BUTTON.x, this.OPTIONS_HARD_BUTTON.y, this.OPTIONS_HARD_BUTTON.width, this.OPTIONS_HARD_BUTTON.height, this.settings.difficulty === 'hard' ? '#FF9800' : '#757575', this.settings.difficulty === 'hard' ? '#F57C00' : '#616161');
+    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height, '#9C27B0', '#7B1FA2');
   }
 
   private renderGameOver() {
@@ -358,11 +601,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(`Final Score: ${this.score}`, this.CANVAS_SIZE / 2, 200);
     this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
-    // Play again button
-    this.drawButton('Play Again', this.CANVAS_SIZE / 2, 300, 180, 50, '#4CAF50', '#45a049');
-
-    // Back to menu button
-    this.drawButton('Main Menu', this.CANVAS_SIZE / 2, 380, 180, 50, '#2196F3', '#1976D2');
+    // Draw buttons
+    this.drawButton('Play Again', this.GAME_OVER_PLAY_AGAIN_BUTTON.x, this.GAME_OVER_PLAY_AGAIN_BUTTON.y, this.GAME_OVER_PLAY_AGAIN_BUTTON.width, this.GAME_OVER_PLAY_AGAIN_BUTTON.height, '#4CAF50', '#45a049');
+    this.drawButton('Main Menu', this.GAME_OVER_MAIN_MENU_BUTTON.x, this.GAME_OVER_MAIN_MENU_BUTTON.y, this.GAME_OVER_MAIN_MENU_BUTTON.width, this.GAME_OVER_MAIN_MENU_BUTTON.height, '#2196F3', '#1976D2');
   }
 
   private renderChooseUpgrade() {
@@ -388,11 +629,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 165);
 
-    // Health upgrade button
-    this.drawButton('Health +15%', this.CANVAS_SIZE / 2, 225, 160, 50, '#FF9800', '#F57C00');
-
-    // Damage upgrade button
-    this.drawButton('Damage +15%', this.CANVAS_SIZE / 2, 295, 160, 50, '#FF5722', '#D84315');
+    // Draw buttons
+    this.drawButton('Health +15%', this.CHOOSE_UPGRADE_HEALTH_BUTTON.x, this.CHOOSE_UPGRADE_HEALTH_BUTTON.y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.width, this.CHOOSE_UPGRADE_HEALTH_BUTTON.height, '#FF9800', '#F57C00');
+    this.drawButton('Damage +15%', this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height, '#FF5722', '#D84315');
   }
 
   private drawButton(
@@ -492,7 +731,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Draw characters at bottom
     this.drawCharacter(
       50,
-      this.CANVAS_SIZE + 25,
+      this.CANVAS_SIZE + 50,
       'Player',
       this.playerHealth,
       this.MAX_HEALTH,
@@ -500,48 +739,32 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
     this.drawCharacter(
       this.CANVAS_SIZE - 50,
-      this.CANVAS_SIZE + 25,
+      this.CANVAS_SIZE + 50,
       'Enemy',
       this.enemyHealth,
       this.ENEMY_MAX_HEALTH,
       '#f44336'
     );
 
-    // Draw scramble button if available (lowered to avoid grid overlap)
+    // Draw buttons
     if (this.scramblesRemaining > 0 && !this.isScrambling) {
-      this.drawButton(
-        'Scramble',
-        this.CANVAS_SIZE / 2,
-        this.CANVAS_SIZE + 50,
-        120,
-        35,
-        '#FF9800',
-        '#F57C00'
-      );
+      this.drawButton('Scramble', this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height, '#FF9800', '#F57C00');
     } else if (this.isScrambling) {
-      this.drawButton(
-        'Scrambling...',
-        this.CANVAS_SIZE / 2,
-        this.CANVAS_SIZE + 50,
-        120,
-        35,
-        '#757575',
-        '#616161'
-      );
+      this.drawButton('Scrambling...', this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height, '#757575', '#616161');
     }
 
     // Draw target below scramble button
     this.ctx.fillStyle = '#333';
     this.ctx.font = '18px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(`Target: ${this.targetNumber}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 90);
+    this.ctx.fillText(`Target: ${this.targetNumber}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 75);
 
     // Draw level and scramble info on same line
     this.ctx.font = '14px Arial';
     this.ctx.fillText(
       `Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`,
       this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 110
+      this.CANVAS_SIZE + 95
     );
   }
 
@@ -553,14 +776,132 @@ export class NumberCrunch implements OnInit, OnDestroy {
     maxHealth: number,
     color: string
   ) {
-    // Simple character representation
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(
-      x - this.CHARACTER_SIZE / 2,
-      y - this.CHARACTER_SIZE / 2,
-      this.CHARACTER_SIZE,
-      this.CHARACTER_SIZE
-    );
+    // Draw player with sprite animation if sprite is loaded, otherwise draw rectangle
+    if (label === 'Player') {
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      // Check if attacking and attack sprites are loaded
+      if (this.isAttacking && this.loadedAssets['attackSprites']) {
+        const attackSprite =
+          this.currentAttackSprite === 1 ? this.attackSprite1 : this.attackSprite2;
+        if (attackSprite && attackSprite.complete) {
+          this.ctx.drawImage(
+            attackSprite,
+            this.attackAnimationFrame * frameWidth, // source x
+            0, // source y
+            frameWidth, // source width
+            frameHeight, // source height
+            x - scaledWidth / 2, // destination x (centered)
+            y - scaledHeight / 2, // destination y (centered)
+            scaledWidth, // destination width
+            scaledHeight // destination height
+          );
+        } else {
+          // Fallback to rectangle if attack sprite not available
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(
+            x - this.CHARACTER_SIZE / 2,
+            y - this.CHARACTER_SIZE / 2,
+            this.CHARACTER_SIZE,
+            this.CHARACTER_SIZE
+          );
+        }
+      } else if (this.playerSprite && this.playerSprite.complete) {
+        // Draw idle animation
+        this.ctx.drawImage(
+          this.playerSprite,
+          this.animationFrame * frameWidth, // source x
+          0, // source y (idle animation is at top)
+          frameWidth, // source width
+          frameHeight, // source height
+          x - scaledWidth / 2, // destination x (centered)
+          y - scaledHeight / 2, // destination y (centered)
+          scaledWidth, // destination width
+          scaledHeight // destination height
+        );
+      } else {
+        // Fallback to rectangle if no sprites available
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(
+          x - this.CHARACTER_SIZE / 2,
+          y - this.CHARACTER_SIZE / 2,
+          this.CHARACTER_SIZE,
+          this.CHARACTER_SIZE
+        );
+      }
+    } else {
+      // Draw enemy with sprite animation if sprite is loaded, otherwise draw rectangle
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      // Check if enemy is attacking and attack sprite is loaded
+      if (this.isEnemyAttacking && this.loadedAssets['enemyAttackSprite']) {
+        if (this.enemyAttackSprite && this.enemyAttackSprite.complete) {
+          // Save context for flipping
+          this.ctx.save();
+
+          // Flip horizontally for enemy (faces left)
+          this.ctx.scale(-1, 1);
+          this.ctx.drawImage(
+            this.enemyAttackSprite,
+            this.enemyAttackAnimationFrame * frameWidth, // source x
+            0, // source y
+            frameWidth, // source width
+            frameHeight, // source height
+            -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+            y - scaledHeight / 2, // destination y (centered)
+            scaledWidth, // destination width
+            scaledHeight // destination height
+          );
+
+          // Restore context
+          this.ctx.restore();
+        } else {
+          // Fallback to rectangle if attack sprite not available
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(
+            x - this.CHARACTER_SIZE / 2,
+            y - this.CHARACTER_SIZE / 2,
+            this.CHARACTER_SIZE,
+            this.CHARACTER_SIZE
+          );
+        }
+      } else if (this.enemySprite && this.enemySprite.complete) {
+        // Save context for flipping
+        this.ctx.save();
+
+        // Flip horizontally for enemy (faces left)
+        this.ctx.scale(-1, 1);
+        this.ctx.drawImage(
+          this.enemySprite,
+          this.enemyAnimationFrame * frameWidth, // source x
+          0, // source y (idle animation is at top)
+          frameWidth, // source width
+          frameHeight, // source height
+          -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+          y - scaledHeight / 2, // destination y (centered)
+          scaledWidth, // destination width
+          scaledHeight // destination height
+        );
+
+        // Restore context
+        this.ctx.restore();
+      } else {
+        // Fallback to rectangle if no sprites available
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(
+          x - this.CHARACTER_SIZE / 2,
+          y - this.CHARACTER_SIZE / 2,
+          this.CHARACTER_SIZE,
+          this.CHARACTER_SIZE
+        );
+      }
+    }
 
     // Health bar
     this.ctx.fillStyle = '#333';
@@ -606,12 +947,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleMenuClick(x: number, y: number) {
-    // Play button (centered at CANVAS_SIZE/2, 180)
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 180, 200, 50)) {
+    // Play button
+    if (this.isClickInButton(x, y, this.MENU_PLAY_BUTTON.x, this.MENU_PLAY_BUTTON.y, this.MENU_PLAY_BUTTON.width, this.MENU_PLAY_BUTTON.height)) {
       this.startGame();
     }
-    // Options button (centered at CANVAS_SIZE/2, 250)
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 250, 200, 50)) {
+    // Options button
+    else if (this.isClickInButton(x, y, this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height)) {
       this.currentState = GameState.OPTIONS;
     }
   }
@@ -622,11 +963,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return;
     }
 
-    // Check if scramble button was clicked (updated y position)
+    // Check if scramble button was clicked
     if (
       this.scramblesRemaining > 0 &&
       !this.isScrambling &&
-      this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 50, 120, 35)
+      this.isClickInButton(x, y, this.PLAYING_SCRAMBLE_BUTTON.x, this.PLAYING_SCRAMBLE_BUTTON.y, this.PLAYING_SCRAMBLE_BUTTON.width, this.PLAYING_SCRAMBLE_BUTTON.height)
     ) {
       this.scrambleBoard();
       return;
@@ -644,43 +985,43 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleOptionsClick(x: number, y: number) {
-    // Sound toggle (centered at CANVAS_SIZE/2, 130)
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 130, 180, 40)) {
+    // Sound toggle
+    if (this.isClickInButton(x, y, this.OPTIONS_SOUND_BUTTON.x, this.OPTIONS_SOUND_BUTTON.y, this.OPTIONS_SOUND_BUTTON.width, this.OPTIONS_SOUND_BUTTON.height)) {
       this.settings.soundEnabled = !this.settings.soundEnabled;
     }
     // Difficulty buttons
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 200, 150, 40)) {
+    else if (this.isClickInButton(x, y, this.OPTIONS_EASY_BUTTON.x, this.OPTIONS_EASY_BUTTON.y, this.OPTIONS_EASY_BUTTON.width, this.OPTIONS_EASY_BUTTON.height)) {
       this.settings.difficulty = 'easy';
-    } else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 260, 150, 40)) {
+    } else if (this.isClickInButton(x, y, this.OPTIONS_NORMAL_BUTTON.x, this.OPTIONS_NORMAL_BUTTON.y, this.OPTIONS_NORMAL_BUTTON.width, this.OPTIONS_NORMAL_BUTTON.height)) {
       this.settings.difficulty = 'normal';
-    } else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 320, 150, 40)) {
+    } else if (this.isClickInButton(x, y, this.OPTIONS_HARD_BUTTON.x, this.OPTIONS_HARD_BUTTON.y, this.OPTIONS_HARD_BUTTON.width, this.OPTIONS_HARD_BUTTON.height)) {
       this.settings.difficulty = 'hard';
     }
     // Back button
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 30, 160, 40)) {
+    else if (this.isClickInButton(x, y, this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height)) {
       this.currentState = GameState.MENU;
     }
   }
 
   private handleGameOverClick(x: number, y: number) {
-    // Play again button (matches renderGameOver y=300)
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 300, 180, 50)) {
+    // Play again button
+    if (this.isClickInButton(x, y, this.GAME_OVER_PLAY_AGAIN_BUTTON.x, this.GAME_OVER_PLAY_AGAIN_BUTTON.y, this.GAME_OVER_PLAY_AGAIN_BUTTON.width, this.GAME_OVER_PLAY_AGAIN_BUTTON.height)) {
       this.startGame();
     }
-    // Main menu button (matches renderGameOver y=380)
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 380, 180, 50)) {
+    // Main menu button
+    else if (this.isClickInButton(x, y, this.GAME_OVER_MAIN_MENU_BUTTON.x, this.GAME_OVER_MAIN_MENU_BUTTON.y, this.GAME_OVER_MAIN_MENU_BUTTON.width, this.GAME_OVER_MAIN_MENU_BUTTON.height)) {
       this.currentState = GameState.MENU;
     }
   }
 
   private handleChooseUpgradeClick(x: number, y: number) {
     // Health upgrade button
-    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 225, 160, 50)) {
+    if (this.isClickInButton(x, y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.x, this.CHOOSE_UPGRADE_HEALTH_BUTTON.y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.width, this.CHOOSE_UPGRADE_HEALTH_BUTTON.height)) {
       this.playerHealth = Math.floor(this.playerHealth * this.UPGRADE_MULTIPLIER); // Health upgrade
       this.nextLevel();
     }
     // Damage upgrade button
-    else if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 295, 160, 50)) {
+    else if (this.isClickInButton(x, y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height)) {
       this.damageMultiplier *= this.UPGRADE_MULTIPLIER; // Damage upgrade
       this.nextLevel();
     }
@@ -744,6 +1085,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.damageMultiplier = 1.0; // Reset damage multiplier
+    this.nextAttackSprite = 1; // Reset attack alternation
     this.clearSelection();
     this.createGrid();
 
@@ -897,8 +1239,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const damageDealt = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
+    // Trigger attack animation
+    this.triggerAttackAnimation();
+
     // Clear selection
     this.clearSelection();
+  }
+
+  private triggerAttackAnimation() {
+    if (this.loadedAssets['attackSprites'] && !this.isAttacking) {
+      this.isAttacking = true;
+      this.attackAnimationFrame = 0;
+      this.attackAnimationTimer = 0;
+      // Alternate between attack 1 and 2
+      this.currentAttackSprite = this.nextAttackSprite;
+      this.nextAttackSprite = this.nextAttackSprite === 1 ? 2 : 1;
+    }
   }
 
   private gameOver() {
@@ -932,6 +1288,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
+    this.nextAttackSprite = 1; // Reset attack alternation for new level
 
     // Reset player health to maximum for new level
     this.applyDifficultySettings();
