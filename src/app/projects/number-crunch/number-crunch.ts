@@ -151,6 +151,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly ATTACK_FRAME_TIME = 100; // ms per frame (faster for attack)
   private readonly ATTACK_TOTAL_FRAMES = 4; // 4 frames per attack animation
 
+  // Running animation sprite (for upgrade screen)
+  private runningSprite = new Image();
+  private runningAnimationFrame = 0;
+  private runningAnimationTimer = 0;
+  private readonly RUNNING_FRAME_TIME = 120; // ms per frame (slightly faster than idle)
+  private readonly RUNNING_TOTAL_FRAMES = 6; // 6 frames for running animation
+
   // Asset loading system
   private assetsToLoad: { [key: string]: boolean } = {};
   private loadedAssets: { [key: string]: boolean } = {};
@@ -256,6 +263,20 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadRunningSprite(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.runningSprite.onload = () => {
+        this.loadedAssets['runningSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.runningSprite.onerror = () => {
+        reject(new Error('Failed to load running sprite'));
+      };
+      this.runningSprite.src = 'resources/images/projects/numberCrunch/Warrior_Run.png';
+    });
+  }
+
   private updateLoadingProgress() {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
@@ -272,10 +293,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['enemySprite'] = false;
     this.assetsToLoad['enemyAttackSprite'] = false;
     this.loadedAssets['enemyAttackSprite'] = false;
+    this.assetsToLoad['runningSprite'] = false;
+    this.loadedAssets['runningSprite'] = false;
 
     // Load all assets
     try {
-      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite()]);
+      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite(), this.loadRunningSprite()]);
       // Add more asset loading calls here as needed
       // await this.loadBackgroundMusic();
       // etc.
@@ -354,33 +377,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private update(deltaTime: number) {
-    if (this.currentState !== GameState.PLAYING) return;
-
-    // Handle scrambling animation
-    if (this.isScrambling) {
-      this.scrambleTimer += deltaTime;
-      if (this.scrambleTimer >= this.SCRAMBLE_ANIMATION_DURATION) {
-        // Animation duration
-        this.finishScrambling();
-      }
-      return; // Don't update other game logic while scrambling
-    }
-
-    // Update sprite animation
+    // Update all animations - they should run continuously for smooth visuals
+    // Update player idle animation
     this.animationTimer += deltaTime;
     if (this.animationTimer >= this.ANIMATION_FRAME_TIME) {
       this.animationTimer = 0;
       this.animationFrame = (this.animationFrame + 1) % 8; // 8 frames total
     }
 
-    // Update enemy sprite animation
+    // Update enemy idle animation
     this.enemyAnimationTimer += deltaTime;
     if (this.enemyAnimationTimer >= this.ENEMY_ANIMATION_FRAME_TIME) {
       this.enemyAnimationTimer = 0;
       this.enemyAnimationFrame = (this.enemyAnimationFrame + 1) % this.ENEMY_TOTAL_FRAMES; // 7 frames total
     }
 
-    // Update attack animation
+    // Update attack animation (completion logic runs on all screens)
     if (this.isAttacking) {
       this.attackAnimationTimer += deltaTime;
       if (this.attackAnimationTimer >= this.ATTACK_FRAME_TIME) {
@@ -398,7 +410,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Update enemy attack animation
+    // Update enemy attack animation (completion logic runs on all screens)
     if (this.isEnemyAttacking) {
       this.enemyAttackAnimationTimer += deltaTime;
       if (this.enemyAttackAnimationTimer >= this.ENEMY_ATTACK_FRAME_TIME) {
@@ -414,6 +426,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
           this.enemyAnimationTimer = 0;
         }
       }
+    }
+
+    // Update running animation (for upgrade screen) - runs on all screens
+    this.runningAnimationTimer += deltaTime;
+    if (this.runningAnimationTimer >= this.RUNNING_FRAME_TIME) {
+      this.runningAnimationTimer = 0;
+      this.runningAnimationFrame = (this.runningAnimationFrame + 1) % this.RUNNING_TOTAL_FRAMES; // 6 frames total
+    }
+
+    if (this.currentState !== GameState.PLAYING) return;
+
+    // Handle scrambling animation
+    if (this.isScrambling) {
+      this.scrambleTimer += deltaTime;
+      if (this.scrambleTimer >= this.SCRAMBLE_ANIMATION_DURATION) {
+        // Animation duration
+        this.finishScrambling();
+      }
+      return; // Don't update other game logic while scrambling
     }
 
     // Update enemy attack timer
@@ -510,6 +541,59 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Draw buttons
     this.drawButton('Play Game', this.MENU_PLAY_BUTTON.x, this.MENU_PLAY_BUTTON.y, this.MENU_PLAY_BUTTON.width, this.MENU_PLAY_BUTTON.height, '#4CAF50', '#45a049');
     this.drawButton('Options', this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height, '#2196F3', '#1976D2');
+
+    // Draw idle animations under the options button
+    const characterY = this.MENU_OPTIONS_BUTTON.y + 80; // Position below the options button
+    const playerX = this.CANVAS_SIZE / 2 - 40; // Left side, closer to center
+    const enemyX = this.CANVAS_SIZE / 2 + 40; // Right side, closer to center
+
+    // Draw player idle animation
+    if (this.loadedAssets['playerSprite'] && this.playerSprite && this.playerSprite.complete) {
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      this.ctx.drawImage(
+        this.playerSprite,
+        this.animationFrame * frameWidth, // source x
+        0, // source y (idle animation is at top)
+        frameWidth, // source width
+        frameHeight, // source height
+        playerX - scaledWidth / 2, // destination x (centered)
+        characterY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
+
+    // Draw enemy idle animation (flipped horizontally)
+    if (this.loadedAssets['enemySprite'] && this.enemySprite && this.enemySprite.complete) {
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      // Save context for flipping
+      this.ctx.save();
+
+      // Flip horizontally for enemy (faces left)
+      this.ctx.scale(-1, 1);
+      this.ctx.drawImage(
+        this.enemySprite,
+        this.enemyAnimationFrame * frameWidth, // source x
+        0, // source y (idle animation is at top)
+        frameWidth, // source width
+        frameHeight, // source height
+        -enemyX - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+        characterY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+
+      // Restore context
+      this.ctx.restore();
+    }
 
     // Instructions
     this.ctx.fillStyle = '#424242';
@@ -632,6 +716,26 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Draw buttons
     this.drawButton('Health +15%', this.CHOOSE_UPGRADE_HEALTH_BUTTON.x, this.CHOOSE_UPGRADE_HEALTH_BUTTON.y, this.CHOOSE_UPGRADE_HEALTH_BUTTON.width, this.CHOOSE_UPGRADE_HEALTH_BUTTON.height, '#FF9800', '#F57C00');
     this.drawButton('Damage +15%', this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width, this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height, '#FF5722', '#D84315');
+
+    // Draw running animation at bottom center
+    if (this.loadedAssets['runningSprite'] && this.runningSprite.complete) {
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      this.ctx.drawImage(
+        this.runningSprite,
+        this.runningAnimationFrame * frameWidth, // source x
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        this.CANVAS_SIZE / 2 - scaledWidth / 2, // destination x (centered)
+        (this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y + this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height / 2 + (this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT)) / 2 - scaledHeight / 2, // destination y (halfway between bottom of last button and bottom of screen)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
   }
 
   private drawButton(
@@ -1284,7 +1388,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private nextLevel() {
     this.level++;
-    this.score = 0;
     this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
