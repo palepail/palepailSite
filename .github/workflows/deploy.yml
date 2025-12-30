@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build -- --configuration production --base-href "/"
+        run: npx ng build --configuration production --base-href "/"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
