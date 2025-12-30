@@ -30,10 +30,15 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          echo "Dependencies installed"
+          ls node_modules/.bin/ng || echo "ng not found in node_modules/.bin"
 
       - name: Build
-        run: npm run build -- --configuration=production --base-href=/
+        run: |
+          echo "Starting build..."
+          ./node_modules/.bin/ng build --configuration=production --base-href=/
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
