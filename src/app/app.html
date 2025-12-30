@@ -1,6 +1,16 @@
 <div class="container">
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" (click)="toggleSidebar()" aria-label="Toggle navigation menu">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+    </button>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div class="sidebar-overlay" [class.sidebar-overlay-visible]="sidebarOpen" (click)="toggleSidebar()"></div>
+
     <!-- Left Navigation Bar -->
-    <nav class="sidebar">
+    <nav class="sidebar" [class.sidebar-open]="sidebarOpen">
         <div class="logo">
             <div class="profile-picture">
                 <img src="assets/images/profile-picture.jpg" alt="Profile Picture" />

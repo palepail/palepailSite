@@ -195,6 +195,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isDraggingBGM = false;
   private isDraggingSFX = false;
 
+  // Audio state
+  private bgmStarted = false;
+
   // Button positions and sizes (shared between drawing and click detection)
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
   private readonly MENU_OPTIONS_BUTTON = {
@@ -449,6 +452,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private startBGMAfterUserInteraction() {
+    if (!this.bgmStarted && this.loadedAssets['bgm'] && this.bgmAudio) {
+      this.bgmStarted = true;
+      this.startBGM();
+    }
+  }
+
   private stopBGM() {
     if (this.bgmAudio) {
       this.bgmAudio.pause();
@@ -521,8 +531,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
-        // Assets loaded, start BGM and transition to menu
-        this.startBGM();
+        // Assets loaded, transition to menu (don't start BGM yet - wait for user interaction)
         this.currentState = GameState.MENU;
       })
       .catch(() => {
@@ -1450,6 +1459,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   @HostListener('mousedown', ['$event'])
   onMouseDown(event: MouseEvent) {
+    // Start BGM after first user interaction (required for mobile browsers)
+    this.startBGMAfterUserInteraction();
+
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -1474,6 +1486,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleMenuClick(x: number, y: number) {
+    // Start BGM after first user interaction (required for mobile browsers)
+    this.startBGMAfterUserInteraction();
+
     // Play button
     if (
       this.isClickInButton(
@@ -1731,6 +1746,112 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   @HostListener('mouseup', ['$event'])
   onMouseUp(event: MouseEvent) {
+    // Stop slider dragging and play test sound for SFX slider
+    const wasDraggingSFX = this.isDraggingSFX;
+    this.isDraggingBGM = false;
+    this.isDraggingSFX = false;
+
+    // Play test sound when SFX slider is released
+    if (wasDraggingSFX && this.playerAttackSound1) {
+      this.playerAttackSound1.currentTime = 0; // Reset to beginning
+      this.playerAttackSound1.volume = this.settings.sfxVolume;
+      this.playerAttackSound1.play().catch(() => {}); // Ignore play errors
+    }
+
+    if (this.currentState !== GameState.PLAYING) return;
+    if (!this.isSelecting) return;
+
+    this.isSelecting = false;
+
+    // Check if selection matches target
+    if (this.selectedSum === this.targetNumber) {
+      this.processMatch();
+    } else {
+      // Clear selection
+      this.clearSelection();
+    }
+  }
+
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(event: TouchEvent) {
+    if (event.touches.length === 0) return;
+
+    const touch = event.touches[0];
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    // Only prevent default if touch is on the canvas (not on buttons)
+    if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+      event.preventDefault(); // Prevent scrolling only when touching canvas
+    }
+
+    // Start BGM after first user interaction (required for mobile browsers)
+    this.startBGMAfterUserInteraction();
+
+    switch (this.currentState) {
+      case GameState.MENU:
+        this.handleMenuClick(x, y);
+        break;
+      case GameState.PLAYING:
+        this.handleGameClick(x, y);
+        break;
+      case GameState.OPTIONS:
+        this.handleOptionsClick(x, y);
+        break;
+      case GameState.GAME_OVER:
+        this.handleGameOverClick(x, y);
+        break;
+      case GameState.CHOOSE_UPGRADE:
+        this.handleChooseUpgradeClick(x, y);
+        break;
+    }
+  }
+
+  @HostListener('touchmove', ['$event'])
+  onTouchMove(event: TouchEvent) {
+    if (event.touches.length === 0) return;
+
+    const touch = event.touches[0];
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    // Only prevent default if touch is on the canvas
+    if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+      event.preventDefault(); // Prevent scrolling only when touching canvas
+    }
+
+    // Handle slider dragging in options menu
+    if (this.currentState === GameState.OPTIONS) {
+      if (this.isDraggingBGM) {
+        const sliderX = this.CANVAS_SIZE / 2 - 100;
+        const relativeX = x - sliderX;
+        this.settings.bgmVolume = Math.max(0, Math.min(1, relativeX / 200));
+        this.updateBGMVolume();
+      } else if (this.isDraggingSFX) {
+        const sliderX = this.CANVAS_SIZE / 2 - 100;
+        const relativeX = x - sliderX;
+        this.settings.sfxVolume = Math.max(0, Math.min(1, relativeX / 200));
+        this.updateSFXVolume();
+      }
+      return;
+    }
+
+    // Handle grid selection in playing state
+    if (this.currentState !== GameState.PLAYING || !this.isSelecting) return;
+
+    const gridX = Math.floor(x / this.CELL_SIZE);
+    const gridY = Math.floor(y / this.CELL_SIZE);
+
+    if (gridX >= 0 && gridX < this.GRID_SIZE && gridY >= 0 && gridY < this.GRID_SIZE) {
+      this.selectionEnd = { x: gridX, y: gridY };
+      this.updateSelection();
+    }
+  }
+
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(event: TouchEvent) {
     // Stop slider dragging and play test sound for SFX slider
     const wasDraggingSFX = this.isDraggingSFX;
     this.isDraggingBGM = false;

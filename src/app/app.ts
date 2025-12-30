@@ -10,6 +10,7 @@ import { filter } from 'rxjs';
 })
 export class App {
   protected readonly title = signal('palepailSite');
+  sidebarOpen = false;
 
   constructor(private router: Router) {
     // Listen to navigation events
@@ -22,5 +23,13 @@ export class App {
 
   onNavClick(route: string) {
     console.log('Navigation link clicked:', route);
+    // Close sidebar on mobile when navigation occurs
+    if (window.innerWidth <= 768) {
+      this.sidebarOpen = false;
+    }
+  }
+
+  toggleSidebar() {
+    this.sidebarOpen = !this.sidebarOpen;
   }
 }
