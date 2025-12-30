@@ -43,6 +43,8 @@ jobs:
           echo "Starting build..."
           ./node_modules/.bin/ng build --configuration=production --base-href=/
           echo "Build completed successfully"
+          cp dist/palepailSite/browser/index.html dist/palepailSite/browser/404.html
+          echo "Copied index.html to 404.html for routing support"
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
