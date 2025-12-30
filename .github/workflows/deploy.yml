@@ -31,14 +31,18 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -e
+          echo "Installing dependencies..."
           npm ci
-          echo "Dependencies installed"
+          echo "Dependencies installed successfully"
           ls node_modules/.bin/ng || echo "ng not found in node_modules/.bin"
 
       - name: Build
         run: |
+          set -e
           echo "Starting build..."
           ./node_modules/.bin/ng build --configuration=production --base-href=/
+          echo "Build completed successfully"
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
