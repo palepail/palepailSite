@@ -41,7 +41,7 @@ jobs:
           ls -la
           npm run build -- --configuration=production --base-href=/
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: false
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
