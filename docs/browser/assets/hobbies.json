@@ -1,0 +1,78 @@
+{
+  "hobbies": [
+    {
+      "id": "music",
+      "name": "Music",
+      "description": "Playing musical instruments and exploring melodies",
+      "activities": [
+        {
+          "title": "Trumpet",
+          "description": "Learning to play the trumpet",
+          "image": "/resources/images/hobbies/music-trumpet.jpg",
+          "details": "Exploring brass instruments and basic music theory",
+          "skillLevel": "Novice",
+          "status": "Inactive"
+        },
+        {
+          "title": "Violin",
+          "description": "Practicing violin techniques and classical pieces",
+          "image": "/resources/images/hobbies/music-violin.jpg",
+          "details": "Working on bowing techniques and musical expression",
+          "skillLevel": "Novice",
+          "status": "Active"
+        }
+      ]
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "description": "Video games, competitive play, and gaming culture",
+      "activities": [
+        {
+          "title": "Street Fighter",
+          "description": "Competitive fighting game with deep mechanics",
+          "image": "/resources/images/hobbies/gaming-streetfighter.jpg",
+          "details": "Learning character matchups and execution",
+          "skillLevel": "Intermediate",
+          "status": "Inactive"
+        },
+        {
+          "title": "Guilty Gear",
+          "description": "2D fighting game with unique combat system",
+          "image": "/resources/images/hobbies/gaming-guiltygear.jpg",
+          "details": "Exploring the Dustloop system and character diversity",
+          "skillLevel": "Intermediate",
+          "status": "Inactive"
+        }
+      ]
+    },
+    {
+      "id": "board-games",
+      "name": "Board & Card Games",
+      "description": "Strategic games and tabletop entertainment",
+      "activities": [
+        {
+          "title": "Magic: The Gathering",
+          "description": "Collectible card game with strategic depth",
+          "image": "/resources/images/hobbies/board-magic.jpg",
+          "details": "Building decks and learning card interactions",
+          "status": "Inactive"
+        }
+      ]
+    },
+    {
+      "id": "science-technical",
+      "name": "Science & Technical",
+      "description": "Exploring scientific concepts and technical skills",
+      "activities": [
+        {
+          "title": "Metallurgy",
+          "description": "Study of metals and their properties",
+          "image": "/resources/images/hobbies/science-metallurgy.jpg",
+          "details": "Smelting and casting aluminum",
+          "status": "Inactive"
+        }
+      ]
+    }
+  ]
+}
