@@ -158,6 +158,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly RUNNING_FRAME_TIME = 120; // ms per frame (slightly faster than idle)
   private readonly RUNNING_TOTAL_FRAMES = 6; // 6 frames for running animation
 
+  // Sound effects
+  private playerAttackSound1 = new Audio();
+  private playerAttackSound2 = new Audio();
+  private enemyAttackSound = new Audio();
+
   // Asset loading system
   private assetsToLoad: { [key: string]: boolean } = {};
   private loadedAssets: { [key: string]: boolean } = {};
@@ -277,6 +282,43 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadSoundEffects(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let loadedCount = 0;
+      const totalSounds = 3;
+
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalSounds) {
+          this.loadedAssets['soundEffects'] = true;
+          this.updateLoadingProgress();
+          resolve();
+        }
+      };
+
+      const handleError = () => {
+        reject(new Error('Failed to load sound effects'));
+      };
+
+      // Player attack sounds
+      this.playerAttackSound1.oncanplaythrough = checkComplete;
+      this.playerAttackSound1.onerror = handleError;
+      this.playerAttackSound1.src = 'resources/audio/projects/numberCrunch/Sword Attack 2.wav';
+      this.playerAttackSound1.volume = 0.3; // Set reasonable volume
+
+      this.playerAttackSound2.oncanplaythrough = checkComplete;
+      this.playerAttackSound2.onerror = handleError;
+      this.playerAttackSound2.src = 'resources/audio/projects/numberCrunch/Sword Attack 3.wav';
+      this.playerAttackSound2.volume = 0.3; // Set reasonable volume
+
+      // Enemy attack sound
+      this.enemyAttackSound.oncanplaythrough = checkComplete;
+      this.enemyAttackSound.onerror = handleError;
+      this.enemyAttackSound.src = 'resources/audio/projects/numberCrunch/Torch Attack Strike 1.wav';
+      this.enemyAttackSound.volume = 0.3; // Set reasonable volume
+    });
+  }
+
   private updateLoadingProgress() {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
@@ -295,10 +337,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['enemyAttackSprite'] = false;
     this.assetsToLoad['runningSprite'] = false;
     this.loadedAssets['runningSprite'] = false;
+    this.assetsToLoad['soundEffects'] = false;
+    this.loadedAssets['soundEffects'] = false;
 
     // Load all assets
     try {
-      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite(), this.loadRunningSprite()]);
+      await Promise.all([this.loadPlayerSprite(), this.loadAttackSprites(), this.loadEnemySprite(), this.loadEnemyAttackSprite(), this.loadRunningSprite(), this.loadSoundEffects()]);
       // Add more asset loading calls here as needed
       // await this.loadBackgroundMusic();
       // etc.
@@ -458,6 +502,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.isEnemyAttacking = true;
         this.enemyAttackAnimationFrame = 0;
         this.enemyAttackAnimationTimer = 0;
+
+        // Play enemy attack sound effect
+        if (this.settings.soundEnabled && this.loadedAssets['soundEffects'] && this.enemyAttackSound) {
+          this.enemyAttackSound.currentTime = 0; // Reset to beginning
+          this.enemyAttackSound.play().catch(() => {}); // Ignore play errors
+        }
       }
 
       this.playerHealth = Math.max(0, this.playerHealth - this.ENEMY_ATTACK_DAMAGE);
@@ -1358,6 +1408,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Alternate between attack 1 and 2
       this.currentAttackSprite = this.nextAttackSprite;
       this.nextAttackSprite = this.nextAttackSprite === 1 ? 2 : 1;
+
+      // Play attack sound effect
+      if (this.settings.soundEnabled && this.loadedAssets['soundEffects']) {
+        if (this.currentAttackSprite === 1 && this.playerAttackSound1) {
+          this.playerAttackSound1.currentTime = 0; // Reset to beginning
+          this.playerAttackSound1.play().catch(() => {}); // Ignore play errors
+        } else if (this.currentAttackSprite === 2 && this.playerAttackSound2) {
+          this.playerAttackSound2.currentTime = 0; // Reset to beginning
+          this.playerAttackSound2.play().catch(() => {}); // Ignore play errors
+        }
+      }
     }
   }
 
