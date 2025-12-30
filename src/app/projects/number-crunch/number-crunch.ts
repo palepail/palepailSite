@@ -459,6 +459,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private startBGMAutomatically() {
+    // Start BGM automatically when assets are loaded (fallback for when user interaction isn't detected)
+    if (!this.bgmStarted && this.loadedAssets['bgm'] && this.bgmAudio) {
+      this.bgmStarted = true;
+      this.startBGM();
+    }
+  }
+
   private stopBGM() {
     if (this.bgmAudio) {
       this.bgmAudio.pause();
@@ -528,11 +536,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.initializeGame();
     this.startGameLoop();
 
+    // Add visibility change listener to handle screen off/on
+    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
-        // Assets loaded, transition to menu (don't start BGM yet - wait for user interaction)
+        // Assets loaded, transition to menu and start BGM
         this.currentState = GameState.MENU;
+        this.startBGMAutomatically();
       })
       .catch(() => {
         // If loading fails, still start the game
@@ -540,7 +552,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
       });
   }
 
+  private handleVisibilityChange() {
+    if (document.hidden) {
+      // Page is hidden (screen off), pause BGM
+      if (this.bgmAudio && !this.bgmAudio.paused) {
+        this.bgmAudio.pause();
+      }
+    } else {
+      // Page is visible again, resume BGM if it was playing and not muted
+      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.bgmStarted) {
+        this.bgmAudio.play().catch(() => {}); // Ignore play errors
+      }
+    }
+  }
+
   ngOnDestroy() {
+    // Remove visibility change listener
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+
     // Stop game loop
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);

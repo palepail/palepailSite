@@ -166,20 +166,43 @@
 }
 
 @media (max-width: 768px) {
+  .game-container {
+    max-width: none;  /* Remove max-width constraint */
+    margin: 0;       /* Remove auto margins */
+    padding: 1rem 0; /* Vertical padding only */
+    min-height: 100vh;
+    width: 100%;     /* Take full width */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch; /* Stretch to fill full width */
+  }
+
   .game-area {
     grid-template-columns: 1fr;
     gap: 1rem;
+    width: 100%;
+    padding: 0;
   }
 
   .game-container h1 {
     font-size: 2rem;
+    margin-bottom: 1rem;
   }
 
   .game-board {
-    padding: 1rem;
+    padding: 3rem 0.5em 0.5em 0.5em; /* Top padding for mute button, minimal sides/bottom */
+    position: relative;
+    max-width: 464px; /* Fit canvas (400px) + padding (32px left + 32px right) */
+    width: 100%;
+  }
+
+  .mute-controls {
+    top: 0.5rem;
+    right: 0.5rem;
   }
 
   .game-info {
-    padding: 1.5rem;
+    padding: 1rem;
   }
 }

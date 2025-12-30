@@ -337,7 +337,7 @@ h1 {
 
     .main-content {
         margin-left: 0;
-        padding: 2rem 1.5rem;
+        padding: 0;
         padding-top: 4rem; /* Make room for hamburger button */
     }
 
