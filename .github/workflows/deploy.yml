@@ -33,15 +33,9 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: |
-          echo "Building application..."
-          echo "Node version: $(node --version)"
-          echo "NPM version: $(npm --version)"
-          echo "Working directory: $(pwd)"
-          ls -la
-          npm run build -- --configuration=production --base-href=/
+        run: npm run build -- --configuration=production --base-href=/
         env:
-          CI: false
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
