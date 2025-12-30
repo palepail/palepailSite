@@ -26,13 +26,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
-        run: npm run build -- --configuration=production --base-href=/
+        run: |
+          npm install -g @angular/cli
+          ng build --configuration production --base-href /
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
