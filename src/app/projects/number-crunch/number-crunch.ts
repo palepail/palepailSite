@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener, ChangeDetectorRef } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -116,6 +116,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game loop
   private animationFrameId: number = 0;
 
+  constructor(private cdr: ChangeDetectorRef) {}
+
   ngOnInit() {
     this.initializeGame();
     this.startGameLoop();
@@ -194,10 +196,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Check win/lose conditions
     if (this.playerHealth <= 0) {
       this.currentState = GameState.GAME_OVER;
+      this.cdr.detectChanges(); // Force UI update to hide restart button immediately
     }
     if (this.enemyHealth <= 0) {
       this.nextTarget = this.calculateNextTarget(); // Calculate next target once
       this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
+      this.cdr.detectChanges(); // Force UI update
     }
   }
 
