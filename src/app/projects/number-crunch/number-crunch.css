@@ -207,3 +207,21 @@
     padding: 1rem 0; /* Vertical padding only */
   }
 }
+
+@media (min-width: 769px) and (max-width: 1600px) {
+  .game-container {
+    max-width: calc(100vw - 280px); /* Account for sidebar (250px) + some buffer */
+    margin-left: 250px; /* Push content to the right of sidebar */
+    margin-right: 0;
+    padding: 1rem; /* Reduce padding on medium screens */
+  }
+
+  .game-area {
+    grid-template-columns: 1fr; /* Stack vertically on medium screens */
+    gap: 1rem;
+  }
+
+  .game-board {
+    padding: 1.5rem;
+  }
+}

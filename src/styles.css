@@ -370,13 +370,15 @@ h1 {
     }
 }
 
-/* Additional override for Number Crunch page - outside media query for higher priority */
-body.number-crunch-active .main-content {
+/* Additional override for Number Crunch page - only on mobile */
+@media screen and (max-width: 768px) {
+  body.number-crunch-active .main-content {
     padding: 0 !important;
     padding-top: 4rem !important;
     margin: 0 !important;
     width: 100vw !important;
     max-width: 100vw !important;
+  }
 }
 
 /* Categories and Cards */
