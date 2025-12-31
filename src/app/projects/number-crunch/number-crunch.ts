@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { LeaderboardService } from '../../services/leaderboard.service';
 
 interface GameCell {
@@ -38,12 +39,13 @@ interface GameSettings {
 
 @Component({
   selector: 'app-number-crunch',
-  imports: [RouterLink, CommonModule],
+  imports: [RouterLink, CommonModule, FormsModule],
   templateUrl: './number-crunch.html',
   styleUrl: './number-crunch.css',
 })
 export class NumberCrunch implements OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('mobileInput') mobileInput!: ElementRef<HTMLInputElement>;
   private ctx!: CanvasRenderingContext2D;
 
   // Game state
@@ -70,14 +72,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Combat constants
   private readonly ENEMY_ATTACK_DAMAGE = 8;
   private readonly ENEMY_ATTACK_INTERVAL = 8000; // milliseconds
-  private readonly PLAYER_ATTACK_DAMAGE = 10;
 
   // Scramble constants
   private readonly SCRAMBLES_PER_LEVEL = 3;
   private readonly SCRAMBLE_ANIMATION_DURATION = 2000; // milliseconds
-
-  // Upgrade constants
-  private readonly UPGRADE_MULTIPLIER = 1.15; // 15% increase
 
   // Scoring constants
   private readonly POINTS_PER_TILE = 10;
@@ -116,6 +114,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Upgrade system
   damageMultiplier = 1.0;
+  damageUpgradeCount = 0; // Track damage upgrades for diminishing returns
+  healthUpgradeCount = 0; // Track health upgrades for diminishing returns
 
   // Selection state
   isSelecting = false;
@@ -215,7 +215,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isLeaderboardAvailable = true;
 
   // Leaderboard name input
-  private leaderboardNameInput = '';
+  leaderboardNameInput = '';
   private isLeaderboardInputFocused = false;
   private pendingLeaderboardScore = 0;
 
@@ -1070,7 +1070,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Note: Each render method now sets its own background, so no global clear needed
 
     // Ensure BGM is playing for all game states (except loading)
-    if (this.currentState !== GameState.LOADING && this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
+    if (
+      this.currentState !== GameState.LOADING &&
+      this.bgmAudio &&
+      this.bgmAudio.paused &&
+      !this.settings.muted
+    ) {
       this.bgmAudio.play().catch(() => {
         // If play fails, it will be retried on next render
       });
@@ -1477,9 +1482,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 165);
 
+    // Calculate health upgrade percentage with diminishing returns
+    const healthBaseMultiplier = 1.15;
+    const healthDiminishingFactor = 0.03; // 1% reduction per upgrade (slower)
+    const healthMinMultiplier = 1.05;
+    const healthEffectiveMultiplier = Math.max(
+      healthMinMultiplier,
+      healthBaseMultiplier * (1 - healthDiminishingFactor * this.healthUpgradeCount)
+    );
+    const healthPercent = Math.round((healthEffectiveMultiplier - 1) * 100);
+
     // Draw buttons
     this.drawButton(
-      'Health +15%',
+      `Health +${healthPercent}%`,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.x,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.y,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
@@ -1487,8 +1502,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#FF9800',
       '#F57C00'
     );
+    // Calculate damage upgrade percentage with diminishing returns
+    const baseMultiplier = 1.15;
+    const diminishingFactor = 0.03; // 1% reduction per upgrade (slower)
+    const minMultiplier = 1.05;
+    const effectiveMultiplier = Math.max(
+      minMultiplier,
+      baseMultiplier * (1 - diminishingFactor * this.damageUpgradeCount)
+    );
+    const damagePercent = Math.round((effectiveMultiplier - 1) * 100);
+
     this.drawButton(
-      'Damage +15%',
+      `Damage +${damagePercent}%`,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
@@ -1733,11 +1758,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Check if clicking on input field (focus it)
     if (x >= 50 && x <= this.CANVAS_SIZE - 50 && y >= 240 && y <= 280) {
       this.isLeaderboardInputFocused = true;
+      // Focus the mobile input for virtual keyboard
+      if (this.mobileInput) {
+        setTimeout(() => {
+          this.mobileInput.nativeElement.focus();
+        }, 10);
+      }
       return;
     }
 
     // Clicking elsewhere defocuses the input
     this.isLeaderboardInputFocused = false;
+    // Blur the mobile input
+    if (this.mobileInput) {
+      this.mobileInput.nativeElement.blur();
+    }
 
     // Submit button
     if (
@@ -2357,7 +2392,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
       )
     ) {
       this.playButtonSound();
-      this.playerHealth = Math.floor(this.playerHealth * this.UPGRADE_MULTIPLIER); // Health upgrade
+      // Health upgrade with diminishing returns
+      this.healthUpgradeCount++;
+      const baseMultiplier = 1.15; // 15% base increase
+      const diminishingFactor = 0.01; // 1% reduction per upgrade (slower)
+      const minMultiplier = 1.05; // 5% minimum increase
+      const effectiveMultiplier = Math.max(
+        minMultiplier,
+        baseMultiplier * (1 - diminishingFactor * (this.healthUpgradeCount - 1))
+      );
+      this.playerHealth = Math.floor(this.playerHealth * effectiveMultiplier);
       this.nextLevel();
     }
     // Damage upgrade button
@@ -2372,7 +2416,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
       )
     ) {
       this.playButtonSound();
-      this.damageMultiplier *= this.UPGRADE_MULTIPLIER; // Damage upgrade
+      // Damage upgrade with diminishing returns
+      this.damageUpgradeCount++;
+      const baseMultiplier = 1.15; // 15% base increase
+      const diminishingFactor = 0.01; // 1% reduction per upgrade (slower)
+      const minMultiplier = 1.05; // 5% minimum increase
+      const effectiveMultiplier = Math.max(
+        minMultiplier,
+        baseMultiplier * (1 - diminishingFactor * (this.damageUpgradeCount - 1))
+      );
+      this.damageMultiplier *= effectiveMultiplier;
       this.nextLevel();
     }
   }
@@ -2604,6 +2657,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.damageMultiplier = 1.0; // Reset damage multiplier
+    this.damageUpgradeCount = 0; // Reset damage upgrade counter
+    this.healthUpgradeCount = 0; // Reset health upgrade counter
     this.nextAttackSprite = 1; // Reset attack alternation
     this.clearSelection();
     this.createGrid();
@@ -2870,5 +2925,30 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.updateBGMVolume();
     this.updateSFXVolume();
     this.cdr.markForCheck();
+  }
+
+  // Mobile input methods for virtual keyboard support
+  getMobileInputPosition() {
+    // Position the input over the canvas input area
+    const canvasRect = this.canvas.nativeElement.getBoundingClientRect();
+    return {
+      left: canvasRect.left + 50,
+      top: canvasRect.top + 240,
+      width: this.CANVAS_SIZE - 100,
+      height: 40,
+    };
+  }
+
+  onMobileInputChange(event: any) {
+    // Update the canvas display when mobile input changes
+    this.leaderboardNameInput = event.target.value;
+  }
+
+  onMobileInputFocus() {
+    this.isLeaderboardInputFocused = true;
+  }
+
+  onMobileInputBlur() {
+    this.isLeaderboardInputFocused = false;
   }
 }

@@ -243,3 +243,25 @@
     padding: 1.5rem;
   }
 }
+
+/* Mobile input for virtual keyboard support */
+.mobile-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: transparent;
+  caret-color: transparent;
+}
+
+.mobile-input.active {
+  opacity: 1;
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #2196F3;
+  border-radius: 4px;
+  color: #333;
+  caret-color: #333;
+}

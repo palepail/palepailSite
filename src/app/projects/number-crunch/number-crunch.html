@@ -13,6 +13,23 @@
       </div>
       <canvas #gameCanvas class="game-canvas" tabindex="0"></canvas>
 
+      <!-- Hidden input for mobile keyboard support -->
+      <input
+        #mobileInput
+        type="text"
+        class="mobile-input"
+        maxlength="10"
+        [class.active]="currentState === 'leaderboard_name_input'"
+        [style.left.px]="getMobileInputPosition().left"
+        [style.top.px]="getMobileInputPosition().top"
+        [style.width.px]="getMobileInputPosition().width"
+        [style.height.px]="getMobileInputPosition().height"
+        [(ngModel)]="leaderboardNameInput"
+        (input)="onMobileInputChange($event)"
+        (focus)="onMobileInputFocus()"
+        (blur)="onMobileInputBlur()"
+      />
+
       <div class="game-controls" *ngIf="currentState === 'playing'">
         <button class="restart-btn" (click)="restartGame()">Restart Game</button>
       </div>
