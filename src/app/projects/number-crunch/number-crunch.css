@@ -254,6 +254,9 @@
   font-size: 18px;
   color: transparent;
   caret-color: transparent;
+  direction: ltr !important; /* Force left-to-right direction */
+  text-align: left !important; /* Force left alignment */
+  unicode-bidi: bidi-override !important; /* Override any RTL behavior */
 }
 
 .mobile-input.active {
