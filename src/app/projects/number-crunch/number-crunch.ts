@@ -174,12 +174,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private playerDeathSound4 = new Audio(); // Grunt Uoe 3
   private enemyDeathSound = new Audio(); // Grunt Ehh 1
   private upgradeSound = new Audio(); // harpsichord_positive_long
+  private buttonSound = new Audio(); // Wood Block1
   private bgmAudio = new Audio();
 
   // Asset loading system
   private assetsToLoad: { [key: string]: boolean } = {};
   private loadedAssets: { [key: string]: boolean } = {};
   private loadingProgress = 0;
+  private bgmStarted = false;
 
   // Scramble system
   scramblesRemaining = 3;
@@ -417,6 +419,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.upgradeSound.oncanplaythrough = checkComplete;
       this.upgradeSound.onerror = handleError;
       this.upgradeSound.src = 'resources/audio/projects/numberCrunch/harpsichord_positive_long.wav';
+
+      // Button sound effect
+      this.buttonSound.oncanplaythrough = checkComplete;
+      this.buttonSound.onerror = handleError;
+      this.buttonSound.src = 'resources/audio/projects/numberCrunch/Wood Block1.ogg';
     });
   }
 
@@ -425,6 +432,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.bgmAudio.oncanplaythrough = () => {
         this.loadedAssets['bgm'] = true;
         this.updateLoadingProgress();
+        // Start BGM automatically when loaded
+        this.startBGMAutomatically();
         resolve();
       };
       this.bgmAudio.onerror = () => {
@@ -441,6 +450,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadingProgress = totalAssets > 0 ? (loadedCount / totalAssets) * 100 : 100;
   }
 
+  private playButtonSound() {
+    if (this.buttonSound && !this.settings.muted) {
+      this.buttonSound.currentTime = 0; // Reset to beginning
+      this.buttonSound.volume = this.settings.sfxVolume;
+      this.buttonSound.play().catch(() => {}); // Ignore play errors
+    }
+  }
+
   private startBGM() {
     if (this.loadedAssets['bgm'] && this.bgmAudio) {
       this.updateBGMVolume();
@@ -452,9 +469,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private startBGMAutomatically() {
-    // This method is kept for potential future use but not currently called
-    if (this.loadedAssets['bgm'] && this.bgmAudio) {
+    if (!this.bgmStarted && this.loadedAssets['bgm'] && this.bgmAudio) {
       this.startBGM();
+      this.bgmStarted = true;
     }
   }
 
@@ -530,6 +547,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Add visibility change listener to handle screen off/on
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
 
+    // Add window focus/blur listeners to pause BGM when window loses focus
+    window.addEventListener('focus', this.handleWindowFocus.bind(this));
+    window.addEventListener('blur', this.handleWindowBlur.bind(this));
+
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
@@ -557,9 +578,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private handleWindowFocus() {
+    // Window regained focus, resume BGM if it was playing and not muted
+    if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
+      this.bgmAudio.play().catch(() => {}); // Ignore play errors
+    }
+  }
+
+  private handleWindowBlur() {
+    // Window lost focus, pause BGM
+    if (this.bgmAudio && !this.bgmAudio.paused) {
+      this.bgmAudio.pause();
+    }
+  }
+
   ngOnDestroy() {
     // Remove visibility change listener
     document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+
+    // Remove window focus/blur listeners
+    window.removeEventListener('focus', this.handleWindowFocus.bind(this));
+    window.removeEventListener('blur', this.handleWindowBlur.bind(this));
 
     // Stop game loop
     if (this.animationFrameId) {
@@ -610,6 +649,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.upgradeSound) {
       this.upgradeSound.pause();
       this.upgradeSound.currentTime = 0;
+    }
+    if (this.buttonSound) {
+      this.buttonSound.pause();
+      this.buttonSound.currentTime = 0;
     }
   }
 
@@ -1514,6 +1557,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_PLAY_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.startGame();
     }
     // Options button
@@ -1527,6 +1571,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_OPTIONS_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.currentState = GameState.OPTIONS;
     }
   }
@@ -1593,6 +1638,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_EASY_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.settings.difficulty = 'easy';
     } else if (
       this.isClickInButton(
@@ -1604,6 +1650,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_NORMAL_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.settings.difficulty = 'normal';
     } else if (
       this.isClickInButton(
@@ -1615,6 +1662,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_HARD_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.settings.difficulty = 'hard';
     }
     // Back button
@@ -1628,6 +1676,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_BACK_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.currentState = GameState.MENU;
     }
   }
@@ -1644,6 +1693,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.GAME_OVER_PLAY_AGAIN_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.startGame();
     }
     // Main menu button
@@ -1657,6 +1707,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.GAME_OVER_MAIN_MENU_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.currentState = GameState.MENU;
     }
   }
@@ -1673,6 +1724,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CHOOSE_UPGRADE_HEALTH_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.playerHealth = Math.floor(this.playerHealth * this.UPGRADE_MULTIPLIER); // Health upgrade
       this.nextLevel();
     }
@@ -1687,6 +1739,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height
       )
     ) {
+      this.playButtonSound();
       this.damageMultiplier *= this.UPGRADE_MULTIPLIER; // Damage upgrade
       this.nextLevel();
     }
@@ -1801,6 +1854,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     switch (this.currentState) {
+      case GameState.MENU:
+        this.handleMenuClick(x, y);
+        break;
       case GameState.PLAYING:
         this.handleGameClick(x, y);
         break;

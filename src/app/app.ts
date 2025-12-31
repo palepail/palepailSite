@@ -11,6 +11,7 @@ import { filter } from 'rxjs';
 export class App {
   protected readonly title = signal('palepailSite');
   sidebarOpen = false;
+  isNumberCrunchPage = false;
 
   constructor(private router: Router) {
     // Listen to navigation events
@@ -18,6 +19,18 @@ export class App {
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
       console.log('Navigation event:', event.url);
+      this.isNumberCrunchPage = event.url.includes('number-crunch');
+      console.log('isNumberCrunchPage:', this.isNumberCrunchPage);
+      
+      // Add/remove class from body for global styling
+      if (this.isNumberCrunchPage) {
+        document.body.classList.add('number-crunch-active');
+        console.log('Added number-crunch-active class to body');
+      } else {
+        document.body.classList.remove('number-crunch-active');
+        console.log('Removed number-crunch-active class from body');
+      }
+      console.log('Body classes:', document.body.className);
     });
   }
 

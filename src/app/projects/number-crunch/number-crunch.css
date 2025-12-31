@@ -167,11 +167,11 @@
 
 @media (max-width: 768px) {
   .game-container {
-    max-width: none; /* Remove max-width constraint */
-    margin: 0; /* Remove auto margins */
-    padding: 1rem 0; /* Vertical padding only */
+    max-width: none !important; /* Remove max-width constraint */
+    margin: 0 !important; /* Remove auto margins */
+    padding: 0 !important; /* Remove all padding for full screen */
     min-height: 100vh;
-    width: 100%; /* Take full width */
+    width: 100vw !important; /* Take full viewport width */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -192,7 +192,7 @@
   }
 
   .game-board {
-    padding: 3.5rem 0.5em 0.5em 0.5em; /* Top padding for mute button, minimal sides/bottom */
+    padding: 3.5rem 0.5em 0.5em 0.5em; /* Top padding for mute button, small horizontal padding */
     position: relative;
     max-width: 464px; /* Fit canvas (400px) + padding (32px left + 32px right) */
     width: 100%;
@@ -204,6 +204,6 @@
   }
 
   .game-info {
-    padding: 1rem;
+    padding: 1rem 0; /* Vertical padding only */
   }
 }
