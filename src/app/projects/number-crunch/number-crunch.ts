@@ -99,6 +99,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   grid: GameCell[][] = [];
   targetNumber = 10;
   score = 0;
+  lastHealthBonus = 0; // Track the last health bonus awarded
   level = 1;
   playerHealth = this.MAX_HEALTH;
   enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
@@ -941,6 +942,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.enemyDeathSound.currentTime = 0; // Reset to beginning
         this.enemyDeathSound.play().catch(() => {}); // Ignore play errors
       }
+
+      // Calculate health bonus for remaining health
+      const healthPercentage = this.playerHealth / this.MAX_HEALTH;
+      const healthBonus = Math.floor(this.score * healthPercentage * 0.5); // 50% of current score as bonus
+      this.score += healthBonus;
+      this.lastHealthBonus = healthBonus;
+
       this.nextTarget = this.calculateNextTarget(); // Calculate next target once
       this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
       this.cdr.detectChanges(); // Force UI update
@@ -2277,6 +2285,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private gameOver() {
     // Reset game
     this.score = 0;
+    this.lastHealthBonus = 0;
     this.level = 1;
     this.targetNumber = 10; // Reset target to initial value
     this.playerHealth = this.MAX_HEALTH;

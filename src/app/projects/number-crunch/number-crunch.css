@@ -198,6 +198,13 @@
     width: 100%;
   }
 
+  .game-canvas {
+    /* Auto-scale canvas to fit mobile screens like Samsung S25 Edge */
+    transform: scale(min(1, calc(100vw / 450px))); /* Scale based on viewport width */
+    transform-origin: top center; /* Scale from top center */
+    margin: 0 auto; /* Center the scaled canvas */
+  }
+
   .mute-controls {
     top: 0.1rem;
     right: 0.5rem;
