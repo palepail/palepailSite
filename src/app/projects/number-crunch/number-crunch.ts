@@ -182,6 +182,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadedAssets: { [key: string]: boolean } = {};
   private loadingProgress = 0;
   private bgmStarted = false;
+  private previousState: GameState = GameState.LOADING;
+  private bgmFadeInProgress = false;
+  private bgmFadeOutProgress = false;
 
   // Scramble system
   scramblesRemaining = 3;
@@ -488,6 +491,77 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private updateBGMVolumeForState() {
+    if (this.bgmAudio) {
+      // Detect state transitions
+      const stateChanged = this.previousState !== this.currentState;
+      this.previousState = this.currentState;
+
+      // Determine target volume
+      const shouldBeMuted = this.currentState === GameState.MENU || this.settings.muted;
+      const targetVolume = shouldBeMuted ? 0 : this.settings.bgmVolume;
+
+      // Handle fade transitions
+      if (stateChanged) {
+        if (this.currentState === GameState.PLAYING && this.previousState === GameState.MENU) {
+          // Fade in when starting game
+          this.startBGMFade(targetVolume, 'in');
+        } else if (this.currentState === GameState.MENU && this.previousState === GameState.PLAYING) {
+          // Fade out when returning to menu
+          this.startBGMFade(0, 'out');
+        } else {
+          // Immediate change for other transitions
+          this.bgmAudio.volume = targetVolume;
+          this.bgmFadeInProgress = false;
+          this.bgmFadeOutProgress = false;
+        }
+      } else {
+        // Continue ongoing fades
+        this.continueBGMFade();
+      }
+    }
+  }
+
+  private startBGMFade(targetVolume: number, direction: 'in' | 'out') {
+    if (direction === 'in') {
+      this.bgmFadeInProgress = true;
+      this.bgmFadeOutProgress = false;
+    } else {
+      this.bgmFadeOutProgress = true;
+      this.bgmFadeInProgress = false;
+    }
+    this.bgmFadeTarget = targetVolume;
+    this.bgmFadeStartVolume = this.bgmAudio!.volume;
+    this.bgmFadeProgress = 0;
+  }
+
+  private bgmFadeTarget = 0;
+  private bgmFadeStartVolume = 0;
+  private bgmFadeProgress = 0;
+
+  private continueBGMFade() {
+    if (!this.bgmAudio) return;
+
+    if (this.bgmFadeInProgress || this.bgmFadeOutProgress) {
+      this.bgmFadeProgress += 0.02; // Adjust fade speed here (higher = faster)
+
+      if (this.bgmFadeProgress >= 1) {
+        // Fade complete
+        this.bgmAudio.volume = this.bgmFadeTarget;
+        this.bgmFadeInProgress = false;
+        this.bgmFadeOutProgress = false;
+      } else {
+        // Interpolate volume
+        const t = this.easeInOutQuad(this.bgmFadeProgress);
+        this.bgmAudio.volume = this.bgmFadeStartVolume + (this.bgmFadeTarget - this.bgmFadeStartVolume) * t;
+      }
+    }
+  }
+
+  private easeInOutQuad(t: number): number {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
   private updateSFXVolume() {
     const volume = this.settings.muted ? 0 : this.settings.sfxVolume;
     if (this.playerAttackSound1) this.playerAttackSound1.volume = volume;
@@ -700,6 +774,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private update(deltaTime: number) {
+    // Update BGM volume based on current state
+    this.updateBGMVolumeForState();
+
     // Update all animations - they should run continuously for smooth visuals
     // Update player idle animation
     this.animationTimer += deltaTime;
@@ -1964,6 +2041,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Update audio volumes
     this.updateBGMVolume();
     this.updateSFXVolume();
+
+    // Start BGM when game begins (if not already playing)
+    if (this.bgmAudio && this.bgmAudio.paused) {
+      this.startBGM();
+    }
 
     // Start playing
     this.currentState = GameState.PLAYING;
