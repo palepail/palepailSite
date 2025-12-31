@@ -1724,6 +1724,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#333';
     this.ctx.font = '18px Arial';
     this.ctx.textAlign = 'left';
+    this.ctx.direction = 'ltr';  // Ensure left-to-right text direction
     const displayText = this.leaderboardNameInput || 'Type your name here...';
     this.ctx.fillText(displayText, 60, 265);
 
