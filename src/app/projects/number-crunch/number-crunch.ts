@@ -2943,6 +2943,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   onMobileInputChange(event: any) {
     // Update the canvas display when mobile input changes
     this.leaderboardNameInput = event.target.value;
+    // Ensure cursor stays at the end after input changes
+    setTimeout(() => {
+      if (this.mobileInput) {
+        const input = this.mobileInput.nativeElement;
+        input.setSelectionRange(this.leaderboardNameInput.length, this.leaderboardNameInput.length);
+      }
+    }, 0);
   }
 
   onMobileInputFocus() {
