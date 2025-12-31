@@ -185,6 +185,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private previousState: GameState = GameState.LOADING;
   private bgmFadeInProgress = false;
   private bgmFadeOutProgress = false;
+  private windowHasFocus = true;
 
   // Scramble system
   scramblesRemaining = 3;
@@ -454,7 +455,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private playButtonSound() {
-    if (this.buttonSound && !this.settings.muted) {
+    if (this.buttonSound && !this.settings.muted && this.windowHasFocus) {
       this.buttonSound.currentTime = 0; // Reset to beginning
       this.buttonSound.volume = this.settings.sfxVolume;
       this.buttonSound.play().catch(() => {}); // Ignore play errors
@@ -653,6 +654,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleWindowFocus() {
+    this.windowHasFocus = true;
     // Window regained focus, resume BGM if it was playing and not muted
     if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
       this.bgmAudio.play().catch(() => {}); // Ignore play errors
@@ -660,9 +662,50 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleWindowBlur() {
-    // Window lost focus, pause BGM
+    this.windowHasFocus = false;
+    // Window lost focus, pause BGM and all currently playing SFX
     if (this.bgmAudio && !this.bgmAudio.paused) {
       this.bgmAudio.pause();
+    }
+
+    // Pause all SFX that might be playing
+    this.pauseAllSFX();
+  }
+
+  private pauseAllSFX() {
+    // Pause any currently playing sound effects
+    if (this.playerAttackSound1 && !this.playerAttackSound1.paused) {
+      this.playerAttackSound1.pause();
+    }
+    if (this.playerAttackSound2 && !this.playerAttackSound2.paused) {
+      this.playerAttackSound2.pause();
+    }
+    if (this.enemyAttackSound && !this.enemyAttackSound.paused) {
+      this.enemyAttackSound.pause();
+    }
+    if (this.scrambleSound && !this.scrambleSound.paused) {
+      this.scrambleSound.pause();
+    }
+    if (this.playerDeathSound1 && !this.playerDeathSound1.paused) {
+      this.playerDeathSound1.pause();
+    }
+    if (this.playerDeathSound2 && !this.playerDeathSound2.paused) {
+      this.playerDeathSound2.pause();
+    }
+    if (this.playerDeathSound3 && !this.playerDeathSound3.paused) {
+      this.playerDeathSound3.pause();
+    }
+    if (this.playerDeathSound4 && !this.playerDeathSound4.paused) {
+      this.playerDeathSound4.pause();
+    }
+    if (this.enemyDeathSound && !this.enemyDeathSound.paused) {
+      this.enemyDeathSound.pause();
+    }
+    if (this.upgradeSound && !this.upgradeSound.paused) {
+      this.upgradeSound.pause();
+    }
+    if (this.buttonSound && !this.buttonSound.paused) {
+      this.buttonSound.pause();
     }
   }
 
@@ -863,7 +906,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         if (
           this.settings.sfxVolume > 0 &&
           this.loadedAssets['soundEffects'] &&
-          this.enemyAttackSound
+          this.enemyAttackSound &&
+          this.windowHasFocus &&
+          !this.settings.muted
         ) {
           this.enemyAttackSound.currentTime = 0; // Reset to beginning
           this.enemyAttackSound.play().catch(() => {}); // Ignore play errors
@@ -883,7 +928,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.playerDeathSound4,
       ];
       const randomSound = deathSounds[Math.floor(Math.random() * deathSounds.length)];
-      if (randomSound) {
+      if (randomSound && this.windowHasFocus && !this.settings.muted) {
         randomSound.currentTime = 0; // Reset to beginning
         randomSound.play().catch(() => {}); // Ignore play errors
       }
@@ -892,7 +937,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
     if (this.enemyHealth <= 0) {
       // Play enemy death sound
-      if (this.enemyDeathSound) {
+      if (this.enemyDeathSound && this.windowHasFocus && !this.settings.muted) {
         this.enemyDeathSound.currentTime = 0; // Reset to beginning
         this.enemyDeathSound.play().catch(() => {}); // Ignore play errors
       }
@@ -901,7 +946,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.cdr.detectChanges(); // Force UI update
 
       // Play upgrade screen sound
-      if (this.upgradeSound) {
+      if (this.upgradeSound && this.windowHasFocus && !this.settings.muted) {
         this.upgradeSound.currentTime = 0; // Reset to beginning
         this.upgradeSound.play().catch(() => {}); // Ignore play errors
       }
@@ -2103,7 +2148,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Play scramble sound effect
-    if (this.scrambleSound) {
+    if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
       this.scrambleSound.currentTime = 0; // Reset to beginning
       this.scrambleSound.play().catch(() => {}); // Ignore play errors
     }
@@ -2217,7 +2262,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.nextAttackSprite = this.nextAttackSprite === 1 ? 2 : 1;
 
       // Play attack sound effect
-      if (this.settings.sfxVolume > 0 && this.loadedAssets['soundEffects']) {
+      if (this.settings.sfxVolume > 0 && this.loadedAssets['soundEffects'] && this.windowHasFocus && !this.settings.muted) {
         if (this.currentAttackSprite === 1 && this.playerAttackSound1) {
           this.playerAttackSound1.currentTime = 0; // Reset to beginning
           this.playerAttackSound1.play().catch(() => {}); // Ignore play errors
