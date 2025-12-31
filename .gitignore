@@ -48,3 +48,8 @@ Thumbs.db
 
 # Environment files with sensitive data
 src/environments/environment.ts
+src/environments/environment.prod.ts
+
+# Setup scripts (may contain sensitive placeholder values)
+setup-env.ps1
+setup-env.sh
