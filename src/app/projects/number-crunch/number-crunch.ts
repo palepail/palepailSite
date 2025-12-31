@@ -2946,6 +2946,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   onMobileInputFocus() {
     this.isLeaderboardInputFocused = true;
+    // Ensure cursor is at the end of the input text
+    setTimeout(() => {
+      if (this.mobileInput) {
+        const input = this.mobileInput.nativeElement;
+        input.setSelectionRange(this.leaderboardNameInput.length, this.leaderboardNameInput.length);
+      }
+    }, 0);
   }
 
   onMobileInputBlur() {
