@@ -8,7 +8,7 @@
 .mute-controls {
   position: absolute;
   top: 1rem;
-  right: 1rem;
+  right: 0.5rem;
   z-index: 20;
   pointer-events: auto;
 }
@@ -78,7 +78,7 @@
 }
 
 .mute-btn {
-  background: #4CAF50;
+  background: #4caf50;
   color: white;
   border: none;
   padding: 0.75rem 1rem;
@@ -167,11 +167,11 @@
 
 @media (max-width: 768px) {
   .game-container {
-    max-width: none;  /* Remove max-width constraint */
-    margin: 0;       /* Remove auto margins */
+    max-width: none; /* Remove max-width constraint */
+    margin: 0; /* Remove auto margins */
     padding: 1rem 0; /* Vertical padding only */
     min-height: 100vh;
-    width: 100%;     /* Take full width */
+    width: 100%; /* Take full width */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -182,6 +182,7 @@
     grid-template-columns: 1fr;
     gap: 1rem;
     width: 100%;
+    max-width: 400px;
     padding: 0;
   }
 
@@ -191,14 +192,14 @@
   }
 
   .game-board {
-    padding: 3rem 0.5em 0.5em 0.5em; /* Top padding for mute button, minimal sides/bottom */
+    padding: 3.5rem 0.5em 0.5em 0.5em; /* Top padding for mute button, minimal sides/bottom */
     position: relative;
     max-width: 464px; /* Fit canvas (400px) + padding (32px left + 32px right) */
     width: 100%;
   }
 
   .mute-controls {
-    top: 0.5rem;
+    top: 0.1rem;
     right: 0.5rem;
   }
 

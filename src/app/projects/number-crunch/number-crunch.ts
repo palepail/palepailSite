@@ -195,9 +195,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isDraggingBGM = false;
   private isDraggingSFX = false;
 
-  // Audio state
-  private bgmStarted = false;
-
   // Button positions and sizes (shared between drawing and click detection)
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
   private readonly MENU_OPTIONS_BUTTON = {
@@ -448,21 +445,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.loadedAssets['bgm'] && this.bgmAudio) {
       this.updateBGMVolume();
       this.bgmAudio.currentTime = 0;
-      this.bgmAudio.play().catch(() => {}); // Ignore play errors
-    }
-  }
-
-  private startBGMAfterUserInteraction() {
-    if (!this.bgmStarted && this.loadedAssets['bgm'] && this.bgmAudio) {
-      this.bgmStarted = true;
-      this.startBGM();
+      this.bgmAudio.play().catch(() => {
+        // If play fails, it will be retried on next user interaction
+      });
     }
   }
 
   private startBGMAutomatically() {
-    // Start BGM automatically when assets are loaded (fallback for when user interaction isn't detected)
-    if (!this.bgmStarted && this.loadedAssets['bgm'] && this.bgmAudio) {
-      this.bgmStarted = true;
+    // This method is kept for potential future use but not currently called
+    if (this.loadedAssets['bgm'] && this.bgmAudio) {
       this.startBGM();
     }
   }
@@ -542,9 +533,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
-        // Assets loaded, transition to menu and start BGM
+        // Assets loaded, start BGM and transition to menu
+        this.startBGM();
         this.currentState = GameState.MENU;
-        this.startBGMAutomatically();
       })
       .catch(() => {
         // If loading fails, still start the game
@@ -560,7 +551,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     } else {
       // Page is visible again, resume BGM if it was playing and not muted
-      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.bgmStarted) {
+      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
         this.bgmAudio.play().catch(() => {}); // Ignore play errors
       }
     }
@@ -1488,9 +1479,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   @HostListener('mousedown', ['$event'])
   onMouseDown(event: MouseEvent) {
-    // Start BGM after first user interaction (required for mobile browsers)
-    this.startBGMAfterUserInteraction();
-
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -1515,9 +1503,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private handleMenuClick(x: number, y: number) {
-    // Start BGM after first user interaction (required for mobile browsers)
-    this.startBGMAfterUserInteraction();
-
     // Play button
     if (
       this.isClickInButton(
@@ -1815,13 +1800,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       event.preventDefault(); // Prevent scrolling only when touching canvas
     }
 
-    // Start BGM after first user interaction (required for mobile browsers)
-    this.startBGMAfterUserInteraction();
-
     switch (this.currentState) {
-      case GameState.MENU:
-        this.handleMenuClick(x, y);
-        break;
       case GameState.PLAYING:
         this.handleGameClick(x, y);
         break;
