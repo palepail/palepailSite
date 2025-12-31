@@ -1304,10 +1304,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#c62828';
     this.ctx.fillText('Better luck next time!', this.CANVAS_SIZE / 2, 160);
 
-    // Final score
+    // Final score with difficulty multiplier
+    const difficultyMultiplier = this.getDifficultyMultiplier();
+    const finalScore = Math.floor(this.score * difficultyMultiplier);
     this.ctx.fillStyle = '#c62828';
     this.ctx.font = '20px Arial';
-    this.ctx.fillText(`Final Score: ${this.score}`, this.CANVAS_SIZE / 2, 200);
+    this.ctx.fillText(`Final Score: ${finalScore}`, this.CANVAS_SIZE / 2, 200);
     this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
     // Draw buttons
@@ -2145,6 +2147,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case 'hard':
         this.playerHealth = this.HARD_HEALTH; // Less health
         break;
+    }
+  }
+
+  private getDifficultyMultiplier(): number {
+    switch (this.settings.difficulty) {
+      case 'easy':
+        return 0.75;
+      case 'normal':
+        return 1.0;
+      case 'hard':
+        return 1.25;
+      default:
+        return 1.0; // Default to normal
     }
   }
 

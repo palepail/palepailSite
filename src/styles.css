@@ -306,6 +306,7 @@ h1 {
 .main-content {
     margin-left: 250px;
     padding: 2rem;
+    width: calc(100vw - 250px);
 }
 
 /* Utility class for interactive elements */
@@ -407,7 +408,7 @@ h1 {
 /* Projects Grid */
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, 280px);
+    grid-template-columns: repeat(auto-fit, 360px);
     gap: 2rem;
     margin-top: 2rem;
     justify-content: start;
@@ -532,7 +533,7 @@ h1 {
 /* Activities Grid */
 .activities-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, 280px);
+    grid-template-columns: repeat(auto-fit, 360px);
     gap: 2rem;
     margin-top: 2rem;
     justify-content: start;
