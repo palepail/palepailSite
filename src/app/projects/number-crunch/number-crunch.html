@@ -27,7 +27,7 @@
         [style.top.px]="getMobileInputPosition().top"
         [style.width.px]="getMobileInputPosition().width"
         [style.height.px]="getMobileInputPosition().height"
-        [(ngModel)]="leaderboardNameInput"
+        [value]="leaderboardNameInput"
         (input)="onMobileInputChange($event)"
         (focus)="onMobileInputFocus()"
         (blur)="onMobileInputBlur()"
