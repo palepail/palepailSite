@@ -176,42 +176,47 @@
     flex-direction: column;
     justify-content: center;
     align-items: stretch; /* Stretch to fill full width */
+    box-sizing: border-box; /* Include padding/border in width calculation */
   }
 
   .game-area {
     grid-template-columns: 1fr;
     gap: 1rem;
     width: 100%;
-    max-width: 400px;
+    max-width: 100vw; /* Don't exceed viewport width */
     padding: 0;
+    box-sizing: border-box;
   }
 
   .game-container h1 {
     font-size: 2rem;
     margin-bottom: 1rem;
+    padding: 0 1rem; /* Add horizontal padding for readability */
+    box-sizing: border-box;
+  }
+
+  .game-description {
+    padding: 0 1rem; /* Add horizontal padding for readability */
+    box-sizing: border-box;
   }
 
   .game-board {
-    padding: 3.5rem 0.5em 0.5em 0.5em; /* Top padding for mute button, small horizontal padding */
+    padding: 3.5rem 0.5rem 0.5rem 0.5rem; /* Reduce horizontal padding */
     position: relative;
-    max-width: 464px; /* Fit canvas (400px) + padding (32px left + 32px right) */
+    max-width: 100vw; /* Don't exceed viewport width */
     width: 100%;
+    box-sizing: border-box;
   }
 
-  .game-canvas {
-    /* Auto-scale canvas to fit mobile screens like Samsung S25 Edge */
-    transform: scale(min(1, calc(100vw / 450px))); /* Scale based on viewport width */
-    transform-origin: top center; /* Scale from top center */
-    margin: 0 auto; /* Center the scaled canvas */
+  .game-info {
+    padding: 1rem; /* Add padding back for readability */
+    box-sizing: border-box;
+    max-width: 100vw; /* Don't exceed viewport width */
   }
 
   .mute-controls {
     top: 0.1rem;
     right: 0.5rem;
-  }
-
-  .game-info {
-    padding: 1rem 0; /* Vertical padding only */
   }
 }
 
