@@ -30,6 +30,7 @@
         [style.width.px]="getMobileInputPosition().width"
         [style.height.px]="getMobileInputPosition().height"
         [value]="leaderboardNameInput"
+        (beforeinput)="onMobileInputBeforeInput($event)"
         (input)="onMobileInputChange($event)"
         (focus)="onMobileInputFocus()"
         (blur)="onMobileInputBlur()"

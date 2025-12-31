@@ -2928,6 +2928,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onMobileInputBeforeInput(event: any) {
+    // Prevent default input behavior and handle manually to ensure cursor positioning
+    event.preventDefault();
+    
+    // Only handle insertText events (actual character input)
+    if (event.inputType === 'insertText' && event.data && this.leaderboardNameInput.length < 10) {
+      // Append the new character to the end
+      this.leaderboardNameInput += event.data;
+      
+      // Update input value and ensure cursor is at the end
+      if (this.mobileInput) {
+        const input = this.mobileInput.nativeElement;
+        input.value = this.leaderboardNameInput;
+        input.setSelectionRange(this.leaderboardNameInput.length, this.leaderboardNameInput.length);
+      }
+    } else if (event.inputType === 'deleteContentBackward') {
+      // Handle backspace
+      this.leaderboardNameInput = this.leaderboardNameInput.slice(0, -1);
+      
+      if (this.mobileInput) {
+        const input = this.mobileInput.nativeElement;
+        input.value = this.leaderboardNameInput;
+        input.setSelectionRange(this.leaderboardNameInput.length, this.leaderboardNameInput.length);
+      }
+    }
+  }
+
   // Mobile input methods for virtual keyboard support
   getMobileInputPosition() {
     // Position the input off-screen horizontally but aligned with canvas middle vertically
@@ -2941,6 +2968,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   onMobileInputChange(event: any) {
+    // Fallback for browsers that don't support beforeinput
     // Update the canvas display when mobile input changes
     this.leaderboardNameInput = event.target.value;
     // Ensure cursor stays at the end after input changes
