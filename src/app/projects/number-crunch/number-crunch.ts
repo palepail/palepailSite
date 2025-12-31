@@ -105,6 +105,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
   timeLeft = 60; // seconds (placeholder, not used)
   nextTarget = 0; // Fixed next target for upgrade screen
+  canvasScale = 1; // Current canvas scale factor for click coordinate adjustment
 
   // Combat timers
   private enemyAttackTimer = 0;
@@ -626,6 +627,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Add window focus/blur listeners to pause BGM when window loses focus
     window.addEventListener('focus', this.handleWindowFocus.bind(this));
     window.addEventListener('blur', this.handleWindowBlur.bind(this));
+    window.addEventListener('resize', this.handleWindowResize.bind(this));
 
     // Load assets asynchronously
     this.loadAllAssets()
@@ -673,6 +675,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.pauseAllSFX();
   }
 
+  private handleWindowResize() {
+    // Recalculate canvas size on window resize
+    if (this.canvas) {
+      this.setupCanvas();
+    }
+  }
+
   private pauseAllSFX() {
     // Pause any currently playing sound effects
     if (this.playerAttackSound1 && !this.playerAttackSound1.paused) {
@@ -717,6 +726,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Remove window focus/blur listeners
     window.removeEventListener('focus', this.handleWindowFocus.bind(this));
     window.removeEventListener('blur', this.handleWindowBlur.bind(this));
+    window.removeEventListener('resize', this.handleWindowResize.bind(this));
 
     // Stop game loop
     if (this.animationFrameId) {
@@ -798,9 +808,26 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private setupCanvas() {
     const canvas = this.canvas.nativeElement;
-    canvas.width = this.CANVAS_SIZE;
-    canvas.height = this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT; // Extra space for UI
-    this.ctx = canvas.getContext('2d')!;
+
+    // Check if we're on mobile and adjust canvas size accordingly
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      // On mobile, make canvas responsive to fit screen
+      const maxCanvasSize = Math.min(window.innerWidth - 32, this.CANVAS_SIZE); // 32px for padding
+      const scale = maxCanvasSize / this.CANVAS_SIZE;
+      this.canvasScale = scale; // Store scale factor for click coordinate adjustment
+      canvas.width = maxCanvasSize;
+      canvas.height = (this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) * scale;
+      // Scale the drawing context to maintain aspect ratio
+      this.ctx = canvas.getContext('2d')!;
+      this.ctx.scale(scale, scale);
+    } else {
+      // Desktop: use full size
+      this.canvasScale = 1; // Reset scale factor
+      canvas.width = this.CANVAS_SIZE;
+      canvas.height = this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT;
+      this.ctx = canvas.getContext('2d')!;
+    }
   }
 
   private startGameLoop() {
@@ -1653,8 +1680,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   @HostListener('mousedown', ['$event'])
   onMouseDown(event: MouseEvent) {
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Adjust click coordinates for canvas scaling
+    const x = (event.clientX - rect.left) / this.canvasScale;
+    const y = (event.clientY - rect.top) / this.canvasScale;
 
     switch (this.currentState) {
       case GameState.MENU:
@@ -1975,11 +2003,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    // Adjust touch coordinates for canvas scaling
+    const x = (touch.clientX - rect.left) / this.canvasScale;
+    const y = (touch.clientY - rect.top) / this.canvasScale;
 
     // Only prevent default if touch is on the canvas (not on buttons)
-    if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+    if (x >= 0 && x <= this.CANVAS_SIZE && y >= 0 && y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) {
       event.preventDefault(); // Prevent scrolling only when touching canvas
     }
 
@@ -2008,11 +2037,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    // Adjust touch coordinates for canvas scaling
+    const x = (touch.clientX - rect.left) / this.canvasScale;
+    const y = (touch.clientY - rect.top) / this.canvasScale;
 
     // Only prevent default if touch is on the canvas
-    if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+    if (x >= 0 && x <= this.CANVAS_SIZE && y >= 0 && y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) {
       event.preventDefault(); // Prevent scrolling only when touching canvas
     }
 

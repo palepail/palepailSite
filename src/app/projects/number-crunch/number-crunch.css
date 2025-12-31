@@ -208,6 +208,12 @@
     box-sizing: border-box;
   }
 
+  .game-canvas {
+    max-width: 100%; /* Make canvas responsive within game-board */
+    height: auto; /* Maintain aspect ratio */
+    box-sizing: border-box;
+  }
+
   .game-info {
     padding: 1rem; /* Add padding back for readability */
     box-sizing: border-box;
