@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { LeaderboardService } from '../../services/leaderboard.service';
 
 interface GameCell {
   value: number;
@@ -24,6 +25,8 @@ enum GameState {
   OPTIONS = 'options',
   GAME_OVER = 'game_over',
   CHOOSE_UPGRADE = 'choose_upgrade',
+  LEADERBOARD = 'leaderboard',
+  LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
 }
 
 interface GameSettings {
@@ -165,6 +168,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly RUNNING_FRAME_TIME = 120; // ms per frame (slightly faster than idle)
   private readonly RUNNING_TOTAL_FRAMES = 6; // 6 frames for running animation
 
+  // Leaderboard avatar sprites
+  private avatarSprites: HTMLImageElement[] = [new Image(), new Image(), new Image(), new Image()];
+
   // Sound effects
   private playerAttackSound1 = new Audio();
   private playerAttackSound2 = new Audio();
@@ -203,11 +209,26 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isDraggingBGM = false;
   private isDraggingSFX = false;
 
+  // Leaderboard data
+  private leaderboardEntries: any[] = [];
+  private isLoadingLeaderboard = false;
+
+  // Leaderboard name input
+  private leaderboardNameInput = '';
+  private isLeaderboardInputFocused = false;
+  private pendingLeaderboardScore = 0;
+
   // Button positions and sizes (shared between drawing and click detection)
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
   private readonly MENU_OPTIONS_BUTTON = {
     x: this.CANVAS_SIZE / 2,
     y: 250,
+    width: 200,
+    height: 50,
+  };
+  private readonly MENU_LEADERBOARD_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 320,
     width: 200,
     height: 50,
   };
@@ -247,6 +268,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
     width: 160,
     height: 40,
   };
+  private readonly LEADERBOARD_BACK_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: this.CANVAS_SIZE + 60,
+    width: 160,
+    height: 40,
+  };
+  private readonly LEADERBOARD_NAME_SUBMIT_BUTTON = {
+    x: this.CANVAS_SIZE / 2 - 100,
+    y: 340,
+    width: 160,
+    height: 45,
+  };
+  private readonly LEADERBOARD_NAME_SKIP_BUTTON = {
+    x: this.CANVAS_SIZE / 2 + 100,
+    y: 340,
+    width: 160,
+    height: 45,
+  };
   private readonly GAME_OVER_PLAY_AGAIN_BUTTON = {
     x: this.CANVAS_SIZE / 2,
     y: 300,
@@ -275,7 +314,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game loop
   private animationFrameId: number = 0;
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(private cdr: ChangeDetectorRef, private leaderboardService: LeaderboardService) {}
 
   // Asset loading functions
   private loadPlayerSprite(): Promise<void> {
@@ -359,6 +398,36 @@ export class NumberCrunch implements OnInit, OnDestroy {
         reject(new Error('Failed to load running sprite'));
       };
       this.runningSprite.src = 'resources/images/projects/numberCrunch/Warrior_Run.png';
+    });
+  }
+
+  private loadAvatarSprites(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let loadedCount = 0;
+      const totalAvatars = 4;
+
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalAvatars) {
+          this.loadedAssets['avatarSprites'] = true;
+          this.updateLoadingProgress();
+          resolve();
+        }
+      };
+
+      const handleError = () => {
+        reject(new Error('Failed to load avatar sprites'));
+      };
+
+      // Load avatars: 01, 02, 03, 05 (skipping 04)
+      const avatarFiles = ['01', '02', '03', '05'];
+      for (let i = 0; i < 4; i++) {
+        this.avatarSprites[i].onload = checkComplete;
+        this.avatarSprites[i].onerror = handleError;
+        this.avatarSprites[
+          i
+        ].src = `resources/images/projects/numberCrunch/Avatars_${avatarFiles[i]}.png`;
+      }
     });
   }
 
@@ -509,7 +578,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         if (this.currentState === GameState.PLAYING && this.previousState === GameState.MENU) {
           // Fade in when starting game
           this.startBGMFade(targetVolume, 'in');
-        } else if (this.currentState === GameState.MENU && this.previousState === GameState.PLAYING) {
+        } else if (
+          this.currentState === GameState.MENU &&
+          this.previousState === GameState.PLAYING
+        ) {
           // Fade out when returning to menu
           this.startBGMFade(0, 'out');
         } else {
@@ -556,7 +628,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       } else {
         // Interpolate volume
         const t = this.easeInOutQuad(this.bgmFadeProgress);
-        this.bgmAudio.volume = this.bgmFadeStartVolume + (this.bgmFadeTarget - this.bgmFadeStartVolume) * t;
+        this.bgmAudio.volume =
+          this.bgmFadeStartVolume + (this.bgmFadeTarget - this.bgmFadeStartVolume) * t;
       }
     }
   }
@@ -591,6 +664,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['enemyAttackSprite'] = false;
     this.assetsToLoad['runningSprite'] = false;
     this.loadedAssets['runningSprite'] = false;
+    this.assetsToLoad['avatarSprites'] = false;
+    this.loadedAssets['avatarSprites'] = false;
     this.assetsToLoad['soundEffects'] = false;
     this.loadedAssets['soundEffects'] = false;
     this.assetsToLoad['bgm'] = false;
@@ -604,6 +679,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.loadEnemySprite(),
         this.loadEnemyAttackSprite(),
         this.loadRunningSprite(),
+        this.loadAvatarSprites(),
         this.loadSoundEffects(),
         this.loadBGM(),
       ]);
@@ -962,6 +1038,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
       this.currentState = GameState.GAME_OVER;
       this.cdr.detectChanges(); // Force UI update to hide restart button immediately
+      this.handleGameOverLeaderboard();
     }
     if (this.enemyHealth <= 0) {
       // Play enemy death sound
@@ -991,6 +1068,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private render() {
     // Note: Each render method now sets its own background, so no global clear needed
 
+    // Ensure BGM is playing for all game states (except loading)
+    if (this.currentState !== GameState.LOADING && this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
+      this.bgmAudio.play().catch(() => {
+        // If play fails, it will be retried on next render
+      });
+    }
+
     switch (this.currentState) {
       case GameState.LOADING:
         this.renderLoading();
@@ -1009,6 +1093,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
       case GameState.CHOOSE_UPGRADE:
         this.renderChooseUpgrade();
+        break;
+      case GameState.LEADERBOARD:
+        this.renderLeaderboard();
+        break;
+      case GameState.LEADERBOARD_NAME_INPUT:
+        this.renderLeaderboardNameInput();
         break;
     }
   }
@@ -1051,7 +1141,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Subtitle
     this.ctx.font = '18px Arial';
     this.ctx.fillStyle = '#424242';
-    this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 110);
+    this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 125);
 
     // Draw buttons
     this.drawButton(
@@ -1072,9 +1162,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#2196F3',
       '#1976D2'
     );
+    this.drawButton(
+      'Leaderboard',
+      this.MENU_LEADERBOARD_BUTTON.x,
+      this.MENU_LEADERBOARD_BUTTON.y,
+      this.MENU_LEADERBOARD_BUTTON.width,
+      this.MENU_LEADERBOARD_BUTTON.height,
+      '#FF9800',
+      '#F57C00'
+    );
 
-    // Draw idle animations under the options button
-    const characterY = this.MENU_OPTIONS_BUTTON.y + 80; // Position below the options button
+    // Draw idle animations under the leaderboard button
+    const characterY = this.MENU_LEADERBOARD_BUTTON.y + 80; // Position below the leaderboard button
     const playerX = this.CANVAS_SIZE / 2 - 40; // Left side, closer to center
     const enemyX = this.CANVAS_SIZE / 2 + 40; // Right side, closer to center
 
@@ -1132,12 +1231,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(
       'Click and drag to select rectangular areas',
       this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 20
+      this.CANVAS_SIZE + 50
     );
     this.ctx.fillText(
       'Match the target sum to score points!',
       this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 40
+      this.CANVAS_SIZE + 70
     );
   }
 
@@ -1306,7 +1405,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Final score with difficulty multiplier
     const difficultyMultiplier = this.getDifficultyMultiplier();
-    const finalScore = Math.floor(this.score * difficultyMultiplier);
+    const finalScore = Math.round(this.score * difficultyMultiplier);
     this.ctx.fillStyle = '#c62828';
     this.ctx.font = '20px Arial';
     this.ctx.fillText(`Final Score: ${finalScore}`, this.CANVAS_SIZE / 2, 200);
@@ -1331,6 +1430,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#2196F3',
       '#1976D2'
     );
+  }
+
+  private async handleGameOverLeaderboard() {
+    const difficultyMultiplier = this.getDifficultyMultiplier();
+    const finalScore = Math.round(this.score * difficultyMultiplier);
+
+    try {
+      const topEntries = await this.leaderboardService.getTopEntries(10);
+      const qualifies =
+        topEntries.length < 10 || finalScore > (topEntries[topEntries.length - 1]?.score || 0);
+
+      if (qualifies) {
+        // Store the score and show name input popup
+        this.pendingLeaderboardScore = finalScore;
+        this.leaderboardNameInput = '';
+        this.isLeaderboardInputFocused = true; // Auto-focus the input
+        this.currentState = GameState.LEADERBOARD_NAME_INPUT;
+      }
+    } catch (error) {
+      console.error('Error handling leaderboard:', error);
+    }
   }
 
   private renderChooseUpgrade() {
@@ -1399,6 +1519,311 @@ export class NumberCrunch implements OnInit, OnDestroy {
         scaledHeight // destination height
       );
     }
+  }
+
+  private getAvatarIndex(date: any): number {
+    // Handle Firestore Timestamp objects
+    let dateObj: Date;
+    if (date && typeof date.toDate === 'function') {
+      // Firestore Timestamp
+      dateObj = date.toDate();
+    } else if (date instanceof Date) {
+      // JavaScript Date
+      dateObj = date;
+    } else {
+      // Fallback to current date if invalid
+      dateObj = new Date();
+    }
+
+    // Ensure we have a valid date
+    if (isNaN(dateObj.getTime())) {
+      dateObj = new Date();
+    }
+
+    // Create a simple hash from the date string to ensure consistent avatar assignment
+    const dateString = dateObj.toISOString();
+    let hash = 0;
+    for (let i = 0; i < dateString.length; i++) {
+      hash = (hash << 5) - hash + dateString.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % 4; // Return 0-3 for the 4 avatars
+  }
+
+  private async loadLeaderboard() {
+    this.isLoadingLeaderboard = true;
+    try {
+      this.leaderboardEntries = await this.leaderboardService.getTopEntries(10);
+    } catch (error) {
+      console.error('Error loading leaderboard:', error);
+      this.leaderboardEntries = [];
+    } finally {
+      this.isLoadingLeaderboard = false;
+    }
+  }
+
+  private renderLeaderboard() {
+    // Background
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
+
+    // Title
+    this.ctx.fillStyle = '#1976d2';
+    this.ctx.font = 'bold 32px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Leaderboard', this.CANVAS_SIZE / 2, 40);
+
+    if (this.isLoadingLeaderboard) {
+      this.ctx.fillStyle = '#424242';
+      this.ctx.font = '20px Arial';
+      this.ctx.fillText('Loading...', this.CANVAS_SIZE / 2, 100);
+      return;
+    }
+
+    if (this.leaderboardEntries.length === 0) {
+      this.ctx.fillStyle = '#424242';
+      this.ctx.font = '20px Arial';
+      this.ctx.fillText('No scores yet!', this.CANVAS_SIZE / 2, 100);
+      this.ctx.fillText('Be the first to play!', this.CANVAS_SIZE / 2, 130);
+    } else {
+      // Headers
+      this.ctx.fillStyle = '#333';
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('Rank', 60, 80);
+      this.ctx.fillText('Name', 100, 80);
+      this.ctx.fillText('Score', 200, 80);
+      this.ctx.fillText('Lvl', 280, 80);
+      this.ctx.fillText('Diff', 320, 80);
+
+      // Entries
+      this.ctx.font = '16px Arial';
+      this.leaderboardEntries.forEach((entry, index) => {
+        const y = 110 + index * 35;
+        const avatarIndex = this.getAvatarIndex(entry.date);
+
+        // Draw avatar
+        if (
+          this.loadedAssets['avatarSprites'] &&
+          this.avatarSprites[avatarIndex] &&
+          this.avatarSprites[avatarIndex].complete
+        ) {
+          this.ctx.drawImage(this.avatarSprites[avatarIndex], 30, y - 20, 30, 30);
+        }
+
+        this.ctx.fillStyle = index < 3 ? '#FF9800' : '#424242'; // Gold for top 3
+        this.ctx.fillText(`${index + 1}`, 60, y);
+        this.ctx.fillText(entry.name || 'Anonymous', 100, y);
+        this.ctx.fillText(entry.score?.toString() || '0', 200, y);
+        this.ctx.fillText(entry.level?.toString() || '1', 280, y);
+        this.ctx.fillText(entry.difficulty || 'normal', 320, y);
+      });
+    }
+
+    // Back button
+    this.drawButton(
+      'Back to Menu',
+      this.LEADERBOARD_BACK_BUTTON.x,
+      this.LEADERBOARD_BACK_BUTTON.y,
+      this.LEADERBOARD_BACK_BUTTON.width,
+      this.LEADERBOARD_BACK_BUTTON.height,
+      '#2196F3',
+      '#1976D2'
+    );
+  }
+
+  private handleLeaderboardClick(x: number, y: number) {
+    // Back button
+    if (
+      this.isClickInButton(
+        x,
+        y,
+        this.LEADERBOARD_BACK_BUTTON.x,
+        this.LEADERBOARD_BACK_BUTTON.y,
+        this.LEADERBOARD_BACK_BUTTON.width,
+        this.LEADERBOARD_BACK_BUTTON.height
+      )
+    ) {
+      this.playButtonSound();
+      this.currentState = GameState.MENU;
+    }
+  }
+
+  private renderLeaderboardNameInput() {
+    // Background - use the same background as other screens
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
+
+    // No overlay needed since we're using the full background
+
+    // Title
+    this.ctx.fillStyle = '#1976d2';
+    this.ctx.font = 'bold 28px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Congratulations!', this.CANVAS_SIZE / 2, 80);
+    this.ctx.fillText('Welcome to the', this.CANVAS_SIZE / 2, 110);
+    this.ctx.fillText('Leaderboard!', this.CANVAS_SIZE / 2, 140);
+
+    // Subtitle
+    this.ctx.fillStyle = '#333';
+    this.ctx.font = '20px Arial';
+    this.ctx.fillText('What is your Name:', this.CANVAS_SIZE / 2, 200);
+
+    // Input field background
+    this.ctx.fillStyle = '#f5f5f5';
+    this.ctx.fillRect(50, 240, this.CANVAS_SIZE - 100, 40);
+    this.ctx.strokeStyle = this.isLeaderboardInputFocused ? '#2196F3' : '#ccc';
+    this.ctx.lineWidth = this.isLeaderboardInputFocused ? 2 : 1;
+    this.ctx.strokeRect(50, 240, this.CANVAS_SIZE - 100, 40);
+
+    // Input text
+    this.ctx.fillStyle = '#333';
+    this.ctx.font = '18px Arial';
+    this.ctx.textAlign = 'left';
+    const displayText = this.leaderboardNameInput || 'Type your name here...';
+    this.ctx.fillText(displayText, 60, 265);
+
+    // Character counter
+    this.ctx.fillStyle = '#666';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'right';
+    this.ctx.fillText(`${this.leaderboardNameInput.length}/10`, this.CANVAS_SIZE - 60, 285);
+
+    // Draw buttons
+    this.drawButton(
+      'Submit',
+      this.LEADERBOARD_NAME_SUBMIT_BUTTON.x,
+      this.LEADERBOARD_NAME_SUBMIT_BUTTON.y,
+      this.LEADERBOARD_NAME_SUBMIT_BUTTON.width,
+      this.LEADERBOARD_NAME_SUBMIT_BUTTON.height,
+      '#4CAF50',
+      '#45a049'
+    );
+    this.drawButton(
+      'Skip',
+      this.LEADERBOARD_NAME_SKIP_BUTTON.x,
+      this.LEADERBOARD_NAME_SKIP_BUTTON.y,
+      this.LEADERBOARD_NAME_SKIP_BUTTON.width,
+      this.LEADERBOARD_NAME_SKIP_BUTTON.height,
+      '#f44336',
+      '#d32f2f'
+    );
+  }
+
+  private handleLeaderboardNameInputClick(x: number, y: number) {
+    // Check if clicking on input field (focus it)
+    if (x >= 50 && x <= this.CANVAS_SIZE - 50 && y >= 240 && y <= 280) {
+      this.isLeaderboardInputFocused = true;
+      return;
+    }
+
+    // Clicking elsewhere defocuses the input
+    this.isLeaderboardInputFocused = false;
+
+    // Submit button
+    if (
+      this.isClickInButton(
+        x,
+        y,
+        this.LEADERBOARD_NAME_SUBMIT_BUTTON.x,
+        this.LEADERBOARD_NAME_SUBMIT_BUTTON.y,
+        this.LEADERBOARD_NAME_SUBMIT_BUTTON.width,
+        this.LEADERBOARD_NAME_SUBMIT_BUTTON.height
+      )
+    ) {
+      this.submitLeaderboardName();
+    }
+    // Skip button
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.LEADERBOARD_NAME_SKIP_BUTTON.x,
+        this.LEADERBOARD_NAME_SKIP_BUTTON.y,
+        this.LEADERBOARD_NAME_SKIP_BUTTON.width,
+        this.LEADERBOARD_NAME_SKIP_BUTTON.height
+      )
+    ) {
+      this.skipLeaderboardName();
+    }
+  }
+
+  private handleLeaderboardNameInputKey(event: KeyboardEvent) {
+    event.preventDefault(); // Prevent default browser behavior
+
+    if (event.key === 'Enter') {
+      this.submitLeaderboardName();
+    } else if (event.key === 'Escape') {
+      this.skipLeaderboardName();
+    } else if (event.key === 'Backspace') {
+      this.leaderboardNameInput = this.leaderboardNameInput.slice(0, -1);
+    } else if (event.key.length === 1 && this.leaderboardNameInput.length < 10) {
+      // Only allow alphanumeric characters and spaces
+      if (/^[a-zA-Z0-9 ]$/.test(event.key)) {
+        this.leaderboardNameInput += event.key;
+      }
+    }
+  }
+
+  private containsProfanity(name: string): boolean {
+    // Basic profanity filter - common offensive words
+    const profanityList = [
+      'fuck',
+      'shit',
+      'damn',
+      'bitch',
+      'asshole',
+      'bastard',
+      'cunt',
+      'dick',
+      'pussy',
+      'cock',
+      'fag',
+      'faggot',
+      'nigger',
+      'nigga',
+      'chink',
+      'gook',
+      'spic',
+      'wetback',
+      'kike',
+      'heeb',
+      'crap',
+      'piss',
+      'tits',
+      'boobs',
+      'slut',
+      'whore',
+      'cum',
+      'jizz',
+      'wank',
+      'twat',
+    ];
+
+    const lowerName = name.toLowerCase();
+    return profanityList.some((word) => lowerName.includes(word));
+  }
+
+  private async submitLeaderboardName() {
+    const name = this.leaderboardNameInput.trim();
+    if (name && !this.containsProfanity(name)) {
+      try {
+        await this.leaderboardService.addEntry({
+          name: name,
+          score: this.pendingLeaderboardScore,
+          difficulty: this.settings.difficulty,
+          level: this.level,
+          date: new Date(),
+        });
+      } catch (error) {
+        console.error('Error submitting leaderboard entry:', error);
+      }
+    }
+    this.currentState = GameState.GAME_OVER;
+  }
+
+  private skipLeaderboardName() {
+    this.currentState = GameState.GAME_OVER;
   }
 
   private drawGrid() {
@@ -1702,6 +2127,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case GameState.CHOOSE_UPGRADE:
         this.handleChooseUpgradeClick(x, y);
         break;
+      case GameState.LEADERBOARD:
+        this.handleLeaderboardClick(x, y);
+        break;
+      case GameState.LEADERBOARD_NAME_INPUT:
+        this.handleLeaderboardNameInputClick(x, y);
+        break;
+    }
+  }
+
+  @HostListener('keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent) {
+    if (this.currentState === GameState.LEADERBOARD_NAME_INPUT) {
+      this.handleLeaderboardNameInputKey(event);
     }
   }
 
@@ -1733,6 +2171,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     ) {
       this.playButtonSound();
       this.currentState = GameState.OPTIONS;
+    }
+    // Leaderboard button
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.MENU_LEADERBOARD_BUTTON.x,
+        this.MENU_LEADERBOARD_BUTTON.y,
+        this.MENU_LEADERBOARD_BUTTON.width,
+        this.MENU_LEADERBOARD_BUTTON.height
+      )
+    ) {
+      this.playButtonSound();
+      this.currentState = GameState.LEADERBOARD;
+      this.loadLeaderboard();
     }
   }
 
@@ -2010,7 +2463,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const y = (touch.clientY - rect.top) / this.canvasScale;
 
     // Only prevent default if touch is on the canvas (not on buttons)
-    if (x >= 0 && x <= this.CANVAS_SIZE && y >= 0 && y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) {
+    if (
+      x >= 0 &&
+      x <= this.CANVAS_SIZE &&
+      y >= 0 &&
+      y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT
+    ) {
       event.preventDefault(); // Prevent scrolling only when touching canvas
     }
 
@@ -2030,6 +2488,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case GameState.CHOOSE_UPGRADE:
         this.handleChooseUpgradeClick(x, y);
         break;
+      case GameState.LEADERBOARD:
+        this.handleLeaderboardClick(x, y);
+        break;
+      case GameState.LEADERBOARD_NAME_INPUT:
+        this.handleLeaderboardNameInputClick(x, y);
+        break;
     }
   }
 
@@ -2044,7 +2508,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const y = (touch.clientY - rect.top) / this.canvasScale;
 
     // Only prevent default if touch is on the canvas
-    if (x >= 0 && x <= this.CANVAS_SIZE && y >= 0 && y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) {
+    if (
+      x >= 0 &&
+      x <= this.CANVAS_SIZE &&
+      y >= 0 &&
+      y <= this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT
+    ) {
       event.preventDefault(); // Prevent scrolling only when touching canvas
     }
 
@@ -2315,7 +2784,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.nextAttackSprite = this.nextAttackSprite === 1 ? 2 : 1;
 
       // Play attack sound effect
-      if (this.settings.sfxVolume > 0 && this.loadedAssets['soundEffects'] && this.windowHasFocus && !this.settings.muted) {
+      if (
+        this.settings.sfxVolume > 0 &&
+        this.loadedAssets['soundEffects'] &&
+        this.windowHasFocus &&
+        !this.settings.muted
+      ) {
         if (this.currentAttackSprite === 1 && this.playerAttackSound1) {
           this.playerAttackSound1.currentTime = 0; // Reset to beginning
           this.playerAttackSound1.play().catch(() => {}); // Ignore play errors

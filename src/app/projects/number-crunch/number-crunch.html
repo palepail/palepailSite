@@ -11,7 +11,7 @@
           {{ settings.muted ? '🔊' : '🔇' }}
         </button>
       </div>
-      <canvas #gameCanvas class="game-canvas"></canvas>
+      <canvas #gameCanvas class="game-canvas" tabindex="0"></canvas>
 
       <div class="game-controls" *ngIf="currentState === 'playing'">
         <button class="restart-btn" (click)="restartGame()">Restart Game</button>

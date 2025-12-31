@@ -45,3 +45,6 @@ Thumbs.db
 
 # Markdown files
 *.md
+
+# Environment files with sensitive data
+src/environments/environment.ts
