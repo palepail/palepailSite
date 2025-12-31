@@ -212,6 +212,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Leaderboard data
   private leaderboardEntries: any[] = [];
   private isLoadingLeaderboard = false;
+  private isLeaderboardAvailable = true;
 
   // Leaderboard name input
   private leaderboardNameInput = '';
@@ -1553,9 +1554,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private async loadLeaderboard() {
     this.isLoadingLeaderboard = true;
     try {
-      this.leaderboardEntries = await this.leaderboardService.getTopEntries(10);
+      // Check if leaderboard is available
+      this.isLeaderboardAvailable = await this.leaderboardService.isAvailable();
+      if (this.isLeaderboardAvailable) {
+        this.leaderboardEntries = await this.leaderboardService.getTopEntries(10);
+      } else {
+        this.leaderboardEntries = [];
+      }
     } catch (error) {
-      console.error('Error loading leaderboard:', error);
+      console.warn('Leaderboard unavailable:', error);
+      this.isLeaderboardAvailable = false;
       this.leaderboardEntries = [];
     } finally {
       this.isLoadingLeaderboard = false;
@@ -1573,10 +1581,32 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Leaderboard', this.CANVAS_SIZE / 2, 40);
 
+    // Back button - always available
+    this.drawButton(
+      'Back to Menu',
+      this.LEADERBOARD_BACK_BUTTON.x,
+      this.LEADERBOARD_BACK_BUTTON.y,
+      this.LEADERBOARD_BACK_BUTTON.width,
+      this.LEADERBOARD_BACK_BUTTON.height,
+      '#2196F3',
+      '#1976D2'
+    );
+
     if (this.isLoadingLeaderboard) {
       this.ctx.fillStyle = '#424242';
       this.ctx.font = '20px Arial';
       this.ctx.fillText('Loading...', this.CANVAS_SIZE / 2, 100);
+      return;
+    }
+
+    if (!this.isLeaderboardAvailable) {
+      this.ctx.fillStyle = '#ff6b6b';
+      this.ctx.font = '18px Arial';
+      this.ctx.fillText('Leaderboard Unavailable', this.CANVAS_SIZE / 2, 100);
+      this.ctx.fillStyle = '#666';
+      this.ctx.font = '14px Arial';
+      this.ctx.fillText('Please disable ad blocker', this.CANVAS_SIZE / 2, 125);
+      this.ctx.fillText('or privacy extensions', this.CANVAS_SIZE / 2, 145);
       return;
     }
 
@@ -1619,17 +1649,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.ctx.fillText(entry.difficulty || 'normal', 320, y);
       });
     }
-
-    // Back button
-    this.drawButton(
-      'Back to Menu',
-      this.LEADERBOARD_BACK_BUTTON.x,
-      this.LEADERBOARD_BACK_BUTTON.y,
-      this.LEADERBOARD_BACK_BUTTON.width,
-      this.LEADERBOARD_BACK_BUTTON.height,
-      '#2196F3',
-      '#1976D2'
-    );
   }
 
   private handleLeaderboardClick(x: number, y: number) {

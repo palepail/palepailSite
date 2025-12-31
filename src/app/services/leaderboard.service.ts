@@ -31,6 +31,7 @@ export class LeaderboardService {
       await addDoc(collection(db, 'leaderboard'), entryWithIP);
     } catch (error) {
       console.error('Error adding entry:', error);
+      // Don't throw - let the game continue even if leaderboard fails
     }
   }
 
@@ -40,8 +41,18 @@ export class LeaderboardService {
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as LeaderboardEntry);
     } catch (error) {
-      console.error('Error getting entries:', error);
+      console.warn('Leaderboard unavailable (possibly blocked by ad blocker):', error);
       return [];
+    }
+  }
+
+  // Check if Firestore is accessible
+  async isAvailable(): Promise<boolean> {
+    try {
+      await this.getTopEntries(1);
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 }
