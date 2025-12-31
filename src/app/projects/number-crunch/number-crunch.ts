@@ -2929,13 +2929,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Mobile input methods for virtual keyboard support
   getMobileInputPosition() {
-    // Position the input over the canvas input area
-    const canvasRect = this.canvas.nativeElement.getBoundingClientRect();
+    // Position the input off-screen to trigger virtual keyboard while canvas displays input
     return {
-      left: canvasRect.left + 50,
-      top: canvasRect.top + 240,
-      width: this.CANVAS_SIZE - 100,
-      height: 40,
+      left: -100,
+      top: -100,
+      width: 1,
+      height: 1,
     };
   }
 
