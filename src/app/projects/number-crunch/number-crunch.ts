@@ -123,6 +123,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Upgrade system
   damageMultiplier = 1.0;
+  healthMultiplier = 1.0;
   damageUpgradeCount = 0; // Track damage upgrades for diminishing returns
   healthUpgradeCount = 0; // Track health upgrades for diminishing returns
 
@@ -2481,7 +2482,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         minMultiplier,
         baseMultiplier * (1 - diminishingFactor * (this.healthUpgradeCount - 1))
       );
-      this.playerHealth = Math.floor(this.playerHealth * effectiveMultiplier);
+      this.healthMultiplier *= effectiveMultiplier; // Apply to persistent multiplier
       this.nextLevel();
     }
     // Damage upgrade button
@@ -2737,6 +2738,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.damageMultiplier = 1.0; // Reset damage multiplier
+    this.healthMultiplier = 1.0; // Reset health multiplier
     this.damageUpgradeCount = 0; // Reset damage upgrade counter
     this.healthUpgradeCount = 0; // Reset health upgrade counter
     this.nextAttackSprite = 1; // Reset attack alternation
@@ -2762,13 +2764,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private applyDifficultySettings() {
     switch (this.settings.difficulty) {
       case 'easy':
-        this.playerHealth = this.EASY_HEALTH; // More health
+        this.playerHealth = Math.floor(this.EASY_HEALTH * this.healthMultiplier);
         break;
       case 'normal':
-        this.playerHealth = this.MAX_HEALTH; // Default
+        this.playerHealth = Math.floor(this.MAX_HEALTH * this.healthMultiplier);
         break;
       case 'hard':
-        this.playerHealth = this.HARD_HEALTH; // Less health
+        this.playerHealth = Math.floor(this.HARD_HEALTH * this.healthMultiplier);
         break;
     }
   }
