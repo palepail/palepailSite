@@ -110,6 +110,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   targetNumber = 10;
   score = 0;
   lastHealthBonus = 0; // Track the last health bonus awarded
+  lastScrambleBonus = 0; // Track the last scramble bonus awarded
   level = 1;
   playerHealth = this.MAX_HEALTH;
   enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
@@ -1052,7 +1053,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         }
       }
 
-      this.playerHealth = Math.max(0, this.playerHealth - this.ENEMY_ATTACK_DAMAGE);
+      this.playerHealth = Math.max(0, this.playerHealth - Math.round(this.ENEMY_ATTACK_DAMAGE));
 
       // Create damage text above and to the left of player
       const playerX = 50;
@@ -1060,7 +1061,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.damageTexts.push({
         x: playerX - 20, // Position to the left of player
         y: playerY - 30, // Position above player
-        value: this.ENEMY_ATTACK_DAMAGE,
+        value: Math.round(this.ENEMY_ATTACK_DAMAGE),
         lifetime: 0,
         maxLifetime: 500, // 1 second
         type: 'player',
@@ -1097,6 +1098,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const healthBonus = Math.floor(this.score * healthPercentage * 0.5); // 50% of current score as bonus
       this.score += healthBonus;
       this.lastHealthBonus = healthBonus;
+
+      // Calculate scramble bonus for remaining scrambles
+      const scrambleBonus = this.scramblesRemaining * 50; // 50 points per remaining scramble
+      this.score += scrambleBonus;
+      this.lastScrambleBonus = scrambleBonus;
 
       this.nextTarget = this.calculateNextTarget(); // Calculate next target once
       this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
@@ -2220,7 +2226,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#333';
     this.ctx.font = 'bold 12px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(`${health}`, x, y - 30);
+    this.ctx.fillText(`${Math.round(health)}`, x, y - 30);
 
     // Health bar
     this.ctx.fillStyle = '#333';
@@ -2907,6 +2913,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
+    // Calculate total tiles in selection and empty tiles
+    const totalTilesInSelection = (endX - startX + 1) * (endY - startY + 1);
+    const emptyTiles = totalTilesInSelection - tilesWithValues;
+
     // Mark cells for removal using correct bounds
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
@@ -2914,14 +2924,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Calculate score earned from this match
-    const scoreEarned = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+    // Calculate score earned from this match (including bonus for empty tiles)
+    const baseScore = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+    const emptyTileBonus = emptyTiles * 1; // 1 point per empty tile
+    const scoreEarned = baseScore + emptyTileBonus;
 
     // Update total score
     this.score += scoreEarned;
 
     // Deal damage to enemy proportional to score earned
-    const damageDealt = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+    const damageDealt = Math.round(tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier);
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
     // Create damage text above and to the right of enemy
@@ -2930,7 +2942,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.damageTexts.push({
       x: enemyX + 20, // Position to the right of enemy
       y: enemyY - 30, // Position above enemy
-      value: damageDealt,
+      value: Math.round(damageDealt),
       lifetime: 0,
       maxLifetime: 500, // 1 second (faster fade)
       type: 'enemy',
@@ -2974,6 +2986,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Reset game
     this.score = 0;
     this.lastHealthBonus = 0;
+    this.lastScrambleBonus = 0;
     this.level = 1;
     this.targetNumber = 10; // Reset target to initial value
     this.playerHealth = this.MAX_HEALTH;
