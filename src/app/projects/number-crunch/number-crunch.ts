@@ -37,6 +37,15 @@ interface GameSettings {
   muted: boolean;
 }
 
+interface DamageText {
+  x: number;
+  y: number;
+  value: number;
+  lifetime: number;
+  maxLifetime: number;
+  type: 'enemy' | 'player';
+}
+
 @Component({
   selector: 'app-number-crunch',
   imports: [RouterLink, CommonModule, FormsModule],
@@ -64,7 +73,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly CANVAS_UI_HEIGHT = 100;
 
   // Health constants
-  private readonly MAX_HEALTH = 100;
+  private readonly MAX_HEALTH = 120;
   private readonly ENEMY_MAX_HEALTH = 450;
   private readonly EASY_HEALTH = 150;
   private readonly HARD_HEALTH = 75;
@@ -125,6 +134,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Animation state
   lastTime = 0;
+
+  // Damage text display
+  damageTexts: DamageText[] = [];
 
   // Player sprite animation
   private playerSprite = new Image();
@@ -983,6 +995,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.runningAnimationFrame = (this.runningAnimationFrame + 1) % this.RUNNING_TOTAL_FRAMES; // 6 frames total
     }
 
+    // Update damage texts - animate upward and fade out
+    for (let i = this.damageTexts.length - 1; i >= 0; i--) {
+      const damageText = this.damageTexts[i];
+      damageText.lifetime += deltaTime;
+      damageText.y -= 0.5 - damageText.lifetime / damageText.maxLifetime; // Move upward slowly
+
+      // Move horizontally based on type
+      if (damageText.type === 'enemy') {
+        damageText.x += 0.3; // Move right for enemy damage
+      } else if (damageText.type === 'player') {
+        damageText.x -= 0.3; // Move left for player damage
+      }
+
+      // Remove expired damage texts
+      if (damageText.lifetime >= damageText.maxLifetime) {
+        this.damageTexts.splice(i, 1);
+      }
+    }
+
     if (this.currentState !== GameState.PLAYING) return;
 
     // Handle scrambling animation
@@ -1021,6 +1052,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
 
       this.playerHealth = Math.max(0, this.playerHealth - this.ENEMY_ATTACK_DAMAGE);
+
+      // Create damage text above and to the left of player
+      const playerX = 50;
+      const playerY = this.CANVAS_SIZE + 50;
+      this.damageTexts.push({
+        x: playerX - 20, // Position to the left of player
+        y: playerY - 30, // Position above player
+        value: this.ENEMY_ATTACK_DAMAGE,
+        lifetime: 0,
+        maxLifetime: 500, // 1 second
+        type: 'player',
+      });
     }
 
     // Check win/lose conditions
@@ -1131,6 +1174,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Draw UI
     this.drawUI();
+
+    // Draw damage texts
+    this.drawDamageTexts();
   }
 
   private renderMenu() {
@@ -1724,7 +1770,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#333';
     this.ctx.font = '18px Arial';
     this.ctx.textAlign = 'left';
-    this.ctx.direction = 'ltr';  // Ensure left-to-right text direction
+    this.ctx.direction = 'ltr'; // Ensure left-to-right text direction
     const displayText = this.leaderboardNameInput || 'Type your name here...';
     this.ctx.fillText(displayText, 60, 265);
 
@@ -2006,6 +2052,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
+  private drawDamageTexts() {
+    for (const damageText of this.damageTexts) {
+      // Calculate alpha based on lifetime (fade out over time)
+      const alpha = 1 - damageText.lifetime / damageText.maxLifetime;
+
+      this.ctx.save();
+      this.ctx.globalAlpha = Math.max(alpha, 0);
+
+      // Choose color based on damage type
+      const mainColor = damageText.type === 'enemy' ? '#ff4444' : '#4444ff'; // Red for enemy damage, blue for player damage
+      const shadowColor = '#000000'; // Black shadow for both
+
+      // Draw shadow first (behind the main text)
+      this.ctx.fillStyle = shadowColor;
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(damageText.value.toString(), damageText.x, damageText.y);
+
+      // Draw main damage text on top
+      this.ctx.fillStyle = mainColor;
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.fillText(damageText.value.toString(), damageText.x + 1, damageText.y + 1);
+
+      this.ctx.restore();
+    }
+  }
+
   private drawCharacter(
     x: number,
     y: number,
@@ -2140,6 +2213,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         );
       }
     }
+
+    // Health text above health bar
+    this.ctx.fillStyle = '#333';
+    this.ctx.font = 'bold 12px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(`${health}`, x, y - 30);
 
     // Health bar
     this.ctx.fillStyle = '#333';
@@ -2842,6 +2921,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const damageDealt = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
+    // Create damage text above and to the right of enemy
+    const enemyX = this.CANVAS_SIZE - 50;
+    const enemyY = this.CANVAS_SIZE + 50;
+    this.damageTexts.push({
+      x: enemyX + 20, // Position to the right of enemy
+      y: enemyY - 30, // Position above enemy
+      value: damageDealt,
+      lifetime: 0,
+      maxLifetime: 500, // 1 second (faster fade)
+      type: 'enemy',
+    });
+
     // Trigger attack animation
     this.triggerAttackAnimation();
 
@@ -2931,12 +3022,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   onMobileInputBeforeInput(event: any) {
     // Prevent default input behavior and handle manually to ensure cursor positioning
     event.preventDefault();
-    
+
     // Only handle insertText events (actual character input)
     if (event.inputType === 'insertText' && event.data && this.leaderboardNameInput.length < 10) {
       // Append the new character to the end
       this.leaderboardNameInput += event.data;
-      
+
       // Update input value and ensure cursor is at the end
       if (this.mobileInput) {
         const input = this.mobileInput.nativeElement;
@@ -2946,7 +3037,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     } else if (event.inputType === 'deleteContentBackward') {
       // Handle backspace
       this.leaderboardNameInput = this.leaderboardNameInput.slice(0, -1);
-      
+
       if (this.mobileInput) {
         const input = this.mobileInput.nativeElement;
         input.value = this.leaderboardNameInput;
