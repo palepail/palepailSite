@@ -447,9 +447,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private loadSoundEffects(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let loadedCount = 0;
-      const totalSounds = 3;
+      const totalSounds = 11; // Updated to match actual number of sounds
 
       const checkComplete = () => {
         loadedCount++;
@@ -461,7 +461,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       };
 
       const handleError = () => {
-        reject(new Error('Failed to load sound effects'));
+        // On mobile/iOS, audio loading can fail due to autoplay restrictions
+        // Continue loading other sounds instead of failing completely
+        checkComplete();
       };
 
       // Player attack sounds
@@ -518,7 +520,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private loadBGM(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.bgmAudio.oncanplaythrough = () => {
         this.loadedAssets['bgm'] = true;
         this.updateLoadingProgress();
@@ -527,7 +529,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
         resolve();
       };
       this.bgmAudio.onerror = () => {
-        reject(new Error('Failed to load BGM'));
+        // On mobile/iOS, BGM loading can fail due to autoplay restrictions
+        // Mark as loaded anyway so game can continue
+        this.loadedAssets['bgm'] = true;
+        this.updateLoadingProgress();
+        resolve();
       };
       this.bgmAudio.src = 'resources/audio/projects/numberCrunch/4. Ballad of Ashenwood.ogg';
       this.bgmAudio.loop = true; // Loop the BGM
@@ -686,21 +692,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.assetsToLoad['bgm'] = false;
     this.loadedAssets['bgm'] = false;
 
-    // Load all assets
+    // Load all assets with individual error handling
+    const assetPromises = [
+      this.loadPlayerSprite().catch(() => {}),
+      this.loadAttackSprites().catch(() => {}),
+      this.loadEnemySprite().catch(() => {}),
+      this.loadEnemyAttackSprite().catch(() => {}),
+      this.loadRunningSprite().catch(() => {}),
+      this.loadAvatarSprites().catch(() => {}),
+      this.loadSoundEffects().catch(() => {}),
+      this.loadBGM().catch(() => {}),
+    ];
+
     try {
-      await Promise.all([
-        this.loadPlayerSprite(),
-        this.loadAttackSprites(),
-        this.loadEnemySprite(),
-        this.loadEnemyAttackSprite(),
-        this.loadRunningSprite(),
-        this.loadAvatarSprites(),
-        this.loadSoundEffects(),
-        this.loadBGM(),
-      ]);
+      await Promise.all(assetPromises);
       // Add more asset loading calls here as needed
     } catch (error) {
-      console.error('Failed to load assets:', error);
+      console.error('Failed to load some assets:', error);
       // Continue with game even if assets fail to load
     }
   }
@@ -2932,7 +2940,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Update total score
     this.score += scoreEarned;
 
-    // Deal damage to enemy proportional to score earned
+    // Deal damage to enemy proportional to score earned (rounded to nearest whole number)
     const damageDealt = Math.round(tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier);
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
