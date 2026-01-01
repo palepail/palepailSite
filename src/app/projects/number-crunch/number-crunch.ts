@@ -1998,12 +1998,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private drawUI() {
     // Draw characters at bottom
+    const playerMaxHealth = Math.floor(this.MAX_HEALTH * this.healthMultiplier);
     this.drawCharacter(
       50,
       this.CANVAS_SIZE + 50,
       'Player',
       this.playerHealth,
-      this.MAX_HEALTH,
+      playerMaxHealth,
       '#4CAF50'
     );
     this.drawCharacter(
