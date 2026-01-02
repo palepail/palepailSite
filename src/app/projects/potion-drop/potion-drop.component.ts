@@ -12,21 +12,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LeaderboardService } from '../../services/leaderboard.service';
 
+// Matter.js imports
+declare var Matter: any;
+
 interface Potion {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
+  body: any; // Matter.js body
   type: number; // 0-10 (small potion to large potion)
   color: string;
   active: boolean;
-  // Position history for settling detection
-  lastPositions: { x: number; y: number }[];
-  settled: boolean;
-  // Sleep system for performance and stability
-  asleep: boolean;
-  sleepTimer: number;
 }
 
 enum GameState {
@@ -55,6 +48,22 @@ export class PotionDropComponent implements OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('mobileInput') mobileInput!: ElementRef<HTMLInputElement>;
   private ctx!: CanvasRenderingContext2D;
+
+  // Matter.js physics
+  private engine: any;
+  private world: any;
+  private runner: any;
+  private matterRender: any;
+
+  // Matter.js functions (loaded dynamically)
+  private Engine: any;
+  private Render: any;
+  private Runner: any;
+  private Bodies: any;
+  private World: any;
+  private Events: any;
+  private Body: any;
+  private Composite: any;
 
   // Game state
   currentState: GameState = GameState.MENU;
@@ -85,10 +94,7 @@ export class PotionDropComponent implements OnInit, OnDestroy {
     '#98D8C8', // Mythical potion
     '#F7DC6F', // Divine potion
   ];
-  private readonly POTION_RADII = [8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48];
-  private readonly GRAVITY = 0.3;
-  private readonly BOUNCE_DAMPING = 0.2; // Much lower bounce for Suika-like physics
-  private readonly COLLISION_BUFFER = 2.0; // Match the required separation
+  private readonly POTION_RADII = [10, 13, 16, 20, 25, 32, 40, 51, 65, 83, 105];
 
   // Container positioning
   private get containerBottom(): number {
@@ -165,14 +171,52 @@ export class PotionDropComponent implements OnInit, OnDestroy {
   constructor(private cdr: ChangeDetectorRef, private leaderboardService: LeaderboardService) {}
 
   ngOnInit() {
-    this.initializeGame();
-    this.startGameLoop();
+    this.loadMatterJS().then(() => {
+      this.initializeGame();
+      this.startGameLoop();
+    });
   }
 
   ngOnDestroy() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
+    if (this.runner && this.Runner) {
+      this.Runner.stop(this.runner);
+    }
+  }
+
+  private loadMatterJS(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Check if Matter.js is already loaded
+      if (typeof Matter !== 'undefined') {
+        this.setupMatterFunctions();
+        resolve();
+        return;
+      }
+
+      // Create script element
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js';
+      script.onload = () => {
+        this.setupMatterFunctions();
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Failed to load Matter.js'));
+      document.head.appendChild(script);
+    });
+  }
+
+  private setupMatterFunctions() {
+    const matter = (window as any).Matter;
+    this.Engine = matter.Engine;
+    this.Render = matter.Render;
+    this.Runner = matter.Runner;
+    this.Bodies = matter.Bodies;
+    this.World = matter.World;
+    this.Events = matter.Events;
+    this.Body = matter.Body;
+    this.Composite = matter.Composite;
   }
 
   private initializeGame() {
@@ -196,6 +240,108 @@ export class PotionDropComponent implements OnInit, OnDestroy {
       canvas.height = this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT;
       this.ctx = canvas.getContext('2d')!;
     }
+
+    // Initialize Matter.js physics engine
+    this.engine = this.Engine.create({
+      gravity: { x: 0, y: 1 } // Same gravity as fruits-maker
+    });
+    this.world = this.engine.world;
+
+    // Create boundaries (walls and floor)
+    const wallOptions = {
+      isStatic: true,
+      render: {
+        fillStyle: 'rgba(102, 126, 234, 0.3)',
+        strokeStyle: 'rgba(102, 126, 234, 0.5)',
+        lineWidth: 2
+      }
+    };
+
+    const containerWidth = 320;
+    const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
+
+    // Create boundaries - position them at the container boundaries
+    const ground = this.Bodies.rectangle(
+      this.CANVAS_SIZE / 2,
+      this.containerBottom + 10,
+      this.CANVAS_SIZE,
+      20,
+      wallOptions
+    );
+
+    const leftWall = this.Bodies.rectangle(
+      containerX - 10,
+      (70 + this.containerBottom) / 2,  // Center of container area
+      20,
+      this.containerBottom - 70,  // Height of container area
+      wallOptions
+    );
+
+    const rightWall = this.Bodies.rectangle(
+      containerX + containerWidth + 10,
+      (70 + this.containerBottom) / 2,  // Center of container area
+      20,
+      this.containerBottom - 70,  // Height of container area
+      wallOptions
+    );
+
+    // Add boundaries to world
+    this.World.add(this.world, [ground, leftWall, rightWall]);
+
+    // Start the physics engine
+    this.runner = this.Runner.create();
+    this.Runner.run(this.runner, this.engine);
+
+    // Set up collision detection for merging
+    this.Events.on(this.engine, 'collisionStart', (event: any) => {
+      event.pairs.forEach((pair: any) => {
+        const { bodyA, bodyB } = pair;
+
+        // Check if both bodies are potions and same type
+        const potionA = this.potions.find(p => p.body === bodyA);
+        const potionB = this.potions.find(p => p.body === bodyB);
+
+        if (potionA && potionB && potionA.type === potionB.type && potionA.type < this.POTION_TYPES - 1) {
+          // Merge potions
+          this.mergePotions(potionA, potionB);
+        }
+      });
+    });
+
+    // Set up input event listeners
+    canvas.addEventListener('mousemove', (event) => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouseX = (event.clientX - rect.left) / this.canvasScale;
+    });
+
+    canvas.addEventListener('click', (event) => {
+      if (this.currentState === GameState.PLAYING) {
+        this.handleGameClick(event);
+      } else if (this.currentState === GameState.MENU) {
+        this.handleMenuClick(event);
+      } else if (this.currentState === GameState.GAME_OVER) {
+        this.handleGameOverClick(event);
+      } else if (this.currentState === GameState.LEADERBOARD) {
+        this.handleLeaderboardClick(event);
+      }
+    });
+
+    canvas.addEventListener('touchstart', (event) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = event.touches[0];
+      this.mouseX = (touch.clientX - rect.left) / this.canvasScale;
+
+      if (this.currentState === GameState.PLAYING) {
+        this.handleGameClick(event);
+      } else if (this.currentState === GameState.MENU) {
+        this.handleMenuClick(event);
+      } else if (this.currentState === GameState.GAME_OVER) {
+        this.handleGameOverClick(event);
+      } else if (this.currentState === GameState.LEADERBOARD) {
+        this.handleLeaderboardClick(event);
+      }
+    });
   }
 
   private startGameLoop() {
@@ -228,345 +374,82 @@ export class PotionDropComponent implements OnInit, OnDestroy {
   }
 
   private updatePhysics() {
-    // console.log('updatePhysics called'); // Uncomment to verify physics updates
-    for (const potion of this.potions) {
-      if (!potion.active) continue;
-
-      // Skip physics for asleep potions (they're at rest)
-      if (potion.asleep) {
-        // Still update position history for asleep potions
-        potion.lastPositions.push({ x: potion.x, y: potion.y });
-        if (potion.lastPositions.length > 10) {
-          potion.lastPositions.shift();
-        }
-        continue;
+    // Matter.js handles physics automatically - no custom physics needed
+    // Just clean up inactive potions from the world
+    this.potions = this.potions.filter(potion => {
+      if (!potion.active && potion.body) {
+        this.World.remove(this.world, potion.body);
+        return false;
       }
-
-      // Apply gravity (skip settled potions)
-      if (!potion.settled) {
-        potion.vy += this.GRAVITY;
-      }
-
-      // Update position
-      potion.x += potion.vx;
-      potion.y += potion.vy;
-
-      // Update position history
-      potion.lastPositions.push({ x: potion.x, y: potion.y });
-      if (potion.lastPositions.length > 10) {
-        potion.lastPositions.shift();
-      }
-    }
-
-    // Check collisions between potions - multi-pass resolution for perfect rigidity
-    let collisionsResolved = true;
-    let maxIterations = 20; // Increased from 10 to allow more time for complex resolutions
-    let iteration = 0;
-
-    while (collisionsResolved && iteration < maxIterations) {
-      collisionsResolved = false;
-      iteration++;
-
-      // Only log if there are actually collisions to resolve
-      let hasCollisions = false;
-
-      for (let i = 0; i < this.potions.length; i++) {
-        for (let j = i + 1; j < this.potions.length; j++) {
-          const potion1 = this.potions[i];
-          const potion2 = this.potions[j];
-
-          if (!potion1.active || !potion2.active) continue;
-
-          // Wake up sleeping potions on collision
-          if (potion1.asleep) {
-            potion1.asleep = false;
-            potion1.sleepTimer = 0;
-          }
-          if (potion2.asleep) {
-            potion2.asleep = false;
-            potion2.sleepTimer = 0;
-          }
-
-          const dx = potion2.x - potion1.x;
-          const dy = potion2.y - potion1.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const minDistance = potion1.radius + potion2.radius;
-          const collisionDistance = minDistance; // No buffer - detect actual overlaps only
-
-          if (distance < collisionDistance) {
-            // Hard collision detected - force separation with safety margin
-            const requiredSeparation = minDistance + 2.0; // Ensure 2 units separation
-            const overlap = requiredSeparation - distance;
-
-            // Calculate masses (using radius² for 2D area-based mass)
-            const mass1 = potion1.radius * potion1.radius;
-            const mass2 = potion2.radius * potion2.radius;
-            const totalMass = mass1 + mass2;
-
-            // Mass-weighted separation - heavier potions move less
-            const separation1Ratio = mass2 / totalMass;
-            const separation2Ratio = mass1 / totalMass;
-
-            const separationX1 = (dx / distance) * overlap * separation1Ratio;
-            const separationY1 = (dy / distance) * overlap * separation1Ratio;
-            const separationX2 = (dx / distance) * overlap * separation2Ratio;
-            const separationY2 = (dy / distance) * overlap * separation2Ratio;
-
-            potion1.x -= separationX1;
-            potion1.y -= separationY1;
-            potion2.x += separationX2;
-            potion2.y += separationY2;
-
-            // Apply boundary constraints immediately after collision resolution
-            // to prevent potions from being pushed outside boundaries
-            this.applyBoundaryConstraintsToPotion(potion1);
-            this.applyBoundaryConstraintsToPotion(potion2);
-
-            collisionsResolved = true; // Continue checking for more collisions
-
-            hasCollisions = true;
-
-            // Mass-weighted bounce physics (only on first collision detection)
-            if (iteration === 1) {
-              const relativeVx = potion2.vx - potion1.vx;
-              const relativeVy = potion2.vy - potion1.vy;
-              const normalX = dx / distance;
-              const normalY = dy / distance;
-
-              const velocityAlongNormal = relativeVx * normalX + relativeVy * normalY;
-
-              if (velocityAlongNormal < 0) {
-                // Calculate impulse with mass weighting and additional damping
-                const impulse = (2 * velocityAlongNormal * this.BOUNCE_DAMPING) / totalMass;
-
-                potion1.vx += impulse * mass2 * normalX * 0.8; // Additional damping
-                potion1.vy += impulse * mass2 * normalY * 0.8;
-                potion2.vx -= impulse * mass1 * normalX * 0.8;
-                potion2.vy -= impulse * mass1 * normalY * 0.8;
-              }
-            }
-          }
-        }
-      }
-
-      if (hasCollisions) {
-        // Removed debug logging
-      }
-    }
-
-    // Final pass: Ensure no potions are overlapping (perfect rigidity)
-    for (let i = 0; i < this.potions.length; i++) {
-      for (let j = i + 1; j < this.potions.length; j++) {
-        const potion1 = this.potions[i];
-        const potion2 = this.potions[j];
-
-        if (!potion1.active || !potion2.active) continue;
-
-        const dx = potion2.x - potion1.x;
-        const dy = potion2.y - potion1.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDistance = potion1.radius + potion2.radius;
-
-        // Final hard check - ensure no potions are closer than minimum distance
-        if (distance < minDistance) {
-          const overlap = (minDistance + 2.0) - distance; // Force 2 units separation
-          const separationX = (dx / distance) * (overlap / 2);
-          const separationY = (dy / distance) * (overlap / 2);
-
-          potion1.x -= separationX;
-          potion1.y -= separationY;
-          potion2.x += separationX;
-          potion2.y += separationY;
-        }
-      }
-    }
-
-    // Apply boundary constraints again after collision resolution
-    for (const potion of this.potions) {
-      if (!potion.active) continue;
-
-      // Bounce off container walls
-      const containerWidth = 320;
-      const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
-      const leftBoundary = containerX;
-      const rightBoundary = containerX + containerWidth;
-
-      if (potion.x - potion.radius < leftBoundary) {
-        potion.x = leftBoundary + potion.radius;
-        potion.vx = Math.abs(potion.vx) * this.BOUNCE_DAMPING; // Bounce right
-      } else if (potion.x + potion.radius > rightBoundary) {
-        potion.x = rightBoundary - potion.radius;
-        potion.vx = -Math.abs(potion.vx) * this.BOUNCE_DAMPING; // Bounce left
-      }
-
-      // Gentle bounce at bottom (container bottom)
-      const cauldronTop = this.containerBottom;
-      if (potion.y + potion.radius > cauldronTop) {
-        potion.y = cauldronTop - potion.radius;
-        potion.vy *= -0.4; // Gentle bounce back with 40% velocity retention
-        potion.vx *= 0.9; // Apply friction to horizontal movement
-      }
-    }
-
-    // Apply settling to prevent jittery small movements
-    this.applySettlingToPotions();
+      return true;
+    });
   }
 
-  private applySettlingToPotions() {
-    const MAX_HISTORY_LENGTH = 10; // Track last 10 positions
-    const SETTLING_MOVEMENT_THRESHOLD = 0.125; // radius/8 = 0.125 of radius
-    const SETTLING_DAMPING = 0.3; // Very aggressive damping for settled potions
-    const MIN_VELOCITY = 0.001; // Minimum velocity before completely stopping
-    const SLEEP_VELOCITY_THRESHOLD = 0.01; // Velocity threshold for sleep
-    const SLEEP_TIME_REQUIRED = 30; // Frames of low movement before sleep
 
-    let settledCount = 0;
-    let sleepCount = 0;
-    let totalPotions = 0;
 
-    for (const potion of this.potions) {
-      if (!potion.active) continue;
-      totalPotions++;
 
-      // Skip asleep potions
-      if (potion.asleep) continue;
 
-      // Update position history
-      potion.lastPositions.push({ x: potion.x, y: potion.y });
-      if (potion.lastPositions.length > MAX_HISTORY_LENGTH) {
-        potion.lastPositions.shift(); // Remove oldest position
+  private createPotion(x: number, y: number, type: number, isStatic: boolean = false): Potion {
+    const radius = this.POTION_RADII[type];
+    const color = this.POTION_COLORS[type];
+
+    // Create Matter.js body
+    const body = this.Bodies.circle(x, y, radius, {
+      restitution: 0.3, // Same as fruits-maker
+      friction: 0.5,    // Same as fruits-maker
+      isStatic: isStatic,
+      render: {
+        fillStyle: color,
+        strokeStyle: 'rgba(255, 255, 255, 0.3)',
+        lineWidth: 2
       }
+    });
 
-      // Calculate velocity magnitude
-      const velocityMagnitude = Math.sqrt(potion.vx * potion.vx + potion.vy * potion.vy);
+    body.fruitType = type; // Store type on body for collision detection
 
-      // Calculate total movement distance over history
-      let totalMovement = 0;
-      if (potion.lastPositions.length >= 3) { // Need at least 3 positions to calculate movement
-        for (let i = 1; i < potion.lastPositions.length; i++) {
-          const prev = potion.lastPositions[i - 1];
-          const curr = potion.lastPositions[i];
-          const dx = curr.x - prev.x;
-          const dy = curr.y - prev.y;
-          totalMovement += Math.sqrt(dx * dx + dy * dy);
-        }
-      }
+    // Create potion object
+    const potion: Potion = {
+      body: body,
+      type: type,
+      color: color,
+      active: true
+    };
 
-      // Check if potion has barely moved (vibrating in place)
-      const movementThreshold = potion.radius * SETTLING_MOVEMENT_THRESHOLD;
-      const isVibrating = totalMovement < movementThreshold && potion.lastPositions.length >= MAX_HISTORY_LENGTH;
+    // Add to world and potions array
+    this.World.add(this.world, body);
+    this.potions.push(potion);
 
-      if (isVibrating) {
-        // Apply very aggressive damping to stop vibration
-        potion.vx *= SETTLING_DAMPING;
-        potion.vy *= SETTLING_DAMPING;
-
-        // Completely stop very small movements
-        if (Math.abs(potion.vx) < MIN_VELOCITY) {
-          potion.vx = 0;
-        }
-        if (Math.abs(potion.vy) < MIN_VELOCITY) {
-          potion.vy = 0;
-        }
-
-        potion.settled = true;
-        settledCount++;
-
-        // Check if potion should go to sleep
-        if (velocityMagnitude < SLEEP_VELOCITY_THRESHOLD) {
-          potion.sleepTimer++;
-          if (potion.sleepTimer >= SLEEP_TIME_REQUIRED) {
-            potion.asleep = true;
-            sleepCount++;
-          }
-        } else {
-          potion.sleepTimer = 0;
-        }
-      } else {
-        potion.settled = false;
-        potion.sleepTimer = 0;
-      }
-    }
-
-    // Log settling activity (only when potions are being settled or put to sleep)
-    if (settledCount > 0 || sleepCount > 0) {
-      console.log(`Vibration settling: ${settledCount} damped, ${sleepCount} asleep (${totalPotions} total potions)`);
-    }
+    return potion;
   }
 
-  private applyBoundaryConstraintsToPotion(potion: Potion) {
-    // Bounce off container walls
-    const containerWidth = 320;
-    const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
-    const leftBoundary = containerX;
-    const rightBoundary = containerX + containerWidth;
+  private mergePotions(potionA: Potion, potionB: Potion) {
+    // Calculate merge position
+    const x = (potionA.body.position.x + potionB.body.position.x) / 2;
+    const y = (potionA.body.position.y + potionB.body.position.y) / 2;
 
-    if (potion.x - potion.radius < leftBoundary) {
-      potion.x = leftBoundary + potion.radius;
-      potion.vx = Math.abs(potion.vx) * this.BOUNCE_DAMPING; // Bounce right
-    } else if (potion.x + potion.radius > rightBoundary) {
-      potion.x = rightBoundary - potion.radius;
-      potion.vx = -Math.abs(potion.vx) * this.BOUNCE_DAMPING; // Bounce left
-    }
+    // Remove old potions from world and array
+    this.World.remove(this.world, potionA.body);
+    this.World.remove(this.world, potionB.body);
+    potionA.active = false;
+    potionB.active = false;
 
-    // Gentle bounce at bottom (container bottom)
-    const cauldronTop = this.containerBottom;
-    if (potion.y + potion.radius > cauldronTop) {
-      potion.y = cauldronTop - potion.radius;
-      potion.vy *= -0.4; // Gentle bounce back with 40% velocity retention
-      potion.vx *= 0.9; // Apply friction to horizontal movement
+    // Create new larger potion
+    const newType = potionA.type + 1;
+    if (newType < this.POTION_TYPES) {
+      const newPotion = this.createPotion(x, y, newType, false);
+      newPotion.body.fruitType = newType;
+
+      // Add some upward velocity for visual effect (like fruits-maker)
+      this.Body.setVelocity(newPotion.body, { x: 0, y: -2 });
+
+      // Add score
+      this.score += (newType + 1) * 10;
     }
   }
 
   private checkMerges() {
-    for (let i = 0; i < this.potions.length; i++) {
-      for (let j = i + 1; j < this.potions.length; j++) {
-        const potion1 = this.potions[i];
-        const potion2 = this.potions[j];
-
-        if (!potion1.active || !potion2.active) continue;
-        if (potion1.type !== potion2.type) continue;
-
-        const dx = potion2.x - potion1.x;
-        const dy = potion2.y - potion1.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < potion1.radius + potion2.radius + 2) {
-          // Close enough to merge
-          // Create new larger potion
-          const newType = potion1.type + 1;
-          if (newType < this.POTION_TYPES) {
-            const newPotion: Potion = {
-              x: (potion1.x + potion2.x) / 2,
-              y: (potion1.y + potion2.y) / 2,
-              vx: (potion1.vx + potion2.vx) / 2,
-              vy: (potion1.vy + potion2.vy) / 2 - 2, // Slight upward boost
-              radius: this.POTION_RADII[newType],
-              type: newType,
-              color: this.POTION_COLORS[newType],
-              active: true,
-              lastPositions: [{ x: (potion1.x + potion2.x) / 2, y: (potion1.y + potion2.y) / 2 }],
-              settled: false,
-              asleep: false,
-              sleepTimer: 0,
-            };
-
-            // Remove old potions
-            potion1.active = false;
-            potion2.active = false;
-
-            // Add new potion
-            this.potions.push(newPotion);
-
-            // Add score
-            this.score += (newType + 1) * 10;
-          }
-        }
-      }
-    }
-
-    // Remove inactive potions
-    this.potions = this.potions.filter((potion) => potion.active);
+    // Merging is now handled by Matter.js collision events
+    // This method is kept for compatibility but does nothing
   }
 
   private checkGameOver() {
@@ -579,7 +462,7 @@ export class PotionDropComponent implements OnInit, OnDestroy {
 
     let potionAboveThreshold = false;
     for (const potion of this.potions) {
-      if (potion.y - potion.radius < 50) {
+      if (potion.active && potion.body.position.y - this.POTION_RADII[potion.type] < 50) {
         potionAboveThreshold = true;
         break;
       }
@@ -674,9 +557,17 @@ export class PotionDropComponent implements OnInit, OnDestroy {
 
     // Draw potions
     for (const potion of this.potions) {
+      if (!potion.active) continue;
+
       this.ctx.fillStyle = potion.color;
       this.ctx.beginPath();
-      this.ctx.arc(potion.x, potion.y, potion.radius, 0, Math.PI * 2);
+      this.ctx.arc(
+        potion.body.position.x,
+        potion.body.position.y,
+        this.POTION_RADII[potion.type],
+        0,
+        Math.PI * 2
+      );
       this.ctx.fill();
 
       // Add border
@@ -902,264 +793,6 @@ export class PotionDropComponent implements OnInit, OnDestroy {
     );
   }
 
-  @HostListener('mousedown', ['$event'])
-  onMouseDown(event: MouseEvent) {
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / this.canvasScale;
-    const y = (event.clientY - rect.top) / this.canvasScale;
-
-    switch (this.currentState) {
-      case GameState.MENU:
-        this.handleMenuClick(x, y);
-        break;
-      case GameState.GAME_OVER:
-        this.handleGameOverClick(x, y);
-        break;
-      case GameState.LEADERBOARD:
-        this.handleLeaderboardClick(x, y);
-        break;
-      case GameState.LEADERBOARD_NAME_INPUT:
-        this.handleLeaderboardNameInputClick(x, y);
-        break;
-      // PLAYING case moved to mouseup
-    }
-  }
-
-  @HostListener('mouseup', ['$event'])
-  onMouseUp(event: MouseEvent) {
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / this.canvasScale;
-    const y = (event.clientY - rect.top) / this.canvasScale;
-
-    switch (this.currentState) {
-      case GameState.PLAYING:
-        if (this.ignoreNextMouseUp) {
-          this.ignoreNextMouseUp = false; // Reset the flag
-          return; // Ignore this mouse up event
-        }
-        this.handleGameClick(x, y);
-        break;
-    }
-  }
-
-  @HostListener('mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    this.mouseX = (event.clientX - rect.left) / this.canvasScale;
-  }
-
-  @HostListener('touchstart', ['$event'])
-  onTouchStart(event: TouchEvent) {
-    if (event.touches.length === 0) return;
-
-    const touch = event.touches[0];
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = (touch.clientX - rect.left) / this.canvasScale;
-    const y = (touch.clientY - rect.top) / this.canvasScale;
-
-    event.preventDefault();
-
-    switch (this.currentState) {
-      case GameState.MENU:
-        this.handleMenuClick(x, y);
-        break;
-      case GameState.GAME_OVER:
-        this.handleGameOverClick(x, y);
-        break;
-      case GameState.LEADERBOARD:
-        this.handleLeaderboardClick(x, y);
-        break;
-      case GameState.LEADERBOARD_NAME_INPUT:
-        this.handleLeaderboardNameInputClick(x, y);
-        break;
-      // PLAYING case moved to touchend
-    }
-  }
-
-  @HostListener('touchend', ['$event'])
-  onTouchEnd(event: TouchEvent) {
-    if (event.changedTouches.length === 0) return;
-
-    const touch = event.changedTouches[0];
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = (touch.clientX - rect.left) / this.canvasScale;
-    const y = (touch.clientY - rect.top) / this.canvasScale;
-
-    event.preventDefault();
-
-    switch (this.currentState) {
-      case GameState.PLAYING:
-        if (this.ignoreNextMouseUp) {
-          this.ignoreNextMouseUp = false; // Reset the flag
-          return; // Ignore this touch end event
-        }
-        this.handleGameClick(x, y);
-        break;
-    }
-  }
-
-  @HostListener('touchmove', ['$event'])
-  onTouchMove(event: TouchEvent) {
-    if (event.touches.length === 0) return;
-
-    const touch = event.touches[0];
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    this.mouseX = (touch.clientX - rect.left) / this.canvasScale;
-
-    event.preventDefault();
-  }
-
-  private handleMenuClick(x: number, y: number) {
-    if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_PLAY_BUTTON.x,
-        this.MENU_PLAY_BUTTON.y,
-        this.MENU_PLAY_BUTTON.width,
-        this.MENU_PLAY_BUTTON.height
-      )
-    ) {
-      this.startGame();
-    } else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_LEADERBOARD_BUTTON.x,
-        this.MENU_LEADERBOARD_BUTTON.y,
-        this.MENU_LEADERBOARD_BUTTON.width,
-        this.MENU_LEADERBOARD_BUTTON.height
-      )
-    ) {
-      this.currentState = GameState.LEADERBOARD;
-    }
-  }
-
-  private handleGameClick(x: number, y: number) {
-    if (y < 50) return; // Don't drop in UI area
-
-    // Check cooldown - prevent dropping if not enough time has passed
-    const currentTime = Date.now();
-    if (currentTime - this.lastDropTime < this.DROP_COOLDOWN) return;
-
-    // Use the current mouse position for dropping
-    const dropX = this.mouseX;
-
-    // Constrain x position to container boundaries
-    const containerWidth = 320;
-    const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
-    const potionRadius = this.POTION_RADII[this.nextPotionType];
-    const constrainedX = Math.max(
-      containerX + potionRadius,
-      Math.min(containerX + containerWidth - potionRadius, dropX)
-    );
-
-    // Create new potion and add it to the potions array with initial downward velocity
-    const newPotion: Potion = {
-      x: constrainedX,
-      y: 50,
-      vx: 0,
-      vy: 2, // Give it initial downward velocity so it starts falling immediately
-      radius: potionRadius,
-      type: this.nextPotionType,
-      color: this.POTION_COLORS[this.nextPotionType],
-      active: true,
-      lastPositions: [{ x: constrainedX, y: 50 }],
-      settled: false,
-      asleep: false,
-      sleepTimer: 0,
-    };
-
-    this.potions.push(newPotion);
-
-    // Update last drop time
-    this.lastDropTime = currentTime;
-
-    // Generate next potion type
-    this.nextPotionType = Math.floor(Math.random() * 5); // Random potion 0-4
-  }
-
-  private handleGameOverClick(x: number, y: number) {
-    if (
-      this.isClickInButton(
-        x,
-        y,
-        this.GAME_OVER_PLAY_AGAIN_BUTTON.x,
-        this.GAME_OVER_PLAY_AGAIN_BUTTON.y,
-        this.GAME_OVER_PLAY_AGAIN_BUTTON.width,
-        this.GAME_OVER_PLAY_AGAIN_BUTTON.height
-      )
-    ) {
-      this.startGame();
-    } else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.GAME_OVER_MAIN_MENU_BUTTON.x,
-        this.GAME_OVER_MAIN_MENU_BUTTON.y,
-        this.GAME_OVER_MAIN_MENU_BUTTON.width,
-        this.GAME_OVER_MAIN_MENU_BUTTON.height
-      )
-    ) {
-      this.currentState = GameState.MENU;
-    }
-  }
-
-  private handleLeaderboardClick(x: number, y: number) {
-    if (
-      this.isClickInButton(
-        x,
-        y,
-        this.LEADERBOARD_BACK_BUTTON.x,
-        this.LEADERBOARD_BACK_BUTTON.y,
-        this.LEADERBOARD_BACK_BUTTON.width,
-        this.LEADERBOARD_BACK_BUTTON.height
-      )
-    ) {
-      this.currentState = GameState.MENU;
-    }
-  }
-
-  private handleLeaderboardNameInputClick(x: number, y: number) {
-    if (x >= 50 && x <= this.CANVAS_SIZE - 50 && y >= 240 && y <= 280) {
-      this.isLeaderboardInputFocused = true;
-      if (this.mobileInput) {
-        setTimeout(() => {
-          this.mobileInput.nativeElement.focus();
-        }, 10);
-      }
-    } else {
-      this.isLeaderboardInputFocused = false;
-      if (this.mobileInput) {
-        this.mobileInput.nativeElement.blur();
-      }
-    }
-
-    if (
-      this.isClickInButton(
-        x,
-        y,
-        this.LEADERBOARD_NAME_SUBMIT_BUTTON.x,
-        this.LEADERBOARD_NAME_SUBMIT_BUTTON.y,
-        this.LEADERBOARD_NAME_SUBMIT_BUTTON.width,
-        this.LEADERBOARD_NAME_SUBMIT_BUTTON.height
-      )
-    ) {
-      this.submitLeaderboardName();
-    } else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.LEADERBOARD_NAME_SKIP_BUTTON.x,
-        this.LEADERBOARD_NAME_SKIP_BUTTON.y,
-        this.LEADERBOARD_NAME_SKIP_BUTTON.width,
-        this.LEADERBOARD_NAME_SKIP_BUTTON.height
-      )
-    ) {
-      this.skipLeaderboardName();
-    }
-  }
-
   @HostListener('keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
     if (this.currentState === GameState.LEADERBOARD_NAME_INPUT) {
@@ -1183,19 +816,6 @@ export class PotionDropComponent implements OnInit, OnDestroy {
     }
   }
 
-  private startGame() {
-    this.potions = [];
-    this.score = 0;
-    this.gameOver = false;
-    this.nextPotionType = Math.floor(Math.random() * 5);
-    this.currentState = GameState.PLAYING;
-    this.ignoreNextMouseUp = true; // Ignore the mouse up from the play button click
-    this.lastDropTime = 0; // Reset cooldown so player can drop immediately
-    this.gameStartTime = Date.now(); // Reset game start time for game over detection
-    this.gameOverWarningStartTime = 0; // Reset warning timer
-    this.showingGameOverTimer = false; // Reset timer display flag
-  }
-
   private submitLeaderboardName() {
     const name = this.leaderboardNameInput.trim();
     if (name) {
@@ -1213,6 +833,161 @@ export class PotionDropComponent implements OnInit, OnDestroy {
 
   private skipLeaderboardName() {
     this.currentState = GameState.GAME_OVER;
+  }
+
+  private handleGameClick(event: MouseEvent | TouchEvent) {
+    const currentTime = Date.now();
+    if (currentTime - this.lastDropTime < this.DROP_COOLDOWN) {
+      return; // Prevent spamming drops
+    }
+    this.lastDropTime = currentTime;
+
+    // Drop the next potion at the current mouse position
+    const containerWidth = 320;
+    const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
+    const potionRadius = this.POTION_RADII[this.nextPotionType];
+    const constrainedX = Math.max(
+      containerX + potionRadius,
+      Math.min(containerX + containerWidth - potionRadius, this.mouseX)
+    );
+
+    // Create and drop the potion
+    this.createPotion(constrainedX, 50, this.nextPotionType, false);
+
+    // Generate next potion type
+    this.nextPotionType = Math.floor(Math.random() * 5); // 0-4 for variety
+  }
+
+  private handleMenuClick(event: MouseEvent | TouchEvent) {
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const scale = this.canvasScale;
+    const clickX = ((event instanceof MouseEvent ? event.clientX : event.touches[0].clientX) - rect.left) / scale;
+    const clickY = ((event instanceof MouseEvent ? event.clientY : event.touches[0].clientY) - rect.top) / scale;
+
+    // Check play button
+    if (
+      clickX >= this.MENU_PLAY_BUTTON.x - this.MENU_PLAY_BUTTON.width / 2 &&
+      clickX <= this.MENU_PLAY_BUTTON.x + this.MENU_PLAY_BUTTON.width / 2 &&
+      clickY >= this.MENU_PLAY_BUTTON.y - this.MENU_PLAY_BUTTON.height / 2 &&
+      clickY <= this.MENU_PLAY_BUTTON.y + this.MENU_PLAY_BUTTON.height / 2
+    ) {
+      this.startGame();
+    }
+
+    // Check leaderboard button
+    if (
+      clickX >= this.MENU_LEADERBOARD_BUTTON.x - this.MENU_LEADERBOARD_BUTTON.width / 2 &&
+      clickX <= this.MENU_LEADERBOARD_BUTTON.x + this.MENU_LEADERBOARD_BUTTON.width / 2 &&
+      clickY >= this.MENU_LEADERBOARD_BUTTON.y - this.MENU_LEADERBOARD_BUTTON.height / 2 &&
+      clickY <= this.MENU_LEADERBOARD_BUTTON.y + this.MENU_LEADERBOARD_BUTTON.height / 2
+    ) {
+      this.showLeaderboard();
+    }
+  }
+
+  private handleGameOverClick(event: MouseEvent | TouchEvent) {
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const scale = this.canvasScale;
+    const clickX = ((event instanceof MouseEvent ? event.clientX : event.touches[0].clientX) - rect.left) / scale;
+    const clickY = ((event instanceof MouseEvent ? event.clientY : event.touches[0].clientY) - rect.top) / scale;
+
+    // Check play again button
+    if (
+      clickX >= this.GAME_OVER_PLAY_AGAIN_BUTTON.x - this.GAME_OVER_PLAY_AGAIN_BUTTON.width / 2 &&
+      clickX <= this.GAME_OVER_PLAY_AGAIN_BUTTON.x + this.GAME_OVER_PLAY_AGAIN_BUTTON.width / 2 &&
+      clickY >= this.GAME_OVER_PLAY_AGAIN_BUTTON.y - this.GAME_OVER_PLAY_AGAIN_BUTTON.height / 2 &&
+      clickY <= this.GAME_OVER_PLAY_AGAIN_BUTTON.y + this.GAME_OVER_PLAY_AGAIN_BUTTON.height / 2
+    ) {
+      this.startGame();
+    }
+
+    // Check main menu button
+    if (
+      clickX >= this.GAME_OVER_MAIN_MENU_BUTTON.x - this.GAME_OVER_MAIN_MENU_BUTTON.width / 2 &&
+      clickX <= this.GAME_OVER_MAIN_MENU_BUTTON.x + this.GAME_OVER_MAIN_MENU_BUTTON.width / 2 &&
+      clickY >= this.GAME_OVER_MAIN_MENU_BUTTON.y - this.GAME_OVER_MAIN_MENU_BUTTON.height / 2 &&
+      clickY <= this.GAME_OVER_MAIN_MENU_BUTTON.y + this.GAME_OVER_MAIN_MENU_BUTTON.height / 2
+    ) {
+      this.currentState = GameState.MENU;
+    }
+  }
+
+  private handleLeaderboardClick(event: MouseEvent | TouchEvent) {
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const scale = this.canvasScale;
+    const clickX = ((event instanceof MouseEvent ? event.clientX : event.touches[0].clientX) - rect.left) / scale;
+    const clickY = ((event instanceof MouseEvent ? event.clientY : event.touches[0].clientY) - rect.top) / scale;
+
+    // Check back button
+    if (
+      clickX >= this.LEADERBOARD_BACK_BUTTON.x - this.LEADERBOARD_BACK_BUTTON.width / 2 &&
+      clickX <= this.LEADERBOARD_BACK_BUTTON.x + this.LEADERBOARD_BACK_BUTTON.width / 2 &&
+      clickY >= this.LEADERBOARD_BACK_BUTTON.y - this.LEADERBOARD_BACK_BUTTON.height / 2 &&
+      clickY <= this.LEADERBOARD_BACK_BUTTON.y + this.LEADERBOARD_BACK_BUTTON.height / 2
+    ) {
+      this.currentState = GameState.MENU;
+    }
+  }
+
+  private startGame() {
+    // Reset game state
+    this.potions = [];
+    this.nextPotionType = 0;
+    this.score = 0;
+    this.gameOver = false;
+    this.gameStartTime = Date.now();
+    this.gameOverWarningStartTime = 0;
+    this.showingGameOverTimer = false;
+    this.lastDropTime = 0;
+
+    // Clear Matter.js world
+    this.World.clear(this.world, false);
+    this.potions = [];
+
+    // Re-add boundaries
+    const wallOptions = {
+      isStatic: true,
+      render: {
+        fillStyle: 'rgba(102, 126, 234, 0.3)',
+        strokeStyle: 'rgba(102, 126, 234, 0.5)',
+        lineWidth: 2
+      }
+    };
+
+    const containerWidth = 320;
+    const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
+
+    const ground = this.Bodies.rectangle(
+      this.CANVAS_SIZE / 2,
+      this.containerBottom + 10,
+      this.CANVAS_SIZE,
+      20,
+      wallOptions
+    );
+
+    const leftWall = this.Bodies.rectangle(
+      containerX - 10,
+      (70 + this.containerBottom) / 2,  // Center of container area
+      20,
+      this.containerBottom - 70,  // Height of container area
+      wallOptions
+    );
+
+    const rightWall = this.Bodies.rectangle(
+      containerX + containerWidth + 10,
+      (70 + this.containerBottom) / 2,  // Center of container area
+      20,
+      this.containerBottom - 70,  // Height of container area
+      wallOptions
+    );
+
+    this.World.add(this.world, [ground, leftWall, rightWall]);
+
+    this.currentState = GameState.PLAYING;
+  }
+
+  private showLeaderboard() {
+    this.currentState = GameState.LEADERBOARD;
   }
 
   // Mobile input methods (similar to Number Crunch)
