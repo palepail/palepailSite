@@ -333,14 +333,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Asset loading functions
   private loadPlayerSprite(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.playerSprite.onload = () => {
         this.loadedAssets['playerSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.playerSprite.onerror = () => {
-        reject(new Error('Failed to load player sprite'));
+        this.loadedAssets['playerSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
       };
       this.playerSprite.src = 'resources/images/projects/numberCrunch/Warrior_Idle.png';
     });
@@ -375,49 +377,55 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private loadEnemyAttackSprite(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.enemyAttackSprite.onload = () => {
         this.loadedAssets['enemyAttackSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.enemyAttackSprite.onerror = () => {
-        reject(new Error('Failed to load enemy attack sprite'));
+        this.loadedAssets['enemyAttackSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
       };
       this.enemyAttackSprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Attack.png';
     });
   }
 
   private loadEnemySprite(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.enemySprite.onload = () => {
         this.loadedAssets['enemySprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.enemySprite.onerror = () => {
-        reject(new Error('Failed to load enemy sprite'));
+        this.loadedAssets['enemySprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
       };
       this.enemySprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Idle.png';
     });
   }
 
   private loadRunningSprite(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.runningSprite.onload = () => {
         this.loadedAssets['runningSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.runningSprite.onerror = () => {
-        reject(new Error('Failed to load running sprite'));
+        this.loadedAssets['runningSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
       };
       this.runningSprite.src = 'resources/images/projects/numberCrunch/Warrior_Run.png';
     });
   }
 
   private loadAvatarSprites(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let loadedCount = 0;
       const totalAvatars = 4;
 
@@ -431,7 +439,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       };
 
       const handleError = () => {
-        reject(new Error('Failed to load avatar sprites'));
+        checkComplete(); // Continue even on error
       };
 
       // Load avatars: 01, 02, 03, 05 (skipping 04)
@@ -694,14 +702,38 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Load all assets with individual error handling
     const assetPromises = [
-      this.loadPlayerSprite().catch(() => {}),
-      this.loadAttackSprites().catch(() => {}),
-      this.loadEnemySprite().catch(() => {}),
-      this.loadEnemyAttackSprite().catch(() => {}),
-      this.loadRunningSprite().catch(() => {}),
-      this.loadAvatarSprites().catch(() => {}),
-      this.loadSoundEffects().catch(() => {}),
-      this.loadBGM().catch(() => {}),
+      this.loadPlayerSprite().catch(() => {
+        this.loadedAssets['playerSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadAttackSprites().catch(() => {
+        this.loadedAssets['attackSprites'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadEnemySprite().catch(() => {
+        this.loadedAssets['enemySprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadEnemyAttackSprite().catch(() => {
+        this.loadedAssets['enemyAttackSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadRunningSprite().catch(() => {
+        this.loadedAssets['runningSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadAvatarSprites().catch(() => {
+        this.loadedAssets['avatarSprites'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadSoundEffects().catch(() => {
+        this.loadedAssets['soundEffects'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadBGM().catch(() => {
+        this.loadedAssets['bgm'] = true;
+        this.updateLoadingProgress();
+      }),
     ];
 
     try {
