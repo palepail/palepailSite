@@ -21,6 +21,12 @@ interface Potion {
   type: number; // 0-10 (small potion to large potion)
   color: string;
   active: boolean;
+  // Position history for settling detection
+  lastPositions: { x: number; y: number }[];
+  settled: boolean;
+  // Sleep system for performance and stability
+  asleep: boolean;
+  sleepTimer: number;
 }
 
 enum GameState {
@@ -81,7 +87,7 @@ export class PotionDropComponent implements OnInit, OnDestroy {
   ];
   private readonly POTION_RADII = [8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48];
   private readonly GRAVITY = 0.3;
-  private readonly BOUNCE_DAMPING = 0.7;
+  private readonly BOUNCE_DAMPING = 0.2; // Much lower bounce for Suika-like physics
   private readonly COLLISION_BUFFER = 2.0; // Match the required separation
 
   // Container positioning
@@ -226,12 +232,30 @@ export class PotionDropComponent implements OnInit, OnDestroy {
     for (const potion of this.potions) {
       if (!potion.active) continue;
 
-      // Apply gravity
-      potion.vy += this.GRAVITY;
+      // Skip physics for asleep potions (they're at rest)
+      if (potion.asleep) {
+        // Still update position history for asleep potions
+        potion.lastPositions.push({ x: potion.x, y: potion.y });
+        if (potion.lastPositions.length > 10) {
+          potion.lastPositions.shift();
+        }
+        continue;
+      }
+
+      // Apply gravity (skip settled potions)
+      if (!potion.settled) {
+        potion.vy += this.GRAVITY;
+      }
 
       // Update position
       potion.x += potion.vx;
       potion.y += potion.vy;
+
+      // Update position history
+      potion.lastPositions.push({ x: potion.x, y: potion.y });
+      if (potion.lastPositions.length > 10) {
+        potion.lastPositions.shift();
+      }
     }
 
     // Check collisions between potions - multi-pass resolution for perfect rigidity
@@ -252,6 +276,16 @@ export class PotionDropComponent implements OnInit, OnDestroy {
           const potion2 = this.potions[j];
 
           if (!potion1.active || !potion2.active) continue;
+
+          // Wake up sleeping potions on collision
+          if (potion1.asleep) {
+            potion1.asleep = false;
+            potion1.sleepTimer = 0;
+          }
+          if (potion2.asleep) {
+            potion2.asleep = false;
+            potion2.sleepTimer = 0;
+          }
 
           const dx = potion2.x - potion1.x;
           const dy = potion2.y - potion1.y;
@@ -379,25 +413,55 @@ export class PotionDropComponent implements OnInit, OnDestroy {
   }
 
   private applySettlingToPotions() {
-    const SETTLING_THRESHOLD = 0.5; // Velocity magnitude threshold for settling
-    const SETTLING_DAMPING = 0.85; // Damping factor for gradual velocity reduction
-    const MIN_VELOCITY = 0.01; // Minimum velocity before completely stopping
+    const MAX_HISTORY_LENGTH = 10; // Track last 10 positions
+    const SETTLING_MOVEMENT_THRESHOLD = 0.125; // radius/8 = 0.125 of radius
+    const SETTLING_DAMPING = 0.3; // Very aggressive damping for settled potions
+    const MIN_VELOCITY = 0.001; // Minimum velocity before completely stopping
+    const SLEEP_VELOCITY_THRESHOLD = 0.01; // Velocity threshold for sleep
+    const SLEEP_TIME_REQUIRED = 30; // Frames of low movement before sleep
 
     let settledCount = 0;
+    let sleepCount = 0;
+    let totalPotions = 0;
 
     for (const potion of this.potions) {
       if (!potion.active) continue;
+      totalPotions++;
+
+      // Skip asleep potions
+      if (potion.asleep) continue;
+
+      // Update position history
+      potion.lastPositions.push({ x: potion.x, y: potion.y });
+      if (potion.lastPositions.length > MAX_HISTORY_LENGTH) {
+        potion.lastPositions.shift(); // Remove oldest position
+      }
 
       // Calculate velocity magnitude
       const velocityMagnitude = Math.sqrt(potion.vx * potion.vx + potion.vy * potion.vy);
 
-      // Apply settling if velocity is below threshold
-      if (velocityMagnitude < SETTLING_THRESHOLD) {
-        // Apply exponential damping to gradually reduce velocity
+      // Calculate total movement distance over history
+      let totalMovement = 0;
+      if (potion.lastPositions.length >= 3) { // Need at least 3 positions to calculate movement
+        for (let i = 1; i < potion.lastPositions.length; i++) {
+          const prev = potion.lastPositions[i - 1];
+          const curr = potion.lastPositions[i];
+          const dx = curr.x - prev.x;
+          const dy = curr.y - prev.y;
+          totalMovement += Math.sqrt(dx * dx + dy * dy);
+        }
+      }
+
+      // Check if potion has barely moved (vibrating in place)
+      const movementThreshold = potion.radius * SETTLING_MOVEMENT_THRESHOLD;
+      const isVibrating = totalMovement < movementThreshold && potion.lastPositions.length >= MAX_HISTORY_LENGTH;
+
+      if (isVibrating) {
+        // Apply very aggressive damping to stop vibration
         potion.vx *= SETTLING_DAMPING;
         potion.vy *= SETTLING_DAMPING;
 
-        // Completely stop very small movements to prevent endless tiny oscillations
+        // Completely stop very small movements
         if (Math.abs(potion.vx) < MIN_VELOCITY) {
           potion.vx = 0;
         }
@@ -405,13 +469,28 @@ export class PotionDropComponent implements OnInit, OnDestroy {
           potion.vy = 0;
         }
 
+        potion.settled = true;
         settledCount++;
+
+        // Check if potion should go to sleep
+        if (velocityMagnitude < SLEEP_VELOCITY_THRESHOLD) {
+          potion.sleepTimer++;
+          if (potion.sleepTimer >= SLEEP_TIME_REQUIRED) {
+            potion.asleep = true;
+            sleepCount++;
+          }
+        } else {
+          potion.sleepTimer = 0;
+        }
+      } else {
+        potion.settled = false;
+        potion.sleepTimer = 0;
       }
     }
 
-    // Log settling activity (only when potions are being settled)
-    if (settledCount > 0) {
-      console.log(`Settling applied to ${settledCount} potions`);
+    // Log settling activity (only when potions are being settled or put to sleep)
+    if (settledCount > 0 || sleepCount > 0) {
+      console.log(`Vibration settling: ${settledCount} damped, ${sleepCount} asleep (${totalPotions} total potions)`);
     }
   }
 
@@ -466,6 +545,10 @@ export class PotionDropComponent implements OnInit, OnDestroy {
               type: newType,
               color: this.POTION_COLORS[newType],
               active: true,
+              lastPositions: [{ x: (potion1.x + potion2.x) / 2, y: (potion1.y + potion2.y) / 2 }],
+              settled: false,
+              asleep: false,
+              sleepTimer: 0,
             };
 
             // Remove old potions
@@ -981,6 +1064,10 @@ export class PotionDropComponent implements OnInit, OnDestroy {
       type: this.nextPotionType,
       color: this.POTION_COLORS[this.nextPotionType],
       active: true,
+      lastPositions: [{ x: constrainedX, y: 50 }],
+      settled: false,
+      asleep: false,
+      sleepTimer: 0,
     };
 
     this.potions.push(newPotion);
