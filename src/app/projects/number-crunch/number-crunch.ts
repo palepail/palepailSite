@@ -2043,8 +2043,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private drawUI() {
-    // Draw characters at bottom
-    const playerMaxHealth = Math.floor(this.MAX_HEALTH * this.healthMultiplier);
+    // Calculate player max health based on current difficulty and health multiplier
+    let baseHealth;
+    switch (this.settings.difficulty) {
+      case 'easy':
+        baseHealth = this.EASY_HEALTH;
+        break;
+      case 'normal':
+        baseHealth = this.MAX_HEALTH;
+        break;
+      case 'hard':
+        baseHealth = this.HARD_HEALTH;
+        break;
+      default:
+        baseHealth = this.MAX_HEALTH;
+    }
+    const playerMaxHealth = Math.floor(baseHealth * this.healthMultiplier);
     this.drawCharacter(
       50,
       this.CANVAS_SIZE + 50,
