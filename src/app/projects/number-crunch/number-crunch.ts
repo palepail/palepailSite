@@ -76,7 +76,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly MAX_HEALTH = 120;
   private readonly ENEMY_MAX_HEALTH = 450;
   private readonly EASY_HEALTH = 150;
-  private readonly HARD_HEALTH = 75;
+  private readonly HARD_HEALTH = 100;
 
   // Damage constants - base damage per tile by difficulty
   private readonly EASY_DAMAGE_BASE = 8;
@@ -96,7 +96,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly SCRAMBLE_ANIMATION_DURATION = 2000; // milliseconds
 
   // Scoring constants
-  private readonly POINTS_PER_TILE = 10;
+  // (removed POINTS_PER_TILE as score now uses damage per tile)
 
   // Target number constants
   private readonly TARGET_BASE = 9;
@@ -3232,7 +3232,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Calculate score earned from this match (including bonus for empty tiles)
-    const baseScore = tilesWithValues * this.POINTS_PER_TILE;
+    const baseScore = tilesWithValues * (this.damageBase + this.damageBonus);
     const emptyTileBonus = emptyTiles * 1; // 1 point per empty tile
     const scoreEarned = baseScore + emptyTileBonus;
 
