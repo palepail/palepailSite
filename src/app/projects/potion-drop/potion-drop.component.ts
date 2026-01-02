@@ -462,7 +462,17 @@ export class PotionDropComponent implements OnInit, OnDestroy {
 
     let potionAboveThreshold = false;
     for (const potion of this.potions) {
-      if (potion.active && potion.body.position.y - this.POTION_RADII[potion.type] < 50) {
+      const midpointX = potion.body.position.x;
+      const midpointY = potion.body.position.y;
+      const containerWidth = 320;
+      const containerX = (this.CANVAS_SIZE - containerWidth) / 2;
+      // Check if midpoint is outside container (above top, below bottom, left of left wall, or right of right wall)
+      if (potion.active && (
+        midpointY < 70 || 
+        midpointY > this.containerBottom ||
+        midpointX < containerX ||
+        midpointX > containerX + containerWidth
+      )) {
         potionAboveThreshold = true;
         break;
       }
@@ -476,8 +486,8 @@ export class PotionDropComponent implements OnInit, OnDestroy {
 
       const timeSinceWarning = currentTime - this.gameOverWarningStartTime;
 
-      // Show timer when 1 second remains (3 seconds into the 4-second countdown)
-      if (timeSinceWarning >= 3000 && !this.showingGameOverTimer) {
+      // Show timer after 1 second (showing 3-second countdown)
+      if (timeSinceWarning >= 1000 && !this.showingGameOverTimer) {
         this.showingGameOverTimer = true;
       }
 
