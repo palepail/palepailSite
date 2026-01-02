@@ -1,6 +1,6 @@
 <h1>{{ projectsData?.name }}</h1>
 <p class="intro-text">
-  Explore my portfolio of projects across different domains and technologies.
+  Some stuff I've worked on in my free time
 </p>
 
 <div *ngIf="subtabs.length === 0" class="loading">Loading projects...</div>
@@ -26,7 +26,7 @@
           <div class="technologies">
             <span *ngFor="let tech of project.technologies" class="tech-tag">{{ tech }}</span>
           </div>
-          <a [href]="project.link" class="project-link" [attr.target]="isExternalLink(project.link) ? '_blank' : null">View Project</a>
+          <a *ngIf="project.showViewProject !== false" [href]="project.link" class="project-link" [attr.target]="isExternalLink(project.link) ? '_blank' : null">View Project</a>
         </div>
       </div>
     </div>

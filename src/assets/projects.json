@@ -64,14 +64,15 @@
           "technologies": ["Java", "LibGDX"],
           "image": "/resources/images/projects/shooter/shooter0.png",
           "link": "https://bitbucket.org/palepail/shooter",
-          "status": [{ "name": "Completed" }]
+          "status": [{ "name": "Completed" }],
+          "showViewProject": false
         },
         {
           "title": "Match 3 Game",
           "description": "Potion-themed match 3 puzzle game inspired by Bejeweled, Puzzle Quest, and Slay the Spire",
           "technologies": ["C++", "Unity", "ChatGPT", "Claude", "Grok"],
           "image": "/resources/images/projects/match3/combat.png",
-          "link": "#",
+          "link": "https://bitbucket.org/palepail/match3/src/main/",
           "status": [{ "name": "In Development" }]
         }
       ]
@@ -87,7 +88,8 @@
           "technologies": ["Java", "Android"],
           "image": "/resources/images/projects/eartrainer/eartrainer0.png",
           "link": "https://play.google.com/store/apps/details?id=ear.trainer",
-          "status": [{ "name": "Defunct" }]
+          "status": [{ "name": "Defunct" }],
+          "showViewProject": false
         }
       ]
     }

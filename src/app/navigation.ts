@@ -14,6 +14,7 @@ export interface Project {
   image: string;
   link: string;
   status: { name: string }[];
+  showViewProject?: boolean;
 }
 
 export interface Activity {
