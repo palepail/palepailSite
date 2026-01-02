@@ -581,10 +581,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     return new Promise((resolve) => {
       let loadedCount = 0;
       const totalSounds = 11; // Updated to match actual number of sounds
+      let timeoutId: number;
 
       const checkComplete = () => {
         loadedCount++;
         if (loadedCount === totalSounds) {
+          clearTimeout(timeoutId);
           this.loadedAssets['soundEffects'] = true;
           this.updateLoadingProgress();
           resolve();
@@ -596,6 +598,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Continue loading other sounds instead of failing completely
         checkComplete();
       };
+
+      // 5 second timeout for iOS compatibility
+      timeoutId = window.setTimeout(() => {
+        console.log('Timeout reached for soundEffects, marking as loaded');
+        this.loadedAssets['soundEffects'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000);
 
       // Player attack sounds - load MP3 directly
       this.loadAudio(
@@ -669,13 +679,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private loadBGM(): Promise<void> {
     return new Promise((resolve) => {
+      let timeoutId: number;
+
+      // 5 second timeout for iOS compatibility
+      timeoutId = window.setTimeout(() => {
+        console.log('Timeout reached for BGM, marking as loaded');
+        this.loadedAssets['bgm'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000);
+
       this.loadAudio(this.bgmAudio, 'resources/audio/projects/numberCrunch/4. Ballad of Ashenwood')
         .then(() => {
+          clearTimeout(timeoutId);
           this.loadedAssets['bgm'] = true;
           this.updateLoadingProgress();
           resolve();
         })
         .catch(() => {
+          clearTimeout(timeoutId);
           // On mobile/iOS, BGM loading can fail due to autoplay restrictions
           // Mark as loaded anyway so game can continue
           this.loadedAssets['bgm'] = true;
