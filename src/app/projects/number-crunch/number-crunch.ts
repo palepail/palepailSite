@@ -2029,6 +2029,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // No overlay needed since we're using the full background
 
+    // Auto-focus mobile input when entering this state (for iPhone compatibility)
+    if (this.isLeaderboardInputFocused && this.mobileInput && !this.mobileInput.nativeElement.matches(':focus')) {
+      setTimeout(() => {
+        if (this.mobileInput && this.currentState === GameState.LEADERBOARD_NAME_INPUT) {
+          this.mobileInput.nativeElement.focus();
+        }
+      }, 100); // Slightly longer delay for iOS
+    }
+
     // Title
     this.ctx.fillStyle = '#1976d2';
     this.ctx.font = 'bold 28px Arial';
@@ -3363,11 +3372,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Mobile input methods for virtual keyboard support
   getMobileInputPosition() {
-    // Position the input off-screen horizontally but aligned with canvas middle vertically
+    // Position the input slightly off-screen but still accessible for iOS
+    // iOS Safari sometimes has issues with inputs positioned too far off-screen
     const canvasRect = this.canvas.nativeElement.getBoundingClientRect();
     return {
-      left: -100,
-      top: canvasRect.top + this.CANVAS_SIZE / 2,
+      left: canvasRect.left + 10, // Position near the canvas but not interfering
+      top: canvasRect.top + this.CANVAS_SIZE + 10, // Below the canvas
       width: 1,
       height: 1,
     };
