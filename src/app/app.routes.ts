@@ -4,6 +4,7 @@ import { Projects } from './projects/projects';
 import { Hobbies } from './hobbies/hobbies';
 import { Contact } from './contact/contact';
 import { NumberCrunch } from './projects/number-crunch/number-crunch';
+import { PotionDropComponent } from './projects/potion-drop/potion-drop.component';
 import { navigationResolver } from './navigation-resolver';
 
 export const routes: Routes = [
@@ -21,6 +22,10 @@ export const routes: Routes = [
   {
     path: 'projects/interactable/number-crunch',
     component: NumberCrunch
+  },
+  {
+    path: 'projects/interactable/potion-drop',
+    component: PotionDropComponent
   },
   {
     path: 'hobbies',

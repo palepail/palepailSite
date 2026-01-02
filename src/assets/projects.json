@@ -12,6 +12,14 @@
           "image": "/resources/images/projects/numberCrunch/Demo.png",
           "link": "/projects/interactable/number-crunch",
           "status": [{ "name": "In Development" }]
+        },
+        {
+          "title": "Potion Drop",
+          "description": "Drop items and watch them merge in this physics-based puzzle game",
+          "technologies": ["JavaScript", "HTML5", "CSS3"],
+          "image": "/resources/images/projects/suikaGame/icon.png",
+          "link": "/projects/interactable/potion-drop",
+          "status": [{ "name": "In Development" }]
         }
       ]
     },
