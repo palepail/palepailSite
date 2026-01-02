@@ -10,7 +10,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LeaderboardService } from '../../services/leaderboard.service';
+import { LeaderboardService, LeaderboardEntry } from '../../services/leaderboard.service';
 
 interface GameCell {
   value: number;
@@ -78,9 +78,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly EASY_HEALTH = 150;
   private readonly HARD_HEALTH = 75;
 
+  // Damage constants - base damage per tile by difficulty
+  private readonly EASY_DAMAGE_BASE = 8;
+  private readonly NORMAL_DAMAGE_BASE = 10;
+  private readonly HARD_DAMAGE_BASE = 12;
+
   // Combat constants
   private readonly ENEMY_ATTACK_DAMAGE = 8;
   private readonly ENEMY_ATTACK_INTERVAL = 8000; // milliseconds
+
+  // Upgrade constants - flat bonuses per upgrade
+  private readonly HEALTH_UPGRADE_BONUS = 5; // +5 HP per health upgrade
+  private readonly DAMAGE_UPGRADE_BONUS = 0.5; // +0.5 damage per tile per damage upgrade
 
   // Scramble constants
   private readonly SCRAMBLES_PER_LEVEL = 3;
@@ -98,12 +107,62 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly CELL_VALUE_MIN = 1;
   private readonly CELL_VALUE_MAX = 9;
 
+  // Audio constants
+  private readonly DEFAULT_BGM_VOLUME = 0.25;
+  private readonly DEFAULT_SFX_VOLUME = 0.35;
+  private readonly VOLUME_INCREMENT = 0.05;
+
+  // Animation constants
+  private readonly ANIMATION_FRAME_TIME_MS = 150;
+  private readonly ENEMY_ANIMATION_FRAME_TIME_MS = 150;
+  private readonly ATTACK_FRAME_TIME_MS = 100;
+  private readonly ENEMY_ATTACK_FRAME_TIME_MS = 100;
+  private readonly RUNNING_FRAME_TIME_MS = 120;
+
+  // Sprite constants
+  private readonly SPRITE_FRAME_WIDTH_PX = 192;
+  private readonly SPRITE_FRAME_HEIGHT_PX = 192;
+  private readonly CHARACTER_SCALE = 0.5;
+
   // UI constants
-  private readonly CHARACTER_SIZE = 30;
-  private readonly HEALTH_BAR_WIDTH = 40;
-  private readonly GRID_BACKGROUND_COLOR = '#f8f9fa'; // Light gray background for grid cells
-  private readonly BACKGROUND_COLOR = '#e3f2fd'; // Light blue-gray background for all screens
-  private readonly LOW_HEALTH_BACKGROUND_COLOR = '#fce4ec'; // Pink background for low health
+  private readonly CHARACTER_SIZE_PX = 30;
+  private readonly HEALTH_BAR_WIDTH_PX = 40;
+  private readonly TITLE_FONT_SIZE_PX = 32;
+  private readonly SUBTITLE_FONT_SIZE_PX = 18;
+  private readonly UI_TEXT_FONT_SIZE_PX = 14;
+  private readonly TARGET_FONT_SIZE_PX = 18;
+  private readonly DAMAGE_TEXT_FONT_SIZE_PX = 16;
+
+  // Color constants
+  private readonly PRIMARY_COLOR = '#1976d2';
+  private readonly SECONDARY_COLOR = '#424242';
+  private readonly GRID_BACKGROUND_COLOR = '#f8f9fa';
+  private readonly BACKGROUND_COLOR = '#e3f2fd';
+  private readonly LOW_HEALTH_BACKGROUND_COLOR = '#fce4ec';
+  private readonly PLAYER_HEALTH_COLOR = '#4CAF50';
+  private readonly ENEMY_HEALTH_COLOR = '#f44336';
+  private readonly DAMAGE_TEXT_ENEMY_COLOR = '#ff4444';
+  private readonly DAMAGE_TEXT_PLAYER_COLOR = '#4444ff';
+  private readonly DAMAGE_TEXT_SHADOW_COLOR = '#000000';
+
+  // Button colors
+  private readonly BUTTON_DEFAULT_COLOR = '#FF9800';
+  private readonly BUTTON_HOVER_COLOR = '#F57C00';
+  private readonly BUTTON_DISABLED_COLOR = '#757575';
+  private readonly BUTTON_DISABLED_HOVER_COLOR = '#616161';
+
+  // Timing constants
+  private readonly ENEMY_ATTACK_INTERVAL_MS = 8000;
+  private readonly SCRAMBLE_ANIMATION_DURATION_MS = 2000;
+  private readonly PLACEHOLDER_TIME_SECONDS = 60; // Not currently used
+
+  // Font families
+  private readonly PRIMARY_FONT = 'Arial';
+  private readonly UI_FONT = 'bold 14px Arial';
+  private readonly TITLE_FONT = 'bold 32px Arial';
+  private readonly SUBTITLE_FONT = '18px Arial';
+  private readonly TARGET_FONT = '18px Arial';
+  private readonly DAMAGE_FONT = 'bold 16px Arial';
 
   // Game state
   grid: GameCell[][] = [];
@@ -128,6 +187,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
   damageUpgradeCount = 0; // Track damage upgrades for diminishing returns
   healthUpgradeCount = 0; // Track health upgrades for diminishing returns
 
+  // Upgrade bonuses (flat values)
+  healthBonus = 0; // Flat HP bonus from upgrades
+  damageBonus = 0; // Flat damage bonus from upgrades
+
+  // Difficulty-based damage and enemy health
+  damageBase = this.NORMAL_DAMAGE_BASE; // Base damage per tile, varies by difficulty
+  enemyMaxHealth = this.ENEMY_MAX_HEALTH; // Enemy max health, varies by difficulty
+
   // Selection state
   isSelecting = false;
   selectionStart = { x: 0, y: 0 };
@@ -144,16 +211,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private playerSprite = new Image();
   private animationFrame = 0;
   private animationTimer = 0;
-  private readonly ANIMATION_FRAME_TIME = 150; // ms per frame (adjust for desired speed)
-  private readonly SPRITE_FRAME_WIDTH = 192; // 192px total width / 8 frames
-  private readonly SPRITE_FRAME_HEIGHT = 192; // Full height of sprite sheet
-  private readonly SPRITE_SCALE = 0.5; // Scale down to fit character size
+  private readonly ANIMATION_FRAME_TIME = this.ANIMATION_FRAME_TIME_MS; // ms per frame (adjust for desired speed)
+  private readonly SPRITE_FRAME_WIDTH = this.SPRITE_FRAME_WIDTH_PX; // 192px total width / 8 frames
+  private readonly SPRITE_FRAME_HEIGHT = this.SPRITE_FRAME_HEIGHT_PX; // Full height of sprite sheet
+  private readonly SPRITE_SCALE = this.CHARACTER_SCALE; // Scale down to fit character size
 
   // Enemy sprite animation
   private enemySprite = new Image();
   private enemyAnimationFrame = 0;
   private enemyAnimationTimer = 0;
-  private readonly ENEMY_ANIMATION_FRAME_TIME = 150; // ms per frame (same speed as player)
+  private readonly ENEMY_ANIMATION_FRAME_TIME = this.ENEMY_ANIMATION_FRAME_TIME_MS; // ms per frame (same speed as player)
   private readonly ENEMY_TOTAL_FRAMES = 7; // 7 frames for enemy idle animation
 
   // Enemy attack animation
@@ -161,7 +228,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isEnemyAttacking = false;
   private enemyAttackAnimationFrame = 0;
   private enemyAttackAnimationTimer = 0;
-  private readonly ENEMY_ATTACK_FRAME_TIME = 100; // ms per frame (faster for attack)
+  private readonly ENEMY_ATTACK_FRAME_TIME = this.ENEMY_ATTACK_FRAME_TIME_MS; // ms per frame (faster for attack)
   private readonly ENEMY_ATTACK_TOTAL_FRAMES = 6; // 6 frames for enemy attack animation
 
   // Attack animation sprites
@@ -172,14 +239,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private attackAnimationTimer = 0;
   private currentAttackSprite = 1; // 1 or 2
   private nextAttackSprite = 1; // Alternates between 1 and 2
-  private readonly ATTACK_FRAME_TIME = 100; // ms per frame (faster for attack)
+  private readonly ATTACK_FRAME_TIME = this.ATTACK_FRAME_TIME_MS; // ms per frame (faster for attack)
   private readonly ATTACK_TOTAL_FRAMES = 4; // 4 frames per attack animation
 
   // Running animation sprite (for upgrade screen)
   private runningSprite = new Image();
   private runningAnimationFrame = 0;
   private runningAnimationTimer = 0;
-  private readonly RUNNING_FRAME_TIME = 120; // ms per frame (slightly faster than idle)
+  private readonly RUNNING_FRAME_TIME = this.RUNNING_FRAME_TIME_MS; // ms per frame (slightly faster than idle)
   private readonly RUNNING_TOTAL_FRAMES = 6; // 6 frames for running animation
 
   // Leaderboard avatar sprites
@@ -224,7 +291,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isDraggingSFX = false;
 
   // Leaderboard data
-  private leaderboardEntries: any[] = [];
+  private leaderboardEntries: LeaderboardEntry[] = [];
   private isLoadingLeaderboard = false;
   private isLeaderboardAvailable = true;
 
@@ -469,81 +536,98 @@ export class NumberCrunch implements OnInit, OnDestroy {
       };
 
       const handleError = () => {
-        // On mobile/iOS, audio loading can fail due to autoplay restrictions
+        // On mobile/iOS, audio loading can fail due to autoplay restrictions or format issues
         // Continue loading other sounds instead of failing completely
         checkComplete();
       };
 
-      // Player attack sounds
-      this.playerAttackSound1.oncanplaythrough = checkComplete;
-      this.playerAttackSound1.onerror = handleError;
-      this.playerAttackSound1.src = 'resources/audio/projects/numberCrunch/Sword Attack 2.wav';
+      // Player attack sounds - load MP3 directly
+      this.loadAudio(
+        this.playerAttackSound1,
+        'resources/audio/projects/numberCrunch/Sword Attack 2'
+      )
+        .then(checkComplete)
+        .catch(handleError);
 
-      this.playerAttackSound2.oncanplaythrough = checkComplete;
-      this.playerAttackSound2.onerror = handleError;
-      this.playerAttackSound2.src = 'resources/audio/projects/numberCrunch/Sword Attack 3.wav';
+      this.loadAudio(
+        this.playerAttackSound2,
+        'resources/audio/projects/numberCrunch/Sword Attack 3'
+      )
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Enemy attack sound
-      this.enemyAttackSound.oncanplaythrough = checkComplete;
-      this.enemyAttackSound.onerror = handleError;
-      this.enemyAttackSound.src = 'resources/audio/projects/numberCrunch/Torch Attack Strike 1.wav';
+      // Enemy attack sound - load MP3 directly
+      this.loadAudio(
+        this.enemyAttackSound,
+        'resources/audio/projects/numberCrunch/Torch Attack Strike 1'
+      )
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Scramble sound
-      this.scrambleSound.oncanplaythrough = checkComplete;
-      this.scrambleSound.onerror = handleError;
-      this.scrambleSound.src = 'resources/audio/projects/numberCrunch/Collect_Special_3.ogg';
+      // Scramble sound - load MP3 directly
+      this.loadAudio(this.scrambleSound, 'resources/audio/projects/numberCrunch/Collect_Special_3')
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Player death sounds
-      this.playerDeathSound1.oncanplaythrough = checkComplete;
-      this.playerDeathSound1.onerror = handleError;
-      this.playerDeathSound1.src = 'resources/audio/projects/numberCrunch/Grunt Ng 1.wav';
+      // Player death sounds - load MP3 directly
+      this.loadAudio(this.playerDeathSound1, 'resources/audio/projects/numberCrunch/Grunt Ng 1')
+        .then(checkComplete)
+        .catch(handleError);
 
-      this.playerDeathSound2.oncanplaythrough = checkComplete;
-      this.playerDeathSound2.onerror = handleError;
-      this.playerDeathSound2.src = 'resources/audio/projects/numberCrunch/Grunt Oh 3.wav';
+      // Player death sounds - load MP3 directly
+      this.loadAudio(this.playerDeathSound1, 'resources/audio/projects/numberCrunch/Grunt Ng 1')
+        .then(checkComplete)
+        .catch(handleError);
 
-      this.playerDeathSound3.oncanplaythrough = checkComplete;
-      this.playerDeathSound3.onerror = handleError;
-      this.playerDeathSound3.src = 'resources/audio/projects/numberCrunch/Grunt Oof 1.wav';
+      this.loadAudio(this.playerDeathSound2, 'resources/audio/projects/numberCrunch/Grunt Oh 3')
+        .then(checkComplete)
+        .catch(handleError);
 
-      this.playerDeathSound4.oncanplaythrough = checkComplete;
-      this.playerDeathSound4.onerror = handleError;
-      this.playerDeathSound4.src = 'resources/audio/projects/numberCrunch/Grunt Uoe 3.wav';
+      this.loadAudio(this.playerDeathSound3, 'resources/audio/projects/numberCrunch/Grunt Oof 1')
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Enemy death sound
-      this.enemyDeathSound.oncanplaythrough = checkComplete;
-      this.enemyDeathSound.onerror = handleError;
-      this.enemyDeathSound.src = 'resources/audio/projects/numberCrunch/Grunt Ehh 1.wav';
+      this.loadAudio(this.playerDeathSound4, 'resources/audio/projects/numberCrunch/Grunt Uoe 3')
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Upgrade screen sound
-      this.upgradeSound.oncanplaythrough = checkComplete;
-      this.upgradeSound.onerror = handleError;
-      this.upgradeSound.src = 'resources/audio/projects/numberCrunch/harpsichord_positive_long.wav';
+      // Enemy death sound - load MP3 directly
+      this.loadAudio(this.enemyDeathSound, 'resources/audio/projects/numberCrunch/Grunt Ehh 1')
+        .then(checkComplete)
+        .catch(handleError);
 
-      // Button sound effect
-      this.buttonSound.oncanplaythrough = checkComplete;
-      this.buttonSound.onerror = handleError;
-      this.buttonSound.src = 'resources/audio/projects/numberCrunch/Wood Block1.ogg';
+      // Upgrade screen sound - load MP3 directly
+      this.loadAudio(
+        this.upgradeSound,
+        'resources/audio/projects/numberCrunch/harpsichord_positive_long'
+      )
+        .then(checkComplete)
+        .catch(handleError);
+
+      // Button sound effect - load MP3 directly
+      this.loadAudio(this.buttonSound, 'resources/audio/projects/numberCrunch/Wood Block1')
+        .then(checkComplete)
+        .catch(handleError);
     });
   }
 
   private loadBGM(): Promise<void> {
     return new Promise((resolve) => {
-      this.bgmAudio.oncanplaythrough = () => {
-        this.loadedAssets['bgm'] = true;
-        this.updateLoadingProgress();
-        // Start BGM automatically when loaded
-        this.startBGMAutomatically();
-        resolve();
-      };
-      this.bgmAudio.onerror = () => {
-        // On mobile/iOS, BGM loading can fail due to autoplay restrictions
-        // Mark as loaded anyway so game can continue
-        this.loadedAssets['bgm'] = true;
-        this.updateLoadingProgress();
-        resolve();
-      };
-      this.bgmAudio.src = 'resources/audio/projects/numberCrunch/4. Ballad of Ashenwood.ogg';
+      this.loadAudio(this.bgmAudio, 'resources/audio/projects/numberCrunch/4. Ballad of Ashenwood')
+        .then(() => {
+          this.loadedAssets['bgm'] = true;
+          this.updateLoadingProgress();
+          // Start BGM automatically when loaded
+          this.startBGMAutomatically();
+          resolve();
+        })
+        .catch(() => {
+          // On mobile/iOS, BGM loading can fail due to autoplay restrictions
+          // Mark as loaded anyway so game can continue
+          this.loadedAssets['bgm'] = true;
+          this.updateLoadingProgress();
+          resolve();
+        });
       this.bgmAudio.loop = true; // Loop the BGM
     });
   }
@@ -665,6 +749,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private easeInOutQuad(t: number): number {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  /**
+   * Loads an audio file with format fallbacks for better iOS compatibility.
+   * Tries MP3 first (most compatible), then falls back to original format.
+   */
+  private loadAudio(audio: HTMLAudioElement, basePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // All files are now MP3 - load directly
+      const mp3Path = basePath + '.mp3';
+
+      audio.oncanplaythrough = () => resolve();
+      audio.onerror = reject;
+      audio.src = mp3Path;
+    });
   }
 
   private updateSFXVolume() {
@@ -961,6 +1060,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Starts the main game loop using requestAnimationFrame.
+   * This loop handles updating game state and rendering at ~60 FPS.
+   */
   private startGameLoop() {
     const gameLoop = (currentTime: number) => {
       const deltaTime = currentTime - this.lastTime;
@@ -975,6 +1078,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.animationFrameId = requestAnimationFrame(gameLoop);
   }
 
+  /**
+   * Updates all game state for the current frame.
+   * @param deltaTime Time elapsed since last frame in milliseconds
+   */
   private update(deltaTime: number) {
     // Update BGM volume based on current state
     this.updateBGMVolumeForState();
@@ -1156,6 +1263,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Main render method that delegates to state-specific renderers.
+   * Each game state has its own rendering logic for optimal performance.
+   */
   private render() {
     // Note: Each render method now sets its own background, so no global clear needed
 
@@ -1573,21 +1684,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Upgrade choice text
     this.ctx.font = '18px Arial';
     this.ctx.fillStyle = '#424242';
-    this.ctx.fillText('Choose your upgrade:', this.CANVAS_SIZE / 2, 165);
-
-    // Calculate health upgrade percentage with diminishing returns
-    const healthBaseMultiplier = 1.15;
-    const healthDiminishingFactor = 0.03; // 1% reduction per upgrade (slower)
-    const healthMinMultiplier = 1.05;
-    const healthEffectiveMultiplier = Math.max(
-      healthMinMultiplier,
-      healthBaseMultiplier * (1 - healthDiminishingFactor * this.healthUpgradeCount)
-    );
-    const healthPercent = Math.round((healthEffectiveMultiplier - 1) * 100);
+    this.ctx.fillText('Choose an Upgrade', this.CANVAS_SIZE / 2, 165);
 
     // Draw buttons
     this.drawButton(
-      `Health +${healthPercent}%`,
+      `Health`,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.x,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.y,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
@@ -1595,18 +1696,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#FF9800',
       '#F57C00'
     );
-    // Calculate damage upgrade percentage with diminishing returns
-    const baseMultiplier = 1.15;
-    const diminishingFactor = 0.03; // 1% reduction per upgrade (slower)
-    const minMultiplier = 1.05;
-    const effectiveMultiplier = Math.max(
-      minMultiplier,
-      baseMultiplier * (1 - diminishingFactor * this.damageUpgradeCount)
-    );
-    const damagePercent = Math.round((effectiveMultiplier - 1) * 100);
 
     this.drawButton(
-      `Damage +${damagePercent}%`,
+      `Damage`,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
@@ -1640,7 +1732,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
-  private getAvatarIndex(date: any): number {
+  private getAvatarIndex(date: Date | any): number {
     // Handle Firestore Timestamp objects
     let dateObj: Date;
     if (date && typeof date.toDate === 'function') {
@@ -2042,6 +2134,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
+  /**
+   * Draws the game UI including health bars, buttons, and game information.
+   * Handles difficulty-based health calculations and scramble button states.
+   */
   private drawUI() {
     // Calculate player max health based on current difficulty and health multiplier
     let baseHealth;
@@ -2072,7 +2168,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.CANVAS_SIZE + 50,
       'Enemy',
       this.enemyHealth,
-      this.ENEMY_MAX_HEALTH,
+      this.enemyMaxHealth,
       '#f44336'
     );
 
@@ -2176,10 +2272,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
           // Fallback to rectangle if attack sprite not available
           this.ctx.fillStyle = color;
           this.ctx.fillRect(
-            x - this.CHARACTER_SIZE / 2,
-            y - this.CHARACTER_SIZE / 2,
-            this.CHARACTER_SIZE,
-            this.CHARACTER_SIZE
+            x - this.CHARACTER_SIZE_PX / 2,
+            y - this.CHARACTER_SIZE_PX / 2,
+            this.CHARACTER_SIZE_PX,
+            this.CHARACTER_SIZE_PX
           );
         }
       } else if (this.playerSprite && this.playerSprite.complete) {
@@ -2199,10 +2295,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Fallback to rectangle if no sprites available
         this.ctx.fillStyle = color;
         this.ctx.fillRect(
-          x - this.CHARACTER_SIZE / 2,
-          y - this.CHARACTER_SIZE / 2,
-          this.CHARACTER_SIZE,
-          this.CHARACTER_SIZE
+          x - this.CHARACTER_SIZE_PX / 2,
+          y - this.CHARACTER_SIZE_PX / 2,
+          this.CHARACTER_SIZE_PX,
+          this.CHARACTER_SIZE_PX
         );
       }
     } else {
@@ -2238,10 +2334,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
           // Fallback to rectangle if attack sprite not available
           this.ctx.fillStyle = color;
           this.ctx.fillRect(
-            x - this.CHARACTER_SIZE / 2,
-            y - this.CHARACTER_SIZE / 2,
-            this.CHARACTER_SIZE,
-            this.CHARACTER_SIZE
+            x - this.CHARACTER_SIZE_PX / 2,
+            y - this.CHARACTER_SIZE_PX / 2,
+            this.CHARACTER_SIZE_PX,
+            this.CHARACTER_SIZE_PX
           );
         }
       } else if (this.enemySprite && this.enemySprite.complete) {
@@ -2268,10 +2364,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Fallback to rectangle if no sprites available
         this.ctx.fillStyle = color;
         this.ctx.fillRect(
-          x - this.CHARACTER_SIZE / 2,
-          y - this.CHARACTER_SIZE / 2,
-          this.CHARACTER_SIZE,
-          this.CHARACTER_SIZE
+          x - this.CHARACTER_SIZE_PX / 2,
+          y - this.CHARACTER_SIZE_PX / 2,
+          this.CHARACTER_SIZE_PX,
+          this.CHARACTER_SIZE_PX
         );
       }
     }
@@ -2284,12 +2380,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Health bar
     this.ctx.fillStyle = '#333';
-    this.ctx.fillRect(x - this.HEALTH_BAR_WIDTH / 2, y - 25, this.HEALTH_BAR_WIDTH, 5);
+    this.ctx.fillRect(x - this.HEALTH_BAR_WIDTH_PX / 2, y - 25, this.HEALTH_BAR_WIDTH_PX, 5);
     this.ctx.fillStyle = color;
     this.ctx.fillRect(
-      x - this.HEALTH_BAR_WIDTH / 2,
+      x - this.HEALTH_BAR_WIDTH_PX / 2,
       y - 25,
-      (health / maxHealth) * this.HEALTH_BAR_WIDTH,
+      (health / maxHealth) * this.HEALTH_BAR_WIDTH_PX,
       5
     );
 
@@ -2521,8 +2617,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handles click events on the upgrade choice screen.
+   * Applies flat health or damage bonuses.
+   * @param x Click x-coordinate
+   * @param y Click y-coordinate
+   */
   private handleChooseUpgradeClick(x: number, y: number) {
-    // Health upgrade button
+    // Health upgrade button - flat +5 HP bonus
     if (
       this.isClickInButton(
         x,
@@ -2534,19 +2636,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       )
     ) {
       this.playButtonSound();
-      // Health upgrade with diminishing returns
-      this.healthUpgradeCount++;
-      const baseMultiplier = 1.15; // 15% base increase
-      const diminishingFactor = 0.01; // 1% reduction per upgrade (slower)
-      const minMultiplier = 1.05; // 5% minimum increase
-      const effectiveMultiplier = Math.max(
-        minMultiplier,
-        baseMultiplier * (1 - diminishingFactor * (this.healthUpgradeCount - 1))
-      );
-      this.healthMultiplier *= effectiveMultiplier; // Apply to persistent multiplier
+      // Apply flat health bonus
+      this.healthBonus += this.HEALTH_UPGRADE_BONUS;
       this.nextLevel();
     }
-    // Damage upgrade button
+    // Damage upgrade button - flat +0.5 damage per tile bonus
     else if (
       this.isClickInButton(
         x,
@@ -2558,16 +2652,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       )
     ) {
       this.playButtonSound();
-      // Damage upgrade with diminishing returns
-      this.damageUpgradeCount++;
-      const baseMultiplier = 1.15; // 15% base increase
-      const diminishingFactor = 0.01; // 1% reduction per upgrade (slower)
-      const minMultiplier = 1.05; // 5% minimum increase
-      const effectiveMultiplier = Math.max(
-        minMultiplier,
-        baseMultiplier * (1 - diminishingFactor * (this.damageUpgradeCount - 1))
-      );
-      this.damageMultiplier *= effectiveMultiplier;
+      // Apply flat damage bonus
+      this.damageBonus += this.DAMAGE_UPGRADE_BONUS;
       this.nextLevel();
     }
   }
@@ -2792,8 +2878,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.score = 0;
     this.level = 1;
     this.targetNumber = 10; // Reset target to initial value
-    this.playerHealth = this.MAX_HEALTH;
-    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.enemyAttackTimer = 0;
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
     this.isScrambling = false;
@@ -2802,11 +2886,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.healthMultiplier = 1.0; // Reset health multiplier
     this.damageUpgradeCount = 0; // Reset damage upgrade counter
     this.healthUpgradeCount = 0; // Reset health upgrade counter
+    this.healthBonus = 0; // Reset health bonus
+    this.damageBonus = 0; // Reset damage bonus
+    this.damageBase = this.NORMAL_DAMAGE_BASE; // Reset damage base
+    this.enemyMaxHealth = this.ENEMY_MAX_HEALTH; // Reset enemy max health
     this.nextAttackSprite = 1; // Reset attack alternation
     this.clearSelection();
     this.createGrid();
 
-    // Apply difficulty settings
+    // Apply difficulty settings (now handles both player and enemy health)
     this.applyDifficultySettings();
 
     // Update audio volumes
@@ -2825,13 +2913,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private applyDifficultySettings() {
     switch (this.settings.difficulty) {
       case 'easy':
-        this.playerHealth = Math.floor(this.EASY_HEALTH * this.healthMultiplier);
+        this.playerHealth = Math.floor(this.EASY_HEALTH + this.healthBonus);
+        this.damageBase = this.EASY_DAMAGE_BASE;
+        // Scale enemy health so it takes same number of hits: 450 * (8/10) = 360
+        this.enemyMaxHealth = Math.floor(this.ENEMY_MAX_HEALTH * (this.EASY_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE));
+        this.enemyHealth = this.enemyMaxHealth;
         break;
       case 'normal':
-        this.playerHealth = Math.floor(this.MAX_HEALTH * this.healthMultiplier);
+        this.playerHealth = Math.floor(this.MAX_HEALTH + this.healthBonus);
+        this.damageBase = this.NORMAL_DAMAGE_BASE;
+        // Standard enemy health: 450
+        this.enemyMaxHealth = this.ENEMY_MAX_HEALTH;
+        this.enemyHealth = this.enemyMaxHealth;
         break;
       case 'hard':
-        this.playerHealth = Math.floor(this.HARD_HEALTH * this.healthMultiplier);
+        this.playerHealth = Math.floor(this.HARD_HEALTH + this.healthBonus);
+        this.damageBase = this.HARD_DAMAGE_BASE;
+        // Scale enemy health so it takes same number of hits: 450 * (12/10) = 540
+        this.enemyMaxHealth = Math.floor(this.ENEMY_MAX_HEALTH * (this.HARD_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE));
+        this.enemyHealth = this.enemyMaxHealth;
         break;
     }
   }
@@ -2979,7 +3079,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Calculate score earned from this match (including bonus for empty tiles)
-    const baseScore = tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier;
+    const baseScore = tilesWithValues * this.POINTS_PER_TILE;
     const emptyTileBonus = emptyTiles * 1; // 1 point per empty tile
     const scoreEarned = baseScore + emptyTileBonus;
 
@@ -2987,7 +3087,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.score += scoreEarned;
 
     // Deal damage to enemy proportional to score earned (rounded to nearest whole number)
-    const damageDealt = Math.round(tilesWithValues * this.POINTS_PER_TILE * this.damageMultiplier);
+    const damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
     // Create damage text above and to the right of enemy
@@ -3050,6 +3150,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.scrambleTimer = 0;
     this.scrambleAnimation = [];
     this.damageMultiplier = 1.0; // Reset damage multiplier
+    this.healthBonus = 0; // Reset health bonus
+    this.damageBonus = 0; // Reset damage bonus
     this.createGrid();
   }
 
@@ -3065,12 +3167,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private nextLevel() {
     this.level++;
-    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
     this.nextAttackSprite = 1; // Reset attack alternation for new level
 
-    // Reset player health to maximum for new level
+    // Reset player health and enemy health to maximum for new level
     this.applyDifficultySettings();
 
     this.createGrid();
@@ -3089,7 +3190,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onMobileInputBeforeInput(event: any) {
+  onMobileInputBeforeInput(event: InputEvent) {
     // Prevent default input behavior and handle manually to ensure cursor positioning
     event.preventDefault();
 
@@ -3128,10 +3229,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     };
   }
 
-  onMobileInputChange(event: any) {
+  onMobileInputChange(event: Event) {
     // Fallback for browsers that don't support beforeinput
     // Update the canvas display when mobile input changes
-    this.leaderboardNameInput = event.target.value;
+    this.leaderboardNameInput = (event.target as HTMLInputElement).value;
     // Ensure cursor stays at the end after input changes
     requestAnimationFrame(() => {
       if (this.mobileInput) {

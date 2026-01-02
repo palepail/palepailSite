@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
-interface LeaderboardEntry {
+export interface LeaderboardEntry {
   name: string;
   score: number;
   difficulty: string;
