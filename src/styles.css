@@ -306,6 +306,10 @@ h1 {
 .main-content {
     margin-left: 250px;
     padding: 2rem;
+}
+
+/* Special width handling for interactable pages */
+body.number-crunch-active .main-content {
     width: calc(100vw - 250px);
 }
 
@@ -349,16 +353,28 @@ h1 {
         z-index: 999;
     }
 
-    .main-content {
-        margin-left: 0;
-        padding: 2rem 1.5rem;
-        padding-top: 4rem; /* Make room for hamburger button */
+    .intro-text {
+        max-width: none;
+    }
+
+    /* Mobile projects grid - use full width */
+    .projects-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
     }
 
     .main-content {
         margin-left: 0;
         padding: 2rem 1.5rem;
         padding-top: 4rem; /* Make room for hamburger button */
+        width: 100%;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 2rem 1.5rem;
+        padding-top: 4rem; /* Make room for hamburger button */
+        width: 100%;
     }
 
     /* Remove ALL padding for Number Crunch page */
@@ -366,8 +382,8 @@ h1 {
         padding: 0 !important;
         padding-top: 4rem !important; /* Keep top padding for hamburger menu */
         margin: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
+        width: calc(100vw - 250px) !important;
+        max-width: calc(100vw - 250px) !important;
     }
 }
 
@@ -377,8 +393,8 @@ h1 {
     padding: 0 !important;
     padding-top: 4rem !important;
     margin: 0 !important;
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: calc(100vw - 250px) !important;
+    max-width: calc(100vw - 250px) !important;
   }
 }
 
