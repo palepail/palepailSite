@@ -28,7 +28,7 @@ export class LeaderboardService {
     try {
       const ipAddress = await this.getIPAddress();
       const entryWithIP = { ...entry, ipAddress };
-      await addDoc(collection(db, 'leaderboard'), entryWithIP);
+      await addDoc(collection(db, 'NumberCrunchLeaderboard'), entryWithIP);
     } catch (error) {
       console.error('Error adding entry:', error);
       // Don't throw - let the game continue even if leaderboard fails
@@ -37,7 +37,7 @@ export class LeaderboardService {
 
   async getTopEntries(count: number = 10): Promise<LeaderboardEntry[]> {
     try {
-      const q = query(collection(db, 'leaderboard'), orderBy('score', 'desc'), limit(count));
+      const q = query(collection(db, 'NumberCrunchLeaderboard'), orderBy('score', 'desc'), limit(count));
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as LeaderboardEntry);
     } catch (error) {
