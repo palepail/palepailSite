@@ -401,12 +401,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Asset loading functions
   private loadPlayerSprite(): Promise<void> {
     return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('Timeout reached for playerSprite, marking as loaded');
+        this.loadedAssets['playerSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000); // 5 second timeout for iOS compatibility
+
       this.playerSprite.onload = () => {
+        clearTimeout(timeout);
         this.loadedAssets['playerSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.playerSprite.onerror = () => {
+        clearTimeout(timeout);
         this.loadedAssets['playerSprite'] = true;
         this.updateLoadingProgress();
         resolve();
@@ -416,13 +425,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private loadAttackSprites(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let loadedCount = 0;
       const totalSprites = 2;
+      let timeoutId: number;
 
       const checkComplete = () => {
         loadedCount++;
         if (loadedCount === totalSprites) {
+          clearTimeout(timeoutId);
           this.loadedAssets['attackSprites'] = true;
           this.updateLoadingProgress();
           resolve();
@@ -430,8 +441,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
       };
 
       const handleError = () => {
-        reject(new Error('Failed to load attack sprites'));
+        checkComplete(); // Continue even on error
       };
+
+      // 5 second timeout for iOS compatibility
+      timeoutId = window.setTimeout(() => {
+        console.log('Timeout reached for attackSprites, marking as loaded');
+        this.loadedAssets['attackSprites'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000);
 
       this.attackSprite1.onload = checkComplete;
       this.attackSprite1.onerror = handleError;
@@ -445,12 +464,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private loadEnemyAttackSprite(): Promise<void> {
     return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('Timeout reached for enemyAttackSprite, marking as loaded');
+        this.loadedAssets['enemyAttackSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000); // 5 second timeout for iOS compatibility
+
       this.enemyAttackSprite.onload = () => {
+        clearTimeout(timeout);
         this.loadedAssets['enemyAttackSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.enemyAttackSprite.onerror = () => {
+        clearTimeout(timeout);
         this.loadedAssets['enemyAttackSprite'] = true;
         this.updateLoadingProgress();
         resolve();
@@ -461,12 +489,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private loadEnemySprite(): Promise<void> {
     return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('Timeout reached for enemySprite, marking as loaded');
+        this.loadedAssets['enemySprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000); // 5 second timeout for iOS compatibility
+
       this.enemySprite.onload = () => {
+        clearTimeout(timeout);
         this.loadedAssets['enemySprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.enemySprite.onerror = () => {
+        clearTimeout(timeout);
         this.loadedAssets['enemySprite'] = true;
         this.updateLoadingProgress();
         resolve();
@@ -477,12 +514,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private loadRunningSprite(): Promise<void> {
     return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('Timeout reached for runningSprite, marking as loaded');
+        this.loadedAssets['runningSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000); // 5 second timeout for iOS compatibility
+
       this.runningSprite.onload = () => {
+        clearTimeout(timeout);
         this.loadedAssets['runningSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
       this.runningSprite.onerror = () => {
+        clearTimeout(timeout);
         this.loadedAssets['runningSprite'] = true;
         this.updateLoadingProgress();
         resolve();
@@ -495,10 +541,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     return new Promise((resolve) => {
       let loadedCount = 0;
       const totalAvatars = 4;
+      let timeoutId: number;
 
       const checkComplete = () => {
         loadedCount++;
         if (loadedCount === totalAvatars) {
+          clearTimeout(timeoutId);
           this.loadedAssets['avatarSprites'] = true;
           this.updateLoadingProgress();
           resolve();
@@ -508,6 +556,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const handleError = () => {
         checkComplete(); // Continue even on error
       };
+
+      // 5 second timeout for iOS compatibility
+      timeoutId = window.setTimeout(() => {
+        console.log('Timeout reached for avatarSprites, marking as loaded');
+        this.loadedAssets['avatarSprites'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 5000);
 
       // Load avatars: 01, 02, 03, 05 (skipping 04)
       const avatarFiles = ['01', '02', '03', '05'];
@@ -617,8 +673,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
         .then(() => {
           this.loadedAssets['bgm'] = true;
           this.updateLoadingProgress();
-          // Start BGM automatically when loaded
-          this.startBGMAutomatically();
           resolve();
         })
         .catch(() => {
@@ -636,6 +690,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
     this.loadingProgress = totalAssets > 0 ? (loadedCount / totalAssets) * 100 : 100;
+
+    // Debug logging for iOS loading issues
+    if (this.loadingProgress < 100) {
+      console.log(`Loading progress: ${this.loadingProgress.toFixed(1)}% (${loadedCount}/${totalAssets})`);
+      const unloadedAssets = Object.keys(this.loadedAssets).filter(key => !this.loadedAssets[key]);
+      if (unloadedAssets.length > 0) {
+        console.log('Still loading:', unloadedAssets.join(', '));
+      }
+    } else {
+      console.log('All assets loaded successfully!');
+    }
   }
 
   private playButtonSound() {
