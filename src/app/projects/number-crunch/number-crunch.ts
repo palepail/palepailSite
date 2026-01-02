@@ -402,11 +402,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadPlayerSprite(): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        console.log('Timeout reached for playerSprite, marking as loaded');
         this.loadedAssets['playerSprite'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000); // 5 second timeout for iOS compatibility
+      }, 10000); // Increased to 10 seconds for iOS compatibility
 
       this.playerSprite.onload = () => {
         clearTimeout(timeout);
@@ -414,12 +413,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.updateLoadingProgress();
         resolve();
       };
-      this.playerSprite.onerror = () => {
+      this.playerSprite.onerror = (e) => {
         clearTimeout(timeout);
         this.loadedAssets['playerSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
+      this.playerSprite.crossOrigin = 'anonymous';
       this.playerSprite.src = 'resources/images/projects/numberCrunch/Warrior_Idle.png';
     });
   }
@@ -444,20 +444,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
         checkComplete(); // Continue even on error
       };
 
-      // 5 second timeout for iOS compatibility
+      // 10 second timeout for iOS compatibility
       timeoutId = window.setTimeout(() => {
-        console.log('Timeout reached for attackSprites, marking as loaded');
         this.loadedAssets['attackSprites'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000);
+      }, 10000);
 
-      this.attackSprite1.onload = checkComplete;
-      this.attackSprite1.onerror = handleError;
+      this.attackSprite1.crossOrigin = 'anonymous';
+      this.attackSprite1.onload = () => {
+        checkComplete();
+      };
+      this.attackSprite1.onerror = (e) => {
+        handleError();
+      };
       this.attackSprite1.src = 'resources/images/projects/numberCrunch/Warrior_Attack1.png';
 
-      this.attackSprite2.onload = checkComplete;
-      this.attackSprite2.onerror = handleError;
+      this.attackSprite2.crossOrigin = 'anonymous';
+      this.attackSprite2.onload = () => {
+        checkComplete();
+      };
+      this.attackSprite2.onerror = (e) => {
+        handleError();
+      };
       this.attackSprite2.src = 'resources/images/projects/numberCrunch/Warrior_Attack2.png';
     });
   }
@@ -465,11 +474,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadEnemyAttackSprite(): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        console.log('Timeout reached for enemyAttackSprite, marking as loaded');
         this.loadedAssets['enemyAttackSprite'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000); // 5 second timeout for iOS compatibility
+      }, 10000); // Increased to 10 seconds for iOS compatibility
 
       this.enemyAttackSprite.onload = () => {
         clearTimeout(timeout);
@@ -477,12 +485,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.updateLoadingProgress();
         resolve();
       };
-      this.enemyAttackSprite.onerror = () => {
+      this.enemyAttackSprite.onerror = (e) => {
         clearTimeout(timeout);
         this.loadedAssets['enemyAttackSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
+      this.enemyAttackSprite.crossOrigin = 'anonymous';
       this.enemyAttackSprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Attack.png';
     });
   }
@@ -490,11 +499,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadEnemySprite(): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        console.log('Timeout reached for enemySprite, marking as loaded');
         this.loadedAssets['enemySprite'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000); // 5 second timeout for iOS compatibility
+      }, 10000); // Increased to 10 seconds for iOS compatibility
 
       this.enemySprite.onload = () => {
         clearTimeout(timeout);
@@ -502,12 +510,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.updateLoadingProgress();
         resolve();
       };
-      this.enemySprite.onerror = () => {
+      this.enemySprite.onerror = (e) => {
         clearTimeout(timeout);
         this.loadedAssets['enemySprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
+      this.enemySprite.crossOrigin = 'anonymous';
       this.enemySprite.src = 'resources/images/projects/numberCrunch/Goblin_Red_Idle.png';
     });
   }
@@ -515,11 +524,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadRunningSprite(): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        console.log('Timeout reached for runningSprite, marking as loaded');
         this.loadedAssets['runningSprite'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000); // 5 second timeout for iOS compatibility
+      }, 10000); // Increased to 10 seconds for iOS compatibility
 
       this.runningSprite.onload = () => {
         clearTimeout(timeout);
@@ -527,12 +535,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.updateLoadingProgress();
         resolve();
       };
-      this.runningSprite.onerror = () => {
+      this.runningSprite.onerror = (e) => {
         clearTimeout(timeout);
         this.loadedAssets['runningSprite'] = true;
         this.updateLoadingProgress();
         resolve();
       };
+      this.runningSprite.crossOrigin = 'anonymous';
       this.runningSprite.src = 'resources/images/projects/numberCrunch/Warrior_Run.png';
     });
   }
@@ -557,19 +566,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
         checkComplete(); // Continue even on error
       };
 
-      // 5 second timeout for iOS compatibility
+      // 10 second timeout for iOS compatibility
       timeoutId = window.setTimeout(() => {
-        console.log('Timeout reached for avatarSprites, marking as loaded');
         this.loadedAssets['avatarSprites'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000);
+      }, 10000);
 
       // Load avatars: 01, 02, 03, 05 (skipping 04)
       const avatarFiles = ['01', '02', '03', '05'];
       for (let i = 0; i < 4; i++) {
-        this.avatarSprites[i].onload = checkComplete;
-        this.avatarSprites[i].onerror = handleError;
+        this.avatarSprites[i].crossOrigin = 'anonymous';
+        this.avatarSprites[i].onload = () => {
+          checkComplete();
+        };
+        this.avatarSprites[i].onerror = (e) => {
+          handleError();
+        };
         this.avatarSprites[
           i
         ].src = `resources/images/projects/numberCrunch/Avatars_${avatarFiles[i]}.png`;
@@ -599,13 +612,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         checkComplete();
       };
 
-      // 5 second timeout for iOS compatibility
+      // 10 second timeout for iOS compatibility
       timeoutId = window.setTimeout(() => {
-        console.log('Timeout reached for soundEffects, marking as loaded');
         this.loadedAssets['soundEffects'] = true;
         this.updateLoadingProgress();
         resolve();
-      }, 5000);
+      }, 10000);
 
       // Player attack sounds - load MP3 directly
       this.loadAudio(
@@ -683,7 +695,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // 5 second timeout for iOS compatibility
       timeoutId = window.setTimeout(() => {
-        console.log('Timeout reached for BGM, marking as loaded');
         this.loadedAssets['bgm'] = true;
         this.updateLoadingProgress();
         resolve();
@@ -712,17 +723,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
     this.loadingProgress = totalAssets > 0 ? (loadedCount / totalAssets) * 100 : 100;
-
-    // Debug logging for iOS loading issues
-    if (this.loadingProgress < 100) {
-      console.log(`Loading progress: ${this.loadingProgress.toFixed(1)}% (${loadedCount}/${totalAssets})`);
-      const unloadedAssets = Object.keys(this.loadedAssets).filter(key => !this.loadedAssets[key]);
-      if (unloadedAssets.length > 0) {
-        console.log('Still loading:', unloadedAssets.join(', '));
-      }
-    } else {
-      console.log('All assets loaded successfully!');
-    }
   }
 
   private playButtonSound() {
@@ -759,7 +759,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private updateBGMVolume() {
     if (this.bgmAudio) {
-      this.bgmAudio.volume = this.settings.muted ? 0 : this.settings.bgmVolume;
+      if (this.settings.muted) {
+        this.bgmAudio.muted = true;
+        this.bgmAudio.volume = 0;
+      } else {
+        this.bgmAudio.muted = false;
+        this.bgmAudio.volume = this.settings.bgmVolume;
+      }
     }
   }
 
@@ -772,6 +778,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Determine target volume
       const shouldBeMuted = this.currentState === GameState.MENU || this.settings.muted;
       const targetVolume = shouldBeMuted ? 0 : this.settings.bgmVolume;
+
+      // Set muted property for iOS compatibility
+      this.bgmAudio.muted = shouldBeMuted;
 
       // Handle fade transitions
       if (stateChanged) {
@@ -847,24 +856,71 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // All files are now MP3 - load directly
       const mp3Path = basePath + '.mp3';
 
-      audio.oncanplaythrough = () => resolve();
-      audio.onerror = reject;
+      // 3 second timeout for iOS compatibility
+      const timeoutId = setTimeout(() => {
+        resolve(); // Resolve anyway to prevent hanging
+      }, 3000);
+
+      audio.oncanplaythrough = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      audio.onerror = (e) => {
+        clearTimeout(timeoutId);
+        reject(e);
+      };
       audio.src = mp3Path;
     });
   }
 
   private updateSFXVolume() {
     const volume = this.settings.muted ? 0 : this.settings.sfxVolume;
-    if (this.playerAttackSound1) this.playerAttackSound1.volume = volume;
-    if (this.playerAttackSound2) this.playerAttackSound2.volume = volume;
-    if (this.enemyAttackSound) this.enemyAttackSound.volume = volume;
-    if (this.scrambleSound) this.scrambleSound.volume = volume / 2;
-    if (this.playerDeathSound1) this.playerDeathSound1.volume = volume * 1.3;
-    if (this.playerDeathSound2) this.playerDeathSound2.volume = volume * 1.3;
-    if (this.playerDeathSound3) this.playerDeathSound3.volume = volume * 1.3;
-    if (this.playerDeathSound4) this.playerDeathSound4.volume = volume * 1.3;
-    if (this.enemyDeathSound) this.enemyDeathSound.volume = volume * 1.3;
-    if (this.upgradeSound) this.upgradeSound.volume = volume;
+    const isMuted = this.settings.muted;
+
+    if (this.playerAttackSound1) {
+      this.playerAttackSound1.muted = isMuted;
+      this.playerAttackSound1.volume = volume;
+    }
+    if (this.playerAttackSound2) {
+      this.playerAttackSound2.muted = isMuted;
+      this.playerAttackSound2.volume = volume;
+    }
+    if (this.enemyAttackSound) {
+      this.enemyAttackSound.muted = isMuted;
+      this.enemyAttackSound.volume = volume;
+    }
+    if (this.scrambleSound) {
+      this.scrambleSound.muted = isMuted;
+      this.scrambleSound.volume = volume / 2;
+    }
+    if (this.playerDeathSound1) {
+      this.playerDeathSound1.muted = isMuted;
+      this.playerDeathSound1.volume = volume * 1.3;
+    }
+    if (this.playerDeathSound2) {
+      this.playerDeathSound2.muted = isMuted;
+      this.playerDeathSound2.volume = volume * 1.3;
+    }
+    if (this.playerDeathSound3) {
+      this.playerDeathSound3.muted = isMuted;
+      this.playerDeathSound3.volume = volume * 1.3;
+    }
+    if (this.playerDeathSound4) {
+      this.playerDeathSound4.muted = isMuted;
+      this.playerDeathSound4.volume = volume * 1.3;
+    }
+    if (this.enemyDeathSound) {
+      this.enemyDeathSound.muted = isMuted;
+      this.enemyDeathSound.volume = volume * 1.3;
+    }
+    if (this.upgradeSound) {
+      this.upgradeSound.muted = isMuted;
+      this.upgradeSound.volume = volume;
+    }
+    if (this.buttonSound) {
+      this.buttonSound.muted = isMuted;
+      this.buttonSound.volume = volume;
+    }
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -949,8 +1005,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Load assets asynchronously
     this.loadAllAssets()
       .then(() => {
-        // Assets loaded, start BGM and transition to menu
-        this.startBGM();
+        // Assets loaded, transition to menu (no BGM yet)
         this.currentState = GameState.MENU;
       })
       .catch(() => {
@@ -966,8 +1021,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.bgmAudio.pause();
       }
     } else {
-      // Page is visible again, resume BGM if it was playing and not muted
-      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
+      // Page is visible again, resume BGM if it was playing, not muted, and in playing state
+      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.currentState === GameState.PLAYING) {
         this.bgmAudio.play().catch(() => {}); // Ignore play errors
       }
     }
@@ -975,8 +1030,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private handleWindowFocus() {
     this.windowHasFocus = true;
-    // Window regained focus, resume BGM if it was playing and not muted
-    if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted) {
+    // Window regained focus, resume BGM if it was playing, not muted, and in playing state
+    if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.currentState === GameState.PLAYING) {
       this.bgmAudio.play().catch(() => {}); // Ignore play errors
     }
   }
@@ -1357,9 +1412,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private render() {
     // Note: Each render method now sets its own background, so no global clear needed
 
-    // Ensure BGM is playing for all game states (except loading)
+    // Ensure BGM is playing during gameplay, options, and leaderboard
     if (
-      this.currentState !== GameState.LOADING &&
+      (this.currentState === GameState.PLAYING ||
+       this.currentState === GameState.OPTIONS ||
+       this.currentState === GameState.LEADERBOARD) &&
       this.bgmAudio &&
       this.bgmAudio.paused &&
       !this.settings.muted
