@@ -318,6 +318,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private upgradeSound = new Audio(); // harpsichord_positive_long
   private buttonSound = new Audio(); // Wood Block1
   private healSound = new Audio(); // 02_Heal_02
+  private elasticTwangSound = new Audio(); // elastic_twang
+  private bowImpactSound = new Audio(); // Bow Impact Hit 1
   private bgmAudio = new Audio();
 
   // Asset loading system
@@ -443,13 +445,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   };
   private readonly CHOOSE_UPGRADE_DAMAGE_BUTTON = {
     x: this.CANVAS_SIZE / 2,
-    y: 295,
+    y: 280,
     width: 160,
     height: 50,
   };
   private readonly CHOOSE_UPGRADE_ASSIST_BUTTON = {
     x: this.CANVAS_SIZE / 2,
-    y: 365,
+    y: 335,
     width: 160,
     height: 50,
   };
@@ -754,7 +756,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
-      const totalSounds = 12; // Updated to match actual number of sounds
+      const totalSounds = 14; // Updated to match actual number of sounds
       let timeoutId: number;
 
       const checkComplete = () => {
@@ -845,6 +847,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Heal sound effect - load MP3 directly
       this.loadAudio(this.healSound, 'resources/audio/projects/numberCrunch/02_Heal_02')
+        .then(checkComplete)
+        .catch(handleError);
+
+      // Elastic twang sound effect - load MP3 directly
+      this.loadAudio(this.elasticTwangSound, 'resources/audio/projects/numberCrunch/elastic_twang')
+        .then(checkComplete)
+        .catch(handleError);
+
+      // Bow impact sound effect - load MP3 directly
+      this.loadAudio(this.bowImpactSound, 'resources/audio/projects/numberCrunch/Bow Impact Hit 1')
         .then(checkComplete)
         .catch(handleError);
     });
@@ -1371,8 +1383,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Add assist tiles based on level and upgrades //20 for testing, 2 normally
-    const assistTileCount = 20 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
+    // Add assist tiles based on level and upgrades
+    const assistTileCount = 2 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
     this.placeAssistTiles(assistTileCount);
   }
 
@@ -1603,12 +1615,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.arrowX = this.arrowStartX + (this.arrowTargetX - this.arrowStartX) * moveProgress;
         this.arrowY = this.arrowStartY + (this.arrowTargetY - this.arrowStartY) * moveProgress;
       }
-      // Stay visible at target position (200ms)
+      // Stay visible at target position (200ms) - play impact sound when arrow arrives
       else if (this.arrowTimer < this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME) {
         this.arrowOpacity = 1.0;
         // Keep at target position
         this.arrowX = this.arrowTargetX;
         this.arrowY = this.arrowTargetY;
+
+        // Play bow impact sound when arrow first reaches target
+        if (this.arrowTimer - deltaTime < this.ARROW_FADE_IN_TIME && this.bowImpactSound && this.windowHasFocus && !this.settings.muted) {
+          this.bowImpactSound.volume = 0.08;
+          this.bowImpactSound.currentTime = 0; // Reset to beginning
+          this.bowImpactSound.play().catch(() => {}); // Ignore play errors
+        }
       }
       // Fade out (200ms)
       else if (
@@ -2226,13 +2245,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
 
     this.drawButton(
-      `Assist Tiles`,
+      `Assist`,
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.x,
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.y,
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.width,
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.height,
-      '#FFD700',
-      '#FFC107'
+      '#D4AF37',
+      '#B8860B'
     );
 
     // Draw running animation at bottom center
@@ -2821,12 +2840,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.arrowTimer = 0;
     this.arrowOpacity = 0;
     // Start arrow from above and to the right (archer position), will animate towards enemy center
-    this.arrowStartX = this.ENEMY_X - 60; // Start from near player/archer position
-    this.arrowStartY = this.ENEMY_Y - 40; // Start above player
-    this.arrowTargetX = this.ENEMY_X - 15; // Target is enemy center
-    this.arrowTargetY = this.ENEMY_Y + 25; // Target is enemy center
-    this.arrowX = this.arrowStartX; // Current position starts at start position
-    this.arrowY = this.arrowStartY; // Current position starts at start position
+    this.arrowStartX = this.ENEMY_X - 60;
+    this.arrowStartY = this.ENEMY_Y - 40;
+    this.arrowTargetX = this.ENEMY_X - 15;
+    this.arrowTargetY = this.ENEMY_Y + 25;
+    this.arrowX = this.arrowStartX;
+    this.arrowY = this.arrowStartY;
   }
 
   private drawMonkAnimation() {
@@ -2834,13 +2853,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.globalAlpha = this.monkAnimationOpacity;
 
     // Position to the left of the player (closer to player)
-    const monkX = this.PLAYER_X - 50; // 50 pixels to the left of player (original relative position)
-    const monkY = this.PLAYER_Y - 20; // 20 pixels above player (original relative position)
+    const monkX = this.PLAYER_X - 50;
+    const monkY = this.PLAYER_Y - 20;
 
     // Draw the current frame of the monk animation
-    const frameWidth = 192; // Each frame is 192x192
+    const frameWidth = 192;
     const frameHeight = 192;
-    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
     this.ctx.drawImage(
@@ -2863,13 +2882,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.globalAlpha = this.monkAnimationOpacity; // Use same opacity as monk
 
     // Position directly on top of the player
-    const playerX = this.PLAYER_X; // Same X position as player
-    const playerY = this.PLAYER_Y; // Same Y position as player
+    const playerX = this.PLAYER_X;
+    const playerY = this.PLAYER_Y;
 
     // Draw the current frame of the heal effect animation
-    const frameWidth = 192; // Each frame is 192x192
+    const frameWidth = 192;
     const frameHeight = 192;
-    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
     this.ctx.drawImage(
@@ -2893,12 +2912,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Position below the player
     const archerX = this.PLAYER_X - 50;
-    const archerY = this.PLAYER_Y + 20; // 40 pixels below player
+    const archerY = this.PLAYER_Y + 20;
 
     // Draw the current frame of the archer shoot animation
-    const frameWidth = 192; // Each frame is 192x192
+    const frameWidth = 192;
     const frameHeight = 192;
-    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
     this.ctx.drawImage(
@@ -3867,7 +3886,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       for (let i = 0; i < assistTiles; i++) {
         const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
 
-        if (false) {
+        if (effectType === 'heal') {
           totalHealAmount += 8; // 8 HP per healing tile
           healingTiles++;
         } else {
@@ -3893,7 +3912,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             this.MAX_HEALTH + this.healthBonus,
             this.playerHealth + totalHealAmount
           );
-        }, 1000); // Delay by fade-in time (150ms) so heal happens when monk is fully visible
+        }, 1000); // Delay by 1000ms so heal happens when monk is fully visible
 
         // Create healing text above player (also delayed to match healing)
         setTimeout(() => {
@@ -3915,6 +3934,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
       if (totalAssistDamage > 0) {
         // Trigger archer shoot animation immediately
         this.startArcherShootAnimation();
+
+        // Play elastic twang sound with slight delay from archer fade in
+        setTimeout(() => {
+          if (this.elasticTwangSound && this.windowHasFocus && !this.settings.muted) {
+            this.elasticTwangSound.volume = 0.08; // Moderate volume
+            this.elasticTwangSound.currentTime = 0; // Reset to beginning
+            this.elasticTwangSound.play().catch(() => {}); // Ignore play errors
+          }
+        }, 500); // Delay by 500ms after archer animation starts (after fade in)
 
         setTimeout(() => {
           this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
@@ -4021,6 +4049,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
     this.nextAttackSprite = 1; // Reset attack alternation for new level
+    this.enemyAttackTimer = 0; // Reset enemy attack timer for new level
 
     // Reset player health and enemy health to maximum for new level
     this.applyDifficultySettings();
