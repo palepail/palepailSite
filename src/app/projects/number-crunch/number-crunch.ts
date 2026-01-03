@@ -74,6 +74,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly CANVAS_SIZE = this.GRID_SIZE * this.CELL_SIZE;
   private readonly CANVAS_UI_HEIGHT = 100;
 
+  // Character positions
+  private readonly PLAYER_X = 75;
+  private readonly PLAYER_Y = this.CANVAS_SIZE + 50;
+  private readonly ENEMY_X = this.CANVAS_SIZE - 75;
+  private readonly ENEMY_Y = this.CANVAS_SIZE + 50;
+
   // Health constants
   private readonly MAX_HEALTH = 120;
   private readonly ENEMY_MAX_HEALTH = 450;
@@ -228,6 +234,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly MONK_FRAME_TIME = 150; // ms per frame
   private readonly MONK_TOTAL_FRAMES = 10;
   private readonly MONK_FADE_TIME = 150; // ms for fade in/out
+
+  // Heal effect sprite animation (synchronized with monk)
+  private healEffectSprite = new Image();
+  private isHealEffectActive = false;
+  private healEffectFrame = 0;
+  private readonly HEAL_EFFECT_FRAME_TIME = 150; // ms per frame
+  private readonly HEAL_EFFECT_TOTAL_FRAMES = 10;
+
   private readonly SPRITE_SCALE = this.CHARACTER_SCALE; // Scale down to fit character size
 
   // Enemy sprite animation
@@ -636,6 +650,31 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadHealEffectSprite(): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.loadedAssets['healEffectSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 10000); // Increased to 10 seconds for iOS compatibility
+
+      this.healEffectSprite.onload = () => {
+        clearTimeout(timeout);
+        this.loadedAssets['healEffectSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.healEffectSprite.onerror = (e) => {
+        clearTimeout(timeout);
+        this.loadedAssets['healEffectSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.healEffectSprite.crossOrigin = 'anonymous';
+      this.healEffectSprite.src = 'resources/images/projects/numberCrunch/Heal_Effect.png';
+    });
+  }
+
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
@@ -985,6 +1024,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['avatarSprites'] = false;
     this.assetsToLoad['monkSprite'] = false;
     this.loadedAssets['monkSprite'] = false;
+    this.assetsToLoad['healEffectSprite'] = false;
+    this.loadedAssets['healEffectSprite'] = false;
     this.assetsToLoad['soundEffects'] = false;
     this.loadedAssets['soundEffects'] = false;
     this.assetsToLoad['bgm'] = false;
@@ -1018,6 +1059,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }),
       this.loadMonkSprite().catch(() => {
         this.loadedAssets['monkSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadHealEffectSprite().catch(() => {
+        this.loadedAssets['healEffectSprite'] = true;
         this.updateLoadingProgress();
       }),
       this.loadSoundEffects().catch(() => {
@@ -1396,6 +1441,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.monkAnimationOpacity = 1.0;
         const animationTime = this.monkAnimationTimer - this.MONK_FADE_TIME;
         this.monkAnimationFrame = Math.floor(animationTime / this.MONK_FRAME_TIME);
+        // Update heal effect frame (synchronized with monk)
+        this.healEffectFrame = Math.floor(animationTime / this.HEAL_EFFECT_FRAME_TIME);
       }
       // Handle fade out (last 300ms)
       else if (
@@ -1413,6 +1460,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.monkAnimationFrame = 0;
         this.monkAnimationTimer = 0;
         this.monkAnimationOpacity = 0;
+
+        // Also reset heal effect
+        this.isHealEffectActive = false;
+        this.healEffectFrame = 0;
       }
     }
 
@@ -1475,8 +1526,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.playerHealth = Math.max(0, this.playerHealth - Math.round(this.ENEMY_ATTACK_DAMAGE));
 
       // Create damage text above and to the left of player
-      const playerX = 75;
-      const playerY = this.CANVAS_SIZE + 50;
+      const playerX = this.PLAYER_X;
+      const playerY = this.PLAYER_Y;
       this.damageTexts.push({
         x: playerX - 20, // Position to the left of player
         y: playerY - 30, // Position above player
@@ -1611,6 +1662,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Draw monk animation
     if (this.isMonkAnimationActive && this.loadedAssets['monkSprite'] && this.monkSprite.complete) {
       this.drawMonkAnimation();
+    }
+
+    // Draw heal effect animation (on top of player)
+    if (this.isHealEffectActive && this.loadedAssets['healEffectSprite'] && this.healEffectSprite.complete) {
+      this.drawHealEffectAnimation();
     }
 
     // Draw damage texts
@@ -2506,16 +2562,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
     const playerMaxHealth = Math.floor(baseHealth * this.healthMultiplier);
     this.drawCharacter(
-      75,
-      this.CANVAS_SIZE + 50,
+      this.PLAYER_X,
+      this.PLAYER_Y,
       'Player',
       this.playerHealth,
       playerMaxHealth,
       '#4CAF50'
     );
     this.drawCharacter(
-      this.CANVAS_SIZE - 75,
-      this.CANVAS_SIZE + 50,
+      this.ENEMY_X,
+      this.ENEMY_Y,
       'Enemy',
       this.enemyHealth,
       this.enemyMaxHealth,
@@ -2565,6 +2621,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.monkAnimationFrame = 0;
     this.monkAnimationTimer = 0;
     this.monkAnimationOpacity = 0;
+
+    // Also start heal effect animation
+    this.isHealEffectActive = true;
+    this.healEffectFrame = 0;
   }
 
   private drawMonkAnimation() {
@@ -2572,8 +2632,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.globalAlpha = this.monkAnimationOpacity;
 
     // Position to the left of the player (closer to player)
-    const monkX = this.CANVAS_SIZE / 2 - 175; // 80 pixels to the left of player center5
-    const monkY = this.CANVAS_SIZE + 30; // Same Y as player
+    const monkX = this.PLAYER_X - 50; // 50 pixels to the left of player (original relative position)
+    const monkY = this.PLAYER_Y - 20; // 20 pixels above player (original relative position)
 
     // Draw the current frame of the monk animation
     const frameWidth = 192; // Each frame is 192x192
@@ -2589,6 +2649,35 @@ export class NumberCrunch implements OnInit, OnDestroy {
       frameHeight, // source height
       monkX - scaledWidth / 2, // destination x (centered)
       monkY - scaledHeight / 2, // destination y (centered)
+      scaledWidth, // destination width
+      scaledHeight // destination height
+    );
+
+    this.ctx.restore();
+  }
+
+  private drawHealEffectAnimation() {
+    this.ctx.save();
+    this.ctx.globalAlpha = this.monkAnimationOpacity; // Use same opacity as monk
+
+    // Position directly on top of the player
+    const playerX = this.PLAYER_X; // Same X position as player
+    const playerY = this.PLAYER_Y; // Same Y position as player
+
+    // Draw the current frame of the heal effect animation
+    const frameWidth = 192; // Each frame is 192x192
+    const frameHeight = 192;
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledHeight = frameHeight * this.CHARACTER_SCALE;
+
+    this.ctx.drawImage(
+      this.healEffectSprite,
+      this.healEffectFrame * frameWidth, // source x (current frame)
+      0, // source y
+      frameWidth, // source width
+      frameHeight, // source height
+      playerX - scaledWidth / 2, // destination x (centered on player)
+      playerY - scaledHeight / 2, // destination y (centered on player)
       scaledWidth, // destination width
       scaledHeight // destination height
     );
@@ -3509,13 +3598,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Apply assist tile effects
     if (assistTiles > 0) {
-      // Randomly choose between healing or bonus damage
-      const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
+      // Each assist tile is individually rolled for heal or damage
+      let totalHealAmount = 0;
+      let totalAssistDamage = 0;
+      let healingTiles = 0;
 
-      if (effectType === 'heal') {
-        // Heal player for 8 HP per assist tile (delayed by 0.5 seconds to match animation)
-        const healAmount = assistTiles * 8;
+      // Roll each assist tile individually
+      for (let i = 0; i < assistTiles; i++) {
+        const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
 
+        if (effectType === 'heal') {
+          totalHealAmount += 8; // 8 HP per healing tile
+          healingTiles++;
+        } else {
+          totalAssistDamage += Math.round(2 * (this.damageBase + this.damageBonus)); // 2x damage per damage tile
+        }
+      }
+
+      // Apply healing effect if any tiles rolled heal
+      if (totalHealAmount > 0) {
         // Trigger monk animation immediately
         this.startMonkAnimation();
 
@@ -3523,49 +3624,48 @@ export class NumberCrunch implements OnInit, OnDestroy {
         setTimeout(() => {
           this.playerHealth = Math.min(
             this.MAX_HEALTH + this.healthBonus,
-            this.playerHealth + healAmount
+            this.playerHealth + totalHealAmount
           );
         }, 1000); // Delay by fade-in time (150ms) so heal happens when monk is fully visible
 
         // Create healing text above player (also delayed to match healing)
         setTimeout(() => {
-          const playerX = 75;
-          const playerY = this.CANVAS_SIZE + 50;
+          const playerX = this.PLAYER_X;
+          const playerY = this.PLAYER_Y;
           this.damageTexts.push({
             x: playerX - 20, // Position to the left of player
             y: playerY - 30, // Position above player
-            value: healAmount,
+            value: totalHealAmount,
             lifetime: 0,
             maxLifetime: 500,
             type: 'player',
             isHealing: true,
           });
         }, 1000);
-      } else {
-        // Deal additional damage equal to 2 tiles worth per assist tile
-        const assistDamage = Math.round(assistTiles * 2 * (this.damageBase + this.damageBonus));
-        this.enemyHealth = Math.max(0, this.enemyHealth - assistDamage);
+      }
+
+      // Apply damage effect if any tiles rolled damage
+      if (totalAssistDamage > 0) {
+        this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
 
         // Create additional damage text for assist tiles
-        if (assistDamage > 0) {
-          const enemyX = this.CANVAS_SIZE - 100;
-          const enemyY = this.CANVAS_SIZE + 50;
-          this.damageTexts.push({
-            x: enemyX + 20,
-            y: enemyY - 50, // Position higher to avoid overlap
-            value: assistDamage,
-            lifetime: 0,
-            maxLifetime: 500,
-            type: 'enemy',
-            isHealing: false,
-          });
-        }
+        const enemyX = this.ENEMY_X;
+        const enemyY = this.ENEMY_Y;
+        this.damageTexts.push({
+          x: enemyX + 20,
+          y: enemyY - 50, // Position higher to avoid overlap
+          value: totalAssistDamage,
+          lifetime: 0,
+          maxLifetime: 500,
+          type: 'enemy',
+          isHealing: false,
+        });
       }
     }
 
     // Create damage text above and to the right of enemy (for regular damage)
-    const enemyX = this.CANVAS_SIZE - 75;
-    const enemyY = this.CANVAS_SIZE + 50;
+    const enemyX = this.ENEMY_X;
+    const enemyY = this.ENEMY_Y;
     this.damageTexts.push({
       x: enemyX + 20, // Position to the right of enemy
       y: enemyY - 30, // Position above enemy
