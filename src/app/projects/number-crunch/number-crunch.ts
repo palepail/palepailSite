@@ -3132,14 +3132,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.textAlign = 'center';
     this.ctx.fillText(`${Math.round(health)}`, x, y - 30);
 
-    // Health bar
+    // Health bar - cap display at maxHealth but show actual health in text
     this.ctx.fillStyle = '#333';
     this.ctx.fillRect(x - this.HEALTH_BAR_WIDTH_PX / 2, y - 25, this.HEALTH_BAR_WIDTH_PX, 5);
     this.ctx.fillStyle = color;
     this.ctx.fillRect(
       x - this.HEALTH_BAR_WIDTH_PX / 2,
       y - 25,
-      (health / maxHealth) * this.HEALTH_BAR_WIDTH_PX,
+      Math.min(health, maxHealth) / maxHealth * this.HEALTH_BAR_WIDTH_PX, // Cap bar at maxHealth
       5
     );
 
@@ -3656,6 +3656,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.healthMultiplier = 1.0; // Reset health multiplier
     this.damageUpgradeCount = 0; // Reset damage upgrade counter
     this.healthUpgradeCount = 0; // Reset health upgrade counter
+    this.assistUpgradeCount = 0; // Reset assist upgrade counter
     this.healthBonus = 0; // Reset health bonus
     this.damageBonus = 0; // Reset damage bonus
     this.damageBase = this.NORMAL_DAMAGE_BASE; // Reset damage base
@@ -3901,10 +3902,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
         // Delay the actual healing to match monk animation timing (after fade in)
         setTimeout(() => {
-          this.playerHealth = Math.min(
-            this.MAX_HEALTH + this.healthBonus,
-            this.playerHealth + totalHealAmount
-          );
+          this.playerHealth += totalHealAmount; // Allow over-healing beyond maximum health
         }, 1000); // Delay by 1000ms so heal happens when monk is fully visible
 
         // Create healing text above player (also delayed to match healing)
