@@ -17,6 +17,7 @@ interface GameCell {
   selected: boolean;
   x: number;
   y: number;
+  type: 'normal' | 'assist';
 }
 
 enum GameState {
@@ -44,6 +45,7 @@ interface DamageText {
   lifetime: number;
   maxLifetime: number;
   type: 'enemy' | 'player';
+  isHealing: boolean;
 }
 
 @Component({
@@ -186,10 +188,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   healthMultiplier = 1.0;
   damageUpgradeCount = 0; // Track damage upgrades for diminishing returns
   healthUpgradeCount = 0; // Track health upgrades for diminishing returns
+  assistUpgradeCount = 0; // Track assist tile upgrades
 
   // Upgrade bonuses (flat values)
   healthBonus = 0; // Flat HP bonus from upgrades
   damageBonus = 0; // Flat damage bonus from upgrades
+  assistBonus = 0; // Number of additional assist tiles from upgrades
 
   // Difficulty-based damage and enemy health
   damageBase = this.NORMAL_DAMAGE_BASE; // Base damage per tile, varies by difficulty
@@ -284,6 +288,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     oldPos: { x: number; y: number };
     newPos: { x: number; y: number };
     value: number;
+    type: string;
   }[] = [];
 
   // Slider dragging state
@@ -389,6 +394,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly CHOOSE_UPGRADE_DAMAGE_BUTTON = {
     x: this.CANVAS_SIZE / 2,
     y: 295,
+    width: 160,
+    height: 50,
+  };
+  private readonly CHOOSE_UPGRADE_ASSIST_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 365,
     width: 160,
     height: 50,
   };
@@ -1022,7 +1033,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     } else {
       // Page is visible again, resume BGM if it was playing, not muted, and in playing state
-      if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.currentState === GameState.PLAYING) {
+      if (
+        this.bgmAudio &&
+        this.bgmAudio.paused &&
+        !this.settings.muted &&
+        this.currentState === GameState.PLAYING
+      ) {
         this.bgmAudio.play().catch(() => {}); // Ignore play errors
       }
     }
@@ -1031,7 +1047,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private handleWindowFocus() {
     this.windowHasFocus = true;
     // Window regained focus, resume BGM if it was playing, not muted, and in playing state
-    if (this.bgmAudio && this.bgmAudio.paused && !this.settings.muted && this.currentState === GameState.PLAYING) {
+    if (
+      this.bgmAudio &&
+      this.bgmAudio.paused &&
+      !this.settings.muted &&
+      this.currentState === GameState.PLAYING
+    ) {
       this.bgmAudio.play().catch(() => {}); // Ignore play errors
     }
   }
@@ -1173,8 +1194,40 @@ export class NumberCrunch implements OnInit, OnDestroy {
           selected: false,
           x,
           y,
+          type: 'normal',
         };
       }
+    }
+
+    // Add assist tiles based on level and upgrades
+    const assistTileCount = 2 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
+    this.placeAssistTiles(assistTileCount);
+  }
+
+  private placeAssistTiles(count: number) {
+    const totalCells = this.GRID_SIZE * this.GRID_SIZE;
+    const availablePositions: { x: number; y: number }[] = [];
+
+    // Collect all positions
+    for (let y = 0; y < this.GRID_SIZE; y++) {
+      for (let x = 0; x < this.GRID_SIZE; x++) {
+        availablePositions.push({ x, y });
+      }
+    }
+
+    // Shuffle positions
+    for (let i = availablePositions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availablePositions[i], availablePositions[j]] = [
+        availablePositions[j],
+        availablePositions[i],
+      ];
+    }
+
+    // Place assist tiles in the first 'count' positions
+    for (let i = 0; i < Math.min(count, availablePositions.length); i++) {
+      const pos = availablePositions[i];
+      this.grid[pos.y][pos.x].type = 'assist';
     }
   }
 
@@ -1345,7 +1398,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.playerHealth = Math.max(0, this.playerHealth - Math.round(this.ENEMY_ATTACK_DAMAGE));
 
       // Create damage text above and to the left of player
-      const playerX = 50;
+      const playerX = 75;
       const playerY = this.CANVAS_SIZE + 50;
       this.damageTexts.push({
         x: playerX - 20, // Position to the left of player
@@ -1354,6 +1407,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         lifetime: 0,
         maxLifetime: 500, // 1 second
         type: 'player',
+        isHealing: false,
       });
     }
 
@@ -1415,8 +1469,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Ensure BGM is playing during gameplay, options, and leaderboard
     if (
       (this.currentState === GameState.PLAYING ||
-       this.currentState === GameState.OPTIONS ||
-       this.currentState === GameState.LEADERBOARD) &&
+        this.currentState === GameState.OPTIONS ||
+        this.currentState === GameState.LEADERBOARD) &&
       this.bgmAudio &&
       this.bgmAudio.paused &&
       !this.settings.muted
@@ -1851,6 +1905,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#D84315'
     );
 
+    this.drawButton(
+      `Assist Tiles`,
+      this.CHOOSE_UPGRADE_ASSIST_BUTTON.x,
+      this.CHOOSE_UPGRADE_ASSIST_BUTTON.y,
+      this.CHOOSE_UPGRADE_ASSIST_BUTTON.width,
+      this.CHOOSE_UPGRADE_ASSIST_BUTTON.height,
+      '#FFD700',
+      '#FFC107'
+    );
+
     // Draw running animation at bottom center
     if (this.loadedAssets['runningSprite'] && this.runningSprite.complete) {
       const frameWidth = this.SPRITE_FRAME_WIDTH;
@@ -2030,7 +2094,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // No overlay needed since we're using the full background
 
     // Auto-focus mobile input when entering this state (for iPhone compatibility)
-    if (this.isLeaderboardInputFocused && this.mobileInput && !this.mobileInput.nativeElement.matches(':focus')) {
+    if (
+      this.isLeaderboardInputFocused &&
+      this.mobileInput &&
+      !this.mobileInput.nativeElement.matches(':focus')
+    ) {
       setTimeout(() => {
         if (this.mobileInput && this.currentState === GameState.LEADERBOARD_NAME_INPUT) {
           this.mobileInput.nativeElement.focus();
@@ -2228,12 +2296,36 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.ctx.fillStyle = color;
         this.ctx.fillRect(x * this.CELL_SIZE, y * this.CELL_SIZE, this.CELL_SIZE, this.CELL_SIZE);
 
+        // Draw gold glow for assist tiles (after background so it's visible)
+        if (cell.type === 'assist' && cell.value !== 0 && !this.isScrambling) {
+          // Create edge-to-center glow effect with gold edges fading to white center
+          const tileX = x * this.CELL_SIZE;
+          const tileY = y * this.CELL_SIZE;
+
+          // Draw multiple inset rectangles with gold edges fading to white center
+          for (let i = 0; i < 4; i++) {
+            const inset = i * 2;
+            // High opacity at edges, low opacity in center
+            const isEdge = i < 2; // First two layers are at the edges
+            const color = isEdge ? '255, 215, 0' : '255, 255, 255'; // Gold at edges, white in center
+            const alpha = isEdge ? 0.3 + (i - 0) * 0.1 : 0.1 + (i - 2) * 0.2; // Higher opacity at edges
+            this.ctx.fillStyle = `rgba(${color}, ${alpha})`;
+            this.ctx.fillRect(
+              tileX + inset,
+              tileY + inset,
+              this.CELL_SIZE - inset * 2,
+              this.CELL_SIZE - inset * 2
+            );
+          }
+        }
+
         this.ctx.strokeStyle = '#ddd';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x * this.CELL_SIZE, y * this.CELL_SIZE, this.CELL_SIZE, this.CELL_SIZE);
 
         // Draw number (skip if value is 0, or if scrambling)
         if (cell.value !== 0 && !this.isScrambling) {
+          // Keep numbers black for readability
           this.ctx.fillStyle = '#333';
           this.ctx.font = '20px Arial';
           this.ctx.textAlign = 'center';
@@ -2254,6 +2346,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Interpolate position
       const currentX = anim.oldPos.x + (anim.newPos.x - anim.oldPos.x) * progress;
       const currentY = anim.oldPos.y + (anim.newPos.y - anim.oldPos.y) * progress;
+
+      // Draw glow effect for assist tiles
+      if (anim.type === 'assist') {
+        // Calculate tile position (center of the cell)
+        const tileCenterX = currentX;
+        const tileCenterY = currentY - 7; // Offset to align with number position
+
+        // Draw multiple inset rectangles with gold edges fading to white center
+        for (let i = 0; i < 4; i++) {
+          const inset = i * 2;
+          // High opacity at edges, low opacity in center
+          const isEdge = i < 2; // First two layers are at the edges
+          const color = isEdge ? '255, 215, 0' : '255, 255, 255'; // Gold at edges, white in center
+          const alpha = isEdge ? 0.3 + (i - 0) * 0.1 : 0.1 + (i - 2) * 0.2; // Higher opacity at edges
+          this.ctx.fillStyle = `rgba(${color}, ${alpha})`;
+          this.ctx.fillRect(
+            tileCenterX - this.CELL_SIZE / 2 + inset,
+            tileCenterY - this.CELL_SIZE / 2 + inset,
+            this.CELL_SIZE - inset * 2,
+            this.CELL_SIZE - inset * 2
+          );
+        }
+      }
 
       // Draw flying number
       this.ctx.fillStyle = '#333';
@@ -2309,7 +2424,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
     const playerMaxHealth = Math.floor(baseHealth * this.healthMultiplier);
     this.drawCharacter(
-      50,
+      75,
       this.CANVAS_SIZE + 50,
       'Player',
       this.playerHealth,
@@ -2317,7 +2432,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#4CAF50'
     );
     this.drawCharacter(
-      this.CANVAS_SIZE - 50,
+      this.CANVAS_SIZE - 75,
       this.CANVAS_SIZE + 50,
       'Enemy',
       this.enemyHealth,
@@ -2371,8 +2486,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(alpha, 0);
 
-      // Choose color based on damage type
-      const mainColor = damageText.type === 'enemy' ? '#ff4444' : '#4444ff'; // Red for enemy damage, blue for player damage
+      // Choose color based on damage type and healing
+      const mainColor = damageText.isHealing ? '#44ff44' : '#ff4444'; // Green for healing, red for damage
       const shadowColor = '#000000'; // Black shadow for both
 
       // Draw shadow first (behind the main text)
@@ -2809,6 +2924,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.damageBonus += this.DAMAGE_UPGRADE_BONUS;
       this.nextLevel();
     }
+    // Assist tile upgrade button - +1 assist tile
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.CHOOSE_UPGRADE_ASSIST_BUTTON.x,
+        this.CHOOSE_UPGRADE_ASSIST_BUTTON.y,
+        this.CHOOSE_UPGRADE_ASSIST_BUTTON.width,
+        this.CHOOSE_UPGRADE_ASSIST_BUTTON.height
+      )
+    ) {
+      this.playButtonSound();
+      // Apply assist tile upgrade
+      this.assistUpgradeCount++;
+      this.nextLevel();
+    }
   }
 
   private isClickInButton(
@@ -3069,7 +3200,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.playerHealth = Math.floor(this.EASY_HEALTH + this.healthBonus);
         this.damageBase = this.EASY_DAMAGE_BASE;
         // Scale enemy health so it takes same number of hits: 450 * (8/10) = 360
-        this.enemyMaxHealth = Math.floor(this.ENEMY_MAX_HEALTH * (this.EASY_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE));
+        this.enemyMaxHealth = Math.floor(
+          this.ENEMY_MAX_HEALTH * (this.EASY_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE)
+        );
         this.enemyHealth = this.enemyMaxHealth;
         break;
       case 'normal':
@@ -3083,7 +3216,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.playerHealth = Math.floor(this.HARD_HEALTH + this.healthBonus);
         this.damageBase = this.HARD_DAMAGE_BASE;
         // Scale enemy health so it takes same number of hits: 450 * (12/10) = 540
-        this.enemyMaxHealth = Math.floor(this.ENEMY_MAX_HEALTH * (this.HARD_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE));
+        this.enemyMaxHealth = Math.floor(
+          this.ENEMY_MAX_HEALTH * (this.HARD_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE)
+        );
         this.enemyHealth = this.enemyMaxHealth;
         break;
     }
@@ -3150,11 +3285,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.scramblesRemaining--;
 
     // Collect all non-zero cells with their positions
-    const originalCells: { x: number; y: number; value: number }[] = [];
+    const originalCells: { x: number; y: number; value: number; type: string }[] = [];
     for (let y = 0; y < this.GRID_SIZE; y++) {
       for (let x = 0; x < this.GRID_SIZE; x++) {
         if (this.grid[y][x].value !== 0) {
-          originalCells.push({ x, y, value: this.grid[y][x].value });
+          originalCells.push({
+            x,
+            y,
+            value: this.grid[y][x].value,
+            type: this.grid[y][x].type || 'normal',
+          });
         }
       }
     }
@@ -3188,9 +3328,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
               y: y * this.CELL_SIZE + this.CELL_SIZE / 2,
             },
             value: sourceCell.value,
+            type: sourceCell.type || 'normal',
           });
 
           this.grid[y][x].value = sourceCell.value;
+          this.grid[y][x].type = (sourceCell.type as 'normal' | 'assist') || 'normal';
           cellIndex++;
         }
       }
@@ -3210,12 +3352,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const endX = Math.max(this.selectionStart.x, this.selectionEnd.x);
     const endY = Math.max(this.selectionStart.y, this.selectionEnd.y);
 
-    // Count tiles with values using correct bounds
+    // Count tiles with values and assist tiles using correct bounds
     let tilesWithValues = 0;
+    let assistTiles = 0;
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
         if (this.grid[y][x].value !== 0) {
           tilesWithValues++;
+          if (this.grid[y][x].type === 'assist') {
+            assistTiles++;
+          }
         }
       }
     }
@@ -3243,8 +3389,55 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
-    // Create damage text above and to the right of enemy
-    const enemyX = this.CANVAS_SIZE - 50;
+    // Apply assist tile effects
+    if (assistTiles > 0) {
+      // Randomly choose between healing or bonus damage
+      const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
+
+      if (effectType === 'heal') {
+        // Heal player for 8 HP per assist tile
+        const healAmount = assistTiles * 8;
+        this.playerHealth = Math.min(
+          this.MAX_HEALTH + this.healthBonus,
+          this.playerHealth + healAmount
+        );
+
+        // Create healing text above player
+        const playerX = 75;
+        const playerY = this.CANVAS_SIZE + 50;
+        this.damageTexts.push({
+          x: playerX - 20, // Position to the left of player
+          y: playerY - 30, // Position above player
+          value: healAmount,
+          lifetime: 0,
+          maxLifetime: 500,
+          type: 'player',
+          isHealing: true,
+        });
+      } else {
+        // Deal additional damage equal to 2 tiles worth per assist tile
+        const assistDamage = Math.round(assistTiles * 2 * (this.damageBase + this.damageBonus));
+        this.enemyHealth = Math.max(0, this.enemyHealth - assistDamage);
+
+        // Create additional damage text for assist tiles
+        if (assistDamage > 0) {
+          const enemyX = this.CANVAS_SIZE - 100;
+          const enemyY = this.CANVAS_SIZE + 50;
+          this.damageTexts.push({
+            x: enemyX + 20,
+            y: enemyY - 50, // Position higher to avoid overlap
+            value: assistDamage,
+            lifetime: 0,
+            maxLifetime: 500,
+            type: 'enemy',
+            isHealing: false,
+          });
+        }
+      }
+    }
+
+    // Create damage text above and to the right of enemy (for regular damage)
+    const enemyX = this.CANVAS_SIZE - 75;
     const enemyY = this.CANVAS_SIZE + 50;
     this.damageTexts.push({
       x: enemyX + 20, // Position to the right of enemy
@@ -3253,6 +3446,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       lifetime: 0,
       maxLifetime: 500, // 1 second (faster fade)
       type: 'enemy',
+      isHealing: false,
     });
 
     // Trigger attack animation
@@ -3309,13 +3503,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private calculateNextTarget(): number {
-    const nextLevel = this.level + 1;
-    return (
-      this.TARGET_BASE +
-      nextLevel +
-      (Math.floor(Math.random() * (this.TARGET_RANDOM_MAX - this.TARGET_RANDOM_MIN + 1)) +
-        this.TARGET_RANDOM_MIN)
-    );
+    // Increase by 1 or 2 randomly from current target
+    const increase = Math.random() < 0.5 ? 1 : 2;
+    return this.targetNumber + increase;
   }
 
   private nextLevel() {
