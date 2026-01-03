@@ -292,6 +292,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private enemyDeathSound = new Audio(); // Grunt Ehh 1
   private upgradeSound = new Audio(); // harpsichord_positive_long
   private buttonSound = new Audio(); // Wood Block1
+  private healSound = new Audio(); // 02_Heal_02
   private bgmAudio = new Audio();
 
   // Asset loading system
@@ -678,7 +679,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
-      const totalSounds = 11; // Updated to match actual number of sounds
+      const totalSounds = 12; // Updated to match actual number of sounds
       let timeoutId: number;
 
       const checkComplete = () => {
@@ -737,11 +738,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
         .then(checkComplete)
         .catch(handleError);
 
-      // Player death sounds - load MP3 directly
-      this.loadAudio(this.playerDeathSound1, 'resources/audio/projects/numberCrunch/Grunt Ng 1')
-        .then(checkComplete)
-        .catch(handleError);
-
       this.loadAudio(this.playerDeathSound2, 'resources/audio/projects/numberCrunch/Grunt Oh 3')
         .then(checkComplete)
         .catch(handleError);
@@ -769,6 +765,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Button sound effect - load MP3 directly
       this.loadAudio(this.buttonSound, 'resources/audio/projects/numberCrunch/Wood Block1')
+        .then(checkComplete)
+        .catch(handleError);
+
+      // Heal sound effect - load MP3 directly
+      this.loadAudio(this.healSound, 'resources/audio/projects/numberCrunch/02_Heal_02')
         .then(checkComplete)
         .catch(handleError);
     });
@@ -1665,7 +1666,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Draw heal effect animation (on top of player)
-    if (this.isHealEffectActive && this.loadedAssets['healEffectSprite'] && this.healEffectSprite.complete) {
+    if (
+      this.isHealEffectActive &&
+      this.loadedAssets['healEffectSprite'] &&
+      this.healEffectSprite.complete
+    ) {
       this.drawHealEffectAnimation();
     }
 
@@ -3619,6 +3624,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
       if (totalHealAmount > 0) {
         // Trigger monk animation immediately
         this.startMonkAnimation();
+
+        // Play heal sound effect at 20% volume
+        if (this.healSound && this.windowHasFocus && !this.settings.muted) {
+          this.healSound.volume = 0.2; // 20% volume
+          this.healSound.currentTime = 0; // Reset to beginning
+          this.healSound.play().catch(() => {}); // Ignore play errors
+        }
 
         // Delay the actual healing to match monk animation timing (after fade in)
         setTimeout(() => {
