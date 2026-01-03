@@ -218,6 +218,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly ANIMATION_FRAME_TIME = this.ANIMATION_FRAME_TIME_MS; // ms per frame (adjust for desired speed)
   private readonly SPRITE_FRAME_WIDTH = this.SPRITE_FRAME_WIDTH_PX; // 192px total width / 8 frames
   private readonly SPRITE_FRAME_HEIGHT = this.SPRITE_FRAME_HEIGHT_PX; // Full height of sprite sheet
+
+  // Monk sprite animation
+  private monkSprite = new Image();
+  private isMonkAnimationActive = false;
+  private monkAnimationFrame = 0;
+  private monkAnimationTimer = 0;
+  private monkAnimationOpacity = 0;
+  private readonly MONK_FRAME_TIME = 150; // ms per frame
+  private readonly MONK_TOTAL_FRAMES = 10;
+  private readonly MONK_FADE_TIME = 150; // ms for fade in/out
   private readonly SPRITE_SCALE = this.CHARACTER_SCALE; // Scale down to fit character size
 
   // Enemy sprite animation
@@ -601,6 +611,31 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadMonkSprite(): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.loadedAssets['monkSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 10000); // Increased to 10 seconds for iOS compatibility
+
+      this.monkSprite.onload = () => {
+        clearTimeout(timeout);
+        this.loadedAssets['monkSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.monkSprite.onerror = (e) => {
+        clearTimeout(timeout);
+        this.loadedAssets['monkSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.monkSprite.crossOrigin = 'anonymous';
+      this.monkSprite.src = 'resources/images/projects/numberCrunch/Heal.png';
+    });
+  }
+
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
@@ -948,6 +983,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['runningSprite'] = false;
     this.assetsToLoad['avatarSprites'] = false;
     this.loadedAssets['avatarSprites'] = false;
+    this.assetsToLoad['monkSprite'] = false;
+    this.loadedAssets['monkSprite'] = false;
     this.assetsToLoad['soundEffects'] = false;
     this.loadedAssets['soundEffects'] = false;
     this.assetsToLoad['bgm'] = false;
@@ -977,6 +1014,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }),
       this.loadAvatarSprites().catch(() => {
         this.loadedAssets['avatarSprites'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadMonkSprite().catch(() => {
+        this.loadedAssets['monkSprite'] = true;
         this.updateLoadingProgress();
       }),
       this.loadSoundEffects().catch(() => {
@@ -1199,8 +1240,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Add assist tiles based on level and upgrades
-    const assistTileCount = 2 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
+    // Add assist tiles based on level and upgrades //20 for testing, 2 normally
+    const assistTileCount = 20 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
     this.placeAssistTiles(assistTileCount);
   }
 
@@ -1337,6 +1378,42 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.runningAnimationTimer >= this.RUNNING_FRAME_TIME) {
       this.runningAnimationTimer = 0;
       this.runningAnimationFrame = (this.runningAnimationFrame + 1) % this.RUNNING_TOTAL_FRAMES; // 6 frames total
+    }
+
+    // Update monk animation
+    if (this.isMonkAnimationActive) {
+      this.monkAnimationTimer += deltaTime;
+
+      // Handle fade in (first 300ms)
+      if (this.monkAnimationTimer < this.MONK_FADE_TIME) {
+        this.monkAnimationOpacity = this.monkAnimationTimer / this.MONK_FADE_TIME;
+      }
+      // Handle main animation (next 1500ms for 10 frames at 150ms each)
+      else if (
+        this.monkAnimationTimer <
+        this.MONK_FADE_TIME + this.MONK_TOTAL_FRAMES * this.MONK_FRAME_TIME
+      ) {
+        this.monkAnimationOpacity = 1.0;
+        const animationTime = this.monkAnimationTimer - this.MONK_FADE_TIME;
+        this.monkAnimationFrame = Math.floor(animationTime / this.MONK_FRAME_TIME);
+      }
+      // Handle fade out (last 300ms)
+      else if (
+        this.monkAnimationTimer <
+        this.MONK_FADE_TIME * 2 + this.MONK_TOTAL_FRAMES * this.MONK_FRAME_TIME
+      ) {
+        const fadeOutTime =
+          this.monkAnimationTimer -
+          (this.MONK_FADE_TIME + this.MONK_TOTAL_FRAMES * this.MONK_FRAME_TIME);
+        this.monkAnimationOpacity = 1.0 - fadeOutTime / this.MONK_FADE_TIME;
+      }
+      // Animation complete
+      else {
+        this.isMonkAnimationActive = false;
+        this.monkAnimationFrame = 0;
+        this.monkAnimationTimer = 0;
+        this.monkAnimationOpacity = 0;
+      }
     }
 
     // Update damage texts - animate upward and fade out
@@ -1530,6 +1607,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Draw UI
     this.drawUI();
+
+    // Draw monk animation
+    if (this.isMonkAnimationActive && this.loadedAssets['monkSprite'] && this.monkSprite.complete) {
+      this.drawMonkAnimation();
+    }
 
     // Draw damage texts
     this.drawDamageTexts();
@@ -2478,6 +2560,42 @@ export class NumberCrunch implements OnInit, OnDestroy {
     );
   }
 
+  private startMonkAnimation() {
+    this.isMonkAnimationActive = true;
+    this.monkAnimationFrame = 0;
+    this.monkAnimationTimer = 0;
+    this.monkAnimationOpacity = 0;
+  }
+
+  private drawMonkAnimation() {
+    this.ctx.save();
+    this.ctx.globalAlpha = this.monkAnimationOpacity;
+
+    // Position to the left of the player (closer to player)
+    const monkX = this.CANVAS_SIZE / 2 - 175; // 80 pixels to the left of player center5
+    const monkY = this.CANVAS_SIZE + 30; // Same Y as player
+
+    // Draw the current frame of the monk animation
+    const frameWidth = 192; // Each frame is 192x192
+    const frameHeight = 192;
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledHeight = frameHeight * this.CHARACTER_SCALE;
+
+    this.ctx.drawImage(
+      this.monkSprite,
+      this.monkAnimationFrame * frameWidth, // source x (current frame)
+      0, // source y
+      frameWidth, // source width
+      frameHeight, // source height
+      monkX - scaledWidth / 2, // destination x (centered)
+      monkY - scaledHeight / 2, // destination y (centered)
+      scaledWidth, // destination width
+      scaledHeight // destination height
+    );
+
+    this.ctx.restore();
+  }
+
   private drawDamageTexts() {
     for (const damageText of this.damageTexts) {
       // Calculate alpha based on lifetime (fade out over time)
@@ -3395,25 +3513,34 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
 
       if (effectType === 'heal') {
-        // Heal player for 8 HP per assist tile
+        // Heal player for 8 HP per assist tile (delayed by 0.5 seconds to match animation)
         const healAmount = assistTiles * 8;
-        this.playerHealth = Math.min(
-          this.MAX_HEALTH + this.healthBonus,
-          this.playerHealth + healAmount
-        );
 
-        // Create healing text above player
-        const playerX = 75;
-        const playerY = this.CANVAS_SIZE + 50;
-        this.damageTexts.push({
-          x: playerX - 20, // Position to the left of player
-          y: playerY - 30, // Position above player
-          value: healAmount,
-          lifetime: 0,
-          maxLifetime: 500,
-          type: 'player',
-          isHealing: true,
-        });
+        // Trigger monk animation immediately
+        this.startMonkAnimation();
+
+        // Delay the actual healing to match monk animation timing (after fade in)
+        setTimeout(() => {
+          this.playerHealth = Math.min(
+            this.MAX_HEALTH + this.healthBonus,
+            this.playerHealth + healAmount
+          );
+        }, 1000); // Delay by fade-in time (150ms) so heal happens when monk is fully visible
+
+        // Create healing text above player (also delayed to match healing)
+        setTimeout(() => {
+          const playerX = 75;
+          const playerY = this.CANVAS_SIZE + 50;
+          this.damageTexts.push({
+            x: playerX - 20, // Position to the left of player
+            y: playerY - 30, // Position above player
+            value: healAmount,
+            lifetime: 0,
+            maxLifetime: 500,
+            type: 'player',
+            isHealing: true,
+          });
+        }, 1000);
       } else {
         // Deal additional damage equal to 2 tiles worth per assist tile
         const assistDamage = Math.round(assistTiles * 2 * (this.damageBase + this.damageBonus));
