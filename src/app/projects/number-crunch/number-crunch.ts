@@ -252,6 +252,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly ARCHER_SHOOT_TOTAL_FRAMES = 8;
   private readonly ARCHER_SHOOT_FADE_TIME = 150; // ms for fade in/out
 
+  // Arrow sprite animation (hits enemy after archer shoot)
+  private arrowSprite = new Image();
+  private isArrowActive = false;
+  private arrowTimer = 0;
+  private arrowOpacity = 0;
+  private arrowX = 0;
+  private arrowY = 0;
+  private arrowStartX = 0;
+  private arrowStartY = 0;
+  private arrowTargetX = 0;
+  private arrowTargetY = 0;
+  private readonly ARROW_FADE_IN_TIME = 100; // ms to fade in at hit
+  private readonly ARROW_STAY_TIME = 200; // ms to stay visible
+  private readonly ARROW_FADE_OUT_TIME = 200; // ms to fade out
+
   private readonly SPRITE_SCALE = this.CHARACTER_SCALE; // Scale down to fit character size
 
   // Enemy sprite animation
@@ -711,6 +726,31 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadArrowSprite(): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.loadedAssets['arrowSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 10000); // Increased to 10 seconds for iOS compatibility
+
+      this.arrowSprite.onload = () => {
+        clearTimeout(timeout);
+        this.loadedAssets['arrowSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.arrowSprite.onerror = (e) => {
+        clearTimeout(timeout);
+        this.loadedAssets['arrowSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.arrowSprite.crossOrigin = 'anonymous';
+      this.arrowSprite.src = 'resources/images/projects/numberCrunch/Arrow.png';
+    });
+  }
+
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
@@ -1105,6 +1145,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }),
       this.loadArcherShootSprite().catch(() => {
         this.loadedAssets['archerShootSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadArrowSprite().catch(() => {
+        this.loadedAssets['arrowSprite'] = true;
         this.updateLoadingProgress();
       }),
       this.loadSoundEffects().catch(() => {
@@ -1547,6 +1591,46 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
+    // Update arrow animation
+    if (this.isArrowActive) {
+      this.arrowTimer += deltaTime;
+
+      // Handle fade in and movement (200ms total)
+      if (this.arrowTimer < this.ARROW_FADE_IN_TIME) {
+        this.arrowOpacity = this.arrowTimer / this.ARROW_FADE_IN_TIME;
+        // Move arrow towards target during fade in
+        const moveProgress = this.arrowTimer / this.ARROW_FADE_IN_TIME;
+        this.arrowX = this.arrowStartX + (this.arrowTargetX - this.arrowStartX) * moveProgress;
+        this.arrowY = this.arrowStartY + (this.arrowTargetY - this.arrowStartY) * moveProgress;
+      }
+      // Stay visible at target position (200ms)
+      else if (this.arrowTimer < this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME) {
+        this.arrowOpacity = 1.0;
+        // Keep at target position
+        this.arrowX = this.arrowTargetX;
+        this.arrowY = this.arrowTargetY;
+      }
+      // Fade out (200ms)
+      else if (
+        this.arrowTimer <
+        this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME + this.ARROW_FADE_OUT_TIME
+      ) {
+        const fadeProgress =
+          (this.arrowTimer - (this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME)) /
+          this.ARROW_FADE_OUT_TIME;
+        this.arrowOpacity = 1.0 - fadeProgress;
+        // Keep at target position during fade out
+        this.arrowX = this.arrowTargetX;
+        this.arrowY = this.arrowTargetY;
+      }
+      // Animation complete
+      else {
+        this.isArrowActive = false;
+        this.arrowTimer = 0;
+        this.arrowOpacity = 0;
+      }
+    }
+
     // Update damage texts - animate upward and fade out
     for (let i = this.damageTexts.length - 1; i >= 0; i--) {
       const damageText = this.damageTexts[i];
@@ -1760,6 +1844,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.archerShootSprite.complete
     ) {
       this.drawArcherShootAnimation();
+    }
+
+    // Draw arrow animation
+    if (this.isArrowActive && this.loadedAssets['arrowSprite'] && this.arrowSprite.complete) {
+      this.drawArrowAnimation();
     }
 
     // Draw damage texts
@@ -2727,6 +2816,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.archerShootOpacity = 0;
   }
 
+  private startArrowAnimation() {
+    this.isArrowActive = true;
+    this.arrowTimer = 0;
+    this.arrowOpacity = 0;
+    // Start arrow from above and to the right (archer position), will animate towards enemy center
+    this.arrowStartX = this.ENEMY_X - 60; // Start from near player/archer position
+    this.arrowStartY = this.ENEMY_Y - 40; // Start above player
+    this.arrowTargetX = this.ENEMY_X - 15; // Target is enemy center
+    this.arrowTargetY = this.ENEMY_Y + 25; // Target is enemy center
+    this.arrowX = this.arrowStartX; // Current position starts at start position
+    this.arrowY = this.arrowStartY; // Current position starts at start position
+  }
+
   private drawMonkAnimation() {
     this.ctx.save();
     this.ctx.globalAlpha = this.monkAnimationOpacity;
@@ -2807,6 +2909,35 @@ export class NumberCrunch implements OnInit, OnDestroy {
       frameHeight, // source height
       archerX - scaledWidth / 2, // destination x (centered)
       archerY - scaledHeight / 2, // destination y (centered)
+      scaledWidth, // destination width
+      scaledHeight // destination height
+    );
+
+    this.ctx.restore();
+  }
+
+  private drawArrowAnimation() {
+    this.ctx.save();
+    this.ctx.globalAlpha = this.arrowOpacity;
+
+    // Draw the arrow sprite at its current position with 45-degree downward rotation
+    const frameWidth = 192; // Assuming same frame size as other sprites
+    const frameHeight = 192;
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE;
+    const scaledHeight = frameHeight * this.CHARACTER_SCALE;
+
+    // Translate to arrow position and rotate 135 degrees (90° down + 45° angle)
+    this.ctx.translate(this.arrowX, this.arrowY);
+    this.ctx.rotate((45 * Math.PI) / 180); // 135 degrees in radians
+
+    this.ctx.drawImage(
+      this.arrowSprite,
+      0, // source x (single frame sprite)
+      0, // source y
+      frameWidth, // source width
+      frameHeight, // source height
+      -scaledWidth / 2, // destination x (centered on rotation point)
+      -scaledHeight / 2, // destination y (centered on rotation point)
       scaledWidth, // destination width
       scaledHeight // destination height
     );
@@ -3736,7 +3867,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       for (let i = 0; i < assistTiles; i++) {
         const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
 
-        if (effectType === 'heal') {
+        if (false) {
           totalHealAmount += 8; // 8 HP per healing tile
           healingTiles++;
         } else {
@@ -3782,23 +3913,34 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Apply damage effect if any tiles rolled damage
       if (totalAssistDamage > 0) {
-        this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
-
-        // Trigger archer shoot animation
+        // Trigger archer shoot animation immediately
         this.startArcherShootAnimation();
 
-        // Create additional damage text for assist tiles
-        const enemyX = this.ENEMY_X;
-        const enemyY = this.ENEMY_Y;
-        this.damageTexts.push({
-          x: enemyX + 20,
-          y: enemyY - 50, // Position higher to avoid overlap
-          value: totalAssistDamage,
-          lifetime: 0,
-          maxLifetime: 500,
-          type: 'enemy',
-          isHealing: false,
-        });
+        setTimeout(() => {
+          this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
+          // Trigger arrow animation when damage is applied
+          this.startArrowAnimation();
+        }, 1300); // Delay by 1.3 seconds to match animation timing
+
+        // Delay the actual damage and arrow animation to match timing
+        setTimeout(() => {
+          this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
+        }, 1500); // Delay by 1.5 seconds to match animation timing
+
+        // Create additional damage text for assist tiles (also delayed)
+        setTimeout(() => {
+          const enemyX = this.ENEMY_X;
+          const enemyY = this.ENEMY_Y;
+          this.damageTexts.push({
+            x: enemyX + 20,
+            y: enemyY - 50, // Position higher to avoid overlap
+            value: totalAssistDamage,
+            lifetime: 0,
+            maxLifetime: 500,
+            type: 'enemy',
+            isHealing: false,
+          });
+        }, 1500);
       }
     }
 
