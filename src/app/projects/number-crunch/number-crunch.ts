@@ -242,6 +242,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly HEAL_EFFECT_FRAME_TIME = 150; // ms per frame
   private readonly HEAL_EFFECT_TOTAL_FRAMES = 10;
 
+  // Archer shoot sprite animation (for assist damage)
+  private archerShootSprite = new Image();
+  private isArcherShootActive = false;
+  private archerShootFrame = 0;
+  private archerShootTimer = 0;
+  private archerShootOpacity = 0;
+  private readonly ARCHER_SHOOT_FRAME_TIME = 150; // ms per frame
+  private readonly ARCHER_SHOOT_TOTAL_FRAMES = 8;
+  private readonly ARCHER_SHOOT_FADE_TIME = 150; // ms for fade in/out
+
   private readonly SPRITE_SCALE = this.CHARACTER_SCALE; // Scale down to fit character size
 
   // Enemy sprite animation
@@ -676,6 +686,31 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadArcherShootSprite(): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.loadedAssets['archerShootSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 10000); // Increased to 10 seconds for iOS compatibility
+
+      this.archerShootSprite.onload = () => {
+        clearTimeout(timeout);
+        this.loadedAssets['archerShootSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.archerShootSprite.onerror = (e) => {
+        clearTimeout(timeout);
+        this.loadedAssets['archerShootSprite'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      };
+      this.archerShootSprite.crossOrigin = 'anonymous';
+      this.archerShootSprite.src = 'resources/images/projects/numberCrunch/Archer_Shoot.png';
+    });
+  }
+
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
@@ -1027,6 +1062,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['monkSprite'] = false;
     this.assetsToLoad['healEffectSprite'] = false;
     this.loadedAssets['healEffectSprite'] = false;
+    this.assetsToLoad['archerShootSprite'] = false;
+    this.loadedAssets['archerShootSprite'] = false;
     this.assetsToLoad['soundEffects'] = false;
     this.loadedAssets['soundEffects'] = false;
     this.assetsToLoad['bgm'] = false;
@@ -1064,6 +1101,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }),
       this.loadHealEffectSprite().catch(() => {
         this.loadedAssets['healEffectSprite'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadArcherShootSprite().catch(() => {
+        this.loadedAssets['archerShootSprite'] = true;
         this.updateLoadingProgress();
       }),
       this.loadSoundEffects().catch(() => {
@@ -1468,6 +1509,44 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
+    // Update archer shoot animation
+    if (this.isArcherShootActive) {
+      this.archerShootTimer += deltaTime;
+
+      // Handle fade in (first 300ms)
+      if (this.archerShootTimer < this.ARCHER_SHOOT_FADE_TIME) {
+        this.archerShootOpacity = this.archerShootTimer / this.ARCHER_SHOOT_FADE_TIME;
+      }
+      // Handle main animation (next 1500ms for 10 frames at 150ms each)
+      else if (
+        this.archerShootTimer <
+        this.ARCHER_SHOOT_FADE_TIME + this.ARCHER_SHOOT_TOTAL_FRAMES * this.ARCHER_SHOOT_FRAME_TIME
+      ) {
+        this.archerShootOpacity = 1.0;
+        const animationTime = this.archerShootTimer - this.ARCHER_SHOOT_FADE_TIME;
+        this.archerShootFrame = Math.floor(animationTime / this.ARCHER_SHOOT_FRAME_TIME);
+      }
+      // Handle fade out (last 300ms)
+      else if (
+        this.archerShootTimer <
+        this.ARCHER_SHOOT_FADE_TIME * 2 +
+          this.ARCHER_SHOOT_TOTAL_FRAMES * this.ARCHER_SHOOT_FRAME_TIME
+      ) {
+        const fadeOutTime =
+          this.archerShootTimer -
+          (this.ARCHER_SHOOT_FADE_TIME +
+            this.ARCHER_SHOOT_TOTAL_FRAMES * this.ARCHER_SHOOT_FRAME_TIME);
+        this.archerShootOpacity = 1.0 - fadeOutTime / this.ARCHER_SHOOT_FADE_TIME;
+      }
+      // Animation complete
+      else {
+        this.isArcherShootActive = false;
+        this.archerShootFrame = 0;
+        this.archerShootTimer = 0;
+        this.archerShootOpacity = 0;
+      }
+    }
+
     // Update damage texts - animate upward and fade out
     for (let i = this.damageTexts.length - 1; i >= 0; i--) {
       const damageText = this.damageTexts[i];
@@ -1672,6 +1751,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.healEffectSprite.complete
     ) {
       this.drawHealEffectAnimation();
+    }
+
+    // Draw archer shoot animation
+    if (
+      this.isArcherShootActive &&
+      this.loadedAssets['archerShootSprite'] &&
+      this.archerShootSprite.complete
+    ) {
+      this.drawArcherShootAnimation();
     }
 
     // Draw damage texts
@@ -2632,6 +2720,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.healEffectFrame = 0;
   }
 
+  private startArcherShootAnimation() {
+    this.isArcherShootActive = true;
+    this.archerShootFrame = 0;
+    this.archerShootTimer = 0;
+    this.archerShootOpacity = 0;
+  }
+
   private drawMonkAnimation() {
     this.ctx.save();
     this.ctx.globalAlpha = this.monkAnimationOpacity;
@@ -2683,6 +2778,35 @@ export class NumberCrunch implements OnInit, OnDestroy {
       frameHeight, // source height
       playerX - scaledWidth / 2, // destination x (centered on player)
       playerY - scaledHeight / 2, // destination y (centered on player)
+      scaledWidth, // destination width
+      scaledHeight // destination height
+    );
+
+    this.ctx.restore();
+  }
+
+  private drawArcherShootAnimation() {
+    this.ctx.save();
+    this.ctx.globalAlpha = this.archerShootOpacity;
+
+    // Position below the player
+    const archerX = this.PLAYER_X - 50;
+    const archerY = this.PLAYER_Y + 20; // 40 pixels below player
+
+    // Draw the current frame of the archer shoot animation
+    const frameWidth = 192; // Each frame is 192x192
+    const frameHeight = 192;
+    const scaledWidth = frameWidth * this.CHARACTER_SCALE; // Match player scale
+    const scaledHeight = frameHeight * this.CHARACTER_SCALE;
+
+    this.ctx.drawImage(
+      this.archerShootSprite,
+      this.archerShootFrame * frameWidth, // source x (current frame)
+      0, // source y
+      frameWidth, // source width
+      frameHeight, // source height
+      archerX - scaledWidth / 2, // destination x (centered)
+      archerY - scaledHeight / 2, // destination y (centered)
       scaledWidth, // destination width
       scaledHeight // destination height
     );
@@ -3659,6 +3783,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Apply damage effect if any tiles rolled damage
       if (totalAssistDamage > 0) {
         this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
+
+        // Trigger archer shoot animation
+        this.startArcherShootAnimation();
 
         // Create additional damage text for assist tiles
         const enemyX = this.ENEMY_X;
