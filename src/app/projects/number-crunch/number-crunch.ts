@@ -3863,24 +3863,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Calculate score earned from this match (including bonus for empty tiles)
-    const baseScore = tilesWithValues * (this.damageBase + this.damageBonus);
-    const emptyTileBonus = emptyTiles * 1; // 1 point per empty tile
-    const scoreEarned = baseScore + emptyTileBonus;
-
-    // Update total score
-    this.score += scoreEarned;
-
     // Deal damage to enemy proportional to score earned (rounded to nearest whole number)
     const damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
     this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
 
     // Apply assist tile effects
+    let totalHealAmount = 0;
+    let totalAssistDamage = 0;
+    let healingTiles = 0;
+
     if (assistTiles > 0) {
       // Each assist tile is individually rolled for heal or damage
-      let totalHealAmount = 0;
-      let totalAssistDamage = 0;
-      let healingTiles = 0;
 
       // Roll each assist tile individually
       for (let i = 0; i < assistTiles; i++) {
@@ -3971,6 +3964,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
         }, 1500);
       }
     }
+
+    // Calculate score earned from this match (including bonus for empty tiles and assist damage)
+    const baseScore = tilesWithValues * (this.damageBase + this.damageBonus);
+    const emptyTileBonus = emptyTiles * 1; // 1 point per empty tile
+    const assistDamageScore = totalAssistDamage; // Assist damage also contributes to score
+    const scoreEarned = baseScore + emptyTileBonus + assistDamageScore;
+
+    // Update total score
+    this.score += scoreEarned;
 
     // Create damage text above and to the right of enemy (for regular damage)
     const enemyX = this.ENEMY_X;
