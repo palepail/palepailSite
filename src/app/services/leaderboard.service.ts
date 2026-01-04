@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase.config';
 
 export interface LeaderboardEntry {

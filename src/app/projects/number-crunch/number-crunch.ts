@@ -10,7 +10,8 @@ import {
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LeaderboardService, LeaderboardEntry } from '../../services/leaderboard.service';
+import { NumberCrunchService, ActionEvent, LevelRecording } from '../../services/number-crunch.service';
+import { LeaderboardEntry } from '../../services/leaderboard.service';
 
 interface GameCell {
   value: number;
@@ -216,6 +217,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Damage text display
   damageTexts: DamageText[] = [];
+
+  // Replay recording state
+  private isRecording = false;
+  private currentRecording: LevelRecording | null = null;
+  private sessionId = '';
 
   // Player sprite animation
   private playerSprite = new Image();
@@ -459,7 +465,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game loop
   private animationFrameId: number = 0;
 
-  constructor(private cdr: ChangeDetectorRef, private leaderboardService: LeaderboardService) {}
+  constructor(private cdr: ChangeDetectorRef, private numberCrunchService: NumberCrunchService) {}
 
   // Asset loading functions
   private loadPlayerSprite(): Promise<void> {
@@ -1747,6 +1753,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.enemyDeathSound.play().catch(() => {}); // Ignore play errors
       }
 
+      // Save the completed level recording
+      this.stopRecording(true);
+
       // Calculate health bonus for remaining health
       const healthPercentage = this.playerHealth / this.MAX_HEALTH;
       const healthBonus = Math.floor(this.score * healthPercentage * 0.5); // 50% of current score as bonus
@@ -2184,7 +2193,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const finalScore = Math.round(this.score * difficultyMultiplier);
 
     try {
-      const topEntries = await this.leaderboardService.getTopEntries(10);
+      const topEntries = await this.numberCrunchService.getTopEntries(10);
       const qualifies =
         topEntries.length < 10 || finalScore > (topEntries[topEntries.length - 1]?.score || 0);
 
@@ -2312,9 +2321,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.isLoadingLeaderboard = true;
     try {
       // Check if leaderboard is available
-      this.isLeaderboardAvailable = await this.leaderboardService.isAvailable();
+      this.isLeaderboardAvailable = await this.numberCrunchService.isAvailable();
       if (this.isLeaderboardAvailable) {
-        this.leaderboardEntries = await this.leaderboardService.getTopEntries(10);
+        this.leaderboardEntries = await this.numberCrunchService.getTopEntries(10);
       } else {
         this.leaderboardEntries = [];
       }
@@ -2608,7 +2617,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const name = this.leaderboardNameInput.trim();
     if (name && !this.containsProfanity(name)) {
       try {
-        await this.leaderboardService.addEntry({
+        await this.numberCrunchService.addEntry({
           name: name,
           score: this.pendingLeaderboardScore,
           difficulty: this.settings.difficulty,
@@ -3677,6 +3686,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.startBGM();
     }
 
+    // Start recording for the first level
+    this.startRecording();
+
     // Start playing
     this.currentState = GameState.PLAYING;
   }
@@ -3760,6 +3772,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     ) {
       return;
     }
+
+    // Record the scramble action
+    this.recordAction('scramble');
 
     // Play scramble sound effect
     if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
@@ -3866,7 +3881,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Deal damage to enemy proportional to score earned (rounded to nearest whole number)
     const damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
-    this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
+
+    // Record the damage action immediately (when player input occurs)
+    this.recordAction('damage', damageDealt);
+
+    // Delay the actual damage application and visual effects by 300ms
+    setTimeout(() => {
+      this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
+
+      // Create damage text above and to the right of enemy (for regular damage)
+      const enemyX = this.ENEMY_X;
+      const enemyY = this.ENEMY_Y;
+      this.damageTexts.push({
+        x: enemyX + 20, // Position to the right of enemy
+        y: enemyY - 30, // Position above enemy
+        value: Math.round(damageDealt),
+        lifetime: 0,
+        maxLifetime: 500, // 1 second (faster fade)
+        type: 'enemy',
+        isHealing: false,
+      });
+    }, 300);
 
     // Apply assist tile effects
     let totalHealAmount = 0;
@@ -3890,6 +3925,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Apply healing effect if any tiles rolled heal
       if (totalHealAmount > 0) {
+        // Record the healing action
+        this.recordAction('healing', totalHealAmount, true);
+
         // Trigger monk animation immediately
         this.startMonkAnimation();
 
@@ -3923,6 +3961,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Apply damage effect if any tiles rolled damage
       if (totalAssistDamage > 0) {
+        // Record the assist damage action
+        this.recordAction('damage', totalAssistDamage, true);
+
         // Trigger archer shoot animation immediately
         this.startArcherShootAnimation();
 
@@ -3972,19 +4013,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
     // Update total score
     this.score += scoreEarned;
 
-    // Create damage text above and to the right of enemy (for regular damage)
-    const enemyX = this.ENEMY_X;
-    const enemyY = this.ENEMY_Y;
-    this.damageTexts.push({
-      x: enemyX + 20, // Position to the right of enemy
-      y: enemyY - 30, // Position above enemy
-      value: Math.round(damageDealt),
-      lifetime: 0,
-      maxLifetime: 500, // 1 second (faster fade)
-      type: 'enemy',
-      isHealing: false,
-    });
-
     // Trigger attack animation
     this.triggerAttackAnimation();
 
@@ -4020,6 +4048,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private gameOver() {
+    // Stop recording without saving (player lost)
+    this.stopRecording(false);
+
     // Reset game
     this.score = 0;
     this.lastHealthBonus = 0;
@@ -4055,6 +4086,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.applyDifficultySettings();
 
     this.createGrid();
+
+    // Start recording for the new level
+    this.startRecording();
+
     this.currentState = GameState.PLAYING; // Return to playing after upgrade choice
   }
 
@@ -4121,6 +4156,66 @@ export class NumberCrunch implements OnInit, OnDestroy {
         input.setSelectionRange(this.leaderboardNameInput.length, this.leaderboardNameInput.length);
       }
     });
+  }
+
+  // Replay recording methods
+  private startRecording() {
+    this.isRecording = true;
+    this.sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.currentRecording = {
+      sessionId: this.sessionId,
+      target: this.targetNumber,
+      difficulty: this.settings.difficulty,
+      startTime: performance.now(),
+      endTime: 0,
+      actions: [],
+      totalDamageDealt: 0,
+      enemyHealthAtStart: this.enemyHealth,
+      playerHealthAtStart: this.playerHealth
+    };
+    console.log('Started recording for level', this.level, 'target:', this.targetNumber);
+  }
+
+  private stopRecording(save: boolean = false) {
+    if (!this.isRecording || !this.currentRecording) {
+      console.log('Not recording, cannot stop');
+      return;
+    }
+
+    this.isRecording = false;
+    this.currentRecording.endTime = performance.now();
+
+    if (save) {
+      console.log('Saving recording with', this.currentRecording.actions.length, 'actions');
+      this.numberCrunchService.saveReplay(this.currentRecording);
+    } else {
+      console.log('Discarding recording');
+    }
+
+    this.currentRecording = null;
+  }
+
+  private recordAction(type: 'damage' | 'scramble' | 'healing', amount?: number, isAssist?: boolean) {
+    if (!this.isRecording || !this.currentRecording) {
+      console.log('Not recording, cannot record action:', type);
+      return;
+    }
+
+    // Limit actions to 40 per recording
+    if (this.currentRecording.actions.length >= 40) {
+      console.log('Action limit reached, not recording:', type);
+      return;
+    }
+
+    const action: ActionEvent = {
+      timestamp: performance.now() - this.currentRecording.startTime,
+      type,
+      amount,
+      isAssist
+    };
+
+    this.currentRecording.actions.push(action);
+    console.log('Recorded action:', type, amount ? `(${amount})` : '', isAssist ? '(assist)' : '');
   }
 
   onMobileInputFocus() {
