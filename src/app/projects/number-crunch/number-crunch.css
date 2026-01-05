@@ -209,8 +209,9 @@
   }
 
   .game-canvas {
-    max-width: 100%; /* Make canvas responsive within game-board */
-    height: auto; /* Maintain aspect ratio */
+    width: 100% !important; /* Force full width on mobile */
+    height: auto !important; /* Maintain aspect ratio */
+    max-width: 100% !important; /* Ensure it doesn't exceed container */
     box-sizing: border-box;
   }
 

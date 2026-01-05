@@ -3,6 +3,8 @@ import { collection, addDoc, query, orderBy, limit, getDocs, where } from 'fireb
 import { db } from '../firebase.config';
 import { LeaderboardService, LeaderboardEntry } from './leaderboard.service';
 
+export type { LeaderboardEntry };
+
 export interface ActionEvent {
   timestamp: number;
   type: 'damage' | 'scramble' | 'healing';

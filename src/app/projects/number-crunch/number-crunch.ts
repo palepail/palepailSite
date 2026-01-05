@@ -10,8 +10,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NumberCrunchService, ActionEvent, LevelRecording } from '../../services/number-crunch.service';
-import { LeaderboardEntry } from '../../services/leaderboard.service';
+import { NumberCrunchService, ActionEvent, LevelRecording, LeaderboardEntry } from '../../services/number-crunch.service';
 
 interface GameCell {
   value: number;
@@ -3537,9 +3536,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    // Adjust touch coordinates for canvas scaling
-    const x = (touch.clientX - rect.left) / this.canvasScale;
-    const y = (touch.clientY - rect.top) / this.canvasScale;
+
+    // Calculate total scale factor (CSS scale * JS scale)
+    const cssScaleX = rect.width / this.canvas.nativeElement.width;
+    const cssScaleY = rect.height / this.canvas.nativeElement.height;
+    const totalScaleX = cssScaleX * this.canvasScale;
+    const totalScaleY = cssScaleY * this.canvasScale;
+
+    // Adjust touch coordinates for total scaling
+    const x = (touch.clientX - rect.left) / totalScaleX;
+    const y = (touch.clientY - rect.top) / totalScaleY;
 
     // Only prevent default if touch is on the canvas (not on buttons)
     if (
@@ -3582,9 +3588,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    // Adjust touch coordinates for canvas scaling
-    const x = (touch.clientX - rect.left) / this.canvasScale;
-    const y = (touch.clientY - rect.top) / this.canvasScale;
+
+    // Calculate total scale factor (CSS scale * JS scale)
+    const cssScaleX = rect.width / this.canvas.nativeElement.width;
+    const cssScaleY = rect.height / this.canvas.nativeElement.height;
+    const totalScaleX = cssScaleX * this.canvasScale;
+    const totalScaleY = cssScaleY * this.canvasScale;
+
+    // Adjust touch coordinates for total scaling
+    const x = (touch.clientX - rect.left) / totalScaleX;
+    const y = (touch.clientY - rect.top) / totalScaleY;
 
     // Only prevent default if touch is on the canvas
     if (
