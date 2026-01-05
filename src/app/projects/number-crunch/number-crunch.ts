@@ -3537,9 +3537,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
 
+    // On mobile, use viewport width for more accurate calculation
+    const isMobile = window.innerWidth <= 768;
+    const displayWidth = isMobile ? window.innerWidth : rect.width;
+    const displayHeight = rect.height;
+
     // Map touch coordinates directly to logical canvas coordinates
-    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / rect.width);
-    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / rect.height);
+    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / displayWidth);
+    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
 
     // Only prevent default if touch is on the canvas (not on buttons)
     if (
@@ -3583,9 +3588,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
 
+    // On mobile, use viewport width for more accurate calculation
+    const isMobile = window.innerWidth <= 768;
+    const displayWidth = isMobile ? window.innerWidth : rect.width;
+    const displayHeight = rect.height;
+
     // Map touch coordinates directly to logical canvas coordinates
-    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / rect.width);
-    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / rect.height);
+    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / displayWidth);
+    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
 
     // Only prevent default if touch is on the canvas
     if (
