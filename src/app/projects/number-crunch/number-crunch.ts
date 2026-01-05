@@ -3537,15 +3537,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
 
-    // Calculate total scale factor (CSS scale * JS scale)
-    const cssScaleX = rect.width / this.canvas.nativeElement.width;
-    const cssScaleY = rect.height / this.canvas.nativeElement.height;
-    const totalScaleX = cssScaleX * this.canvasScale;
-    const totalScaleY = cssScaleY * this.canvasScale;
-
-    // Adjust touch coordinates for total scaling
-    const x = (touch.clientX - rect.left) / totalScaleX;
-    const y = (touch.clientY - rect.top) / totalScaleY;
+    // Map touch coordinates directly to logical canvas coordinates
+    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / rect.width);
+    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / rect.height);
 
     // Only prevent default if touch is on the canvas (not on buttons)
     if (
@@ -3589,15 +3583,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const touch = event.touches[0];
     const rect = this.canvas.nativeElement.getBoundingClientRect();
 
-    // Calculate total scale factor (CSS scale * JS scale)
-    const cssScaleX = rect.width / this.canvas.nativeElement.width;
-    const cssScaleY = rect.height / this.canvas.nativeElement.height;
-    const totalScaleX = cssScaleX * this.canvasScale;
-    const totalScaleY = cssScaleY * this.canvasScale;
-
-    // Adjust touch coordinates for total scaling
-    const x = (touch.clientX - rect.left) / totalScaleX;
-    const y = (touch.clientY - rect.top) / totalScaleY;
+    // Map touch coordinates directly to logical canvas coordinates
+    const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / rect.width);
+    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / rect.height);
 
     // Only prevent default if touch is on the canvas
     if (
