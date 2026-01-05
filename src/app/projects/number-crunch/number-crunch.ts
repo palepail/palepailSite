@@ -10,7 +10,12 @@ import {
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NumberCrunchService, ActionEvent, LevelRecording, LeaderboardEntry } from '../../services/number-crunch.service';
+import {
+  NumberCrunchService,
+  ActionEvent,
+  LevelRecording,
+  LeaderboardEntry,
+} from '../../services/number-crunch.service';
 
 interface GameCell {
   value: number;
@@ -289,6 +294,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly ENEMY_ATTACK_FRAME_TIME = this.ENEMY_ATTACK_FRAME_TIME_MS; // ms per frame (faster for attack)
   private readonly ENEMY_ATTACK_TOTAL_FRAMES = 6; // 6 frames for enemy attack animation
 
+  // Ribbon banner sprites for UI
+  private ribbonYellow = new Image();
+  private ribbonBlue = new Image();
+  private ribbonBlack = new Image();
+
   // Attack animation sprites
   private attackSprite1 = new Image();
   private attackSprite2 = new Image();
@@ -364,15 +374,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Button positions and sizes (shared between drawing and click detection)
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
-  private readonly MENU_OPTIONS_BUTTON = {
+  private readonly MENU_GAUNTLET_BUTTON = {
     x: this.CANVAS_SIZE / 2,
     y: 250,
     width: 200,
     height: 50,
   };
-  private readonly MENU_LEADERBOARD_BUTTON = {
+  private readonly MENU_OPTIONS_BUTTON = {
     x: this.CANVAS_SIZE / 2,
     y: 320,
+    width: 200,
+    height: 50,
+  };
+  private readonly MENU_LEADERBOARD_BUTTON = {
+    x: this.CANVAS_SIZE / 2,
+    y: 390,
     width: 200,
     height: 50,
   };
@@ -897,6 +913,51 @@ export class NumberCrunch implements OnInit, OnDestroy {
     });
   }
 
+  private loadRibbonSprites(): Promise<void> {
+    return new Promise((resolve) => {
+      let loadedCount = 0;
+      const totalSprites = 3;
+      let timeoutId: number;
+
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalSprites) {
+          clearTimeout(timeoutId);
+          this.loadedAssets['ribbonSprites'] = true;
+          this.updateLoadingProgress();
+          resolve();
+        }
+      };
+
+      const handleError = () => {
+        checkComplete(); // Continue even if loading fails
+      };
+
+      // 10 second timeout for iOS compatibility
+      timeoutId = window.setTimeout(() => {
+        this.loadedAssets['ribbonSprites'] = true;
+        this.updateLoadingProgress();
+        resolve();
+      }, 10000);
+
+      // Load ribbon sprites
+      this.ribbonYellow.onload = checkComplete;
+      this.ribbonYellow.onerror = handleError;
+      this.ribbonYellow.crossOrigin = 'anonymous';
+      this.ribbonYellow.src = 'resources/images/projects/numberCrunch/Ribbon_Yellow.png';
+
+      this.ribbonBlue.onload = checkComplete;
+      this.ribbonBlue.onerror = handleError;
+      this.ribbonBlue.crossOrigin = 'anonymous';
+      this.ribbonBlue.src = 'resources/images/projects/numberCrunch/Ribbon_blue.png';
+
+      this.ribbonBlack.onload = checkComplete;
+      this.ribbonBlack.onerror = handleError;
+      this.ribbonBlack.crossOrigin = 'anonymous';
+      this.ribbonBlack.src = 'resources/images/projects/numberCrunch/Ribbon_Black.png';
+    });
+  }
+
   private updateLoadingProgress() {
     const totalAssets = Object.keys(this.assetsToLoad).length;
     const loadedCount = Object.values(this.loadedAssets).filter((loaded) => loaded).length;
@@ -1125,6 +1186,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.loadedAssets['soundEffects'] = false;
     this.assetsToLoad['bgm'] = false;
     this.loadedAssets['bgm'] = false;
+    this.assetsToLoad['ribbonSprites'] = false;
+    this.loadedAssets['ribbonSprites'] = false;
 
     // Load all assets with individual error handling
     const assetPromises = [
@@ -1174,6 +1237,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }),
       this.loadBGM().catch(() => {
         this.loadedAssets['bgm'] = true;
+        this.updateLoadingProgress();
+      }),
+      this.loadRibbonSprites().catch(() => {
+        this.loadedAssets['ribbonSprites'] = true;
         this.updateLoadingProgress();
       }),
     ];
@@ -1628,7 +1695,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.arrowY = this.arrowTargetY;
 
         // Play bow impact sound when arrow first reaches target
-        if (this.arrowTimer - deltaTime < this.ARROW_FADE_IN_TIME && this.bowImpactSound && this.windowHasFocus && !this.settings.muted) {
+        if (
+          this.arrowTimer - deltaTime < this.ARROW_FADE_IN_TIME &&
+          this.bowImpactSound &&
+          this.windowHasFocus &&
+          !this.settings.muted
+        ) {
           this.bowImpactSound.volume = 0.08;
           this.bowImpactSound.currentTime = 0; // Reset to beginning
           this.bowImpactSound.play().catch(() => {}); // Ignore play errors
@@ -1887,11 +1959,16 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.BACKGROUND_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
-    // Title
-    this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 32px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Number Crunch', this.CANVAS_SIZE / 2, 80);
+    // Title ribbon banner
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
+      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 65, 450, 130);
+    } else {
+      // Fallback text if ribbon not loaded
+      this.ctx.fillStyle = '#1976d2';
+      this.ctx.font = 'bold 32px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Number Crunch', this.CANVAS_SIZE / 2, 80);
+    }
 
     // Subtitle
     this.ctx.font = '18px Arial';
@@ -1908,6 +1985,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
       '#4CAF50',
       '#45a049'
     );
+    this.drawButton(
+      'Gauntlet',
+      this.MENU_GAUNTLET_BUTTON.x,
+      this.MENU_GAUNTLET_BUTTON.y,
+      this.MENU_GAUNTLET_BUTTON.width,
+      this.MENU_GAUNTLET_BUTTON.height,
+      '#9C27B0',
+      '#7B1FA2'
+    );
+    // Draw Gauntlet ribbon banner on the button
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonBlack.complete) {
+      this.drawRibbon(
+        this.ribbonBlack,
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y - 15,
+        230,
+        70
+      );
+    }
     this.drawButton(
       'Options',
       this.MENU_OPTIONS_BUTTON.x,
@@ -1979,20 +2075,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Restore context
       this.ctx.restore();
     }
-
-    // Instructions
-    this.ctx.fillStyle = '#424242';
-    this.ctx.font = '14px Arial';
-    this.ctx.fillText(
-      'Click and drag to select rectangular areas',
-      this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 50
-    );
-    this.ctx.fillText(
-      'Match the target sum to score points!',
-      this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 70
-    );
   }
 
   private renderLoading() {
@@ -2106,6 +2188,83 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(text, x, y + 6);
+  }
+
+  private drawRibbon(
+    ribbonImage: HTMLImageElement,
+    x: number,
+    y: number,
+    totalWidth: number,
+    height: number = 150
+  ) {
+    if (ribbonImage && ribbonImage.complete) {
+      const sectionWidth = 150; // Each section is 150x150
+      const sectionHeight = 150; // Full height of sprite sheet sections
+      const leftX = x + 10 - totalWidth / 2; // Left edge of ribbon
+      const topY = y - height / 2;
+
+      // Calculate scale factor to fit the ribbon in the available space
+      const minSections = 3; // Always use at least left + middle + right
+      const minWidth = sectionWidth * minSections; // 450px minimum
+      const scale = Math.min(totalWidth / minWidth, height / sectionHeight);
+      const scaledSectionWidth = sectionWidth * scale;
+      const scaledHeight = sectionHeight * scale;
+
+      // Draw left section
+      this.ctx.drawImage(
+        ribbonImage,
+        0, // source x (left section)
+        0, // source y
+        sectionWidth, // source width
+        sectionHeight, // source height
+        leftX, // destination x
+        topY, // destination y
+        scaledSectionWidth, // destination width
+        scaledHeight // destination height
+      );
+
+      // Calculate how many middle sections can fit
+      const gapSize = 30; // 30px gap that needs to be filled
+      const scaledGapSize = gapSize * scale;
+      const remainingWidth = totalWidth - scaledSectionWidth * 2; // Subtract left and right
+      const effectiveMiddleWidth = 63 * scale; // 64 pixels is the width of the middle section that is not transparent
+      const middleSections = Math.max(
+        0,
+        Math.ceil((remainingWidth + scaledGapSize) / effectiveMiddleWidth)
+      );
+
+      // Draw middle sections (overlapping to fill transparent gaps)
+      for (let i = 0; i < middleSections; i++) {
+        const overlap = 64; // 60px overlap for first middle (left 30px + middle 30px gaps), 30px for subsequent
+        const middleX = leftX + scaledSectionWidth - overlap * scale + i * effectiveMiddleWidth;
+        this.ctx.drawImage(
+          ribbonImage,
+          sectionWidth, // source x (middle section)
+          0, // source y
+          sectionWidth, // source width
+          sectionHeight, // source height
+          middleX, // destination x (overlapping transparent areas)
+          topY, // destination y
+          scaledSectionWidth, // destination width
+          scaledHeight // destination height
+        );
+      }
+
+      // Draw right section
+      const rightOverlap = 30; // 30px overlap to cover the last section's right gap
+      const rightX = leftX + totalWidth - scaledSectionWidth - rightOverlap * scale;
+      this.ctx.drawImage(
+        ribbonImage,
+        sectionWidth * 2, // source x (right section)
+        0, // source y
+        sectionWidth, // source width
+        sectionHeight, // source height
+        rightX, // destination x
+        topY, // destination y
+        scaledSectionWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
   }
 
   private drawSlider(
@@ -3147,7 +3306,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillRect(
       x - this.HEALTH_BAR_WIDTH_PX / 2,
       y - 25,
-      Math.min(health, maxHealth) / maxHealth * this.HEALTH_BAR_WIDTH_PX, // Cap bar at maxHealth
+      (Math.min(health, maxHealth) / maxHealth) * this.HEALTH_BAR_WIDTH_PX, // Cap bar at maxHealth
       5
     );
 
@@ -3211,6 +3370,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     ) {
       this.playButtonSound();
       this.startGame();
+    }
+    // Gauntlet button
+    else if (
+      this.isClickInButton(
+        x,
+        y,
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y,
+        this.MENU_GAUNTLET_BUTTON.width,
+        this.MENU_GAUNTLET_BUTTON.height
+      )
+    ) {
+      this.playButtonSound();
+      // TODO: Start Gauntlet mode
+      console.log('Gauntlet mode selected');
     }
     // Options button
     else if (
@@ -3544,7 +3718,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Map touch coordinates directly to logical canvas coordinates
     const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / displayWidth);
-    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
+    const y =
+      (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
 
     // Only prevent default if touch is on the canvas (not on buttons)
     if (
@@ -3595,7 +3770,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Map touch coordinates directly to logical canvas coordinates
     const x = (touch.clientX - rect.left) * (this.CANVAS_SIZE / displayWidth);
-    const y = (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
+    const y =
+      (touch.clientY - rect.top) * ((this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT) / displayHeight);
 
     // Only prevent default if touch is on the canvas
     if (
@@ -4182,7 +4358,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       actions: [],
       totalDamageDealt: 0,
       enemyHealthAtStart: this.enemyHealth,
-      playerHealthAtStart: this.playerHealth
+      playerHealthAtStart: this.playerHealth,
     };
     console.log('Started recording for level', this.level, 'target:', this.targetNumber);
   }
@@ -4206,7 +4382,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.currentRecording = null;
   }
 
-  private recordAction(type: 'damage' | 'scramble' | 'healing', amount?: number, isAssist?: boolean) {
+  private recordAction(
+    type: 'damage' | 'scramble' | 'healing',
+    amount?: number,
+    isAssist?: boolean
+  ) {
     if (!this.isRecording || !this.currentRecording) {
       console.log('Not recording, cannot record action:', type);
       return;
@@ -4222,7 +4402,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       timestamp: performance.now() - this.currentRecording.startTime,
       type,
       amount,
-      isAssist
+      isAssist,
     };
 
     this.currentRecording.actions.push(action);
