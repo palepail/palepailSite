@@ -170,12 +170,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly PLACEHOLDER_TIME_SECONDS = 60; // Not currently used
 
   // Font families
-  private readonly PRIMARY_FONT = 'Arial';
-  private readonly UI_FONT = 'bold 14px Arial';
-  private readonly TITLE_FONT = 'bold 32px Arial';
-  private readonly SUBTITLE_FONT = '18px Arial';
-  private readonly TARGET_FONT = '18px Arial';
-  private readonly DAMAGE_FONT = 'bold 16px Arial';
+  private readonly PRIMARY_FONT = 'Cinzel, serif';
+  private readonly UI_FONT = `bold 14px ${this.PRIMARY_FONT}`;
+  private readonly TITLE_FONT = `bold 32px ${this.PRIMARY_FONT}`;
+  private readonly SUBTITLE_FONT = `18px ${this.PRIMARY_FONT}`;
+  private readonly TARGET_FONT = `18px ${this.PRIMARY_FONT}`;
+  private readonly DAMAGE_FONT = `bold 16px ${this.PRIMARY_FONT}`;
 
   // Game state
   grid: GameCell[][] = [];
@@ -298,6 +298,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private ribbonYellow = new Image();
   private ribbonBlue = new Image();
   private ribbonBlack = new Image();
+  private ribbonRed = new Image();
+  private ribbonPurple = new Image();
 
   // Attack animation sprites
   private attackSprite1 = new Image();
@@ -376,19 +378,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private readonly MENU_PLAY_BUTTON = { x: this.CANVAS_SIZE / 2, y: 180, width: 200, height: 50 };
   private readonly MENU_GAUNTLET_BUTTON = {
     x: this.CANVAS_SIZE / 2,
-    y: 250,
+    y: 230,
     width: 200,
     height: 50,
   };
   private readonly MENU_OPTIONS_BUTTON = {
     x: this.CANVAS_SIZE / 2,
-    y: 320,
+    y: 280,
     width: 200,
     height: 50,
   };
   private readonly MENU_LEADERBOARD_BUTTON = {
     x: this.CANVAS_SIZE / 2,
-    y: 390,
+    y: 330,
     width: 200,
     height: 50,
   };
@@ -916,7 +918,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadRibbonSprites(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
-      const totalSprites = 3;
+      const totalSprites = 5; // Updated to include red and purple
       let timeoutId: number;
 
       const checkComplete = () => {
@@ -949,12 +951,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.ribbonBlue.onload = checkComplete;
       this.ribbonBlue.onerror = handleError;
       this.ribbonBlue.crossOrigin = 'anonymous';
-      this.ribbonBlue.src = 'resources/images/projects/numberCrunch/Ribbon_blue.png';
+      this.ribbonBlue.src = 'resources/images/projects/numberCrunch/Ribbon_Blue.png';
 
       this.ribbonBlack.onload = checkComplete;
       this.ribbonBlack.onerror = handleError;
       this.ribbonBlack.crossOrigin = 'anonymous';
       this.ribbonBlack.src = 'resources/images/projects/numberCrunch/Ribbon_Black.png';
+
+      // Add red and purple ribbons
+      this.ribbonRed.onload = checkComplete;
+      this.ribbonRed.onerror = handleError;
+      this.ribbonRed.crossOrigin = 'anonymous';
+      this.ribbonRed.src = 'resources/images/projects/numberCrunch/Ribbon_Red.png';
+
+      this.ribbonPurple.onload = checkComplete;
+      this.ribbonPurple.onerror = handleError;
+      this.ribbonPurple.crossOrigin = 'anonymous';
+      this.ribbonPurple.src = 'resources/images/projects/numberCrunch/Ribbon_Purple.png';
     });
   }
 
@@ -1961,67 +1974,95 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Title ribbon banner
     if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
-      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 65, 450, 130);
+      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 65, 450, 130, 'Number Crunch');
     } else {
       // Fallback text if ribbon not loaded
       this.ctx.fillStyle = '#1976d2';
-      this.ctx.font = 'bold 32px Arial';
+      this.ctx.font = `bold 32px ${this.PRIMARY_FONT}`;
       this.ctx.textAlign = 'center';
       this.ctx.fillText('Number Crunch', this.CANVAS_SIZE / 2, 80);
     }
 
     // Subtitle
-    this.ctx.font = '18px Arial';
+    this.ctx.font = `18px ${this.PRIMARY_FONT}`;
     this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Match numbers to defeat enemies!', this.CANVAS_SIZE / 2, 125);
 
     // Draw buttons
-    this.drawButton(
-      'Play Game',
-      this.MENU_PLAY_BUTTON.x,
-      this.MENU_PLAY_BUTTON.y,
-      this.MENU_PLAY_BUTTON.width,
-      this.MENU_PLAY_BUTTON.height,
-      '#4CAF50',
-      '#45a049'
-    );
-    this.drawButton(
-      'Gauntlet',
-      this.MENU_GAUNTLET_BUTTON.x,
-      this.MENU_GAUNTLET_BUTTON.y,
-      this.MENU_GAUNTLET_BUTTON.width,
-      this.MENU_GAUNTLET_BUTTON.height,
-      '#9C27B0',
-      '#7B1FA2'
-    );
-    // Draw Gauntlet ribbon banner on the button
-    if (this.loadedAssets['ribbonSprites'] && this.ribbonBlack.complete) {
+    // Draw Campaign ribbon banner (clickable) - red
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonRed.complete) {
       this.drawRibbon(
-        this.ribbonBlack,
-        this.MENU_GAUNTLET_BUTTON.x,
-        this.MENU_GAUNTLET_BUTTON.y - 15,
-        230,
-        70
+        this.ribbonRed,
+        this.MENU_PLAY_BUTTON.x,
+        this.MENU_PLAY_BUTTON.y + 5,
+        300,
+        70,
+        'Campaign'
+      );
+    } else {
+      this.drawButton(
+        'Campaign',
+        this.MENU_PLAY_BUTTON.x,
+        this.MENU_PLAY_BUTTON.y,
+        this.MENU_PLAY_BUTTON.width,
+        this.MENU_PLAY_BUTTON.height,
+        '#4CAF50',
+        '#45a049'
       );
     }
-    this.drawButton(
-      'Options',
-      this.MENU_OPTIONS_BUTTON.x,
-      this.MENU_OPTIONS_BUTTON.y,
-      this.MENU_OPTIONS_BUTTON.width,
-      this.MENU_OPTIONS_BUTTON.height,
-      '#2196F3',
-      '#1976D2'
-    );
-    this.drawButton(
-      'Leaderboard',
-      this.MENU_LEADERBOARD_BUTTON.x,
-      this.MENU_LEADERBOARD_BUTTON.y,
-      this.MENU_LEADERBOARD_BUTTON.width,
-      this.MENU_LEADERBOARD_BUTTON.height,
-      '#FF9800',
-      '#F57C00'
-    );
+    // Draw Gauntlet ribbon banner (clickable)
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonBlue.complete) {
+      this.drawRibbon(
+        this.ribbonBlue,
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y + 5,
+        300,
+        70,
+        'Gauntlet'
+      );
+    }
+    // Draw Options ribbon banner (clickable)
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
+      this.drawRibbon(
+        this.ribbonYellow,
+        this.MENU_OPTIONS_BUTTON.x,
+        this.MENU_OPTIONS_BUTTON.y + 5,
+        300,
+        70,
+        'Options'
+      );
+    } else {
+      this.drawButton(
+        'Options',
+        this.MENU_OPTIONS_BUTTON.x,
+        this.MENU_OPTIONS_BUTTON.y,
+        this.MENU_OPTIONS_BUTTON.width,
+        this.MENU_OPTIONS_BUTTON.height,
+        '#2196F3',
+        '#1976D2'
+      );
+    }
+    // Draw Leaderboard ribbon banner (clickable) - purple
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonPurple.complete) {
+      this.drawRibbon(
+        this.ribbonPurple,
+        this.MENU_LEADERBOARD_BUTTON.x,
+        this.MENU_LEADERBOARD_BUTTON.y + 5,
+        300,
+        70,
+        'Leaderboard'
+      );
+    } else {
+      this.drawButton(
+        'Leaderboard',
+        this.MENU_LEADERBOARD_BUTTON.x,
+        this.MENU_LEADERBOARD_BUTTON.y,
+        this.MENU_LEADERBOARD_BUTTON.width,
+        this.MENU_LEADERBOARD_BUTTON.height,
+        '#FF9800',
+        '#F57C00'
+      );
+    }
 
     // Draw idle animations under the leaderboard button
     const characterY = this.MENU_LEADERBOARD_BUTTON.y + 80; // Position below the leaderboard button
@@ -2084,7 +2125,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Loading text
     this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 28px Arial';
+    this.ctx.font = `bold 28px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Loading...', this.CANVAS_SIZE / 2, this.CANVAS_SIZE / 2 - 20);
 
@@ -2103,7 +2144,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Progress text
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '16px Arial';
+    this.ctx.font = `16px ${this.PRIMARY_FONT}`;
     this.ctx.fillText(
       `${Math.round(this.loadingProgress)}%`,
       this.CANVAS_SIZE / 2,
@@ -2116,53 +2157,106 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.BACKGROUND_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
-    // Title
-    this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 28px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Options', this.CANVAS_SIZE / 2, 60);
+    // Title ribbon
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
+      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 45, 350, 80, 'Options');
+    } else {
+      // Fallback text if ribbon not loaded
+      this.ctx.fillStyle = '#1976d2';
+      this.ctx.font = `bold 28px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Options', this.CANVAS_SIZE / 2, 60);
+    }
 
     // Draw volume sliders
     this.drawSlider('BGM Volume', this.CANVAS_SIZE / 2, 120, 200, 20, this.settings.bgmVolume);
     this.drawSlider('SFX Volume', this.CANVAS_SIZE / 2, 180, 200, 20, this.settings.sfxVolume);
 
-    // Draw difficulty buttons
-    this.drawButton(
-      'Easy',
-      this.OPTIONS_EASY_BUTTON.x,
-      this.OPTIONS_EASY_BUTTON.y,
-      this.OPTIONS_EASY_BUTTON.width,
-      this.OPTIONS_EASY_BUTTON.height,
-      this.settings.difficulty === 'easy' ? '#FF9800' : '#757575',
-      this.settings.difficulty === 'easy' ? '#F57C00' : '#616161'
-    );
-    this.drawButton(
-      'Normal',
-      this.OPTIONS_NORMAL_BUTTON.x,
-      this.OPTIONS_NORMAL_BUTTON.y,
-      this.OPTIONS_NORMAL_BUTTON.width,
-      this.OPTIONS_NORMAL_BUTTON.height,
-      this.settings.difficulty === 'normal' ? '#FF9800' : '#757575',
-      this.settings.difficulty === 'normal' ? '#F57C00' : '#616161'
-    );
-    this.drawButton(
-      'Hard',
-      this.OPTIONS_HARD_BUTTON.x,
-      this.OPTIONS_HARD_BUTTON.y,
-      this.OPTIONS_HARD_BUTTON.width,
-      this.OPTIONS_HARD_BUTTON.height,
-      this.settings.difficulty === 'hard' ? '#FF9800' : '#757575',
-      this.settings.difficulty === 'hard' ? '#F57C00' : '#616161'
-    );
-    this.drawButton(
-      'Back to Menu',
-      this.OPTIONS_BACK_BUTTON.x,
-      this.OPTIONS_BACK_BUTTON.y,
-      this.OPTIONS_BACK_BUTTON.width,
-      this.OPTIONS_BACK_BUTTON.height,
-      '#9C27B0',
-      '#7B1FA2'
-    );
+    // Draw difficulty ribbons
+    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'easy' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+      this.drawRibbon(
+        this.settings.difficulty === 'easy' ? this.ribbonRed : this.ribbonBlue,
+        this.OPTIONS_EASY_BUTTON.x,
+        this.OPTIONS_EASY_BUTTON.y + 5,
+        200,
+        50,
+        'Easy'
+      );
+    } else {
+      this.drawButton(
+        'Easy',
+        this.OPTIONS_EASY_BUTTON.x,
+        this.OPTIONS_EASY_BUTTON.y,
+        this.OPTIONS_EASY_BUTTON.width,
+        this.OPTIONS_EASY_BUTTON.height,
+        this.settings.difficulty === 'easy' ? '#FF9800' : '#757575',
+        this.settings.difficulty === 'easy' ? '#F57C00' : '#616161'
+      );
+    }
+
+    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'normal' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+      this.drawRibbon(
+        this.settings.difficulty === 'normal' ? this.ribbonRed : this.ribbonBlue,
+        this.OPTIONS_NORMAL_BUTTON.x,
+        this.OPTIONS_NORMAL_BUTTON.y + 5,
+        200,
+        50,
+        'Normal'
+      );
+    } else {
+      this.drawButton(
+        'Normal',
+        this.OPTIONS_NORMAL_BUTTON.x,
+        this.OPTIONS_NORMAL_BUTTON.y,
+        this.OPTIONS_NORMAL_BUTTON.width,
+        this.OPTIONS_NORMAL_BUTTON.height,
+        this.settings.difficulty === 'normal' ? '#FF9800' : '#757575',
+        this.settings.difficulty === 'normal' ? '#F57C00' : '#616161'
+      );
+    }
+
+    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'hard' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+      this.drawRibbon(
+        this.settings.difficulty === 'hard' ? this.ribbonRed : this.ribbonBlue,
+        this.OPTIONS_HARD_BUTTON.x,
+        this.OPTIONS_HARD_BUTTON.y + 5,
+        200,
+        50,
+        'Hard'
+      );
+    } else {
+      this.drawButton(
+        'Hard',
+        this.OPTIONS_HARD_BUTTON.x,
+        this.OPTIONS_HARD_BUTTON.y,
+        this.OPTIONS_HARD_BUTTON.width,
+        this.OPTIONS_HARD_BUTTON.height,
+        this.settings.difficulty === 'hard' ? '#FF9800' : '#757575',
+        this.settings.difficulty === 'hard' ? '#F57C00' : '#616161'
+      );
+    }
+
+    // Draw back button ribbon
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonPurple.complete) {
+      this.drawRibbon(
+        this.ribbonPurple,
+        this.OPTIONS_BACK_BUTTON.x,
+        this.OPTIONS_BACK_BUTTON.y + 5,
+        250,
+        60,
+        'Back'
+      );
+    } else {
+      this.drawButton(
+        'Back',
+        this.OPTIONS_BACK_BUTTON.x,
+        this.OPTIONS_BACK_BUTTON.y,
+        this.OPTIONS_BACK_BUTTON.width,
+        this.OPTIONS_BACK_BUTTON.height,
+        '#9C27B0',
+        '#7B1FA2'
+      );
+    }
   }
 
   private drawButton(
@@ -2185,7 +2279,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Button text
     this.ctx.fillStyle = '#ffffff';
-    this.ctx.font = 'bold 16px Arial';
+    this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(text, x, y + 6);
   }
@@ -2195,12 +2289,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
     x: number,
     y: number,
     totalWidth: number,
-    height: number = 150
+    height: number = 150,
+    text?: string
   ) {
     if (ribbonImage && ribbonImage.complete) {
       const sectionWidth = 150; // Each section is 150x150
       const sectionHeight = 150; // Full height of sprite sheet sections
-      const leftX = x + 10 - totalWidth / 2; // Left edge of ribbon
+      const leftX = x + 10 - totalWidth / 2; // Left edge of ribbon +10 for empty space on left most left section
       const topY = y - height / 2;
 
       // Calculate scale factor to fit the ribbon in the available space
@@ -2235,7 +2330,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Draw middle sections (overlapping to fill transparent gaps)
       for (let i = 0; i < middleSections; i++) {
-        const overlap = 64; // 60px overlap for first middle (left 30px + middle 30px gaps), 30px for subsequent
+        const overlap = 65; // 60px overlap for first middle (left 30px + middle 30px gaps), 30px for subsequent
         const middleX = leftX + scaledSectionWidth - overlap * scale + i * effectiveMiddleWidth;
         this.ctx.drawImage(
           ribbonImage,
@@ -2264,6 +2359,27 @@ export class NumberCrunch implements OnInit, OnDestroy {
         scaledSectionWidth, // destination width
         scaledHeight // destination height
       );
+    }
+
+    // Draw text on top of the ribbon if provided
+    if (text) {
+      const baseFontSize = Math.floor(height * 0.25);
+      const widthBasedFontSize = Math.floor((totalWidth - 1900) * 0.25);
+      const fontSize = Math.max(baseFontSize, widthBasedFontSize);
+      this.ctx.fillStyle = '#2e333dff';
+      this.ctx.font = `bold ${fontSize}px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+
+      // Split text into lines
+      const lines = text.split(' ');
+      const lineHeight = fontSize * 0.9;
+      const totalTextHeight = lines.length * lineHeight;
+      const startY = y - (totalTextHeight - lineHeight) / 2;
+
+      lines.forEach((line, index) => {
+        const lineY = startY + index * lineHeight;
+        this.ctx.fillText(line, x, lineY);
+      });
     }
   }
 
@@ -2296,7 +2412,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Label
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '16px Arial';
+    this.ctx.font = `16px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(`${label}: ${Math.round(value * 100)}%`, x, y - 25);
   }
@@ -2308,12 +2424,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Game Over text - larger and more prominent
     this.ctx.fillStyle = '#c62828';
-    this.ctx.font = 'bold 48px Arial';
+    this.ctx.font = `bold 48px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('GAME OVER', this.CANVAS_SIZE / 2, 120);
 
     // Subtitle
-    this.ctx.font = '24px Arial';
+    this.ctx.font = `24px ${this.PRIMARY_FONT}`;
     this.ctx.fillStyle = '#c62828';
     this.ctx.fillText('Better luck next time!', this.CANVAS_SIZE / 2, 160);
 
@@ -2321,7 +2437,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const difficultyMultiplier = this.getDifficultyMultiplier();
     const finalScore = Math.round(this.score * difficultyMultiplier);
     this.ctx.fillStyle = '#c62828';
-    this.ctx.font = '20px Arial';
+    this.ctx.font = `20px ${this.PRIMARY_FONT}`;
     this.ctx.fillText(`Final Score: ${finalScore}`, this.CANVAS_SIZE / 2, 200);
     this.ctx.fillText(`Level Reached: ${this.level}`, this.CANVAS_SIZE / 2, 230);
 
@@ -2374,19 +2490,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Victory text - dark blue for readability
     this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 32px Arial';
+    this.ctx.font = `bold 32px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Level Complete!', this.CANVAS_SIZE / 2, 80);
 
     // Level and target info - show NEXT level and target
-    this.ctx.font = '20px Arial';
+    this.ctx.font = `20px ${this.PRIMARY_FONT}`;
     this.ctx.fillStyle = '#424242';
     const nextLevel = this.level + 1;
     this.ctx.fillText(`Next Level: ${nextLevel}`, this.CANVAS_SIZE / 2, 110);
     this.ctx.fillText(`Next Target: ${this.nextTarget}`, this.CANVAS_SIZE / 2, 135);
 
     // Upgrade choice text
-    this.ctx.font = '18px Arial';
+    this.ctx.font = `18px ${this.PRIMARY_FONT}`;
     this.ctx.fillStyle = '#424242';
     this.ctx.fillText('Choose an Upgrade', this.CANVAS_SIZE / 2, 165);
 
@@ -2501,7 +2617,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Title
     this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 32px Arial';
+    this.ctx.font = `bold 32px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Leaderboard', this.CANVAS_SIZE / 2, 40);
 
@@ -2518,17 +2634,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     if (this.isLoadingLeaderboard) {
       this.ctx.fillStyle = '#424242';
-      this.ctx.font = '20px Arial';
+      this.ctx.font = `20px ${this.PRIMARY_FONT}`;
       this.ctx.fillText('Loading...', this.CANVAS_SIZE / 2, 100);
       return;
     }
 
     if (!this.isLeaderboardAvailable) {
       this.ctx.fillStyle = '#ff6b6b';
-      this.ctx.font = '18px Arial';
+      this.ctx.font = `18px ${this.PRIMARY_FONT}`;
       this.ctx.fillText('Leaderboard Unavailable', this.CANVAS_SIZE / 2, 100);
       this.ctx.fillStyle = '#666';
-      this.ctx.font = '14px Arial';
+      this.ctx.font = `14px ${this.PRIMARY_FONT}`;
       this.ctx.fillText('Please disable ad blocker', this.CANVAS_SIZE / 2, 125);
       this.ctx.fillText('or privacy extensions', this.CANVAS_SIZE / 2, 145);
       return;
@@ -2536,22 +2652,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     if (this.leaderboardEntries.length === 0) {
       this.ctx.fillStyle = '#424242';
-      this.ctx.font = '20px Arial';
+      this.ctx.font = `20px ${this.PRIMARY_FONT}`;
       this.ctx.fillText('No scores yet!', this.CANVAS_SIZE / 2, 100);
       this.ctx.fillText('Be the first to play!', this.CANVAS_SIZE / 2, 130);
     } else {
       // Headers
       this.ctx.fillStyle = '#333';
-      this.ctx.font = 'bold 16px Arial';
+      this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
       this.ctx.textAlign = 'left';
-      this.ctx.fillText('Rank', 60, 80);
+      this.ctx.fillText('Rank', 30, 80);
       this.ctx.fillText('Name', 100, 80);
       this.ctx.fillText('Score', 200, 80);
       this.ctx.fillText('Lvl', 280, 80);
       this.ctx.fillText('Diff', 320, 80);
 
       // Entries
-      this.ctx.font = '16px Arial';
+      this.ctx.font = `16px ${this.PRIMARY_FONT}`;
       this.leaderboardEntries.forEach((entry, index) => {
         const y = 110 + index * 35;
         const avatarIndex = this.getAvatarIndex(entry.date);
@@ -2614,7 +2730,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Title
     this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = 'bold 28px Arial';
+    this.ctx.font = `bold 28px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Congratulations!', this.CANVAS_SIZE / 2, 80);
     this.ctx.fillText('Welcome to the', this.CANVAS_SIZE / 2, 110);
@@ -2622,7 +2738,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Subtitle
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '20px Arial';
+    this.ctx.font = `20px ${this.PRIMARY_FONT}`;
     this.ctx.fillText('What is your Name:', this.CANVAS_SIZE / 2, 200);
 
     // Input field background
@@ -2634,7 +2750,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Input text
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '18px Arial';
+    this.ctx.font = `18px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'left';
     this.ctx.direction = 'ltr'; // Ensure left-to-right text direction
     const displayText = this.leaderboardNameInput || 'Type your name here...';
@@ -2642,7 +2758,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Character counter
     this.ctx.fillStyle = '#666';
-    this.ctx.font = '14px Arial';
+    this.ctx.font = `14px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'right';
     this.ctx.fillText(`${this.leaderboardNameInput.length}/10`, this.CANVAS_SIZE - 60, 285);
 
@@ -2833,7 +2949,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         if (cell.value !== 0 && !this.isScrambling) {
           // Keep numbers black for readability
           this.ctx.fillStyle = '#333';
-          this.ctx.font = '20px Arial';
+          this.ctx.font = `20px ${this.PRIMARY_FONT}`;
           this.ctx.textAlign = 'center';
           this.ctx.fillText(
             cell.value.toString(),
@@ -2878,7 +2994,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Draw flying number
       this.ctx.fillStyle = '#333';
-      this.ctx.font = '20px Arial';
+      this.ctx.font = `20px ${this.PRIMARY_FONT}`;
       this.ctx.textAlign = 'center';
       this.ctx.fillText(anim.value.toString(), currentX, currentY + 7);
     }
@@ -2971,12 +3087,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Draw target below scramble button
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '18px Arial';
+    this.ctx.font = `18px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(`Target: ${this.targetNumber}`, this.CANVAS_SIZE / 2, this.CANVAS_SIZE + 75);
 
     // Draw level and scramble info on same line
-    this.ctx.font = '14px Arial';
+    this.ctx.font = `14px ${this.PRIMARY_FONT}`;
     this.ctx.fillText(
       `Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`,
       this.CANVAS_SIZE / 2,
@@ -3145,13 +3261,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Draw shadow first (behind the main text)
       this.ctx.fillStyle = shadowColor;
-      this.ctx.font = 'bold 16px Arial';
+      this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
       this.ctx.textAlign = 'center';
       this.ctx.fillText(damageText.value.toString(), damageText.x, damageText.y);
 
       // Draw main damage text on top
       this.ctx.fillStyle = mainColor;
-      this.ctx.font = 'bold 16px Arial';
+      this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
       this.ctx.fillText(damageText.value.toString(), damageText.x + 1, damageText.y + 1);
 
       this.ctx.restore();
@@ -3295,7 +3411,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Health text above health bar
     this.ctx.fillStyle = '#333';
-    this.ctx.font = 'bold 12px Arial';
+    this.ctx.font = `bold 12px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(`${Math.round(health)}`, x, y - 30);
 
@@ -3312,9 +3428,81 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Label
     this.ctx.fillStyle = '#333';
-    this.ctx.font = '12px Arial';
+    this.ctx.font = `12px ${this.PRIMARY_FONT}`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(label, x, y + 25);
+  }
+
+  private handleMenuClick(x: number, y: number) {
+    // Check Play Game ribbon
+    const playRibbonLeft = this.MENU_PLAY_BUTTON.x - 150; // 300 / 2
+    const playRibbonRight = this.MENU_PLAY_BUTTON.x + 150;
+    const playRibbonTop = this.MENU_PLAY_BUTTON.y + 5 - 35; // 70 / 2
+    const playRibbonBottom = this.MENU_PLAY_BUTTON.y + 5 + 35;
+    if (
+      x >= playRibbonLeft &&
+      x <= playRibbonRight &&
+      y >= playRibbonTop &&
+      y <= playRibbonBottom
+    ) {
+      this.currentState = GameState.PLAYING;
+      this.initializeGame();
+      this.startGameLoop();
+      this.playButtonSound();
+      return;
+    }
+
+    // Check Gauntlet ribbon
+    const gauntletRibbonLeft = this.MENU_GAUNTLET_BUTTON.x - 150; // 300 / 2
+    const gauntletRibbonRight = this.MENU_GAUNTLET_BUTTON.x + 150;
+    const gauntletRibbonTop = this.MENU_GAUNTLET_BUTTON.y + 5 - 35; // 70 / 2
+    const gauntletRibbonBottom = this.MENU_GAUNTLET_BUTTON.y + 5 + 35;
+    if (
+      x >= gauntletRibbonLeft &&
+      x <= gauntletRibbonRight &&
+      y >= gauntletRibbonTop &&
+      y <= gauntletRibbonBottom
+    ) {
+      // Start Gauntlet mode (for now, just start playing)
+      this.currentState = GameState.PLAYING;
+      this.initializeGame();
+      this.startGameLoop();
+      this.playButtonSound();
+      return;
+    }
+
+    // Check Options ribbon
+    const optionsRibbonLeft = this.MENU_OPTIONS_BUTTON.x - 150; // 300 / 2
+    const optionsRibbonRight = this.MENU_OPTIONS_BUTTON.x + 150;
+    const optionsRibbonTop = this.MENU_OPTIONS_BUTTON.y + 5 - 35; // 70 / 2
+    const optionsRibbonBottom = this.MENU_OPTIONS_BUTTON.y + 5 + 35;
+    if (
+      x >= optionsRibbonLeft &&
+      x <= optionsRibbonRight &&
+      y >= optionsRibbonTop &&
+      y <= optionsRibbonBottom
+    ) {
+      this.currentState = GameState.OPTIONS;
+      this.playButtonSound();
+      return;
+    }
+
+    // Check Leaderboard ribbon
+    const leaderboardRibbonLeft = this.MENU_LEADERBOARD_BUTTON.x - 150; // 300 / 2
+    const leaderboardRibbonRight = this.MENU_LEADERBOARD_BUTTON.x + 150;
+    const leaderboardRibbonTop = this.MENU_LEADERBOARD_BUTTON.y + 5 - 35; // 70 / 2
+    const leaderboardRibbonBottom = this.MENU_LEADERBOARD_BUTTON.y + 5 + 35;
+    if (
+      x >= leaderboardRibbonLeft &&
+      x <= leaderboardRibbonRight &&
+      y >= leaderboardRibbonTop &&
+      y <= leaderboardRibbonBottom
+    ) {
+      this.currentState = GameState.LEADERBOARD;
+      this.loadLeaderboard();
+      this.playButtonSound();
+      return;
+    }
   }
 
   @HostListener('mousedown', ['$event'])
@@ -3353,67 +3541,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
   onKeyDown(event: KeyboardEvent) {
     if (this.currentState === GameState.LEADERBOARD_NAME_INPUT) {
       this.handleLeaderboardNameInputKey(event);
-    }
-  }
-
-  private handleMenuClick(x: number, y: number) {
-    // Play button
-    if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_PLAY_BUTTON.x,
-        this.MENU_PLAY_BUTTON.y,
-        this.MENU_PLAY_BUTTON.width,
-        this.MENU_PLAY_BUTTON.height
-      )
-    ) {
-      this.playButtonSound();
-      this.startGame();
-    }
-    // Gauntlet button
-    else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_GAUNTLET_BUTTON.x,
-        this.MENU_GAUNTLET_BUTTON.y,
-        this.MENU_GAUNTLET_BUTTON.width,
-        this.MENU_GAUNTLET_BUTTON.height
-      )
-    ) {
-      this.playButtonSound();
-      // TODO: Start Gauntlet mode
-      console.log('Gauntlet mode selected');
-    }
-    // Options button
-    else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_OPTIONS_BUTTON.x,
-        this.MENU_OPTIONS_BUTTON.y,
-        this.MENU_OPTIONS_BUTTON.width,
-        this.MENU_OPTIONS_BUTTON.height
-      )
-    ) {
-      this.playButtonSound();
-      this.currentState = GameState.OPTIONS;
-    }
-    // Leaderboard button
-    else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.MENU_LEADERBOARD_BUTTON.x,
-        this.MENU_LEADERBOARD_BUTTON.y,
-        this.MENU_LEADERBOARD_BUTTON.width,
-        this.MENU_LEADERBOARD_BUTTON.height
-      )
-    ) {
-      this.playButtonSound();
-      this.currentState = GameState.LEADERBOARD;
-      this.loadLeaderboard();
     }
   }
 
@@ -3468,54 +3595,42 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.settings.sfxVolume = Math.max(0, Math.min(1, relativeX / 200));
       this.updateSFXVolume();
     }
-    // Difficulty buttons
+    // Easy difficulty ribbon
     else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.OPTIONS_EASY_BUTTON.x,
-        this.OPTIONS_EASY_BUTTON.y,
-        this.OPTIONS_EASY_BUTTON.width,
-        this.OPTIONS_EASY_BUTTON.height
-      )
+      x >= this.OPTIONS_EASY_BUTTON.x - 100 && // 200 / 2
+      x <= this.OPTIONS_EASY_BUTTON.x + 100 &&
+      y >= this.OPTIONS_EASY_BUTTON.y + 5 - 25 && // 50 / 2
+      y <= this.OPTIONS_EASY_BUTTON.y + 5 + 25
     ) {
       this.playButtonSound();
       this.settings.difficulty = 'easy';
-    } else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.OPTIONS_NORMAL_BUTTON.x,
-        this.OPTIONS_NORMAL_BUTTON.y,
-        this.OPTIONS_NORMAL_BUTTON.width,
-        this.OPTIONS_NORMAL_BUTTON.height
-      )
+    }
+    // Normal difficulty ribbon
+    else if (
+      x >= this.OPTIONS_NORMAL_BUTTON.x - 100 && // 200 / 2
+      x <= this.OPTIONS_NORMAL_BUTTON.x + 100 &&
+      y >= this.OPTIONS_NORMAL_BUTTON.y + 5 - 25 && // 50 / 2
+      y <= this.OPTIONS_NORMAL_BUTTON.y + 5 + 25
     ) {
       this.playButtonSound();
       this.settings.difficulty = 'normal';
-    } else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.OPTIONS_HARD_BUTTON.x,
-        this.OPTIONS_HARD_BUTTON.y,
-        this.OPTIONS_HARD_BUTTON.width,
-        this.OPTIONS_HARD_BUTTON.height
-      )
+    }
+    // Hard difficulty ribbon
+    else if (
+      x >= this.OPTIONS_HARD_BUTTON.x - 100 && // 200 / 2
+      x <= this.OPTIONS_HARD_BUTTON.x + 100 &&
+      y >= this.OPTIONS_HARD_BUTTON.y + 5 - 25 && // 50 / 2
+      y <= this.OPTIONS_HARD_BUTTON.y + 5 + 25
     ) {
       this.playButtonSound();
       this.settings.difficulty = 'hard';
     }
-    // Back button
+    // Back to menu ribbon
     else if (
-      this.isClickInButton(
-        x,
-        y,
-        this.OPTIONS_BACK_BUTTON.x,
-        this.OPTIONS_BACK_BUTTON.y,
-        this.OPTIONS_BACK_BUTTON.width,
-        this.OPTIONS_BACK_BUTTON.height
-      )
+      x >= this.OPTIONS_BACK_BUTTON.x - 125 && // 250 / 2
+      x <= this.OPTIONS_BACK_BUTTON.x + 125 &&
+      y >= this.OPTIONS_BACK_BUTTON.y + 5 - 30 && // 60 / 2
+      y <= this.OPTIONS_BACK_BUTTON.y + 5 + 30
     ) {
       this.playButtonSound();
       this.currentState = GameState.MENU;
