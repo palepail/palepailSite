@@ -2173,7 +2173,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.drawSlider('SFX Volume', this.CANVAS_SIZE / 2, 180, 200, 20, this.settings.sfxVolume);
 
     // Draw difficulty ribbons
-    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'easy' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+    if (
+      this.loadedAssets['ribbonSprites'] &&
+      (this.settings.difficulty === 'easy' ? this.ribbonRed.complete : this.ribbonBlue.complete)
+    ) {
       this.drawRibbon(
         this.settings.difficulty === 'easy' ? this.ribbonRed : this.ribbonBlue,
         this.OPTIONS_EASY_BUTTON.x,
@@ -2194,7 +2197,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       );
     }
 
-    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'normal' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+    if (
+      this.loadedAssets['ribbonSprites'] &&
+      (this.settings.difficulty === 'normal' ? this.ribbonRed.complete : this.ribbonBlue.complete)
+    ) {
       this.drawRibbon(
         this.settings.difficulty === 'normal' ? this.ribbonRed : this.ribbonBlue,
         this.OPTIONS_NORMAL_BUTTON.x,
@@ -2215,7 +2221,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       );
     }
 
-    if (this.loadedAssets['ribbonSprites'] && (this.settings.difficulty === 'hard' ? this.ribbonRed.complete : this.ribbonBlue.complete)) {
+    if (
+      this.loadedAssets['ribbonSprites'] &&
+      (this.settings.difficulty === 'hard' ? this.ribbonRed.complete : this.ribbonBlue.complete)
+    ) {
       this.drawRibbon(
         this.settings.difficulty === 'hard' ? this.ribbonRed : this.ribbonBlue,
         this.OPTIONS_HARD_BUTTON.x,
@@ -2295,7 +2304,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (ribbonImage && ribbonImage.complete) {
       const sectionWidth = 150; // Each section is 150x150
       const sectionHeight = 150; // Full height of sprite sheet sections
-      const leftX = x + 10 - totalWidth / 2; // Left edge of ribbon +10 for empty space on left most left section
+      const leftX = x + 10 - totalWidth / 2; // Left edge of ribbon
       const topY = y - height / 2;
 
       // Calculate scale factor to fit the ribbon in the available space
@@ -2323,6 +2332,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const scaledGapSize = gapSize * scale;
       const remainingWidth = totalWidth - scaledSectionWidth * 2; // Subtract left and right
       const effectiveMiddleWidth = 63 * scale; // 64 pixels is the width of the middle section that is not transparent
+
+      // Calculate right section position to avoid overlap
+      const rightOverlap = 30; // 30px overlap to cover the last section's right gap
+      const rightX = leftX + totalWidth - scaledSectionWidth - rightOverlap * scale;
+
       const middleSections = Math.max(
         0,
         Math.ceil((remainingWidth + scaledGapSize) / effectiveMiddleWidth)
@@ -2332,22 +2346,49 @@ export class NumberCrunch implements OnInit, OnDestroy {
       for (let i = 0; i < middleSections; i++) {
         const overlap = 65; // 60px overlap for first middle (left 30px + middle 30px gaps), 30px for subsequent
         const middleX = leftX + scaledSectionWidth - overlap * scale + i * effectiveMiddleWidth;
-        this.ctx.drawImage(
-          ribbonImage,
-          sectionWidth, // source x (middle section)
-          0, // source y
-          sectionWidth, // source width
-          sectionHeight, // source height
-          middleX, // destination x (overlapping transparent areas)
-          topY, // destination y
-          scaledSectionWidth, // destination width
-          scaledHeight // destination height
-        );
+
+        // Calculate if this middle section would overlap with the right section
+        const middleEndX = middleX + scaledSectionWidth;
+        const rightStartX = rightX;
+        const allowedOverlap = rightOverlap * scale; // Allow the intended overlap
+
+        if (middleEndX > rightStartX + allowedOverlap) {
+          // Middle section overlaps too much with right section, clip it
+          const clipWidth = rightStartX + allowedOverlap - middleX;
+          if (clipWidth > 0) {
+            // Calculate source clipping to maintain aspect ratio
+            const sourceClipRatio = clipWidth / scaledSectionWidth;
+            const sourceClipWidth = sectionWidth * sourceClipRatio;
+
+            this.ctx.drawImage(
+              ribbonImage,
+              sectionWidth, // source x (middle section)
+              0, // source y
+              sourceClipWidth, // source width (clipped)
+              sectionHeight, // source height
+              middleX, // destination x
+              topY, // destination y
+              clipWidth, // destination width (clipped)
+              scaledHeight // destination height
+            );
+          }
+        } else {
+          // No excessive overlap, draw full middle section
+          this.ctx.drawImage(
+            ribbonImage,
+            sectionWidth, // source x (middle section)
+            0, // source y
+            sectionWidth, // source width
+            sectionHeight, // source height
+            middleX, // destination x (overlapping transparent areas)
+            topY, // destination y
+            scaledSectionWidth, // destination width
+            scaledHeight // destination height
+          );
+        }
       }
 
       // Draw right section
-      const rightOverlap = 30; // 30px overlap to cover the last section's right gap
-      const rightX = leftX + totalWidth - scaledSectionWidth - rightOverlap * scale;
       this.ctx.drawImage(
         ribbonImage,
         sectionWidth * 2, // source x (right section)
@@ -2615,22 +2656,39 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.BACKGROUND_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
 
-    // Title
-    this.ctx.fillStyle = '#1976d2';
-    this.ctx.font = `bold 32px ${this.PRIMARY_FONT}`;
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Leaderboard', this.CANVAS_SIZE / 2, 40);
+    // Title ribbon
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
+      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 40, 350, 80, 'Leaderboard');
+    } else {
+      // Fallback text if ribbon not loaded
+      this.ctx.fillStyle = '#1976d2';
+      this.ctx.font = `bold 28px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Leaderboard', this.CANVAS_SIZE / 2, 60);
+    }
 
-    // Back button - always available
-    this.drawButton(
-      'Back to Menu',
-      this.LEADERBOARD_BACK_BUTTON.x,
-      this.LEADERBOARD_BACK_BUTTON.y,
-      this.LEADERBOARD_BACK_BUTTON.width,
-      this.LEADERBOARD_BACK_BUTTON.height,
-      '#2196F3',
-      '#1976D2'
-    );
+    // Back button ribbon
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonPurple.complete) {
+      this.drawRibbon(
+        this.ribbonPurple,
+        this.LEADERBOARD_BACK_BUTTON.x,
+        this.LEADERBOARD_BACK_BUTTON.y + 5,
+        250,
+        60,
+        'Back'
+      );
+    } else {
+      // Fallback button if ribbon not loaded
+      this.drawButton(
+        'Back',
+        this.LEADERBOARD_BACK_BUTTON.x,
+        this.LEADERBOARD_BACK_BUTTON.y,
+        this.LEADERBOARD_BACK_BUTTON.width,
+        this.LEADERBOARD_BACK_BUTTON.height,
+        '#2196F3',
+        '#1976D2'
+      );
+    }
 
     if (this.isLoadingLeaderboard) {
       this.ctx.fillStyle = '#424242';
@@ -2949,7 +3007,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         if (cell.value !== 0 && !this.isScrambling) {
           // Keep numbers black for readability
           this.ctx.fillStyle = '#333';
-          this.ctx.font = `20px ${this.PRIMARY_FONT}`;
+          this.ctx.font = `bold 20px ${this.PRIMARY_FONT}`;
           this.ctx.textAlign = 'center';
           this.ctx.fillText(
             cell.value.toString(),
