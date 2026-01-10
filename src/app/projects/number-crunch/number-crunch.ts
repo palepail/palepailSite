@@ -306,7 +306,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private enemyAttackAnimationFrame = 0;
   private enemyAttackAnimationTimer = 0;
   private readonly ENEMY_ATTACK_FRAME_TIME = this.ENEMY_ATTACK_FRAME_TIME_MS; // ms per frame (faster for attack)
-  private readonly ENEMY_ATTACK_TOTAL_FRAMES = 6; // 6 frames for enemy attack animation
+  private readonly ENEMY_ATTACK_TOTAL_FRAMES = 4; // 4 frames for enemy attack animation (same as player)
 
   // Ribbon banner sprites for UI
   private ribbonYellow = new Image();
@@ -1088,7 +1088,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.previousState = this.currentState;
 
       // Determine target volume
-      const shouldBeMuted = this.currentState === GameState.MENU || this.settings.muted;
+      const shouldBeMuted = this.currentState === GameState.MENU || this.settings.muted || !this.windowHasFocus;
       const targetVolume = shouldBeMuted ? 0 : this.settings.bgmVolume;
 
       // Set muted property for iOS compatibility
@@ -1379,23 +1379,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   private handleWindowFocus() {
     this.windowHasFocus = true;
-    // Window regained focus, resume BGM if it was playing, not muted, and in playing state
-    if (
-      this.bgmAudio &&
-      this.bgmAudio.paused &&
-      !this.settings.muted &&
-      this.currentState === GameState.PLAYING
-    ) {
-      this.bgmAudio.play().catch(() => {}); // Ignore play errors
-    }
+    // Window regained focus, update BGM volume state
+    this.updateBGMVolumeForState();
   }
 
   private handleWindowBlur() {
     this.windowHasFocus = false;
-    // Window lost focus, pause BGM and all currently playing SFX
-    if (this.bgmAudio && !this.bgmAudio.paused) {
-      this.bgmAudio.pause();
-    }
+    // Window lost focus, update BGM volume state
+    this.updateBGMVolumeForState();
 
     // Pause all SFX that might be playing
     this.pauseAllSFX();
@@ -1717,9 +1708,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
           if (this.enemyAttackAnimationFrame >= this.ATTACK_TOTAL_FRAMES) {
             this.isEnemyAttacking = false;
             this.enemyAttackAnimationFrame = 0;
-            // Reset to idle animation
-            this.enemyAnimationFrame = 0;
-            this.enemyAnimationTimer = 0;
+            // Reset to idle animation (only in playing state to avoid menu glitches)
+            if (this.currentState === GameState.PLAYING) {
+              this.enemyAnimationFrame = 0;
+              this.enemyAnimationTimer = 0;
+            }
           }
         }
       } else {
@@ -1733,9 +1726,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
           if (this.enemyAttackAnimationFrame >= this.ENEMY_ATTACK_TOTAL_FRAMES) {
             this.isEnemyAttacking = false;
             this.enemyAttackAnimationFrame = 0;
-            // Reset to idle animation
-            this.enemyAnimationFrame = 0;
-            this.enemyAnimationTimer = 0;
+            // Reset to idle animation (only in playing state to avoid menu glitches)
+            if (this.currentState === GameState.PLAYING) {
+              this.enemyAnimationFrame = 0;
+              this.enemyAnimationTimer = 0;
+            }
           }
         }
       }
@@ -3963,7 +3958,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.ctx.scale(-1, 1);
         this.ctx.drawImage(
           this.enemySprite,
-          this.animationFrame * frameWidth, // source x (use player animation frame for sync)
+          this.enemyAnimationFrame * frameWidth, // source x (use enemy animation frame)
           0, // source y (idle animation is at top)
           frameWidth, // source width
           frameHeight, // source height
@@ -4023,6 +4018,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       y >= playRibbonTop &&
       y <= playRibbonBottom
     ) {
+      // Reset game state for new normal game
+      this.resetGameState();
       this.currentState = GameState.PLAYING;
       this.initializeGame();
       this.startGameLoop();
@@ -4892,6 +4889,68 @@ export class NumberCrunch implements OnInit, OnDestroy {
         }
       }
     }
+  }
+
+  private resetGameState() {
+    // Reset all game state to initial values
+    this.score = 0;
+    this.lastHealthBonus = 0;
+    this.lastScrambleBonus = 0;
+    this.level = 1;
+    this.targetNumber = 10; // Reset target to initial value
+    this.playerHealth = this.MAX_HEALTH;
+    this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
+    this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
+    this.isScrambling = false;
+    this.scrambleTimer = 0;
+    this.scrambleAnimation = [];
+    this.damageMultiplier = 1.0; // Reset damage multiplier
+    this.healthBonus = 0; // Reset health bonus
+    this.damageBonus = 0; // Reset damage bonus
+    this.assistBonus = 0; // Reset assist bonus
+    this.damageUpgradeCount = 0; // Reset upgrade counts
+    this.healthUpgradeCount = 0;
+    this.assistUpgradeCount = 0;
+    this.enemyAttackTimer = 0; // Reset enemy attack timer
+    this.playerAttackTimer = 0; // Reset player attack timer
+    this.isEnemyAttacking = false; // Reset attack states
+    this.isAttacking = false;
+    this.isEnemyHealing = false;
+    this.isReplayComplete = false;
+    this.replayToPlay = null; // Clear any replay data
+    this.isGauntletMode = false; // Reset to normal mode
+    this.currentReplayActionIndex = 0;
+    this.nextEnemyAttackTime = 0;
+    this.averageDPS = 0;
+    this.currentReplayAttackSprite = 1;
+    // Reset animation states
+    this.animationFrame = 0;
+    this.animationTimer = 0;
+    this.enemyAnimationFrame = 0;
+    this.enemyAnimationTimer = 0;
+    this.attackAnimationFrame = 0;
+    this.attackAnimationTimer = 0;
+    this.enemyAttackAnimationFrame = 0;
+    this.enemyAttackAnimationTimer = 0;
+    this.isMonkAnimationActive = false;
+    this.isHealEffectActive = false;
+    this.isArcherShootActive = false;
+    this.isArrowActive = false;
+    this.runningAnimationFrame = 0;
+    this.runningAnimationTimer = 0;
+    this.monkAnimationFrame = 0;
+    this.monkAnimationTimer = 0;
+    this.healEffectFrame = 0;
+    this.archerShootFrame = 0;
+    this.archerShootTimer = 0;
+    this.arrowTimer = 0;
+    // Clear damage texts
+    this.damageTexts = [];
+    // Reset selection state
+    this.isSelecting = false;
+    this.selectionStart = { x: 0, y: 0 };
+    this.selectionEnd = { x: 0, y: 0 };
+    this.selectedSum = 0;
   }
 
   private gameOver() {
