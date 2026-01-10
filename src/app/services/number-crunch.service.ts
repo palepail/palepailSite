@@ -109,11 +109,14 @@ export class NumberCrunchService {
       const q = query(
         collection(db, 'NumberCrunchReplays'),
         where('target', '==', target),
-        orderBy('endTime', 'asc'), // Fastest times first
+        orderBy('sessionId'), // Use sessionId for unique ordering
         limit(count)
       );
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => doc.data() as LevelRecording);
+      const replays = querySnapshot.docs.map(doc => doc.data() as LevelRecording);
+      
+      // Sort by endTime after fetching to get fastest times first
+      return replays.sort((a, b) => a.endTime - b.endTime);
     } catch (error) {
       console.warn('Replays unavailable:', error);
       return [];

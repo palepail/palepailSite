@@ -209,6 +209,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Difficulty-based damage and enemy health
   damageBase = this.NORMAL_DAMAGE_BASE; // Base damage per tile, varies by difficulty
   enemyMaxHealth = this.ENEMY_MAX_HEALTH; // Enemy max health, varies by difficulty
+  originalEnemyMaxHealth = this.ENEMY_MAX_HEALTH; // Original enemy health for damage scaling
 
   // Selection state
   isSelecting = false;
@@ -226,6 +227,17 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isRecording = false;
   private currentRecording: LevelRecording | null = null;
   private sessionId = '';
+
+  // Replay playback state
+  private replayToPlay: LevelRecording | null = null;
+  private isGauntletMode = false;
+  private replayPlaybackStartTime = 0;
+  private currentReplayActionIndex = 0;
+  private isEnemyHealing = false;
+  private isReplayComplete = false;
+  private nextEnemyAttackTime = 0;
+  private averageDPS = 0;
+  private currentReplayAttackSprite = 1; // Alternates between 1 and 2 for replay sounds
 
   // Player sprite animation
   private playerSprite = new Image();
@@ -258,6 +270,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private archerShootFrame = 0;
   private archerShootTimer = 0;
   private archerShootOpacity = 0;
+  private isPlayerArcher = false; // True if archer is triggered by player, false if by replay
   private readonly ARCHER_SHOOT_FRAME_TIME = 150; // ms per frame
   private readonly ARCHER_SHOOT_TOTAL_FRAMES = 8;
   private readonly ARCHER_SHOOT_FADE_TIME = 150; // ms for fade in/out
@@ -267,6 +280,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isArrowActive = false;
   private arrowTimer = 0;
   private arrowOpacity = 0;
+  private isPlayerArrow = false; // True if arrow is triggered by player, false if by replay
   private arrowX = 0;
   private arrowY = 0;
   private arrowStartX = 0;
@@ -309,6 +323,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private attackAnimationTimer = 0;
   private currentAttackSprite = 1; // 1 or 2
   private nextAttackSprite = 1; // Alternates between 1 and 2
+  private currentEnemyAttackSprite = 1; // 1 or 2 for enemy attacks
   private readonly ATTACK_FRAME_TIME = this.ATTACK_FRAME_TIME_MS; // ms per frame (faster for attack)
   private readonly ATTACK_TOTAL_FRAMES = 4; // 4 frames per attack animation
 
@@ -483,6 +498,51 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private animationFrameId: number = 0;
 
   constructor(private cdr: ChangeDetectorRef, private numberCrunchService: NumberCrunchService) {}
+
+  // Damage application methods
+  private applyPlayerDamageToEnemy(damage: number): number {
+    let scaledDamage = damage;
+    if (this.isGauntletMode && this.replayToPlay) {
+      // Scale player damage based on replay's enemy health - tougher enemies require less damage proportionally
+      scaledDamage = Math.round(damage * (120 / this.replayToPlay.enemyHealthAtStart));
+    }
+    this.enemyHealth = Math.max(0, this.enemyHealth - scaledDamage);
+
+    // Create damage text above the enemy
+    this.damageTexts.push({
+      x: this.ENEMY_X + 20,
+      y: this.ENEMY_Y - 30,
+      value: scaledDamage,
+      lifetime: 0,
+      maxLifetime: 500,
+      type: 'enemy',
+      isHealing: false,
+    });
+
+    return scaledDamage;
+  }
+
+  private applyEnemyDamageToPlayer(damage: number): number {
+    let scaledDamage = damage;
+    if (this.isGauntletMode && this.replayToPlay) {
+      // Scale enemy damage based on replay's enemy health - tougher enemies deal more damage proportionally
+      scaledDamage = Math.round(damage * (120 / this.replayToPlay.enemyHealthAtStart));
+    }
+    this.playerHealth = Math.max(0, this.playerHealth - scaledDamage);
+
+    // Create damage text above the player
+    this.damageTexts.push({
+      x: this.PLAYER_X - 20,
+      y: this.PLAYER_Y - 30,
+      value: scaledDamage,
+      lifetime: 0,
+      maxLifetime: 500,
+      type: 'player',
+      isHealing: false,
+    });
+
+    return scaledDamage;
+  }
 
   // Asset loading functions
   private loadPlayerSprite(): Promise<void> {
@@ -1099,6 +1159,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
+  private easeOutQuad(t: number): number {
+    return 1 - Math.pow(1 - t, 2);
+  }
+
   /**
    * Loads an audio file with format fallbacks for better iOS compatibility.
    * Tries MP3 first (most compatible), then falls back to original format.
@@ -1451,6 +1515,63 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.setupCanvas();
   }
 
+  private async startGauntletMode() {
+    try {
+      // Get replays for the current target (level 1 target is always 10)
+      const target = 10;
+      const replays = await this.numberCrunchService.getReplaysByTarget(target, 50); // Get up to 50 replays
+
+      if (replays.length > 0) {
+        // Pick a random replay
+        const randomIndex = Math.floor(Math.random() * replays.length);
+        this.replayToPlay = replays[randomIndex];
+        this.isGauntletMode = true;
+        this.replayPlaybackStartTime = 0; // Will be set when game starts
+        this.currentReplayActionIndex = 0;
+        this.isReplayComplete = false;
+        this.nextEnemyAttackTime = 3000 + Math.random() * 2000; // 3-5 seconds
+
+        // Calculate average DPS from replay
+        if (this.replayToPlay && this.replayToPlay.actions.length > 0) {
+          let totalDamage = 0;
+          for (const action of this.replayToPlay.actions) {
+            if (action.type === 'damage' && action.amount) {
+              totalDamage += action.amount;
+            }
+          }
+          const durationSeconds = (this.replayToPlay.endTime - this.replayToPlay.startTime) / 1000;
+          this.averageDPS = totalDamage / durationSeconds;
+        }
+
+        // Set gauntlet enemy health to the player's health from the replay
+        this.enemyMaxHealth = this.replayToPlay.playerHealthAtStart;
+        this.enemyHealth = this.enemyMaxHealth;
+
+        // Set gauntlet player health to 120
+        this.playerHealth = 120;
+
+        console.log('Starting gauntlet mode with replay:', this.replayToPlay);
+      } else {
+        console.log('No replays found for target', target, '- starting normal game');
+        this.replayToPlay = null;
+        this.isGauntletMode = false;
+      }
+
+      // Start the game
+      this.currentState = GameState.PLAYING;
+      this.initializeGame();
+      this.startGameLoop();
+    } catch (error) {
+      console.error('Error starting gauntlet mode:', error);
+      // Fallback to normal game
+      this.replayToPlay = null;
+      this.isGauntletMode = false;
+      this.currentState = GameState.PLAYING;
+      this.initializeGame();
+      this.startGameLoop();
+    }
+  }
+
   private createGrid() {
     this.grid = [];
     for (let y = 0; y < this.GRID_SIZE; y++) {
@@ -1469,7 +1590,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Add assist tiles based on level and upgrades
-    const assistTileCount = 2 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
+    const assistTileCount = 30 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades //30 for testing
     this.placeAssistTiles(assistTileCount);
   }
 
@@ -1585,18 +1706,37 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     // Update enemy attack animation (completion logic runs on all screens)
     if (this.isEnemyAttacking) {
-      this.enemyAttackAnimationTimer += deltaTime;
-      if (this.enemyAttackAnimationTimer >= this.ENEMY_ATTACK_FRAME_TIME) {
-        this.enemyAttackAnimationTimer = 0;
-        this.enemyAttackAnimationFrame++;
+      if (this.isGauntletMode) {
+        // In gauntlet mode, use same animation timing and frames as player
+        this.enemyAttackAnimationTimer += deltaTime;
+        if (this.enemyAttackAnimationTimer >= this.ATTACK_FRAME_TIME) {
+          this.enemyAttackAnimationTimer = 0;
+          this.enemyAttackAnimationFrame++;
 
-        // Check if enemy attack animation is complete
-        if (this.enemyAttackAnimationFrame >= this.ENEMY_ATTACK_TOTAL_FRAMES) {
-          this.isEnemyAttacking = false;
-          this.enemyAttackAnimationFrame = 0;
-          // Reset to idle animation
-          this.enemyAnimationFrame = 0;
-          this.enemyAnimationTimer = 0;
+          // Check if enemy attack animation is complete (use same frame count as player)
+          if (this.enemyAttackAnimationFrame >= this.ATTACK_TOTAL_FRAMES) {
+            this.isEnemyAttacking = false;
+            this.enemyAttackAnimationFrame = 0;
+            // Reset to idle animation
+            this.enemyAnimationFrame = 0;
+            this.enemyAnimationTimer = 0;
+          }
+        }
+      } else {
+        // Normal mode - use enemy-specific animation timing
+        this.enemyAttackAnimationTimer += deltaTime;
+        if (this.enemyAttackAnimationTimer >= this.ENEMY_ATTACK_FRAME_TIME) {
+          this.enemyAttackAnimationTimer = 0;
+          this.enemyAttackAnimationFrame++;
+
+          // Check if enemy attack animation is complete
+          if (this.enemyAttackAnimationFrame >= this.ENEMY_ATTACK_TOTAL_FRAMES) {
+            this.isEnemyAttacking = false;
+            this.enemyAttackAnimationFrame = 0;
+            // Reset to idle animation
+            this.enemyAnimationFrame = 0;
+            this.enemyAnimationTimer = 0;
+          }
         }
       }
     }
@@ -1643,6 +1783,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.monkAnimationFrame = 0;
         this.monkAnimationTimer = 0;
         this.monkAnimationOpacity = 0;
+        this.isEnemyHealing = false; // Reset healing target
 
         // Also reset heal effect
         this.isHealEffectActive = false;
@@ -1692,24 +1833,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.isArrowActive) {
       this.arrowTimer += deltaTime;
 
-      // Handle fade in and movement (200ms total)
-      if (this.arrowTimer < this.ARROW_FADE_IN_TIME) {
-        this.arrowOpacity = this.arrowTimer / this.ARROW_FADE_IN_TIME;
-        // Move arrow towards target during fade in
-        const moveProgress = this.arrowTimer / this.ARROW_FADE_IN_TIME;
-        this.arrowX = this.arrowStartX + (this.arrowTargetX - this.arrowStartX) * moveProgress;
-        this.arrowY = this.arrowStartY + (this.arrowTargetY - this.arrowStartY) * moveProgress;
-      }
-      // Stay visible at target position (200ms) - play impact sound when arrow arrives
-      else if (this.arrowTimer < this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME) {
-        this.arrowOpacity = 1.0;
-        // Keep at target position
-        this.arrowX = this.arrowTargetX;
-        this.arrowY = this.arrowTargetY;
-
-        // Play bow impact sound when arrow first reaches target
+      // Handle fade in and movement (200ms total for movement)
+      if (this.arrowTimer < this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME) {
+        this.arrowOpacity = Math.min(1.0, this.arrowTimer / this.ARROW_FADE_IN_TIME);
+        // Move arrow towards target during the movement phase
+        const moveProgress = Math.min(
+          1.0,
+          this.arrowTimer / (this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME)
+        );
+        // Use ease-out to make arrow appear faster (starts fast, slows down)
+        const easedProgress = this.easeOutQuad(moveProgress);
+        this.arrowX = this.arrowStartX + (this.arrowTargetX - this.arrowStartX) * easedProgress;
+        this.arrowY = this.arrowStartY + (this.arrowTargetY - this.arrowStartY) * easedProgress; // Play bow impact sound when arrow arrives at target
         if (
-          this.arrowTimer - deltaTime < this.ARROW_FADE_IN_TIME &&
+          this.arrowTimer >= this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME - deltaTime &&
+          this.arrowTimer < this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME &&
           this.bowImpactSound &&
           this.windowHasFocus &&
           !this.settings.muted
@@ -1771,45 +1909,110 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return; // Don't update other game logic while scrambling
     }
 
-    // Update enemy attack timer
-    this.enemyAttackTimer += deltaTime;
-    if (this.enemyAttackTimer >= this.ENEMY_ATTACK_INTERVAL) {
-      // Attack interval
-      this.enemyAttackTimer = 0;
+    // Update enemy attack timer (skip in gauntlet mode - attacks come from replay)
+    if (!this.isGauntletMode && !this.replayToPlay) {
+      this.enemyAttackTimer += deltaTime;
+      if (this.enemyAttackTimer >= this.ENEMY_ATTACK_INTERVAL) {
+        // Attack interval
+        this.enemyAttackTimer = 0;
 
-      // Trigger enemy attack animation
-      if (this.loadedAssets['enemyAttackSprite'] && !this.isEnemyAttacking) {
-        this.isEnemyAttacking = true;
-        this.enemyAttackAnimationFrame = 0;
-        this.enemyAttackAnimationTimer = 0;
+        // Trigger enemy attack animation
+        if (this.loadedAssets['enemyAttackSprite'] && !this.isEnemyAttacking) {
+          this.isEnemyAttacking = true;
+          this.enemyAttackAnimationFrame = 0;
+          this.enemyAttackAnimationTimer = 0;
 
-        // Play enemy attack sound effect
-        if (
-          this.settings.sfxVolume > 0 &&
-          this.loadedAssets['soundEffects'] &&
-          this.enemyAttackSound &&
-          this.windowHasFocus &&
-          !this.settings.muted
-        ) {
-          this.enemyAttackSound.currentTime = 0; // Reset to beginning
-          this.enemyAttackSound.play().catch(() => {}); // Ignore play errors
+          // Play enemy attack sound effect
+          if (
+            this.settings.sfxVolume > 0 &&
+            this.loadedAssets['soundEffects'] &&
+            this.enemyAttackSound &&
+            this.windowHasFocus &&
+            !this.settings.muted
+          ) {
+            this.enemyAttackSound.currentTime = 0; // Reset to beginning
+            this.enemyAttackSound.play().catch(() => {}); // Ignore play errors
+          }
+        }
+
+        this.playerHealth = Math.max(0, this.playerHealth - Math.round(this.ENEMY_ATTACK_DAMAGE));
+
+        // Create damage text above and to the left of player
+        const playerX = this.PLAYER_X;
+        const playerY = this.PLAYER_Y;
+        this.damageTexts.push({
+          x: playerX - 20, // Position to the left of player
+          y: playerY - 30, // Position above player
+          value: Math.round(this.ENEMY_ATTACK_DAMAGE),
+          lifetime: 0,
+          maxLifetime: 500, // 1 second
+          type: 'player',
+          isHealing: false,
+        });
+      }
+    }
+
+    // Handle replay playback in gauntlet mode
+    if (this.isGauntletMode && this.replayToPlay) {
+      this.updateReplayPlayback(deltaTime);
+    }
+
+    // Handle DPS-based damage chunks after replay is complete in gauntlet mode
+    if (this.isGauntletMode && this.isReplayComplete) {
+      this.enemyAttackTimer += deltaTime;
+      if (this.enemyAttackTimer >= this.nextEnemyAttackTime) {
+        this.enemyAttackTimer = 0;
+        this.nextEnemyAttackTime = 3000 + Math.random() * 2000; // 3-5 seconds
+
+        // Calculate damage chunk based on average DPS
+        const chunkDuration = this.nextEnemyAttackTime / 1000; // Convert to seconds
+        const damageChunk = Math.round(this.averageDPS * chunkDuration);
+
+        // Apply damage scaling for gauntlet mode
+        let scaledDamage = damageChunk;
+        if (this.replayToPlay) {
+          scaledDamage = Math.round(damageChunk * (120 / this.replayToPlay.enemyHealthAtStart));
+        }
+
+        this.playerHealth = Math.max(0, this.playerHealth - scaledDamage);
+
+        // Create damage text above and to the left of player
+        const playerX = this.PLAYER_X;
+        const playerY = this.PLAYER_Y;
+        this.damageTexts.push({
+          x: playerX - 20, // Position to the left of player
+          y: playerY - 30, // Position above player
+          value: scaledDamage,
+          lifetime: 0,
+          maxLifetime: 500, // 1 second
+          type: 'player',
+          isHealing: false,
+        });
+
+        // Trigger enemy attack animation
+        if (this.loadedAssets['attackSprites'] && !this.isEnemyAttacking) {
+          this.isEnemyAttacking = true;
+          this.enemyAttackAnimationFrame = 0;
+          this.enemyAttackAnimationTimer = 0;
+        }
+
+        // Play alternating player attack sound for enemy attacks in gauntlet mode (even after replay completes)
+        if (this.currentReplayAttackSprite === 1) {
+          if (this.playerAttackSound1 && this.windowHasFocus && !this.settings.muted) {
+            this.playerAttackSound1.volume = this.settings.sfxVolume;
+            this.playerAttackSound1.currentTime = 0;
+            this.playerAttackSound1.play().catch(() => {});
+          }
+          this.currentReplayAttackSprite = 2;
+        } else {
+          if (this.playerAttackSound2 && this.windowHasFocus && !this.settings.muted) {
+            this.playerAttackSound2.volume = this.settings.sfxVolume;
+            this.playerAttackSound2.currentTime = 0;
+            this.playerAttackSound2.play().catch(() => {});
+          }
+          this.currentReplayAttackSprite = 1;
         }
       }
-
-      this.playerHealth = Math.max(0, this.playerHealth - Math.round(this.ENEMY_ATTACK_DAMAGE));
-
-      // Create damage text above and to the left of player
-      const playerX = this.PLAYER_X;
-      const playerY = this.PLAYER_Y;
-      this.damageTexts.push({
-        x: playerX - 20, // Position to the left of player
-        y: playerY - 30, // Position above player
-        value: Math.round(this.ENEMY_ATTACK_DAMAGE),
-        lifetime: 0,
-        maxLifetime: 500, // 1 second
-        type: 'player',
-        isHealing: false,
-      });
     }
 
     // Check win/lose conditions
@@ -1860,6 +2063,157 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.upgradeSound.currentTime = 0; // Reset to beginning
         this.upgradeSound.play().catch(() => {}); // Ignore play errors
       }
+    }
+  }
+
+  private updateReplayPlayback(deltaTime: number) {
+    if (!this.replayToPlay) return;
+
+    // Initialize playback start time on first call
+    if (this.replayPlaybackStartTime === 0) {
+      this.replayPlaybackStartTime = Date.now();
+      console.log('Starting replay playback');
+    }
+
+    const currentTime = Date.now() - this.replayPlaybackStartTime;
+
+    // Process actions that should have occurred by now
+    while (
+      this.currentReplayActionIndex < this.replayToPlay.actions.length &&
+      this.replayToPlay.actions[this.currentReplayActionIndex].timestamp <= currentTime
+    ) {
+      const action = this.replayToPlay.actions[this.currentReplayActionIndex];
+      this.executeReplayAction(action);
+      this.currentReplayActionIndex++;
+    }
+
+    // Check if replay is complete
+    if (this.currentReplayActionIndex >= this.replayToPlay.actions.length) {
+      console.log('Replay playback complete');
+      this.isReplayComplete = true;
+      // Could add logic here to end gauntlet mode or show results
+    }
+  }
+
+  private executeReplayAction(action: ActionEvent) {
+    console.log('Executing replay action:', action);
+
+    switch (action.type) {
+      case 'damage':
+        if (action.amount) {
+          // In gauntlet mode, replay damage hurts the player instead of the enemy
+          this.applyEnemyDamageToPlayer(action.amount);
+
+          if (action.isAssist) {
+            //testing assist
+            // Trigger assist animations for replay assist damage
+            if (this.loadedAssets['archerShootSprite'] && !this.isArcherShootActive) {
+              this.isArcherShootActive = true;
+              this.archerShootFrame = 0;
+              this.archerShootTimer = 0;
+              this.archerShootOpacity = 0;
+              this.isPlayerArcher = false; // This archer is triggered by replay
+            }
+
+            // Play elastic twang sound with slight delay
+            setTimeout(() => {
+              if (this.elasticTwangSound && this.windowHasFocus && !this.settings.muted) {
+                this.elasticTwangSound.volume = 0.08;
+                this.elasticTwangSound.currentTime = 0;
+                this.elasticTwangSound.play().catch(() => {});
+              }
+            }, 500);
+
+            // Trigger arrow animation when damage is applied
+            setTimeout(() => {
+              if (this.loadedAssets['arrowSprite'] && !this.isArrowActive) {
+                this.isArrowActive = true;
+                this.arrowTimer = 0;
+                this.arrowOpacity = 0;
+                this.isPlayerArrow = false; // This arrow is triggered by replay
+                // Enemy assist arrow: falls from above and to the right of player, hitting player center
+                this.arrowStartX = this.PLAYER_X + 50; // Above and to the right of player
+                this.arrowStartY = this.PLAYER_Y - 60;
+                this.arrowTargetX = this.PLAYER_X - 20; // Player center
+                this.arrowTargetY = this.PLAYER_Y - 5;
+                this.arrowX = this.arrowStartX;
+                this.arrowY = this.arrowStartY;
+              }
+            }, 1300);
+          } else {
+            // Trigger enemy attack animation for regular replay damage
+            if (this.loadedAssets['attackSprites'] && !this.isEnemyAttacking) {
+              this.isEnemyAttacking = true;
+              this.enemyAttackAnimationFrame = 0;
+              this.enemyAttackAnimationTimer = 0;
+            }
+
+            // Play alternating player attack sound for enemy attacks in gauntlet mode
+            if (this.currentReplayAttackSprite === 1) {
+              if (this.playerAttackSound1 && this.windowHasFocus && !this.settings.muted) {
+                this.playerAttackSound1.volume = this.settings.sfxVolume;
+                this.playerAttackSound1.currentTime = 0;
+                this.playerAttackSound1.play().catch(() => {});
+              }
+              this.currentReplayAttackSprite = 2;
+            } else {
+              if (this.playerAttackSound2 && this.windowHasFocus && !this.settings.muted) {
+                this.playerAttackSound2.volume = this.settings.sfxVolume;
+                this.playerAttackSound2.currentTime = 0;
+                this.playerAttackSound2.play().catch(() => {});
+              }
+              this.currentReplayAttackSprite = 1;
+            }
+          }
+        }
+        break;
+
+      case 'scramble':
+        // Execute scramble
+        this.scrambleBoard();
+        break;
+
+      case 'healing':
+        if (action.amount && action.isAssist) {
+          // In gauntlet mode, healing helps the enemy
+          this.isEnemyHealing = true;
+
+          // Create healing text above the enemy position
+          this.damageTexts.push({
+            x: this.ENEMY_X + 20,
+            y: this.ENEMY_Y - 30,
+            value: action.amount,
+            lifetime: 0,
+            maxLifetime: 500,
+            type: 'enemy',
+            isHealing: true,
+          });
+
+          // Play heal sound effect at 20% volume
+          if (this.healSound && this.windowHasFocus && !this.settings.muted) {
+            this.healSound.volume = 0.2; // 20% volume
+            this.healSound.currentTime = 0; // Reset to beginning
+            this.healSound.play().catch(() => {}); // Ignore play errors
+          }
+
+          // Trigger monk healing animation at enemy position
+          if (this.loadedAssets['monkSprite'] && !this.isMonkAnimationActive) {
+            this.isMonkAnimationActive = true;
+            this.monkAnimationFrame = 0;
+            this.monkAnimationTimer = 0;
+            this.monkAnimationOpacity = 0;
+
+            // Also start heal effect animation
+            this.isHealEffectActive = true;
+            this.healEffectFrame = 0;
+          }
+
+          // Delay the actual healing to match monk animation timing (after fade in)
+          setTimeout(() => {
+            this.enemyHealth += action.amount!; // Allow over-healing beyond maximum health
+          }, 1000); // Delay by 1000ms so heal happens when monk is fully visible
+        }
+        break;
     }
   }
 
@@ -2069,27 +2423,49 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const playerX = this.CANVAS_SIZE / 2 - 40; // Left side, closer to center
     const enemyX = this.CANVAS_SIZE / 2 + 40; // Right side, closer to center
 
-    // Draw player idle animation
+    // Draw player idle animation (flipped in gauntlet mode)
     if (this.loadedAssets['playerSprite'] && this.playerSprite && this.playerSprite.complete) {
       const frameWidth = this.SPRITE_FRAME_WIDTH;
       const frameHeight = this.SPRITE_FRAME_HEIGHT;
       const scaledWidth = frameWidth * this.SPRITE_SCALE;
       const scaledHeight = frameHeight * this.SPRITE_SCALE;
 
-      this.ctx.drawImage(
-        this.playerSprite,
-        this.animationFrame * frameWidth, // source x
-        0, // source y (idle animation is at top)
-        frameWidth, // source width
-        frameHeight, // source height
-        playerX - scaledWidth / 2, // destination x (centered)
-        characterY - scaledHeight / 2, // destination y (centered)
-        scaledWidth, // destination width
-        scaledHeight // destination height
-      );
+      if (this.isGauntletMode) {
+        // Save context for flipping
+        this.ctx.save();
+
+        // Flip horizontally for gauntlet mode (player faces left)
+        this.ctx.scale(-1, 1);
+        this.ctx.drawImage(
+          this.playerSprite,
+          this.animationFrame * frameWidth, // source x
+          0, // source y (idle animation is at top)
+          frameWidth, // source width
+          frameHeight, // source height
+          -playerX - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+          characterY - scaledHeight / 2, // destination y (centered)
+          scaledWidth, // destination width
+          scaledHeight // destination height
+        );
+
+        // Restore context
+        this.ctx.restore();
+      } else {
+        this.ctx.drawImage(
+          this.playerSprite,
+          this.animationFrame * frameWidth, // source x
+          0, // source y (idle animation is at top)
+          frameWidth, // source width
+          frameHeight, // source height
+          playerX - scaledWidth / 2, // destination x (centered)
+          characterY - scaledHeight / 2, // destination y (centered)
+          scaledWidth, // destination width
+          scaledHeight // destination height
+        );
+      }
     }
 
-    // Draw enemy idle animation (flipped horizontally)
+    // Draw enemy - use enemy sprite in menu
     if (this.loadedAssets['enemySprite'] && this.enemySprite && this.enemySprite.complete) {
       const frameWidth = this.SPRITE_FRAME_WIDTH;
       const frameHeight = this.SPRITE_FRAME_HEIGHT;
@@ -2099,7 +2475,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Save context for flipping
       this.ctx.save();
 
-      // Flip horizontally for enemy (faces left)
+      // Always flip horizontally for enemy (faces left)
       this.ctx.scale(-1, 1);
       this.ctx.drawImage(
         this.enemySprite,
@@ -3114,7 +3490,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.drawCharacter(
       this.ENEMY_X,
       this.ENEMY_Y,
-      'Enemy',
+      this.isGauntletMode && this.replayToPlay?.playerName ? this.replayToPlay.playerName : 'Enemy',
       this.enemyHealth,
       this.enemyMaxHealth,
       '#f44336'
@@ -3174,17 +3550,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.archerShootFrame = 0;
     this.archerShootTimer = 0;
     this.archerShootOpacity = 0;
+    this.isPlayerArcher = true; // This archer is triggered by player
   }
 
   private startArrowAnimation() {
     this.isArrowActive = true;
     this.arrowTimer = 0;
     this.arrowOpacity = 0;
-    // Start arrow from above and to the right (archer position), will animate towards enemy center
+    this.isPlayerArrow = true; // This arrow is triggered by player
+
+    // Player-triggered arrows start from player side towards enemy center
     this.arrowStartX = this.ENEMY_X - 60;
     this.arrowStartY = this.ENEMY_Y - 40;
     this.arrowTargetX = this.ENEMY_X - 15;
     this.arrowTargetY = this.ENEMY_Y + 25;
+
     this.arrowX = this.arrowStartX;
     this.arrowY = this.arrowStartY;
   }
@@ -3193,8 +3573,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.save();
     this.ctx.globalAlpha = this.monkAnimationOpacity;
 
-    // Position to the left of the player (closer to player)
-    const monkX = this.PLAYER_X - 50;
+    // Position based on who is being healed
+    let monkX: number;
+    if (this.isGauntletMode && this.isEnemyHealing) {
+      // Position to the right of the enemy (enemy side)
+      monkX = this.ENEMY_X + 50;
+    } else {
+      // Position to the left of the player (player side)
+      monkX = this.PLAYER_X - 50;
+    }
     const monkY = this.PLAYER_Y - 20;
 
     // Draw the current frame of the monk animation
@@ -3203,17 +3590,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
-    this.ctx.drawImage(
-      this.monkSprite,
-      this.monkAnimationFrame * frameWidth, // source x (current frame)
-      0, // source y
-      frameWidth, // source width
-      frameHeight, // source height
-      monkX - scaledWidth / 2, // destination x (centered)
-      monkY - scaledHeight / 2, // destination y (centered)
-      scaledWidth, // destination width
-      scaledHeight // destination height
-    );
+    if (this.isGauntletMode && this.isEnemyHealing) {
+      // Flip horizontally when healing enemy (faces left toward enemy)
+      this.ctx.scale(-1, 1);
+      this.ctx.drawImage(
+        this.monkSprite,
+        this.monkAnimationFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        -monkX - scaledWidth / 2, // destination x (flipped)
+        monkY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    } else {
+      this.ctx.drawImage(
+        this.monkSprite,
+        this.monkAnimationFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        monkX - scaledWidth / 2, // destination x (centered)
+        monkY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
 
     this.ctx.restore();
   }
@@ -3222,9 +3625,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.save();
     this.ctx.globalAlpha = this.monkAnimationOpacity; // Use same opacity as monk
 
-    // Position directly on top of the player
-    const playerX = this.PLAYER_X;
-    const playerY = this.PLAYER_Y;
+    // Position directly on top of who is being healed
+    let healX: number;
+    if (this.isGauntletMode && this.isEnemyHealing) {
+      healX = this.ENEMY_X; // On enemy
+    } else {
+      healX = this.PLAYER_X; // On player
+    }
+    const healY = this.PLAYER_Y;
 
     // Draw the current frame of the heal effect animation
     const frameWidth = 192;
@@ -3232,17 +3640,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
-    this.ctx.drawImage(
-      this.healEffectSprite,
-      this.healEffectFrame * frameWidth, // source x (current frame)
-      0, // source y
-      frameWidth, // source width
-      frameHeight, // source height
-      playerX - scaledWidth / 2, // destination x (centered on player)
-      playerY - scaledHeight / 2, // destination y (centered on player)
-      scaledWidth, // destination width
-      scaledHeight // destination height
-    );
+    if (this.isGauntletMode) {
+      // Flip horizontally for gauntlet mode to match player
+      this.ctx.scale(-1, 1);
+      this.ctx.drawImage(
+        this.healEffectSprite,
+        this.healEffectFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        -healX - scaledWidth / 2, // destination x (flipped)
+        healY - scaledHeight / 2, // destination y (centered on target)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    } else {
+      this.ctx.drawImage(
+        this.healEffectSprite,
+        this.healEffectFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        healX - scaledWidth / 2, // destination x (centered on target)
+        healY - scaledHeight / 2, // destination y (centered on target)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
 
     this.ctx.restore();
   }
@@ -3251,9 +3675,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.save();
     this.ctx.globalAlpha = this.archerShootOpacity;
 
-    // Position below the player
-    const archerX = this.PLAYER_X - 50;
-    const archerY = this.PLAYER_Y + 20;
+    // Position archer based on game mode
+    let archerX: number;
+    let archerY: number;
+    let shouldFlip = false;
+
+    if (this.isGauntletMode && !this.isPlayerArcher) {
+      // In gauntlet mode, replay archer on enemy side and flip horizontally
+      archerX = this.ENEMY_X + 50;
+      archerY = this.ENEMY_Y + 20;
+      shouldFlip = true;
+    } else {
+      // Normal mode or player archer in gauntlet mode: position below the player
+      archerX = this.PLAYER_X - 50;
+      archerY = this.PLAYER_Y + 20;
+      shouldFlip = false;
+    }
 
     // Draw the current frame of the archer shoot animation
     const frameWidth = 192;
@@ -3261,17 +3698,33 @@ export class NumberCrunch implements OnInit, OnDestroy {
     const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
-    this.ctx.drawImage(
-      this.archerShootSprite,
-      this.archerShootFrame * frameWidth, // source x (current frame)
-      0, // source y
-      frameWidth, // source width
-      frameHeight, // source height
-      archerX - scaledWidth / 2, // destination x (centered)
-      archerY - scaledHeight / 2, // destination y (centered)
-      scaledWidth, // destination width
-      scaledHeight // destination height
-    );
+    if (shouldFlip) {
+      // Flip horizontally for enemy side
+      this.ctx.scale(-1, 1);
+      this.ctx.drawImage(
+        this.archerShootSprite,
+        this.archerShootFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        -archerX - scaledWidth / 2, // destination x (flipped)
+        archerY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    } else {
+      this.ctx.drawImage(
+        this.archerShootSprite,
+        this.archerShootFrame * frameWidth, // source x (current frame)
+        0, // source y
+        frameWidth, // source width
+        frameHeight, // source height
+        archerX - scaledWidth / 2, // destination x (centered)
+        archerY - scaledHeight / 2, // destination y (centered)
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
 
     this.ctx.restore();
   }
@@ -3280,15 +3733,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.save();
     this.ctx.globalAlpha = this.arrowOpacity;
 
-    // Draw the arrow sprite at its current position with 45-degree downward rotation
+    // Draw the arrow sprite at its current position with appropriate rotation
     const frameWidth = 192; // Assuming same frame size as other sprites
     const frameHeight = 192;
     const scaledWidth = frameWidth * this.CHARACTER_SCALE;
     const scaledHeight = frameHeight * this.CHARACTER_SCALE;
 
-    // Translate to arrow position and rotate 135 degrees (90° down + 45° angle)
+    // Translate to arrow position and rotate based on direction
     this.ctx.translate(this.arrowX, this.arrowY);
-    this.ctx.rotate((45 * Math.PI) / 180); // 135 degrees in radians
+
+    if (this.isGauntletMode && !this.isPlayerArrow) {
+      // Replay arrows in gauntlet mode come from enemy to player, so rotate upward (45 degrees up)
+      this.ctx.rotate(((-45 + 180) * Math.PI) / 180); // -45 degrees in radians
+    } else {
+      // Player arrows or normal mode: rotate downward (45 degrees down)
+      this.ctx.rotate((45 * Math.PI) / 180); // 45 degrees in radians
+    }
 
     this.ctx.drawImage(
       this.arrowSprite,
@@ -3404,8 +3864,46 @@ export class NumberCrunch implements OnInit, OnDestroy {
       const scaledHeight = frameHeight * this.SPRITE_SCALE;
 
       // Check if enemy is attacking and attack sprite is loaded
-      if (this.isEnemyAttacking && this.loadedAssets['enemyAttackSprite']) {
-        if (this.enemyAttackSprite && this.enemyAttackSprite.complete) {
+      if (this.isEnemyAttacking) {
+        if (this.isGauntletMode && this.loadedAssets['attackSprites']) {
+          // In gauntlet mode, use player attack sprites for enemy (always use sprite 1 for consistency)
+          const attackSprite = this.attackSprite1;
+          if (attackSprite && attackSprite.complete) {
+            // Save context for flipping
+            this.ctx.save();
+
+            // Flip horizontally for enemy player sprite (faces left)
+            this.ctx.scale(-1, 1);
+            this.ctx.drawImage(
+              attackSprite,
+              this.enemyAttackAnimationFrame * frameWidth, // source x
+              0, // source y
+              frameWidth, // source width
+              frameHeight, // source height
+              -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+              y - scaledHeight / 2, // destination y (centered)
+              scaledWidth, // destination width
+              scaledHeight // destination height
+            );
+
+            // Restore context
+            this.ctx.restore();
+          } else {
+            // Fallback to rectangle if attack sprite not available
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(
+              x - this.CHARACTER_SIZE_PX / 2,
+              y - this.CHARACTER_SIZE_PX / 2,
+              this.CHARACTER_SIZE_PX,
+              this.CHARACTER_SIZE_PX
+            );
+          }
+        } else if (
+          this.loadedAssets['enemyAttackSprite'] &&
+          this.enemyAttackSprite &&
+          this.enemyAttackSprite.complete
+        ) {
+          // Normal mode - use enemy attack sprites
           // Save context for flipping
           this.ctx.save();
 
@@ -3435,7 +3933,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
             this.CHARACTER_SIZE_PX
           );
         }
-      } else if (this.enemySprite && this.enemySprite.complete) {
+      } else if (this.isGauntletMode && this.playerSprite && this.playerSprite.complete) {
+        // In gauntlet mode, draw mirrored player sprite as enemy
+        // Save context for flipping
+        this.ctx.save();
+
+        // Flip horizontally for enemy player sprite (faces left)
+        this.ctx.scale(-1, 1);
+        this.ctx.drawImage(
+          this.playerSprite,
+          this.animationFrame * frameWidth, // source x (use player animation frame for sync)
+          0, // source y (idle animation is at top)
+          frameWidth, // source width
+          frameHeight, // source height
+          -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
+          y - scaledHeight / 2, // destination y (centered)
+          scaledWidth, // destination width
+          scaledHeight // destination height
+        );
+
+        // Restore context
+        this.ctx.restore();
+      } else if (!this.isGauntletMode && this.enemySprite && this.enemySprite.complete) {
+        // Normal mode - draw enemy sprite
         // Save context for flipping
         this.ctx.save();
 
@@ -3443,7 +3963,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.ctx.scale(-1, 1);
         this.ctx.drawImage(
           this.enemySprite,
-          this.enemyAnimationFrame * frameWidth, // source x
+          this.animationFrame * frameWidth, // source x (use player animation frame for sync)
           0, // source y (idle animation is at top)
           frameWidth, // source width
           frameHeight, // source height
@@ -3521,10 +4041,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       y >= gauntletRibbonTop &&
       y <= gauntletRibbonBottom
     ) {
-      // Start Gauntlet mode (for now, just start playing)
-      this.currentState = GameState.PLAYING;
-      this.initializeGame();
-      this.startGameLoop();
+      // Start Gauntlet mode - retrieve a random replay for the current target
+      this.startGauntletMode();
       this.playButtonSound();
       return;
     }
@@ -3691,6 +4209,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       y <= this.OPTIONS_BACK_BUTTON.y + 5 + 30
     ) {
       this.playButtonSound();
+      this.isGauntletMode = false; // Reset gauntlet mode when returning to menu
       this.currentState = GameState.MENU;
     }
   }
@@ -3722,6 +4241,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       )
     ) {
       this.playButtonSound();
+      this.isGauntletMode = false; // Reset gauntlet mode when returning to menu
       this.currentState = GameState.MENU;
     }
   }
@@ -4240,27 +4760,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Deal damage to enemy proportional to score earned (rounded to nearest whole number)
-    const damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
+    let damageDealt = Math.round(tilesWithValues * (this.damageBase + this.damageBonus));
 
     // Record the damage action immediately (when player input occurs)
     this.recordAction('damage', damageDealt);
 
     // Delay the actual damage application and visual effects by 300ms
     setTimeout(() => {
-      this.enemyHealth = Math.max(0, this.enemyHealth - damageDealt);
-
-      // Create damage text above and to the right of enemy (for regular damage)
-      const enemyX = this.ENEMY_X;
-      const enemyY = this.ENEMY_Y;
-      this.damageTexts.push({
-        x: enemyX + 20, // Position to the right of enemy
-        y: enemyY - 30, // Position above enemy
-        value: Math.round(damageDealt),
-        lifetime: 0,
-        maxLifetime: 500, // 1 second (faster fade)
-        type: 'enemy',
-        isHealing: false,
-      });
+      this.applyPlayerDamageToEnemy(damageDealt);
     }, 300);
 
     // Apply assist tile effects
@@ -4337,30 +4844,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         }, 500); // Delay by 500ms after archer animation starts (after fade in)
 
         setTimeout(() => {
-          this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
+          this.applyPlayerDamageToEnemy(totalAssistDamage);
           // Trigger arrow animation when damage is applied
           this.startArrowAnimation();
         }, 1300); // Delay by 1.3 seconds to match animation timing
-
-        // Delay the actual damage and arrow animation to match timing
-        setTimeout(() => {
-          this.enemyHealth = Math.max(0, this.enemyHealth - totalAssistDamage);
-        }, 1500); // Delay by 1.5 seconds to match animation timing
-
-        // Create additional damage text for assist tiles (also delayed)
-        setTimeout(() => {
-          const enemyX = this.ENEMY_X;
-          const enemyY = this.ENEMY_Y;
-          this.damageTexts.push({
-            x: enemyX + 20,
-            y: enemyY - 50, // Position higher to avoid overlap
-            value: totalAssistDamage,
-            lifetime: 0,
-            maxLifetime: 500,
-            type: 'enemy',
-            isHealing: false,
-          });
-        }, 1500);
       }
     }
 
@@ -4441,9 +4928,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
     this.nextAttackSprite = 1; // Reset attack alternation for new level
     this.enemyAttackTimer = 0; // Reset enemy attack timer for new level
+    this.isReplayComplete = false; // Reset replay completion flag for new level
+    this.currentReplayAttackSprite = 1; // Reset replay sound alternation for new level
 
     // Reset player health and enemy health to maximum for new level
-    this.applyDifficultySettings();
+    if (this.isGauntletMode && this.replayToPlay) {
+      // In gauntlet mode, preserve the replay-based enemy health
+      this.enemyMaxHealth = this.replayToPlay.playerHealthAtStart;
+      this.enemyHealth = this.enemyMaxHealth;
+      this.playerHealth = 120; // Gauntlet player health is always 120
+    } else {
+      // Normal mode - apply difficulty settings
+      this.applyDifficultySettings();
+    }
 
     this.createGrid();
 
@@ -4454,6 +4951,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   restartGame() {
+    this.isGauntletMode = false; // Reset gauntlet mode when restarting
     this.gameOver();
     this.currentState = GameState.MENU;
   }
