@@ -23,6 +23,7 @@ interface GameCell {
   x: number;
   y: number;
   type: 'normal' | 'assist';
+  assistEffect?: 'heal' | 'damage';
 }
 
 enum GameState {
@@ -179,6 +180,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Game state
   grid: GameCell[][] = [];
+  currentGridSeed = 0; // Seed used to generate the current grid
   targetNumber = 10;
   score = 0;
   lastHealthBonus = 0; // Track the last health bonus awarded
@@ -1088,7 +1090,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.previousState = this.currentState;
 
       // Determine target volume
-      const shouldBeMuted = this.currentState === GameState.MENU || this.settings.muted || !this.windowHasFocus;
+      const shouldBeMuted =
+        this.currentState === GameState.MENU || this.settings.muted || !this.windowHasFocus;
       const targetVolume = shouldBeMuted ? 0 : this.settings.bgmVolume;
 
       // Set muted property for iOS compatibility
@@ -1522,6 +1525,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.isReplayComplete = false;
         this.nextEnemyAttackTime = 3000 + Math.random() * 2000; // 3-5 seconds
 
+        // Load the grid layout from the replay
+        this.loadGridFromReplaySeed(this.replayToPlay);
+
         // Calculate average DPS from replay
         if (this.replayToPlay && this.replayToPlay.actions.length > 0) {
           let totalDamage = 0;
@@ -1550,7 +1556,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Start the game
       this.currentState = GameState.PLAYING;
-      this.initializeGame();
+      // Don't call initializeGame() or createGrid() - grid is already loaded from replay
       this.startGameLoop();
     } catch (error) {
       console.error('Error starting gauntlet mode:', error);
@@ -1563,14 +1569,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
-  private createGrid() {
+  private createGrid(seed?: number) {
+    // If no seed provided, generate a random one
+    if (seed === undefined) {
+      this.currentGridSeed = Math.floor(Math.random() * 1000000);
+    } else {
+      this.currentGridSeed = seed;
+    }
+
     this.grid = [];
     for (let y = 0; y < this.GRID_SIZE; y++) {
       this.grid[y] = [];
       for (let x = 0; x < this.GRID_SIZE; x++) {
+        // Use seeded random for deterministic generation
+        const seededValue = this.seededRandom(this.currentGridSeed + y * this.GRID_SIZE + x);
         this.grid[y][x] = {
           value:
-            Math.floor(Math.random() * (this.CELL_VALUE_MAX - this.CELL_VALUE_MIN + 1)) +
+            Math.floor(seededValue * (this.CELL_VALUE_MAX - this.CELL_VALUE_MIN + 1)) +
             this.CELL_VALUE_MIN,
           selected: false,
           x,
@@ -1581,11 +1596,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     // Add assist tiles based on level and upgrades
-    const assistTileCount = 30 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades //30 for testing
-    this.placeAssistTiles(assistTileCount);
+    const assistTileCount = 2 + this.assistUpgradeCount; // 2 at level 1, increases with upgrades
+    this.placeAssistTiles(assistTileCount, this.currentGridSeed);
   }
 
-  private placeAssistTiles(count: number) {
+  private createGridFromSeed(seed: number) {
+    this.createGrid(seed);
+  }
+
+  private placeAssistTiles(count: number, seed: number) {
     const totalCells = this.GRID_SIZE * this.GRID_SIZE;
     const availablePositions: { x: number; y: number }[] = [];
 
@@ -1596,19 +1615,25 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
-    // Shuffle positions
+    // Seeded shuffle positions
+    let shuffleSeed = seed + 1000; // Use different seed portion for shuffling
     for (let i = availablePositions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      shuffleSeed = (shuffleSeed * 9301 + 49297) % 233280;
+      const j = Math.floor((shuffleSeed / 233280) * (i + 1));
       [availablePositions[i], availablePositions[j]] = [
         availablePositions[j],
         availablePositions[i],
       ];
     }
 
-    // Place assist tiles in the first 'count' positions
+    // Place assist tiles in the first 'count' positions and determine effects
     for (let i = 0; i < Math.min(count, availablePositions.length); i++) {
       const pos = availablePositions[i];
       this.grid[pos.y][pos.x].type = 'assist';
+      // Determine effect at spawn using seeded random (50/50 chance)
+      const effectSeed = seed + 2000 + i; // Different seed for each tile's effect
+      this.grid[pos.y][pos.x].assistEffect =
+        this.seededRandom(effectSeed) < 0.5 ? 'heal' : 'damage';
     }
   }
 
@@ -2164,8 +2189,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
 
       case 'scramble':
-        // Execute scramble
-        this.scrambleBoard();
+        // Use the stored seed from replay for deterministic scrambling
+        if (action.amount && this.replayToPlay) {
+          this.seededScrambleBoard(action.amount);
+        }
         break;
 
       case 'healing':
@@ -2359,7 +2386,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         '#45a049'
       );
     }
-    // Draw Gauntlet ribbon banner (clickable)
+    // Draw Gauntlet ribbon banner (disabled - coming soon)
     if (this.loadedAssets['ribbonSprites'] && this.ribbonBlue.complete) {
       this.drawRibbon(
         this.ribbonBlue,
@@ -2368,6 +2395,40 @@ export class NumberCrunch implements OnInit, OnDestroy {
         300,
         70,
         'Gauntlet'
+      );
+      // Draw "Coming Soon" overlay
+      this.ctx.fillStyle = 'rgba(81, 81, 81, 0.7)';
+      this.ctx.fillRect(
+        this.MENU_GAUNTLET_BUTTON.x - 80,
+        this.MENU_GAUNTLET_BUTTON.y + 5 - 25,
+        170,
+        40
+      );
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(
+        'Coming Soon',
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y + 10
+      );
+    } else {
+      this.drawButton(
+        'Gauntlet',
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y,
+        this.MENU_GAUNTLET_BUTTON.width,
+        this.MENU_GAUNTLET_BUTTON.height,
+        '#666666',
+        '#555555'
+      );
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = `bold 12px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(
+        'Coming Soon',
+        this.MENU_GAUNTLET_BUTTON.x,
+        this.MENU_GAUNTLET_BUTTON.y + 5
       );
     }
     // Draw Options ribbon banner (clickable)
@@ -4027,22 +4088,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return;
     }
 
-    // Check Gauntlet ribbon
-    const gauntletRibbonLeft = this.MENU_GAUNTLET_BUTTON.x - 150; // 300 / 2
-    const gauntletRibbonRight = this.MENU_GAUNTLET_BUTTON.x + 150;
-    const gauntletRibbonTop = this.MENU_GAUNTLET_BUTTON.y + 5 - 35; // 70 / 2
-    const gauntletRibbonBottom = this.MENU_GAUNTLET_BUTTON.y + 5 + 35;
-    if (
-      x >= gauntletRibbonLeft &&
-      x <= gauntletRibbonRight &&
-      y >= gauntletRibbonTop &&
-      y <= gauntletRibbonBottom
-    ) {
-      // Start Gauntlet mode - retrieve a random replay for the current target
-      this.startGauntletMode();
-      this.playButtonSound();
-      return;
-    }
+    // Check Gauntlet ribbon (disabled - coming soon)
+    // const gauntletRibbonLeft = this.MENU_GAUNTLET_BUTTON.x - 150; // 300 / 2
+    // const gauntletRibbonRight = this.MENU_GAUNTLET_BUTTON.x + 150;
+    // const gauntletRibbonTop = this.MENU_GAUNTLET_BUTTON.y + 5 - 35; // 70 / 2
+    // const gauntletRibbonBottom = this.MENU_GAUNTLET_BUTTON.y + 5 + 35;
+    // if (
+    //   x >= gauntletRibbonLeft &&
+    //   x <= gauntletRibbonRight &&
+    //   y >= gauntletRibbonTop &&
+    //   y <= gauntletRibbonBottom
+    // ) {
+    //   // Start Gauntlet mode - retrieve a random replay for the current target
+    //   this.startGauntletMode();
+    //   this.playButtonSound();
+    //   return;
+    // }
 
     // Check Options ribbon
     const optionsRibbonLeft = this.MENU_OPTIONS_BUTTON.x - 150; // 300 / 2
@@ -4642,80 +4703,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   scrambleBoard() {
-    if (
-      this.currentState !== GameState.PLAYING ||
-      this.isScrambling ||
-      this.scramblesRemaining <= 0
-    ) {
-      return;
+    // Generate a random seed for this scramble
+    const seed = Math.floor(Math.random() * 1000000);
+
+    // Store seed in recording if recording
+    if (this.isRecording && this.currentRecording) {
+      this.currentRecording.scrambleSeeds.push(seed);
     }
 
-    // Record the scramble action
-    this.recordAction('scramble');
-
-    // Play scramble sound effect
-    if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
-      this.scrambleSound.currentTime = 0; // Reset to beginning
-      this.scrambleSound.play().catch(() => {}); // Ignore play errors
-    }
-
-    this.isScrambling = true;
-    this.scrambleTimer = 0;
-    this.scramblesRemaining--;
-
-    // Collect all non-zero cells with their positions
-    const originalCells: { x: number; y: number; value: number; type: string }[] = [];
-    for (let y = 0; y < this.GRID_SIZE; y++) {
-      for (let x = 0; x < this.GRID_SIZE; x++) {
-        if (this.grid[y][x].value !== 0) {
-          originalCells.push({
-            x,
-            y,
-            value: this.grid[y][x].value,
-            type: this.grid[y][x].type || 'normal',
-          });
-        }
-      }
-    }
-
-    // Create shuffled assignment: each position gets a value from originalCells
-    const shuffledIndices: number[] = [];
-    for (let i = 0; i < originalCells.length; i++) {
-      shuffledIndices.push(i);
-    }
-    for (let i = shuffledIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
-    }
-
-    // Create animation data
-    this.scrambleAnimation = [];
-    let cellIndex = 0;
-    for (let y = 0; y < this.GRID_SIZE; y++) {
-      for (let x = 0; x < this.GRID_SIZE; x++) {
-        if (this.grid[y][x].value !== 0) {
-          // This grid position gets the value from originalCells[shuffledIndices[cellIndex]]
-          const sourceCell = originalCells[shuffledIndices[cellIndex]];
-
-          this.scrambleAnimation.push({
-            oldPos: {
-              x: sourceCell.x * this.CELL_SIZE + this.CELL_SIZE / 2,
-              y: sourceCell.y * this.CELL_SIZE + this.CELL_SIZE / 2,
-            },
-            newPos: {
-              x: x * this.CELL_SIZE + this.CELL_SIZE / 2,
-              y: y * this.CELL_SIZE + this.CELL_SIZE / 2,
-            },
-            value: sourceCell.value,
-            type: sourceCell.type || 'normal',
-          });
-
-          this.grid[y][x].value = sourceCell.value;
-          this.grid[y][x].type = (sourceCell.type as 'normal' | 'assist') || 'normal';
-          cellIndex++;
-        }
-      }
-    }
+    this.seededScrambleBoard(seed);
   }
 
   private finishScrambling() {
@@ -4767,23 +4763,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.applyPlayerDamageToEnemy(damageDealt);
     }, 300);
 
-    // Apply assist tile effects
+    // Apply assist tile effects - use predetermined effects from spawn
     let totalHealAmount = 0;
     let totalAssistDamage = 0;
     let healingTiles = 0;
 
     if (assistTiles > 0) {
-      // Each assist tile is individually rolled for heal or damage
-
-      // Roll each assist tile individually
-      for (let i = 0; i < assistTiles; i++) {
-        const effectType = Math.random() < 0.5 ? 'heal' : 'damage';
-
-        if (effectType === 'heal') {
-          totalHealAmount += 8; // 8 HP per healing tile
-          healingTiles++;
-        } else {
-          totalAssistDamage += Math.round(2 * (this.damageBase + this.damageBonus)); // 2x damage per damage tile
+      // Use the predetermined effects from when tiles were spawned
+      for (let y = startY; y <= endY; y++) {
+        for (let x = startX; x <= endX; x++) {
+          if (this.grid[y][x].type === 'assist' && this.grid[y][x].assistEffect) {
+            if (this.grid[y][x].assistEffect === 'heal') {
+              totalHealAmount += 8; // 8 HP per healing tile
+              healingTiles++;
+            } else if (this.grid[y][x].assistEffect === 'damage') {
+              totalAssistDamage += Math.round(2 * (this.damageBase + this.damageBonus)); // 2x damage per damage tile
+            }
+          }
         }
       }
 
@@ -5089,6 +5085,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
       totalDamageDealt: 0,
       enemyHealthAtStart: this.enemyHealth,
       playerHealthAtStart: this.playerHealth,
+      gridSeed: this.currentGridSeed, // Store the seed used to generate this grid
+      scrambleSeeds: [], // Will be populated during recording
     };
     console.log('Started recording for level', this.level, 'target:', this.targetNumber);
   }
@@ -5110,6 +5108,107 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
 
     this.currentRecording = null;
+  }
+
+  // Seeded random function for deterministic scrambling
+  private seededRandom(seed: number): number {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  // Deterministic scramble using seed
+  private seededScrambleBoard(seed: number) {
+    if (
+      this.currentState !== GameState.PLAYING ||
+      this.isScrambling ||
+      this.scramblesRemaining <= 0
+    ) {
+      return;
+    }
+
+    // Record the scramble action with seed
+    this.recordAction('scramble', seed);
+
+    // Play scramble sound effect
+    if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
+      this.scrambleSound.currentTime = 0;
+      this.scrambleSound.play().catch(() => {});
+    }
+
+    this.isScrambling = true;
+    this.scrambleTimer = 0;
+    this.scramblesRemaining--;
+
+    // Collect all non-zero cells with their positions
+    const originalCells: {
+      x: number;
+      y: number;
+      value: number;
+      type: string;
+      assistEffect?: string;
+    }[] = [];
+    for (let y = 0; y < this.GRID_SIZE; y++) {
+      for (let x = 0; x < this.GRID_SIZE; x++) {
+        if (this.grid[y][x].value !== 0) {
+          originalCells.push({
+            x,
+            y,
+            value: this.grid[y][x].value,
+            type: this.grid[y][x].type || 'normal',
+            assistEffect: this.grid[y][x].assistEffect,
+          });
+        }
+      }
+    }
+
+    // Create deterministic shuffled assignment using seed
+    const shuffledIndices: number[] = [];
+    for (let i = 0; i < originalCells.length; i++) {
+      shuffledIndices.push(i);
+    }
+
+    // Seeded shuffle
+    let rngSeed = seed;
+    for (let i = shuffledIndices.length - 1; i > 0; i--) {
+      rngSeed = (rngSeed * 9301 + 49297) % 233280; // Simple LCG
+      const j = Math.floor((rngSeed / 233280) * (i + 1));
+      [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+    }
+
+    // Create animation data
+    this.scrambleAnimation = [];
+    let cellIndex = 0;
+    for (let y = 0; y < this.GRID_SIZE; y++) {
+      for (let x = 0; x < this.GRID_SIZE; x++) {
+        if (this.grid[y][x].value !== 0) {
+          const sourceCell = originalCells[shuffledIndices[cellIndex]];
+
+          this.scrambleAnimation.push({
+            oldPos: {
+              x: sourceCell.x * this.CELL_SIZE + this.CELL_SIZE / 2,
+              y: sourceCell.y * this.CELL_SIZE + this.CELL_SIZE / 2,
+            },
+            newPos: {
+              x: x * this.CELL_SIZE + this.CELL_SIZE / 2,
+              y: y * this.CELL_SIZE + this.CELL_SIZE / 2,
+            },
+            value: sourceCell.value,
+            type: sourceCell.type || 'normal',
+          });
+
+          this.grid[y][x].value = sourceCell.value;
+          this.grid[y][x].type = (sourceCell.type as 'normal' | 'assist') || 'normal';
+          this.grid[y][x].assistEffect = sourceCell.assistEffect as 'heal' | 'damage' | undefined;
+          cellIndex++;
+        }
+      }
+    }
+  }
+
+  // Load grid from replay seed
+  private loadGridFromReplaySeed(replay: LevelRecording) {
+    this.currentGridSeed = replay.gridSeed;
+    this.createGridFromSeed(replay.gridSeed);
   }
 
   private recordAction(

@@ -23,6 +23,8 @@ export interface LevelRecording {
   totalDamageDealt: number;
   enemyHealthAtStart: number;
   playerHealthAtStart: number;
+  gridSeed: number; // Seed for deterministic grid generation
+  scrambleSeeds: number[]; // Seeds for deterministic scrambling
 }
 
 @Injectable({ providedIn: 'root' })
