@@ -181,6 +181,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game state
   grid: GameCell[][] = [];
   currentGridSeed = 0; // Seed used to generate the current grid
+  currentScrambleSeedIndex = 0; // Index for the next scramble seed to use
   targetNumber = 10;
   score = 0;
   lastHealthBonus = 0; // Track the last health bonus awarded
@@ -229,6 +230,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private isRecording = false;
   private currentRecording: LevelRecording | null = null;
   private sessionId = '';
+  private leaderboardSessionId = ''; // Session ID for leaderboard replay updates
+  private sessionPlayerName = ''; // Player name for the current game session
 
   // Replay playback state
   private replayToPlay: LevelRecording | null = null;
@@ -375,6 +378,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     newPos: { x: number; y: number };
     value: number;
     type: string;
+    assistEffect?: 'heal' | 'damage';
   }[] = [];
 
   // Slider dragging state
@@ -1505,6 +1509,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private initializeGame() {
+    // Generate session ID and player name once per game session
+    this.sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.sessionPlayerName = this.numberCrunchService.generateRandomPlayerName();
+
     this.createGrid();
     this.setupCanvas();
   }
@@ -1565,6 +1573,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.isGauntletMode = false;
       this.currentState = GameState.PLAYING;
       this.initializeGame();
+      this.startRecording();
       this.startGameLoop();
     }
   }
@@ -2189,9 +2198,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
 
       case 'scramble':
-        // Use the stored seed from replay for deterministic scrambling
-        if (action.amount && this.replayToPlay) {
-          this.seededScrambleBoard(action.amount);
+        // Use the next pre-generated seed from replay for deterministic scrambling
+        if (
+          this.replayToPlay &&
+          this.currentScrambleSeedIndex < this.replayToPlay.scrambleSeeds.length
+        ) {
+          const seed = this.replayToPlay.scrambleSeeds[this.currentScrambleSeedIndex];
+          this.currentScrambleSeedIndex++;
+          this.seededScrambleBoard(seed);
         }
         break;
 
@@ -2948,6 +2962,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Store the score and show name input popup
         this.pendingLeaderboardScore = finalScore;
         this.leaderboardNameInput = '';
+        this.leaderboardSessionId = this.sessionId; // Store session ID for replay updates
         this.isLeaderboardInputFocused = true; // Auto-focus the input
         this.currentState = GameState.LEADERBOARD_NAME_INPUT;
       }
@@ -3388,6 +3403,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
           level: this.level,
           date: new Date(),
         });
+
+        // Update any replays from this session with the player name
+        if (this.leaderboardSessionId) {
+          await this.numberCrunchService.updateReplaysWithPlayerName(this.leaderboardSessionId, name);
+        }
       } catch (error) {
         console.error('Error submitting leaderboard entry:', error);
       }
@@ -3399,6 +3419,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.currentState = GameState.GAME_OVER;
   }
 
+  private getAssistGlowColor(assistEffect?: 'heal' | 'damage'): {
+    edgeColor: string;
+    centerColor: string;
+  } {
+    if (assistEffect === 'heal') {
+      return { edgeColor: '144, 238, 144', centerColor: '255, 255, 255' }; // Light green edges
+    } else if (assistEffect === 'damage') {
+      return { edgeColor: '255, 182, 193', centerColor: '255, 255, 255' }; // Light red edges
+    } else {
+      return { edgeColor: '255, 215, 0', centerColor: '255, 255, 255' }; // Gold edges (fallback)
+    }
+  }
+
   private drawGrid() {
     for (let y = 0; y < this.GRID_SIZE; y++) {
       for (let x = 0; x < this.GRID_SIZE; x++) {
@@ -3408,18 +3441,19 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.ctx.fillStyle = color;
         this.ctx.fillRect(x * this.CELL_SIZE, y * this.CELL_SIZE, this.CELL_SIZE, this.CELL_SIZE);
 
-        // Draw gold glow for assist tiles (after background so it's visible)
+        // Draw glow for assist tiles (after background so it's visible)
         if (cell.type === 'assist' && cell.value !== 0 && !this.isScrambling) {
-          // Create edge-to-center glow effect with gold edges fading to white center
+          // Create edge-to-center glow effect with color based on assist effect
           const tileX = x * this.CELL_SIZE;
           const tileY = y * this.CELL_SIZE;
+          const glowColors = this.getAssistGlowColor(cell.assistEffect);
 
-          // Draw multiple inset rectangles with gold edges fading to white center
+          // Draw multiple inset rectangles with colored edges fading to white center
           for (let i = 0; i < 4; i++) {
             const inset = i * 2;
             // High opacity at edges, low opacity in center
             const isEdge = i < 2; // First two layers are at the edges
-            const color = isEdge ? '255, 215, 0' : '255, 255, 255'; // Gold at edges, white in center
+            const color = isEdge ? glowColors.edgeColor : glowColors.centerColor;
             const alpha = isEdge ? 0.3 + (i - 0) * 0.1 : 0.1 + (i - 2) * 0.2; // Higher opacity at edges
             this.ctx.fillStyle = `rgba(${color}, ${alpha})`;
             this.ctx.fillRect(
@@ -3464,13 +3498,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Calculate tile position (center of the cell)
         const tileCenterX = currentX;
         const tileCenterY = currentY - 7; // Offset to align with number position
+        const glowColors = this.getAssistGlowColor(anim.assistEffect);
 
-        // Draw multiple inset rectangles with gold edges fading to white center
+        // Draw multiple inset rectangles with colored edges fading to white center
         for (let i = 0; i < 4; i++) {
           const inset = i * 2;
           // High opacity at edges, low opacity in center
           const isEdge = i < 2; // First two layers are at the edges
-          const color = isEdge ? '255, 215, 0' : '255, 255, 255'; // Gold at edges, white in center
+          const color = isEdge ? glowColors.edgeColor : glowColors.centerColor;
           const alpha = isEdge ? 0.3 + (i - 0) * 0.1 : 0.1 + (i - 2) * 0.2; // Higher opacity at edges
           this.ctx.fillStyle = `rgba(${color}, ${alpha})`;
           this.ctx.fillRect(
@@ -4083,6 +4118,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.resetGameState();
       this.currentState = GameState.PLAYING;
       this.initializeGame();
+      this.startRecording();
       this.startGameLoop();
       this.playButtonSound();
       return;
@@ -4597,6 +4633,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.targetNumber = 10; // Reset target to initial value
     this.enemyAttackTimer = 0;
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
+    this.currentScrambleSeedIndex = 0; // Reset scramble seed index
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.damageMultiplier = 1.0; // Reset damage multiplier
@@ -4612,6 +4649,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.clearSelection();
     this.createGrid();
 
+    // Log the grid seed for debugging
+    console.log('Grid seed for level', this.level, ':', this.currentGridSeed);
+
     // Apply difficulty settings (now handles both player and enemy health)
     this.applyDifficultySettings();
 
@@ -4624,8 +4664,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.startBGM();
     }
 
-    // Start recording for the first level
-    this.startRecording();
+    // Start recording for the first level (only in normal mode)
+    if (!this.isGauntletMode) {
+      this.startRecording();
+    }
 
     // Start playing
     this.currentState = GameState.PLAYING;
@@ -4703,13 +4745,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   scrambleBoard() {
-    // Generate a random seed for this scramble
-    const seed = Math.floor(Math.random() * 1000000);
-
-    // Store seed in recording if recording
-    if (this.isRecording && this.currentRecording) {
-      this.currentRecording.scrambleSeeds.push(seed);
+    // Use the next pre-generated seed for this scramble
+    if (
+      !this.isRecording ||
+      !this.currentRecording ||
+      this.currentScrambleSeedIndex >= this.currentRecording.scrambleSeeds.length
+    ) {
+      console.log('No more scramble seeds available or not recording');
+      return;
     }
+
+    const seed = this.currentRecording.scrambleSeeds[this.currentScrambleSeedIndex];
+    this.currentScrambleSeedIndex++;
 
     this.seededScrambleBoard(seed);
   }
@@ -4897,6 +4944,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.playerHealth = this.MAX_HEALTH;
     this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
+    this.currentScrambleSeedIndex = 0; // Reset scramble seed index
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.scrambleAnimation = [];
@@ -4962,6 +5010,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.playerHealth = this.MAX_HEALTH;
     this.enemyHealth = this.ENEMY_MAX_HEALTH; // Set to enemy max health
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles
+    this.currentScrambleSeedIndex = 0; // Reset scramble seed index
     this.isScrambling = false;
     this.scrambleTimer = 0;
     this.scrambleAnimation = [];
@@ -4981,6 +5030,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.level++;
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
+    this.currentScrambleSeedIndex = 0; // Reset scramble seed index for new level
     this.nextAttackSprite = 1; // Reset attack alternation for new level
     this.enemyAttackTimer = 0; // Reset enemy attack timer for new level
     this.isReplayComplete = false; // Reset replay completion flag for new level
@@ -4999,8 +5049,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     this.createGrid();
 
-    // Start recording for the new level
-    this.startRecording();
+    // Log the grid seed for debugging
+    console.log('Grid seed for level', this.level, ':', this.currentGridSeed);
+
+    // Start recording for the new level (only in normal mode)
+    if (!this.isGauntletMode) {
+      this.startRecording();
+    }
 
     this.currentState = GameState.PLAYING; // Return to playing after upgrade choice
   }
@@ -5074,7 +5129,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Replay recording methods
   private startRecording() {
     this.isRecording = true;
-    this.sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Pre-generate all scramble seeds for this level
+    const scrambleSeeds: number[] = [];
+    for (let i = 0; i < this.SCRAMBLES_PER_LEVEL; i++) {
+      scrambleSeeds.push(Math.floor(Math.random() * 1000000));
+    }
+
     this.currentRecording = {
       sessionId: this.sessionId,
       target: this.targetNumber,
@@ -5086,9 +5147,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
       enemyHealthAtStart: this.enemyHealth,
       playerHealthAtStart: this.playerHealth,
       gridSeed: this.currentGridSeed, // Store the seed used to generate this grid
-      scrambleSeeds: [], // Will be populated during recording
+      scrambleSeeds: scrambleSeeds, // Pre-generated scramble seeds for the level
+      playerName: this.sessionPlayerName, // Use the session player name
     };
-    console.log('Started recording for level', this.level, 'target:', this.targetNumber);
+    console.log(
+      'Started recording for level',
+      this.level,
+      'target:',
+      this.targetNumber,
+      'grid seed:',
+      this.currentGridSeed,
+      'with',
+      scrambleSeeds.length,
+      'scramble seeds',
+      'player:',
+      this.sessionPlayerName
+    );
   }
 
   private stopRecording(save: boolean = false) {
@@ -5126,8 +5200,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return;
     }
 
-    // Record the scramble action with seed
-    this.recordAction('scramble', seed);
+    // Record the scramble action with seed (only during live gameplay, not replay)
+    if (!this.replayToPlay) {
+      this.recordAction('scramble', seed);
+    }
 
     // Play scramble sound effect
     if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
@@ -5145,7 +5221,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       y: number;
       value: number;
       type: string;
-      assistEffect?: string;
+      assistEffect?: 'heal' | 'damage';
     }[] = [];
     for (let y = 0; y < this.GRID_SIZE; y++) {
       for (let x = 0; x < this.GRID_SIZE; x++) {
@@ -5155,7 +5231,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             y,
             value: this.grid[y][x].value,
             type: this.grid[y][x].type || 'normal',
-            assistEffect: this.grid[y][x].assistEffect,
+            assistEffect: this.grid[y][x].assistEffect as 'heal' | 'damage',
           });
         }
       }
@@ -5194,6 +5270,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             },
             value: sourceCell.value,
             type: sourceCell.type || 'normal',
+            assistEffect: sourceCell.assistEffect as 'heal' | 'damage',
           });
 
           this.grid[y][x].value = sourceCell.value;
@@ -5208,6 +5285,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Load grid from replay seed
   private loadGridFromReplaySeed(replay: LevelRecording) {
     this.currentGridSeed = replay.gridSeed;
+    this.currentScrambleSeedIndex = 0; // Reset scramble seed index for replay
     this.createGridFromSeed(replay.gridSeed);
   }
 

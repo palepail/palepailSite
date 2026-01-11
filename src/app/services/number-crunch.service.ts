@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { collection, addDoc, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, limit, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase.config';
 import { LeaderboardService, LeaderboardEntry } from './leaderboard.service';
+import { faker } from '@faker-js/faker';
 
 export type { LeaderboardEntry };
 
@@ -94,6 +95,8 @@ export class NumberCrunchService {
         totalDamageDealt: recording.totalDamageDealt,
         enemyHealthAtStart: recording.enemyHealthAtStart,
         playerHealthAtStart: recording.playerHealthAtStart,
+        gridSeed: recording.gridSeed,
+        scrambleSeeds: recording.scrambleSeeds,
         ...(recording.playerName && { playerName: recording.playerName })
       };
 
@@ -103,6 +106,47 @@ export class NumberCrunchService {
     } catch (error) {
       console.error('Error saving replay:', error);
       // Don't throw - let the game continue even if replay save fails
+    }
+  }
+
+  async updateReplaysWithPlayerName(sessionId: string, playerName: string): Promise<void> {
+    try {
+      // Query for all replays with the matching sessionId
+      const q = query(
+        collection(db, 'NumberCrunchReplays'),
+        where('sessionId', '==', sessionId)
+      );
+      const querySnapshot = await getDocs(q);
+
+      // Update each replay with the player name
+      const updatePromises = querySnapshot.docs.map(doc => 
+        updateDoc(doc.ref, { playerName })
+      );
+
+      await Promise.all(updatePromises);
+      console.log(`Updated ${updatePromises.length} replays with player name: ${playerName}`);
+    } catch (error) {
+      console.error('Error updating replays with player name:', error);
+      // Don't throw - let the game continue even if replay update fails
+    }
+  }
+
+  generateRandomPlayerName(): string {
+    // Create fantasy-like names by combining faker methods
+    const firstName = faker.person.firstName();
+    const adjective = faker.word.adjective();
+    const noun = faker.word.noun();
+
+    // Capitalize first letters
+    const capitalizedAdjective = adjective.charAt(0).toUpperCase() + adjective.slice(1);
+    const capitalizedNoun = noun.charAt(0).toUpperCase() + noun.slice(1);
+
+    // 50% chance for "FirstName AdjectiveNoun" format (e.g., "John Darkblade")
+    // 50% chance for "Adjective Noun" format (e.g., "Brave Warrior")
+    if (Math.random() < 0.5) {
+      return `${firstName} ${capitalizedAdjective}${noun}`;
+    } else {
+      return `${capitalizedAdjective} ${capitalizedNoun}`;
     }
   }
 

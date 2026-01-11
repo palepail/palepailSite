@@ -33,7 +33,14 @@ service cloud.firestore {
                     request.resource.data.actions.size() <= 40 &&
                     request.resource.data.totalDamageDealt >= 0 &&
                     request.resource.data.enemyHealthAtStart > 0 &&
-                    request.resource.data.playerHealthAtStart >= 0);
+                    request.resource.data.playerHealthAtStart >= 0 &&
+                    request.resource.data.gridSeed >= 0 &&
+                    request.resource.data.scrambleSeeds is list);
+      allow update: if request.auth != null ||
+                    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playerName']) &&
+                     request.resource.data.playerName is string &&
+                     request.resource.data.playerName.size() > 0 &&
+                     request.resource.data.playerName.size() <= 20);
     }
   }
 }
