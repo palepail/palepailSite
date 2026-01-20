@@ -112,7 +112,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Damage constants - base damage per tile by difficulty
   private readonly EASY_DAMAGE_BASE = 8;
-  private readonly NORMAL_DAMAGE_BASE = 1000;
+  private readonly NORMAL_DAMAGE_BASE = 10;
   private readonly HARD_DAMAGE_BASE = 12;
 
   // Combat constants
@@ -976,7 +976,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Fanfare sound effect - load MP3 directly
       this.loadAudio(this.fanfareSound, 'resources/audio/projects/numberCrunch/FANFARE 8')
         .then(() => {
-          console.log('Fanfare sound loaded successfully, duration:', this.fanfareSound.duration, 'seconds');
+          console.log(
+            'Fanfare sound loaded successfully, duration:',
+            this.fanfareSound.duration,
+            'seconds'
+          );
         })
         .catch((error) => {
           console.error('Failed to load fanfare sound:', error);
@@ -1569,13 +1573,13 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.replayToPlay = replays[randomIndex];
         this.isGauntletMode = true;
         this.gauntletWins = 0; // Reset wins counter for new Gauntlet session
-        
+
         // Reset all upgrades for fair Gauntlet gameplay
         this.assistUpgradeCount = 0;
         this.assistBonus = 0;
         this.healthMultiplier = 1.0;
         this.damageMultiplier = 1.0;
-        
+
         this.replayPlaybackStartTime = 0; // Will be set when game starts
         this.currentReplayActionIndex = 0;
         this.isReplayComplete = false;
@@ -1667,16 +1671,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
         do {
           randomIndex = Math.floor(Math.random() * replays.length);
           attempts++;
-        } while (attempts < maxAttempts && 
-                 this.replayToPlay && 
-                 replays[randomIndex].sessionId === this.replayToPlay.sessionId);
+        } while (
+          attempts < maxAttempts &&
+          this.replayToPlay &&
+          replays[randomIndex].sessionId === this.replayToPlay.sessionId
+        );
 
         this.replayToPlay = replays[randomIndex];
-        
+
         // Update enemy health and other replay-dependent properties
         this.enemyMaxHealth = this.replayToPlay.playerHealthAtStart;
         this.enemyHealth = this.enemyMaxHealth;
-        
+
         // Recalculate average DPS
         if (this.replayToPlay.actions.length > 0) {
           let totalDamage = 0;
@@ -2219,16 +2225,24 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.gauntletWins++;
         this.currentState = GameState.GAUNTLET_WIN;
         console.log('GAUNTLET WIN CONDITION MET!');
-        console.log('Playing fanfare sound, volume:', this.fanfareSound.volume, 'muted:', this.fanfareSound.muted);
-        
+        console.log(
+          'Playing fanfare sound, volume:',
+          this.fanfareSound.volume,
+          'muted:',
+          this.fanfareSound.muted
+        );
+
         // Reset sound to beginning in case it was played before
         this.fanfareSound.currentTime = 0;
-        
-        this.fanfareSound.play().then(() => {
-          console.log('Fanfare sound started playing');
-        }).catch((error) => {
-          console.error('Failed to play fanfare sound:', error);
-        });
+
+        this.fanfareSound
+          .play()
+          .then(() => {
+            console.log('Fanfare sound started playing');
+          })
+          .catch((error) => {
+            console.error('Failed to play fanfare sound:', error);
+          });
         this.initializeConfetti(); // Initialize confetti particles
         this.scrambleAnimation = []; // Clear any ongoing scramble animations
         this.isMonkAnimationActive = false;
@@ -2244,12 +2258,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.isHealEffectActive = false;
         this.isArcherShootActive = false;
         this.isArrowActive = false;
-        
+
         // For Gauntlet mode, prepare the next enemy and grid for the upgrade screen
         if (this.isGauntletMode) {
           this.pickNewGauntletReplay();
         }
-        
+
         this.cdr.detectChanges(); // Force UI update
       }
 
@@ -5253,7 +5267,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private nextLevel() {
-    console.log('nextLevel called, isGauntletMode:', this.isGauntletMode, 'gauntletWins:', this.gauntletWins);
+    console.log(
+      'nextLevel called, isGauntletMode:',
+      this.isGauntletMode,
+      'gauntletWins:',
+      this.gauntletWins
+    );
     this.score += 500 * this.level; // Add level completion bonus
     this.level++;
 
@@ -5268,7 +5287,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     if (this.isGauntletMode) {
       this.gauntletWins++;
       console.log('Gauntlet win check: gauntletWins now', this.gauntletWins);
-      
+
       // Victory is now handled in the enemy death check above
     }
 
