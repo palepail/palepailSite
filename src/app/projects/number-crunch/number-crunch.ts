@@ -866,6 +866,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private loadSoundEffects(): Promise<void> {
+    console.log('loadSoundEffects called');
     return new Promise((resolve) => {
       let loadedCount = 0;
       const totalSounds = 15; // Updated to match actual number of sounds
@@ -974,6 +975,12 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Fanfare sound effect - load MP3 directly
       this.loadAudio(this.fanfareSound, 'resources/audio/projects/numberCrunch/FANFARE 8')
+        .then(() => {
+          console.log('Fanfare sound loaded successfully, duration:', this.fanfareSound.duration, 'seconds');
+        })
+        .catch((error) => {
+          console.error('Failed to load fanfare sound:', error);
+        })
         .then(checkComplete)
         .catch(handleError);
     });
@@ -1272,6 +1279,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.buttonSound.muted = isMuted;
       this.buttonSound.volume = volume;
     }
+    if (this.fanfareSound) {
+      this.fanfareSound.muted = isMuted;
+      this.fanfareSound.volume = volume;
+    }
   }
 
   private async loadAllAssets(): Promise<void> {
@@ -1546,6 +1557,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private async startGauntletMode() {
+    console.log('startGauntletMode called');
     try {
       // Get replays for the current target (level 1 target is always 10)
       const target = 10;
@@ -1637,6 +1649,58 @@ export class NumberCrunch implements OnInit, OnDestroy {
         lastDirectionChange: 0,
         directionChangeTimer: Math.random() * 2000 + 1000, // 1-3 seconds between direction changes
       });
+    }
+  }
+
+  private async pickNewGauntletReplay() {
+    try {
+      // Get replays for the current target (level 1 target is always 10)
+      const target = 10;
+      const replays = await this.numberCrunchService.getReplaysByTarget(target, 200);
+
+      if (replays.length > 0) {
+        let randomIndex;
+        let attempts = 0;
+        const maxAttempts = 10; // Prevent infinite loop
+
+        // Try to pick a different replay than the current one
+        do {
+          randomIndex = Math.floor(Math.random() * replays.length);
+          attempts++;
+        } while (attempts < maxAttempts && 
+                 this.replayToPlay && 
+                 replays[randomIndex].sessionId === this.replayToPlay.sessionId);
+
+        this.replayToPlay = replays[randomIndex];
+        
+        // Update enemy health and other replay-dependent properties
+        this.enemyMaxHealth = this.replayToPlay.playerHealthAtStart;
+        this.enemyHealth = this.enemyMaxHealth;
+        
+        // Recalculate average DPS
+        if (this.replayToPlay.actions.length > 0) {
+          let totalDamage = 0;
+          for (const action of this.replayToPlay.actions) {
+            if (action.type === 'damage' && action.amount) {
+              totalDamage += action.amount;
+            }
+          }
+          const durationSeconds = (this.replayToPlay.endTime - this.replayToPlay.startTime) / 1000;
+          this.averageDPS = totalDamage / durationSeconds;
+        }
+
+        // Reset replay playback state for new enemy
+        this.replayPlaybackStartTime = 0;
+        this.currentReplayActionIndex = 0;
+        this.isReplayComplete = false;
+        this.currentReplayAttackSprite = 1;
+        this.nextEnemyAttackTime = 3000 + Math.random() * 2000;
+
+        // Load the grid layout from the new replay
+        this.loadGridFromReplaySeed(this.replayToPlay);
+      }
+    } catch (error) {
+      console.error('Error picking new Gauntlet replay:', error);
     }
   }
 
@@ -2154,10 +2218,38 @@ export class NumberCrunch implements OnInit, OnDestroy {
       if (this.isGauntletMode && this.gauntletWins + 1 >= 5) {
         this.gauntletWins++;
         this.currentState = GameState.GAUNTLET_WIN;
+        console.log('GAUNTLET WIN CONDITION MET!');
+        console.log('Playing fanfare sound, volume:', this.fanfareSound.volume, 'muted:', this.fanfareSound.muted);
+        
+        // Reset sound to beginning in case it was played before
+        this.fanfareSound.currentTime = 0;
+        
+        this.fanfareSound.play().then(() => {
+          console.log('Fanfare sound started playing');
+        }).catch((error) => {
+          console.error('Failed to play fanfare sound:', error);
+        });
+        this.initializeConfetti(); // Initialize confetti particles
+        this.scrambleAnimation = []; // Clear any ongoing scramble animations
+        this.isMonkAnimationActive = false;
+        this.isHealEffectActive = false;
+        this.isArcherShootActive = false;
+        this.isArrowActive = false;
         this.cdr.detectChanges(); // Force UI update
       } else {
         this.nextTarget = this.calculateNextTarget(); // Calculate next target once
         this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
+        this.scrambleAnimation = []; // Clear any ongoing scramble animations
+        this.isMonkAnimationActive = false;
+        this.isHealEffectActive = false;
+        this.isArcherShootActive = false;
+        this.isArrowActive = false;
+        
+        // For Gauntlet mode, prepare the next enemy and grid for the upgrade screen
+        if (this.isGauntletMode) {
+          this.pickNewGauntletReplay();
+        }
+        
         this.cdr.detectChanges(); // Force UI update
       }
 
@@ -5161,18 +5253,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private nextLevel() {
+    console.log('nextLevel called, isGauntletMode:', this.isGauntletMode, 'gauntletWins:', this.gauntletWins);
     this.score += 500 * this.level; // Add level completion bonus
     this.level++;
+
+    // Clear any ongoing animations from the previous level
+    this.scrambleAnimation = [];
+    this.isMonkAnimationActive = false;
+    this.isHealEffectActive = false;
+    this.isArcherShootActive = false;
+    this.isArrowActive = false;
 
     // Check for Gauntlet win condition
     if (this.isGauntletMode) {
       this.gauntletWins++;
-      if (this.gauntletWins >= 5) {
-        this.currentState = GameState.GAUNTLET_WIN;
-        this.fanfareSound.play().catch(() => {}); // Play victory fanfare
-        this.initializeConfetti(); // Initialize confetti particles
-        return; // Don't proceed to next level
-      }
+      console.log('Gauntlet win check: gauntletWins now', this.gauntletWins);
+      
+      // Victory is now handled in the enemy death check above
     }
 
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
@@ -5200,7 +5297,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.applyDifficultySettings();
     }
 
-    this.createGrid();
+    // Create new grid for normal mode, Gauntlet mode grid is loaded in pickNewGauntletReplay
+    if (!this.isGauntletMode) {
+      this.createGrid();
+    }
 
     // Log the grid seed for debugging
     console.log('Grid seed for level', this.level, ':', this.currentGridSeed);
