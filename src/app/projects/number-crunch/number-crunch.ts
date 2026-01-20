@@ -35,6 +35,7 @@ enum GameState {
   CHOOSE_UPGRADE = 'choose_upgrade',
   LEADERBOARD = 'leaderboard',
   LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
+  GAUNTLET_WIN = 'gauntlet_win',
 }
 
 interface GameSettings {
@@ -52,6 +53,23 @@ interface DamageText {
   maxLifetime: number;
   type: 'enemy' | 'player';
   isHealing: boolean;
+}
+
+interface ConfettiParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  opacity: number;
+  rotation: number;
+  rotationSpeed: number;
+  swayOffset: number;
+  swaySpeed: number;
+  windForce: number;
+  lastDirectionChange: number;
+  directionChangeTimer: number;
 }
 
 @Component({
@@ -94,7 +112,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   // Damage constants - base damage per tile by difficulty
   private readonly EASY_DAMAGE_BASE = 8;
-  private readonly NORMAL_DAMAGE_BASE = 10;
+  private readonly NORMAL_DAMAGE_BASE = 1000;
   private readonly HARD_DAMAGE_BASE = 12;
 
   // Combat constants
@@ -226,6 +244,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Damage text display
   damageTexts: DamageText[] = [];
 
+  // Confetti particles for Gauntlet win screen
+  confettiParticles: ConfettiParticle[] = [];
+
   // Replay recording state
   private isRecording = false;
   private currentRecording: LevelRecording | null = null;
@@ -236,6 +257,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Replay playback state
   private replayToPlay: LevelRecording | null = null;
   private isGauntletMode = false;
+  private gauntletWins = 0; // Number of wins in current Gauntlet session
   private replayPlaybackStartTime = 0;
   private currentReplayActionIndex = 0;
   private isEnemyHealing = false;
@@ -358,6 +380,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private elasticTwangSound = new Audio(); // elastic_twang
   private bowImpactSound = new Audio(); // Bow Impact Hit 1
   private bgmAudio = new Audio();
+  private fanfareSound = new Audio(); // FANFARE 8
 
   // Asset loading system
   private assetsToLoad: { [key: string]: boolean } = {};
@@ -845,7 +868,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private loadSoundEffects(): Promise<void> {
     return new Promise((resolve) => {
       let loadedCount = 0;
-      const totalSounds = 14; // Updated to match actual number of sounds
+      const totalSounds = 15; // Updated to match actual number of sounds
       let timeoutId: number;
 
       const checkComplete = () => {
@@ -946,6 +969,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Bow impact sound effect - load MP3 directly
       this.loadAudio(this.bowImpactSound, 'resources/audio/projects/numberCrunch/Bow Impact Hit 1')
+        .then(checkComplete)
+        .catch(handleError);
+
+      // Fanfare sound effect - load MP3 directly
+      this.loadAudio(this.fanfareSound, 'resources/audio/projects/numberCrunch/FANFARE 8')
         .then(checkComplete)
         .catch(handleError);
     });
@@ -1521,13 +1549,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
     try {
       // Get replays for the current target (level 1 target is always 10)
       const target = 10;
-      const replays = await this.numberCrunchService.getReplaysByTarget(target, 50); // Get up to 50 replays
+      const replays = await this.numberCrunchService.getReplaysByTarget(target, 200); // Get up to 200 replays
 
       if (replays.length > 0) {
         // Pick a random replay
         const randomIndex = Math.floor(Math.random() * replays.length);
         this.replayToPlay = replays[randomIndex];
         this.isGauntletMode = true;
+        this.gauntletWins = 0; // Reset wins counter for new Gauntlet session
+        
+        // Reset all upgrades for fair Gauntlet gameplay
+        this.assistUpgradeCount = 0;
+        this.assistBonus = 0;
+        this.healthMultiplier = 1.0;
+        this.damageMultiplier = 1.0;
+        
         this.replayPlaybackStartTime = 0; // Will be set when game starts
         this.currentReplayActionIndex = 0;
         this.isReplayComplete = false;
@@ -1555,6 +1591,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Set gauntlet player health to 120
         this.playerHealth = 120;
 
+        // Initialize scrambles for gauntlet mode
+        this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL;
+
         console.log('Starting gauntlet mode with replay:', this.replayToPlay);
       } else {
         console.log('No replays found for target', target, '- starting normal game');
@@ -1575,6 +1614,29 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.initializeGame();
       this.startRecording();
       this.startGameLoop();
+    }
+  }
+
+  private initializeConfetti() {
+    this.confettiParticles = [];
+    const particleCount = 120; // Slightly fewer for better performance
+    for (let i = 0; i < particleCount; i++) {
+      this.confettiParticles.push({
+        x: Math.random() * this.CANVAS_SIZE,
+        y: -Math.random() * 100, // Start higher up
+        vx: (Math.random() - 0.5) * 0.3, // Much slower initial horizontal movement
+        vy: Math.random() * 0.8 + 0.3, // Slower, more varied falling speeds
+        color: this.getRandomConfettiColor(),
+        size: Math.random() * 6 + 3, // Larger, more varied sizes (3-9px)
+        opacity: 0.8 + Math.random() * 0.2, // Start more opaque
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.4, // Faster, more varied spinning
+        swayOffset: Math.random() * Math.PI * 2,
+        swaySpeed: Math.random() * 0.03 + 0.01, // Varied sway frequencies
+        windForce: (Math.random() - 0.5) * 0.02, // Random wind influence
+        lastDirectionChange: 0,
+        directionChangeTimer: Math.random() * 2000 + 1000, // 1-3 seconds between direction changes
+      });
     }
   }
 
@@ -1926,6 +1988,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
       }
     }
 
+    // Update confetti particles for Gauntlet win screen
+    if (this.currentState === GameState.GAUNTLET_WIN) {
+      this.updateConfetti(deltaTime);
+    }
+
     if (this.currentState !== GameState.PLAYING) return;
 
     // Handle scrambling animation
@@ -2083,14 +2150,23 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.score += scrambleBonus;
       this.lastScrambleBonus = scrambleBonus;
 
-      this.nextTarget = this.calculateNextTarget(); // Calculate next target once
-      this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
-      this.cdr.detectChanges(); // Force UI update
+      // Check for Gauntlet win condition - skip upgrade screen for 5th win
+      if (this.isGauntletMode && this.gauntletWins + 1 >= 5) {
+        this.gauntletWins++;
+        this.currentState = GameState.GAUNTLET_WIN;
+        this.cdr.detectChanges(); // Force UI update
+      } else {
+        this.nextTarget = this.calculateNextTarget(); // Calculate next target once
+        this.currentState = GameState.CHOOSE_UPGRADE; // Go to upgrade choice instead of directly to next level
+        this.cdr.detectChanges(); // Force UI update
+      }
 
-      // Play upgrade screen sound
-      if (this.upgradeSound && this.windowHasFocus && !this.settings.muted) {
-        this.upgradeSound.currentTime = 0; // Reset to beginning
-        this.upgradeSound.play().catch(() => {}); // Ignore play errors
+      // Play upgrade screen sound (only if not going to gauntlet win)
+      if (this.currentState === GameState.CHOOSE_UPGRADE) {
+        if (this.upgradeSound && this.windowHasFocus && !this.settings.muted) {
+          this.upgradeSound.currentTime = 0; // Reset to beginning
+          this.upgradeSound.play().catch(() => {}); // Ignore play errors
+        }
       }
     }
   }
@@ -2106,14 +2182,21 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
     const currentTime = Date.now() - this.replayPlaybackStartTime;
 
-    // Process actions that should have occurred by now
-    while (
-      this.currentReplayActionIndex < this.replayToPlay.actions.length &&
-      this.replayToPlay.actions[this.currentReplayActionIndex].timestamp <= currentTime
-    ) {
-      const action = this.replayToPlay.actions[this.currentReplayActionIndex];
-      this.executeReplayAction(action);
-      this.currentReplayActionIndex++;
+    // Add a 2-second delay before starting replay actions to let player see the initial grid
+    const INITIAL_DELAY = 2000; // 2 seconds
+    const adjustedTime = currentTime - INITIAL_DELAY;
+
+    // Only start processing actions after the initial delay
+    if (adjustedTime >= 0) {
+      // Process actions that should have occurred by now
+      while (
+        this.currentReplayActionIndex < this.replayToPlay.actions.length &&
+        this.replayToPlay.actions[this.currentReplayActionIndex].timestamp <= adjustedTime
+      ) {
+        const action = this.replayToPlay.actions[this.currentReplayActionIndex];
+        this.executeReplayAction(action);
+        this.currentReplayActionIndex++;
+      }
     }
 
     // Check if replay is complete
@@ -2198,14 +2281,11 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
 
       case 'scramble':
-        // Use the next pre-generated seed from replay for deterministic scrambling
-        if (
-          this.replayToPlay &&
-          this.currentScrambleSeedIndex < this.replayToPlay.scrambleSeeds.length
-        ) {
-          const seed = this.replayToPlay.scrambleSeeds[this.currentScrambleSeedIndex];
-          this.currentScrambleSeedIndex++;
-          this.seededScrambleBoard(seed);
+        // In gauntlet mode, enemy scrambles only play sound - they don't scramble the board or reduce player scrambles
+        // Don't increment currentScrambleSeedIndex so player can use all available seeds
+        if (this.scrambleSound && this.windowHasFocus && !this.settings.muted) {
+          this.scrambleSound.currentTime = 0;
+          this.scrambleSound.play().catch(() => {});
         }
         break;
 
@@ -2298,6 +2378,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
         break;
       case GameState.LEADERBOARD_NAME_INPUT:
         this.renderLeaderboardNameInput();
+        break;
+      case GameState.GAUNTLET_WIN:
+        this.renderGauntletWin();
         break;
     }
   }
@@ -2400,7 +2483,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         '#45a049'
       );
     }
-    // Draw Gauntlet ribbon banner (disabled - coming soon)
+    // Draw Gauntlet ribbon banner
     if (this.loadedAssets['ribbonSprites'] && this.ribbonBlue.complete) {
       this.drawRibbon(
         this.ribbonBlue,
@@ -2410,22 +2493,6 @@ export class NumberCrunch implements OnInit, OnDestroy {
         70,
         'Gauntlet'
       );
-      // Draw "Coming Soon" overlay
-      this.ctx.fillStyle = 'rgba(81, 81, 81, 0.7)';
-      this.ctx.fillRect(
-        this.MENU_GAUNTLET_BUTTON.x - 80,
-        this.MENU_GAUNTLET_BUTTON.y + 5 - 25,
-        170,
-        40
-      );
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = `bold 16px ${this.PRIMARY_FONT}`;
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(
-        'Coming Soon',
-        this.MENU_GAUNTLET_BUTTON.x,
-        this.MENU_GAUNTLET_BUTTON.y + 10
-      );
     } else {
       this.drawButton(
         'Gauntlet',
@@ -2433,16 +2500,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_GAUNTLET_BUTTON.y,
         this.MENU_GAUNTLET_BUTTON.width,
         this.MENU_GAUNTLET_BUTTON.height,
-        '#666666',
-        '#555555'
-      );
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = `bold 12px ${this.PRIMARY_FONT}`;
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(
-        'Coming Soon',
-        this.MENU_GAUNTLET_BUTTON.x,
-        this.MENU_GAUNTLET_BUTTON.y + 5
+        '#2196F3',
+        '#1976D2'
       );
     }
     // Draw Options ribbon banner (clickable)
@@ -2971,6 +3030,55 @@ export class NumberCrunch implements OnInit, OnDestroy {
     }
   }
 
+  private renderGauntletWin() {
+    // Background
+    this.ctx.fillStyle = this.BACKGROUND_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_SIZE, this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT);
+
+    // Congratulations banner - use smaller text
+    if (this.loadedAssets['ribbonSprites'] && this.ribbonYellow.complete) {
+      this.drawRibbon(this.ribbonYellow, this.CANVAS_SIZE / 2, 80, 450, 130, 'Congrats!');
+    } else {
+      // Fallback text if ribbon not loaded
+      this.ctx.fillStyle = '#1976d2';
+      this.ctx.font = `bold 28px ${this.PRIMARY_FONT}`;
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Congrats!', this.CANVAS_SIZE / 2, 90);
+    }
+
+    // Subtitle - split into two lines
+    this.ctx.font = `20px ${this.PRIMARY_FONT}`;
+    this.ctx.fillStyle = '#424242';
+    this.ctx.fillText('You defeated 5 enemies', this.CANVAS_SIZE / 2, 140);
+    this.ctx.fillText('in Gauntlet mode!', this.CANVAS_SIZE / 2, 165);
+
+    // Draw player sprite
+    if (this.loadedAssets['playerSprite'] && this.playerSprite && this.playerSprite.complete) {
+      const frameWidth = this.SPRITE_FRAME_WIDTH;
+      const frameHeight = this.SPRITE_FRAME_HEIGHT;
+      const scaledWidth = frameWidth * this.SPRITE_SCALE;
+      const scaledHeight = frameHeight * this.SPRITE_SCALE;
+
+      this.ctx.drawImage(
+        this.playerSprite,
+        this.animationFrame * frameWidth, // source x
+        0, // source y (idle animation)
+        frameWidth, // source width
+        frameHeight, // source height
+        this.CANVAS_SIZE / 2 - scaledWidth / 2, // destination x (centered)
+        200, // destination y
+        scaledWidth, // destination width
+        scaledHeight // destination height
+      );
+    }
+
+    // Draw Return to Menu button
+    this.drawButton('Return to Menu', this.CANVAS_SIZE / 2, 320, 200, 50, '#2196F3', '#1976D2');
+
+    // Render confetti particles
+    this.renderConfetti();
+  }
+
   private renderChooseUpgrade() {
     // Background - use consistent light blue
     this.ctx.fillStyle = this.BACKGROUND_COLOR;
@@ -3406,7 +3514,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
         // Update any replays from this session with the player name
         if (this.leaderboardSessionId) {
-          await this.numberCrunchService.updateReplaysWithPlayerName(this.leaderboardSessionId, name);
+          await this.numberCrunchService.updateReplaysWithPlayerName(
+            this.leaderboardSessionId,
+            name
+          );
         }
       } catch (error) {
         console.error('Error submitting leaderboard entry:', error);
@@ -4124,22 +4235,22 @@ export class NumberCrunch implements OnInit, OnDestroy {
       return;
     }
 
-    // Check Gauntlet ribbon (disabled - coming soon)
-    // const gauntletRibbonLeft = this.MENU_GAUNTLET_BUTTON.x - 150; // 300 / 2
-    // const gauntletRibbonRight = this.MENU_GAUNTLET_BUTTON.x + 150;
-    // const gauntletRibbonTop = this.MENU_GAUNTLET_BUTTON.y + 5 - 35; // 70 / 2
-    // const gauntletRibbonBottom = this.MENU_GAUNTLET_BUTTON.y + 5 + 35;
-    // if (
-    //   x >= gauntletRibbonLeft &&
-    //   x <= gauntletRibbonRight &&
-    //   y >= gauntletRibbonTop &&
-    //   y <= gauntletRibbonBottom
-    // ) {
-    //   // Start Gauntlet mode - retrieve a random replay for the current target
-    //   this.startGauntletMode();
-    //   this.playButtonSound();
-    //   return;
-    // }
+    // Check Gauntlet ribbon
+    const gauntletRibbonLeft = this.MENU_GAUNTLET_BUTTON.x - 150; // 300 / 2
+    const gauntletRibbonRight = this.MENU_GAUNTLET_BUTTON.x + 150;
+    const gauntletRibbonTop = this.MENU_GAUNTLET_BUTTON.y + 5 - 35; // 70 / 2
+    const gauntletRibbonBottom = this.MENU_GAUNTLET_BUTTON.y + 5 + 35;
+    if (
+      x >= gauntletRibbonLeft &&
+      x <= gauntletRibbonRight &&
+      y >= gauntletRibbonTop &&
+      y <= gauntletRibbonBottom
+    ) {
+      // Start Gauntlet mode - retrieve a random replay for the current target
+      this.startGauntletMode();
+      this.playButtonSound();
+      return;
+    }
 
     // Check Options ribbon
     const optionsRibbonLeft = this.MENU_OPTIONS_BUTTON.x - 150; // 300 / 2
@@ -4204,6 +4315,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case GameState.LEADERBOARD_NAME_INPUT:
         this.handleLeaderboardNameInputClick(x, y);
         break;
+      case GameState.GAUNTLET_WIN:
+        this.handleGauntletWinClick(x, y);
+        break;
+    }
+  }
+
+  private handleGauntletWinClick(x: number, y: number) {
+    // Check if Return to Menu button was clicked
+    if (this.isClickInButton(x, y, this.CANVAS_SIZE / 2, 320, 200, 50)) {
+      this.playButtonSound();
+      this.confettiParticles = []; // Clear confetti particles
+      this.restartGame();
     }
   }
 
@@ -4540,6 +4663,9 @@ export class NumberCrunch implements OnInit, OnDestroy {
       case GameState.LEADERBOARD_NAME_INPUT:
         this.handleLeaderboardNameInputClick(x, y);
         break;
+      case GameState.GAUNTLET_WIN:
+        this.handleGauntletWinClick(x, y);
+        break;
     }
   }
 
@@ -4745,7 +4871,15 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   scrambleBoard() {
-    // Use the next pre-generated seed for this scramble
+    // In gauntlet mode, use the next scramble seed from the replay (there should always be 3 available)
+    if (this.isGauntletMode && this.replayToPlay) {
+      const seed = this.replayToPlay.scrambleSeeds[this.currentScrambleSeedIndex];
+      this.currentScrambleSeedIndex++;
+      this.seededScrambleBoard(seed);
+      return;
+    }
+
+    // Use the next pre-generated seed for this scramble (normal mode)
     if (
       !this.isRecording ||
       !this.currentRecording ||
@@ -5027,7 +5161,20 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   private nextLevel() {
+    this.score += 500 * this.level; // Add level completion bonus
     this.level++;
+
+    // Check for Gauntlet win condition
+    if (this.isGauntletMode) {
+      this.gauntletWins++;
+      if (this.gauntletWins >= 5) {
+        this.currentState = GameState.GAUNTLET_WIN;
+        this.fanfareSound.play().catch(() => {}); // Play victory fanfare
+        this.initializeConfetti(); // Initialize confetti particles
+        return; // Don't proceed to next level
+      }
+    }
+
     this.targetNumber = this.nextTarget; // Use the pre-calculated next target
     this.scramblesRemaining = this.SCRAMBLES_PER_LEVEL; // Reset scrambles for new level
     this.currentScrambleSeedIndex = 0; // Reset scramble seed index for new level
@@ -5036,12 +5183,18 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.isReplayComplete = false; // Reset replay completion flag for new level
     this.currentReplayAttackSprite = 1; // Reset replay sound alternation for new level
 
+    // Reset replay playback timing for gauntlet mode to ensure delay on each level
+    if (this.isGauntletMode) {
+      this.replayPlaybackStartTime = 0; // Reset so delay is applied on new level
+      this.currentReplayActionIndex = 0; // Reset action index for new level
+    }
+
     // Reset player health and enemy health to maximum for new level
     if (this.isGauntletMode && this.replayToPlay) {
       // In gauntlet mode, preserve the replay-based enemy health
       this.enemyMaxHealth = this.replayToPlay.playerHealthAtStart;
       this.enemyHealth = this.enemyMaxHealth;
-      this.playerHealth = 120; // Gauntlet player health is always 120
+      this.playerHealth = 120 + this.healthBonus; // Apply accumulated health bonus
     } else {
       // Normal mode - apply difficulty settings
       this.applyDifficultySettings();
@@ -5330,5 +5483,114 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
   onMobileInputBlur() {
     this.isLeaderboardInputFocused = false;
+  }
+
+  private getRandomConfettiColor(): string {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  private updateConfetti(deltaTime: number) {
+    const gravity = 0.04; // Very light gravity for floating effect
+    const airResistance = 0.98; // Air resistance for more natural movement
+    const fadeSpeed = 0.003; // Slower fade for longer visibility
+
+    for (let i = this.confettiParticles.length - 1; i >= 0; i--) {
+      const p = this.confettiParticles[i];
+
+      // Apply gravity
+      p.vy += gravity;
+
+      // Update sway motion
+      p.swayOffset += p.swaySpeed;
+      const swayAmount = Math.sin(p.swayOffset) * 0.8; // Stronger sway
+
+      // Random direction changes for erratic paper movement
+      p.lastDirectionChange += deltaTime;
+      if (p.lastDirectionChange >= p.directionChangeTimer) {
+        // Sudden direction change like paper caught in wind
+        p.vx += (Math.random() - 0.5) * 0.6;
+        p.lastDirectionChange = 0;
+        p.directionChangeTimer = Math.random() * 2000 + 1000; // Reset timer
+      }
+
+      // Apply wind force that varies over time
+      const windVariation = Math.sin(Date.now() * 0.001 + p.swayOffset) * p.windForce;
+      p.vx += windVariation;
+
+      // Apply air resistance
+      p.vx *= airResistance;
+      p.vy *= airResistance;
+
+      // Update position with sway and current velocity
+      p.x += p.vx * deltaTime * 0.1 + swayAmount * deltaTime * 0.03;
+      p.y += p.vy * deltaTime * 0.1;
+
+      // Update rotation (faster spinning for paper effect)
+      p.rotation += p.rotationSpeed * (1 + Math.abs(p.vx) * 2); // Spin faster when moving
+
+      // Fade out slower
+      p.opacity -= fadeSpeed;
+
+      // Remove particles that are off-screen or fully faded
+      if (p.y > this.CANVAS_SIZE + this.CANVAS_UI_HEIGHT + 50 || p.opacity <= 0) {
+        this.confettiParticles.splice(i, 1);
+      }
+    }
+
+    // Respawn particles for continuous celebration
+    if (this.confettiParticles.length < 60) {
+      this.confettiParticles.push({
+        x: Math.random() * this.CANVAS_SIZE,
+        y: -20,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: Math.random() * 0.8 + 0.3,
+        color: this.getRandomConfettiColor(),
+        size: Math.random() * 6 + 3,
+        opacity: 0.8 + Math.random() * 0.2,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.4,
+        swayOffset: Math.random() * Math.PI * 2,
+        swaySpeed: Math.random() * 0.03 + 0.01,
+        windForce: (Math.random() - 0.5) * 0.02,
+        lastDirectionChange: 0,
+        directionChangeTimer: Math.random() * 2000 + 1000,
+      });
+    }
+  }
+
+  private renderConfetti() {
+    this.ctx.save();
+    for (const p of this.confettiParticles) {
+      this.ctx.globalAlpha = p.opacity;
+      this.ctx.fillStyle = p.color;
+
+      // Save context for rotation
+      this.ctx.save();
+      this.ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+      this.ctx.rotate(p.rotation);
+
+      // Draw irregular paper-like shapes instead of perfect rectangles
+      const shapeType = Math.floor(p.swayOffset * 10) % 4; // Pseudo-random shape based on particle
+
+      switch (shapeType) {
+        case 0: // Rectangle
+          this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          break;
+        case 1: // Slightly irregular rectangle
+          this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size * 0.9, p.size * 1.2);
+          break;
+        case 2: // Small square
+          this.ctx.fillRect(-p.size / 4, -p.size / 4, p.size / 2, p.size / 2);
+          break;
+        case 3: // Thin rectangle
+          this.ctx.fillRect(-p.size / 2, -p.size / 6, p.size, p.size / 3);
+          break;
+      }
+
+      // Restore context
+      this.ctx.restore();
+    }
+    this.ctx.restore();
   }
 }

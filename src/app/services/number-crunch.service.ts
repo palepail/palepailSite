@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { collection, addDoc, query, orderBy, limit, getDocs, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase.config';
 import { LeaderboardService, LeaderboardEntry } from './leaderboard.service';
-import { faker } from '@faker-js/faker';
 
 export type { LeaderboardEntry };
 
@@ -30,6 +30,24 @@ export interface LevelRecording {
 
 @Injectable({ providedIn: 'root' })
 export class NumberCrunchService {
+  private playerNames: string[] = [];
+
+  constructor(private http: HttpClient) {
+    this.loadPlayerNames();
+  }
+
+  private loadPlayerNames() {
+    this.http.get<string[]>('/assets/player-names.json').subscribe({
+      next: (names) => {
+        this.playerNames = names;
+      },
+      error: (error) => {
+        console.error('Error loading player names:', error);
+        // Fallback to some default names
+        this.playerNames = ['Anonymous Player', 'Mystery Gamer', 'Unknown Hero'];
+      }
+    });
+  }
   private async getIPAddress(): Promise<string | undefined> {
     try {
       const response = await fetch('https://api.ipify.org?format=json');
@@ -132,22 +150,11 @@ export class NumberCrunchService {
   }
 
   generateRandomPlayerName(): string {
-    // Create fantasy-like names by combining faker methods
-    const firstName = faker.person.firstName();
-    const adjective = faker.word.adjective();
-    const noun = faker.word.noun();
-
-    // Capitalize first letters
-    const capitalizedAdjective = adjective.charAt(0).toUpperCase() + adjective.slice(1);
-    const capitalizedNoun = noun.charAt(0).toUpperCase() + noun.slice(1);
-
-    // 50% chance for "FirstName AdjectiveNoun" format (e.g., "John Darkblade")
-    // 50% chance for "Adjective Noun" format (e.g., "Brave Warrior")
-    if (Math.random() < 0.5) {
-      return `${firstName} ${capitalizedAdjective}${noun}`;
-    } else {
-      return `${capitalizedAdjective} ${capitalizedNoun}`;
+    if (this.playerNames.length === 0) {
+      return 'Loading...'; // Or a default name
     }
+    const randomIndex = Math.floor(Math.random() * this.playerNames.length);
+    return this.playerNames[randomIndex];
   }
 
   async getReplaysByTarget(target: number, count: number = 10): Promise<LevelRecording[]> {
