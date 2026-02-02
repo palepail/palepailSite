@@ -37,7 +37,7 @@ export class LeaderboardService {
 
   async getTopEntries(count: number = 10): Promise<LeaderboardEntry[]> {
     try {
-      const q = query(collection(db, 'NumberCrunchLeaderboard'), orderBy('score', 'desc'), limit(count));
+      const q = query(collection(db, 'NumberCrunchLeaderboard'), orderBy('score', 'desc'), orderBy('date', 'desc'), limit(count));
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => doc.data() as LeaderboardEntry);
     } catch (error) {

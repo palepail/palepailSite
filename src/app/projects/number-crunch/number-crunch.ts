@@ -2211,7 +2211,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       // Calculate health bonus for remaining health
       const healthPercentage = this.playerHealth / this.MAX_HEALTH;
-      const healthBonus = Math.floor(this.score * healthPercentage * 0.5); // 50% of current score as bonus
+      const healthBonus = Math.floor(this.targetNumber * 500 * healthPercentage);
       this.score += healthBonus;
       this.lastHealthBonus = healthBonus;
 
