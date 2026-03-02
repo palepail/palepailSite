@@ -8,16 +8,16 @@
         {
           "title": "Trumpet",
           "description": "Learning to play the trumpet",
-          "image": "/resources/images/hobbies/music-trumpet.jpg",
-          "details": "Exploring brass instruments and basic music theory",
+          "image": "/resources/images/hobbies/Trumpet.png",
+          "details": "Making funny noises",
           "skillLevel": "Novice",
           "status": "Inactive"
         },
         {
           "title": "Violin",
           "description": "Practicing violin techniques and classical pieces",
-          "image": "/resources/images/hobbies/music-violin.jpg",
-          "details": "Working on bowing techniques and musical expression",
+          "image": "/resources/images/hobbies/Violin.png",
+          "details": "Learning and playing my favorite songs",
           "skillLevel": "Novice",
           "status": "Active"
         }
@@ -31,15 +31,15 @@
         {
           "title": "Street Fighter",
           "description": "Competitive fighting game with deep mechanics",
-          "image": "/resources/images/hobbies/gaming-streetfighter.jpg",
-          "details": "Learning character matchups and execution",
+          "image": "/resources/images/hobbies/Streetfighter.png",
+          "details": "It was the lag I swear",
           "skillLevel": "Intermediate",
           "status": "Occasionally"
         },
         {
           "title": "Guilty Gear",
           "description": "2D fighting game with unique combat system",
-          "image": "/resources/images/hobbies/gaming-guiltygear.jpg",
+          "image": "/resources/images/hobbies/Guiltygear.png",
           "details": "Spamming 5H",
           "skillLevel": "Intermediate",
           "status": "Inactive"
@@ -54,8 +54,8 @@
         {
           "title": "Magic: The Gathering",
           "description": "Collectible card game with strategic depth",
-          "image": "/resources/images/hobbies/board-magic.jpg",
-          "details": "Building decks and learning card making combos",
+          "image": "/resources/images/hobbies/mtg.png",
+          "details": "Untap, Upkeep, Draw",
           "status": "Inactive"
         }
       ]
@@ -67,9 +67,9 @@
       "activities": [
         {
           "title": "Metallurgy",
-          "description": "Study of metals and their properties",
-          "image": "/resources/images/hobbies/science-metallurgy.jpg",
-          "details": "Smelting and casting aluminum",
+          "description": "Casting and working with aluminum",
+          "image": "/resources/images/hobbies/Aluminum.png",
+          "details": "Trying not to burn myself",
           "status": "Inactive"
         }
       ]
