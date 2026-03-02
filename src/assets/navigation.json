@@ -6,7 +6,7 @@
       "route": "/home",
       "hasSubtabs": false,
       "content": {
-        "title": "Welcome to My Digital Space",
+        "title": "Hi, I'm Derek Kam.",
         "intro": "I'm a full-stack developer and software engineer passionate about creating innovative solutions across web development, game development, and mobile applications. My work focuses on clean, efficient code and user-centered design. Beyond development, I enjoy exploring music, gaming, and hands-on technical projects.",
         "carousel": [
           {
@@ -43,7 +43,9 @@
       "hasSubtabs": false,
       "content": {
         "title": "Get In Touch",
-        "intro": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ornare, massa vel volutpat condimentum, velit massa accumsan massa, id bibendum velit velit vel nisi."
+        "intro": "Feel free to reach out for collaborations, opportunities, or just to say hello!",
+        "email": "palepail@gmail.com",
+        "twitter": "https://x.com/palepail"
       }
     }
   ]

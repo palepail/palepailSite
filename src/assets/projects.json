@@ -12,6 +12,14 @@
           "image": "/resources/images/projects/numberCrunch/Demo.png",
           "link": "/projects/interactable/number-crunch",
           "status": [{ "name": "In Development" }]
+        },
+        {
+          "title": "Potion Drop",
+          "description": "Drop items and watch them merge in this physics-based puzzle game",
+          "technologies": ["JavaScript", "HTML5", "CSS3"],
+          "image": "/resources/images/projects/suikaGame/icon.png",
+          "link": "/projects/interactable/potion-drop",
+          "status": [{ "name": "In Development" }]
         }
       ]
     },
@@ -72,8 +80,10 @@
           "description": "Potion-themed match 3 puzzle game inspired by Bejeweled, Puzzle Quest, and Slay the Spire",
           "technologies": ["C++", "Unity", "ChatGPT", "Claude", "Grok"],
           "image": "/resources/images/projects/match3/combat.png",
-          "link": "https://bitbucket.org/palepail/match3/src/main/",
-          "status": [{ "name": "In Development" }]
+          "link": "#",
+          "hasLink": false,
+          "status": [{ "name": "In Development" }],
+          "tags": ["Private Repository"]
         }
       ]
     },
@@ -88,8 +98,8 @@
           "technologies": ["Java", "Android"],
           "image": "/resources/images/projects/eartrainer/eartrainer0.png",
           "link": "https://play.google.com/store/apps/details?id=ear.trainer",
-          "status": [{ "name": "Defunct" }],
-          "showViewProject": false
+          "hasLink": false,
+          "status": [{ "name": "Defunct" }]
         }
       ]
     }

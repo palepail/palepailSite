@@ -3,7 +3,7 @@
     {
       "id": "music",
       "name": "Music",
-      "description": "Playing musical instruments and exploring melodies",
+      "description": "Playing musical instruments",
       "activities": [
         {
           "title": "Trumpet",
@@ -34,13 +34,13 @@
           "image": "/resources/images/hobbies/gaming-streetfighter.jpg",
           "details": "Learning character matchups and execution",
           "skillLevel": "Intermediate",
-          "status": "Inactive"
+          "status": "Occasionally"
         },
         {
           "title": "Guilty Gear",
           "description": "2D fighting game with unique combat system",
           "image": "/resources/images/hobbies/gaming-guiltygear.jpg",
-          "details": "Exploring the Dustloop system and character diversity",
+          "details": "Spamming 5H",
           "skillLevel": "Intermediate",
           "status": "Inactive"
         }
@@ -55,7 +55,7 @@
           "title": "Magic: The Gathering",
           "description": "Collectible card game with strategic depth",
           "image": "/resources/images/hobbies/board-magic.jpg",
-          "details": "Building decks and learning card interactions",
+          "details": "Building decks and learning card making combos",
           "status": "Inactive"
         }
       ]

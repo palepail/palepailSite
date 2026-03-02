@@ -1,0 +1,69 @@
+<div class="game-container">
+  <h1>Potion Drop</h1>
+  <p class="game-description">
+    A physics-based puzzle game - drop potions and watch them merge!
+  </p>
+
+  <div class="game-area">
+    <div class="game-board">
+      <div class="mute-controls">
+        <button class="mute-btn" (click)="toggleMute()">
+          {{ settings.muted ? '🔊' : '🔇' }}
+        </button>
+      </div>
+      <canvas #gameCanvas class="game-canvas" tabindex="0"></canvas>
+
+      <!-- Hidden input for mobile keyboard support -->
+      <input
+        #mobileInput
+        type="text"
+        dir="ltr"
+        inputmode="text"
+        lang="en"
+        autocapitalize="off"
+        autocomplete="off"
+        class="mobile-input"
+        maxlength="10"
+        [class.active]="currentState === 'leaderboard_name_input'"
+        [style.left.px]="getMobileInputPosition().left"
+        [style.top.px]="getMobileInputPosition().top"
+        [style.width.px]="getMobileInputPosition().width"
+        [style.height.px]="getMobileInputPosition().height"
+        [value]="leaderboardNameInput"
+        (beforeinput)="onMobileInputBeforeInput($event)"
+        (input)="onMobileInputChange($event)"
+        (focus)="onMobileInputFocus()"
+        (blur)="onMobileInputBlur()"
+      />
+
+      <div class="game-controls" *ngIf="currentState === 'playing'">
+        <button class="menu-btn" (click)="restartGame()">Main Menu</button>
+      </div>
+    </div>
+
+    <div class="game-info">
+      <h3>How to Play:</h3>
+      <ul>
+        <li>Click or tap anywhere to drop a potion</li>
+        <li>Potions of the same size will merge when they touch</li>
+        <li>Create larger and larger potions by strategic placement</li>
+        <li>Don't let potions reach the top of the screen!</li>
+      </ul>
+
+      <div class="game-stats">
+        <h4>Game Mechanics:</h4>
+        <ul>
+          <li><strong>Dropping:</strong> Click anywhere to drop the next potion</li>
+          <li><strong>Merging:</strong> Same-sized potions combine into larger ones</li>
+          <li><strong>Physics:</strong> Potions bounce and roll with realistic physics</li>
+          <li><strong>Scoring:</strong> Higher scores for larger potion combinations</li>
+          <li><strong>Game Over:</strong> When potions reach the top of the screen</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="back-button">
+    <a routerLink="/projects" class="back-link">← Back to Projects</a>
+  </div>
+</div>
