@@ -44,6 +44,8 @@ export class Hobbies implements OnInit {
         return 'status-active';
       case 'Inactive':
         return 'status-inactive';
+      case 'Occasionally':
+        return 'status-occasionally';
       default:
         return 'status-default';
     }

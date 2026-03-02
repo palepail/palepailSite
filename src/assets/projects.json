@@ -80,7 +80,9 @@
           "technologies": ["C++", "Unity", "ChatGPT", "Claude", "Grok"],
           "image": "/resources/images/projects/match3/combat.png",
           "link": "#",
-          "status": [{ "name": "In Development" }]
+          "hasLink": false,
+          "status": [{ "name": "In Development" }],
+          "tags": ["Private Repository"]
         }
       ]
     },
@@ -95,6 +97,7 @@
           "technologies": ["Java", "Android"],
           "image": "/resources/images/projects/eartrainer/eartrainer0.png",
           "link": "https://play.google.com/store/apps/details?id=ear.trainer",
+          "hasLink": false,
           "status": [{ "name": "Defunct" }]
         }
       ]

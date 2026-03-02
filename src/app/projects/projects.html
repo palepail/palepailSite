@@ -26,7 +26,10 @@
           <div class="technologies">
             <span *ngFor="let tech of project.technologies" class="tech-tag">{{ tech }}</span>
           </div>
-          <a [href]="project.link" class="project-link" [attr.target]="isExternalLink(project.link) ? '_blank' : null">View Project</a>
+          <div class="tags" *ngIf="project.tags && project.tags.length > 0">
+            <span *ngFor="let tag of project.tags" class="tag">{{ tag }}</span>
+          </div>
+          <a *ngIf="project.hasLink !== false" [href]="project.link" class="project-link" [attr.target]="isExternalLink(project.link) ? '_blank' : null">View Project</a>
         </div>
       </div>
     </div>

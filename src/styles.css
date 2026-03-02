@@ -649,6 +649,12 @@ h1 {
     border: 1px solid #f5c6cb;
 }
 
+.status-occasionally {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
 .status-default {
     background: #e2e3e5;
     color: #383d41;

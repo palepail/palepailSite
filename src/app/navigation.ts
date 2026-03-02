@@ -13,7 +13,9 @@ export interface Project {
   technologies: string[];
   image: string;
   link: string;
+  hasLink?: boolean;
   status: { name: string }[];
+  tags?: string[];
 }
 
 export interface Activity {
@@ -37,6 +39,8 @@ export interface TabContent {
   title?: string;
   intro?: string;
   carousel?: CarouselItem[];
+  email?: string;
+  twitter?: string;
 }
 
 export interface NavigationTab {
