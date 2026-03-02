@@ -9,7 +9,7 @@ import { filter } from 'rxjs';
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly title = signal('palepailSite');
+  protected readonly title = signal('palepail.com');
   sidebarOpen = false;
   isNumberCrunchPage = false;
 
