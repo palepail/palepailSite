@@ -17,7 +17,7 @@
           "title": "Potion Drop",
           "description": "Drop items and watch them merge in this physics-based puzzle game",
           "technologies": ["JavaScript", "HTML5", "CSS3"],
-          "image": "/resources/images/projects/suikaGame/icon.png",
+          "image": "/resources/images/projects/potionDrop/potionDrop.png",
           "link": "/projects/interactable/potion-drop",
           "status": [{ "name": "In Development" }]
         }

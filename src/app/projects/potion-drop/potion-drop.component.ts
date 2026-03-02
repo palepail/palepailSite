@@ -94,7 +94,7 @@ export class PotionDropComponent implements OnInit, OnDestroy {
     '#98D8C8', // Mythical potion
     '#F7DC6F', // Divine potion
   ];
-  private readonly POTION_RADII = [10, 13, 16, 20, 25, 32, 40, 51, 65, 83, 105];
+  private readonly POTION_RADII = [13, 17, 21, 26, 33, 42, 52, 66, 85, 108, 137];
 
   // Container positioning
   private get containerBottom(): number {
