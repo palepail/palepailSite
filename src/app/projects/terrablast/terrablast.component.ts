@@ -24,6 +24,7 @@ interface Player {
   health: number;
   color: string;
   active: boolean;
+  facing: number; // 1 for right, -1 for left
 }
 
 enum GameState {
@@ -100,6 +101,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     health: 100,
     color: '#4ECDC4',
     active: true,
+    facing: 1, // Start facing right
   };
 
   // Game physics
@@ -180,9 +182,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private generateTerrain() {
-    // Create a simple 50-pixel tall terrain strip across the full width
+    // Create a simple 50-pixel tall terrain strip across the full width, raised by 50 pixels
     this.terrain = [];
-    const terrainTop = this.CANVAS_HEIGHT - 50; // 50 pixels from bottom
+    const terrainTop = this.CANVAS_HEIGHT - 100; // Raised from -50 to -100
 
     // Create terrain array - solid terrain from terrainTop to bottom
     for (let x = 0; x < this.TERRAIN_WIDTH; x++) {
@@ -226,8 +228,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private createTerrainBodies() {
-    // Create static bodies for the solid terrain strip
-    const terrainTop = this.CANVAS_HEIGHT - 50;
+    // Create static bodies for the solid terrain strip (raised 50 pixels)
+    const terrainTop = this.CANVAS_HEIGHT - 100;
     for (let x = 0; x < this.TERRAIN_WIDTH; x += 10) {
       for (let y = terrainTop; y < this.CANVAS_HEIGHT; y += 10) {
         const body = this.Bodies.rectangle(x + 5, y + 5, 10, 10, { isStatic: true });
@@ -239,8 +241,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private initPlayer() {
     // Find a good spot for the player on the terrain
     this.player.x = 100;
-    // Position so the tank sits on the terrain (50 pixels from bottom)
-    this.player.y = this.CANVAS_HEIGHT - 50 - 10; // 10 units above terrain surface
+    // Position so the tank sits on the terrain (100 pixels from bottom, raised 50 pixels)
+    this.player.y = this.CANVAS_HEIGHT - 100 - 10; // 10 units above terrain surface
 
     // Create player body (rectangle physics, but visual is semicircle)
     this.player.body = this.Bodies.rectangle(
@@ -291,30 +293,23 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private handleInput() {
     if (this.currentState === GameState.PLAYING) {
-      // Tank movement
+      // Tank movement and facing
       if (this.keys['ArrowLeft'] && this.player.body) {
-        this.Body.setVelocity(this.player.body, { x: -5, y: this.player.body.velocity.y });
+        this.Body.setVelocity(this.player.body, { x: -2.5, y: this.player.body.velocity.y });
+        this.player.facing = -1; // Face left
       }
       if (this.keys['ArrowRight'] && this.player.body) {
-        this.Body.setVelocity(this.player.body, { x: 5, y: this.player.body.velocity.y });
+        this.Body.setVelocity(this.player.body, { x: 2.5, y: this.player.body.velocity.y });
+        this.player.facing = 1; // Face right
       }
 
-      // Angle adjustment (up/down arrows) - inverted
+      // Angle adjustment (up/down arrows) - inverted, clamped to 25-60 degrees
       if (this.keys['ArrowUp']) {
-        this.player.angle = Math.min(180, this.player.angle + 2);
+        this.player.angle = Math.min(60, this.player.angle + 2);
       }
       if (this.keys['ArrowDown']) {
-        this.player.angle = Math.max(0, this.player.angle - 2);
+        this.player.angle = Math.max(25, this.player.angle - 2);
       }
-
-      // Power adjustment (maybe keep as is, or change to other keys)
-      // For now, keep power on some other keys or remove it
-      // if (this.keys['w']) {
-      //   this.player.power = Math.min(100, this.player.power + 1);
-      // }
-      // if (this.keys['s']) {
-      //   this.player.power = Math.max(0, this.player.power - 1);
-      // }
 
       // Shoot
       if (this.keys[' '] && !this.projectile) {
@@ -406,14 +401,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawTerrain() {
     // Create a gradient for the terrain
-    const gradient = this.ctx.createLinearGradient(0, this.CANVAS_HEIGHT - 50, 0, this.CANVAS_HEIGHT);
+    const gradient = this.ctx.createLinearGradient(0, this.CANVAS_HEIGHT - 100, 0, this.CANVAS_HEIGHT);
     gradient.addColorStop(0, '#A0522D');    // Lighter brown at top
     gradient.addColorStop(1, '#654321');   // Darker brown at bottom
 
     this.ctx.fillStyle = gradient;
 
-    // Draw the solid terrain strip (50 pixels tall, full width)
-    this.ctx.fillRect(0, this.CANVAS_HEIGHT - 50, this.CANVAS_WIDTH, 50);
+    // Draw the solid terrain strip (50 pixels tall, full width, raised 50 pixels)
+    this.ctx.fillRect(0, this.CANVAS_HEIGHT - 100, this.CANVAS_WIDTH, 50);
 
     // Add some texture/detail to make it look more natural
     this.drawTerrainDetails();
@@ -439,6 +434,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const centerX = this.player.x;
     const centerY = this.player.y;
     const bodyRadius = 18;
+
+    // Save context for tank flipping
+    this.ctx.save();
+
+    // Flip tank based on facing direction
+    if (this.player.facing === -1) {
+      this.ctx.scale(-1, 1);
+      this.ctx.translate(-centerX * 2, 0);
+    }
 
     // Draw tank shadow for depth
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
@@ -487,6 +491,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#222222';
     this.ctx.fillRect(centerX - bodyRadius + 4, centerY - 5, 3, 10);
     this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
+
+    // Restore context
+    this.ctx.restore();
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
@@ -524,7 +531,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.arc(
       this.projectile.position.x,
       this.projectile.position.y,
-      5,
+      10, // Increased from 5 to 10
       0,
       Math.PI * 2
     );
@@ -541,13 +548,17 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw controls
     this.ctx.fillText('Controls:', 10, 100);
-    this.ctx.fillText('↑↓: Aim barrel', 10, 120);
+    this.ctx.fillText('↑↓: Aim (25°-60°)', 10, 120);
     this.ctx.fillText('←→: Move tank', 10, 140);
     this.ctx.fillText('Space: Shoot', 10, 160);
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
+    // Prevent default browser behavior for game controls
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+      event.preventDefault();
+    }
     this.keys[event.key] = true;
   }
 
