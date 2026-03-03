@@ -106,8 +106,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   // Game physics
   private projectile: any = null;
-  private isAiming = false;
-  private wind = 0;
+  private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] = [];
 
   // Input handling
   private keys: { [key: string]: boolean } = {};
@@ -184,14 +183,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private generateTerrain() {
     // Create a simple 50-pixel tall terrain strip across the full width, raised by 50 pixels
     this.terrain = [];
-    const terrainTop = this.CANVAS_HEIGHT - 100; // Raised from -50 to -100
+    const terrainHeight = 50; // Terrain is 50 pixels tall
 
-    // Create terrain array - solid terrain from terrainTop to bottom
+    // Create terrain array - solid terrain for the full height
     for (let x = 0; x < this.TERRAIN_WIDTH; x++) {
       this.terrain[x] = [];
-      for (let y = 0; y < this.TERRAIN_HEIGHT; y++) {
-        // Terrain exists from terrainTop to bottom of terrain array
-        this.terrain[x][y] = y >= terrainTop ? 1 : 0;
+      for (let y = 0; y < terrainHeight; y++) {
+        // Terrain exists for the full height
+        this.terrain[x][y] = 1;
       }
     }
   }
@@ -219,8 +218,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.world = this.engine.world;
     this.engine.world.gravity.y = 1;
 
-    // Create ground
-    this.createTerrainBodies();
+    // Note: Using custom terrain collision instead of physics bodies for destructible terrain
 
     // Start physics
     this.runner = this.Runner.create();
@@ -228,14 +226,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private createTerrainBodies() {
-    // Create static bodies for the solid terrain strip (raised 50 pixels)
-    const terrainTop = this.CANVAS_HEIGHT - 100;
-    for (let x = 0; x < this.TERRAIN_WIDTH; x += 10) {
-      for (let y = terrainTop; y < this.CANVAS_HEIGHT; y += 10) {
-        const body = this.Bodies.rectangle(x + 5, y + 5, 10, 10, { isStatic: true });
-        this.World.add(this.world, body);
-      }
-    }
+    // Removed - using custom collision detection for destructible terrain
   }
 
   private initPlayer() {
@@ -251,8 +242,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       20,
       20,
       {
-        friction: 0.8,
-        restitution: 0.1,
+        friction: 0.9,        // Higher friction to prevent sliding
+        frictionAir: 0.05,    // Air resistance to stabilize movement
+        restitution: 0.05,    // Very low bounce
+        density: 0.01,        // Lighter to respond better to controls
       }
     );
 
@@ -289,6 +282,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       // Check for collisions with terrain
       this.checkProjectileCollision();
     }
+
+    // Check player collision with terrain
+    this.checkPlayerTerrainCollision();
+
+    // Update explosions
+    this.updateExplosions();
   }
 
   private handleInput() {
@@ -343,12 +342,34 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Simple collision detection with terrain
     const px = Math.floor(this.projectile.position.x);
     const py = Math.floor(this.projectile.position.y);
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
 
-    if (px >= 0 && px < this.TERRAIN_WIDTH && py >= 0 && py < this.TERRAIN_HEIGHT) {
-      if (this.terrain[px] && this.terrain[px][py] === 1) {
+    // Convert screen coordinates to terrain array coordinates
+    const terrainLocalY = py - terrainY;
+
+    // Check a smaller area around projectile for performance
+    if (px >= 0 && px < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[px]?.length) {
+      if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
         // Hit terrain - create crater
         this.createCrater(px, py, 20);
         this.destroyProjectile();
+        return;
+      }
+    }
+
+    // Check adjacent pixels for more accurate collision
+    const checkOffsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [offsetX, offsetY] of checkOffsets) {
+      const checkX = px + offsetX;
+      const checkY = py + offsetY;
+      const terrainCheckY = checkY - terrainY;
+
+      if (checkX >= 0 && checkX < this.TERRAIN_WIDTH && terrainCheckY >= 0 && terrainCheckY < this.terrain[checkX]?.length) {
+        if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
+          this.createCrater(checkX, checkY, 20);
+          this.destroyProjectile();
+          return;
+        }
       }
     }
 
@@ -359,12 +380,17 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private createCrater(centerX: number, centerY: number, radius: number) {
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+
     for (let x = centerX - radius; x < centerX + radius; x++) {
       for (let y = centerY - radius; y < centerY + radius; y++) {
-        if (x >= 0 && x < this.TERRAIN_WIDTH && y >= 0 && y < this.TERRAIN_HEIGHT) {
+        // Convert screen coordinates to terrain array coordinates
+        const terrainLocalY = y - terrainY;
+
+        if (x >= 0 && x < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[x]?.length) {
           const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
           if (distance < radius) {
-            this.terrain[x][y] = 0;
+            this.terrain[x][terrainLocalY] = 0;
           }
         }
       }
@@ -374,8 +400,51 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private destroyProjectile() {
     if (this.projectile) {
+      // Create explosion at projectile position
+      this.explosions.push({
+        x: this.projectile.position.x,
+        y: this.projectile.position.y,
+        radius: 5,
+        maxRadius: 30,
+        life: 15 // frames
+      });
+
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
+    }
+  }
+
+  private checkPlayerTerrainCollision() {
+    if (!this.player.body) return;
+
+    const playerRadius = 18;
+    const px = Math.floor(this.player.x);
+    const py = Math.floor(this.player.y + playerRadius);
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+
+    // Only check if player is moving downward (falling)
+    if (this.player.body.velocity.y <= 0) return;
+
+    // Check a smaller area below player for terrain collision
+    for (let x = px - playerRadius; x <= px + playerRadius; x += 2) { // Check every 2 pixels for performance
+      const checkY = py + 2; // Check slightly below player
+      const terrainLocalY = checkY - terrainY;
+
+      if (x >= 0 && x < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[x]?.length) {
+        if (this.terrain[x] && this.terrain[x][terrainLocalY] === 1) {
+          // Player is about to hit terrain - gently stop downward motion
+          this.Body.setVelocity(this.player.body, {
+            x: this.player.body.velocity.x * 0.9, // Slight horizontal damping
+            y: Math.min(0, this.player.body.velocity.y * 0.5) // Reduce upward bounce
+          });
+          // Position player just above terrain
+          this.Body.setPosition(this.player.body, {
+            x: this.player.x,
+            y: checkY - playerRadius - 2
+          });
+          return;
+        }
+      }
     }
   }
 
@@ -395,20 +464,39 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.drawProjectile();
     }
 
+    // Draw explosions
+    this.drawExplosions();
+
     // Draw UI
     this.drawUI();
   }
 
   private drawTerrain() {
-    // Create a gradient for the terrain
-    const gradient = this.ctx.createLinearGradient(0, this.CANVAS_HEIGHT - 100, 0, this.CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#A0522D');    // Lighter brown at top
-    gradient.addColorStop(1, '#654321');   // Darker brown at bottom
+    // Draw destructible terrain more efficiently by finding solid segments
+    this.ctx.fillStyle = '#8B4513'; // Brown color for terrain
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
 
-    this.ctx.fillStyle = gradient;
-
-    // Draw the solid terrain strip (50 pixels tall, full width, raised 50 pixels)
-    this.ctx.fillRect(0, this.CANVAS_HEIGHT - 100, this.CANVAS_WIDTH, 50);
+    // Draw terrain in horizontal segments for better performance
+    for (let y = 0; y < 50; y++) {
+      let startX = -1;
+      for (let x = 0; x < this.TERRAIN_WIDTH; x++) {
+        if (this.terrain[x] && this.terrain[x][y] === 1) {
+          if (startX === -1) {
+            startX = x; // Start of solid segment
+          }
+        } else {
+          if (startX !== -1) {
+            // End of solid segment, draw it
+            this.ctx.fillRect(startX, terrainY + y, x - startX, 1);
+            startX = -1;
+          }
+        }
+      }
+      // Draw remaining segment if it goes to the end
+      if (startX !== -1) {
+        this.ctx.fillRect(startX, terrainY + y, this.TERRAIN_WIDTH - startX, 1);
+      }
+    }
 
     // Add some texture/detail to make it look more natural
     this.drawTerrainDetails();
@@ -417,15 +505,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawTerrainDetails() {
     // Add some subtle details to make terrain look more natural
     this.ctx.fillStyle = 'rgba(139, 69, 19, 0.4)'; // Semi-transparent brown for details
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
 
     for (let i = 0; i < 30; i++) {
       const x = Math.random() * this.TERRAIN_WIDTH;
-      const y = Math.random() * this.TERRAIN_HEIGHT;
+      const terrainLocalY = Math.floor(Math.random() * 50); // Random within terrain height
 
-      if (this.terrain[Math.floor(x)] && this.terrain[Math.floor(x)][Math.floor(y)] === 1) {
+      if (this.terrain[Math.floor(x)] && this.terrain[Math.floor(x)][terrainLocalY] === 1) {
         // Draw small irregular shapes for texture
         const size = Math.random() * 3 + 1;
-        this.ctx.fillRect(x - size/2, y - size/2, size, size);
+        this.ctx.fillRect(x - size/2, terrainY + terrainLocalY - size/2, size, size);
       }
     }
   }
@@ -536,6 +625,41 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       Math.PI * 2
     );
     this.ctx.fill();
+  }
+
+  private updateExplosions() {
+    for (let i = this.explosions.length - 1; i >= 0; i--) {
+      const explosion = this.explosions[i];
+      explosion.radius += 2; // Expand
+      explosion.life--;
+
+      if (explosion.life <= 0 || explosion.radius >= explosion.maxRadius) {
+        this.explosions.splice(i, 1);
+      }
+    }
+  }
+
+  private drawExplosions() {
+    for (const explosion of this.explosions) {
+      // Create explosion gradient (orange to red)
+      const gradient = this.ctx.createRadialGradient(
+        explosion.x, explosion.y, 0,
+        explosion.x, explosion.y, explosion.radius
+      );
+      gradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)'); // Yellow center
+      gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.6)'); // Orange middle
+      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)'); // Red edge fading to transparent
+
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Add explosion outline
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+    }
   }
 
   private drawUI() {
