@@ -85,26 +85,58 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   // Game constants
   private readonly CANVAS_WIDTH = 800;
   private readonly CANVAS_HEIGHT = 600;
+  private readonly CANVAS_PADDING = 32;
+  private readonly SKY_COLOR = '#87CEEB';
   private canvasScale = 1;
 
   // Terrain
   private terrain: number[][] = [];
   private readonly TERRAIN_WIDTH = 800;
   private readonly TERRAIN_HEIGHT = 400;
+  private readonly TERRAIN_STRIP_HEIGHT = 50;
+  private readonly TERRAIN_SMOOTHING_WEIGHT = 2;
+  private readonly TERRAIN_SMOOTHING_DIVISOR = 4;
+  private readonly GRAVITY_STRENGTH = 1;
+  private readonly TERRAIN_BASE_Y_OFFSET = 100;
+  private readonly PLAYER_HOVER_HEIGHT = 10;
+  private readonly TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
+  private readonly CRATER_RADIUS = 20;
+  private readonly TERRAIN_SNAP_TOLERANCE = 20;
+  private readonly FALL_THRESHOLD_OFFSET = 50;
+  private readonly TERRAIN_COLOR = '#8B4513';
+  private readonly TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
+  private readonly TERRAIN_DETAIL_COUNT = 30;
+  private readonly TERRAIN_DETAIL_SIZE_MIN = 1;
+  private readonly TERRAIN_DETAIL_SIZE_MAX = 4;
   private readonly MAX_CLIMB_ANGLE = (50 * Math.PI) / 180; // 50 degrees
 
   // Player
+  private readonly PLAYER_START_X = 100;
+  private readonly PLAYER_START_ANGLE = 45;
+  private readonly PLAYER_START_POWER = 50;
+  private readonly PLAYER_START_HEALTH = 100;
+  private readonly PLAYER_START_FACING = 1;
+  private readonly PLAYER_START_TERRAIN_ANGLE = 0;
+  private readonly PLAYER_FRICTION = 0.98;
+  private readonly PLAYER_AIR_FRICTION = 0.15;
+  private readonly PLAYER_RESTITUTION = 0.05;
+  private readonly PLAYER_DENSITY = 0.01;
+  private readonly PLAYER_MOVE_SPEED = 2.0;
+  private readonly ANGLE_ADJUST_SPEED = 2;
+  private readonly MIN_AIM_ANGLE = 25;
+  private readonly MAX_AIM_ANGLE = 60;
+  private readonly TANK_HALF_HEIGHT = 10;
   player: Player = {
     body: null,
-    x: 100,
+    x: this.PLAYER_START_X,
     y: 0,
-    angle: 45,
-    power: 50,
-    health: 100,
+    angle: this.PLAYER_START_ANGLE,
+    power: this.PLAYER_START_POWER,
+    health: this.PLAYER_START_HEALTH,
     color: '#4ECDC4',
     active: true,
-    facing: 1, // Start facing right
-    terrainAngle: 0, // Start level
+    facing: this.PLAYER_START_FACING, // Start facing right
+    terrainAngle: this.PLAYER_START_TERRAIN_ANGLE, // Start level
   };
 
   // Charging system
@@ -113,9 +145,23 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
   private readonly MIN_POWER = 10;
   private readonly MAX_POWER = 100;
+  private readonly MAX_PROJECTILE_VELOCITY = 20;
+  private readonly BARREL_LENGTH = 35;
+  private readonly PROJECTILE_RADIUS = 5;
+  private readonly PROJECTILE_FRICTION = 0.01;
+  private readonly PROJECTILE_RESTITUTION = 0.8;
 
   // Game physics
   private projectile: any = null;
+  private readonly EXPLOSION_INITIAL_RADIUS = 5;
+  private readonly EXPLOSION_MAX_RADIUS = 30;
+  private readonly EXPLOSION_LIFETIME_FRAMES = 15;
+  private readonly EXPLOSION_EXPANSION_RATE = 2;
+  private readonly EXPLOSION_CENTER_COLOR = 'rgba(255, 255, 0, 0.8)';
+  private readonly EXPLOSION_MIDDLE_COLOR = 'rgba(255, 165, 0, 0.6)';
+  private readonly EXPLOSION_EDGE_COLOR = 'rgba(255, 0, 0, 0)';
+  private readonly EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
+  private readonly EXPLOSION_OUTLINE_WIDTH = 2;
   private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] =
     [];
 
@@ -123,6 +169,52 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private keys: { [key: string]: boolean } = {};
   private mouseX = 0;
   private mouseY = 0;
+
+  // UI and Rendering Constants
+  private readonly CHARGE_BAR_WIDTH = 8;
+  private readonly CHARGE_BAR_HEIGHT = 30;
+  private readonly CHARGE_BAR_OFFSET_X = 30;
+  private readonly CHARGE_BAR_BACKGROUND_COLOR = '#333333';
+  private readonly CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
+  private readonly CHARGE_BAR_BORDER_WIDTH = 1;
+  private readonly CHARGE_BAR_FONT = '10px Arial';
+  private readonly CHARGE_BAR_TEXT_OFFSET_Y = 5;
+  private readonly TANK_BODY_RADIUS = 18;
+  private readonly CANNON_ARC_RADIUS = 40;
+  private readonly CANNON_ARC_COLOR = '#2f1cff';
+  private readonly AIM_GUIDE_COLOR = '#808080';
+  private readonly AIM_LINE_COLOR = '#232323';
+  private readonly AIM_LINE_WIDTH = 1;
+  private readonly AIM_GUIDE_ANGLES = [0, Math.PI / 4, Math.PI / 2];
+  private readonly AIM_LINE_LENGTH = 40;
+  private readonly TANK_SHADOW_COLOR = 'rgba(0, 0, 0, 0.2)';
+  private readonly TANK_SHADOW_HEIGHT_RATIO = 0.3;
+  private readonly AIMING_LINE_COLOR = 'rgba(255, 255, 255, 0.7)';
+  private readonly AIMING_LINE_WIDTH = 1;
+  private readonly AIMING_LINE_DASH = [5, 5];
+  private readonly TANK_BODY_STROKE_COLOR = '#000000';
+  private readonly TANK_BODY_STROKE_WIDTH = 2;
+  private readonly TANK_TRACK_OFFSET = 2;
+  private readonly TANK_TRACK_HEIGHT = 6;
+  private readonly TANK_TRACK_DETAIL_WIDTH = 3;
+  private readonly TANK_TRACK_DETAIL_HEIGHT = 10;
+  private readonly BARREL_WIDTH = 5;
+  private readonly BARREL_COLOR = '#666666';
+  private readonly BARREL_STROKE_COLOR = '#000000';
+  private readonly BARREL_STROKE_WIDTH = 1;
+  private readonly BARREL_TIP_COLOR = '#444444';
+  private readonly BARREL_TIP_LENGTH = 3;
+  private readonly BARREL_TIP_EXTRA_HEIGHT = 2;
+  private readonly PROJECTILE_DRAW_RADIUS = 10;
+  private readonly PROJECTILE_COLOR = '#FF0000';
+  private readonly UI_TEXT_COLOR = '#FFFFFF';
+  private readonly UI_FONT = '16px Arial';
+  private readonly UI_TEXT_X = 10;
+  private readonly UI_ANGLE_Y = 30;
+  private readonly UI_POWER_Y = 50;
+  private readonly UI_HEALTH_Y = 70;
+  private readonly UI_TERRAIN_ANGLE_Y = 90;
+  private readonly UI_ANGLE_DECIMALS = 1;
 
   constructor(private cdr: ChangeDetectorRef) {}
 
@@ -184,7 +276,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private updateCanvasScale() {
     const container = this.canvas.nativeElement.parentElement;
     if (container) {
-      const maxWidth = Math.min(window.innerWidth - 32, this.CANVAS_WIDTH);
+      const maxWidth = Math.min(window.innerWidth - this.CANVAS_PADDING, this.CANVAS_WIDTH);
       this.canvasScale = maxWidth / this.CANVAS_WIDTH;
       this.canvas.nativeElement.style.width = `${maxWidth}px`;
       this.canvas.nativeElement.style.height = `${this.CANVAS_HEIGHT * this.canvasScale}px`;
@@ -194,7 +286,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private generateTerrain() {
     // Create a simple 50-pixel tall terrain strip across the full width, raised by 50 pixels
     this.terrain = [];
-    const terrainHeight = 50; // Terrain is 50 pixels tall
+    const terrainHeight = this.TERRAIN_STRIP_HEIGHT; // Terrain is 50 pixels tall
 
     // Create terrain array - solid terrain for the full height
     for (let x = 0; x < this.TERRAIN_WIDTH; x++) {
@@ -214,7 +306,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
       for (let i = 1; i < heights.length - 1; i++) {
         // Average with neighboring points for smoothing
-        newHeights[i] = (smoothed[i - 1] + smoothed[i] * 2 + smoothed[i + 1]) / 4;
+        newHeights[i] = (smoothed[i - 1] + smoothed[i] * this.TERRAIN_SMOOTHING_WEIGHT + smoothed[i + 1]) / this.TERRAIN_SMOOTHING_DIVISOR;
       }
 
       smoothed = newHeights;
@@ -227,7 +319,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Initialize Matter.js
     this.engine = this.Engine.create();
     this.world = this.engine.world;
-    this.engine.world.gravity.y = 1;
+    this.engine.world.gravity.y = this.GRAVITY_STRENGTH;
 
     // Note: Using custom terrain collision instead of physics bodies for destructible terrain
 
@@ -242,16 +334,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private initPlayer() {
     // Find a good spot for the player on the terrain
-    this.player.x = 100;
+    this.player.x = this.PLAYER_START_X;
     // Position so the tank sits on the terrain (100 pixels from bottom, raised 50 pixels)
-    this.player.y = this.CANVAS_HEIGHT - 100 - 10; // 10 units above terrain surface
+    this.player.y = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET - this.PLAYER_HOVER_HEIGHT; // 10 units above terrain surface
 
     // Create player body (rectangle physics, but visual is semicircle)
     this.player.body = this.Bodies.rectangle(this.player.x, this.player.y, 20, 20, {
-      friction: 0.98, // Very high friction for tight controls, minimal sliding
-      frictionAir: 0.15, // Higher air resistance to stop quickly
-      restitution: 0.05, // Very low bounce
-      density: 0.01, // Lighter to respond better to controls
+      friction: this.PLAYER_FRICTION, // Very high friction for tight controls, minimal sliding
+      frictionAir: this.PLAYER_AIR_FRICTION, // Higher air resistance to stop quickly
+      restitution: this.PLAYER_RESTITUTION, // Very low bounce
+      density: this.PLAYER_DENSITY, // Lighter to respond better to controls
     });
 
     this.World.add(this.world, this.player.body);
@@ -278,7 +370,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private getTerrainAngleAt(x: number): number {
     // Calculate terrain slope by sampling points around x
-    const sampleDistance = 10;
+    const sampleDistance = this.TERRAIN_SLOPE_SAMPLE_DISTANCE;
     const leftHeight = this.getTerrainHeightAt(x - sampleDistance);
     const rightHeight = this.getTerrainHeightAt(x + sampleDistance);
     const centerHeight = this.getTerrainHeightAt(x);
@@ -352,7 +444,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
             this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE ||
             isTurningAround
           ) {
-            this.Body.setVelocity(this.player.body, { x: -2.0, y: this.player.body.velocity.y });
+            this.Body.setVelocity(this.player.body, { x: -this.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
         if (this.keys['ArrowRight'] && this.player.body) {
@@ -366,17 +458,17 @@ export class TerrablastComponent implements OnInit, OnDestroy {
             this.getTerrainAngleAt(targetX) >= -this.MAX_CLIMB_ANGLE ||
             isTurningAround
           ) {
-            this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
+            this.Body.setVelocity(this.player.body, { x: this.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
       }
 
       // Angle adjustment (up/down arrows) - inverted, clamped to 25-60 degrees
       if (this.keys['ArrowUp']) {
-        this.player.angle = Math.min(60, this.player.angle + 2);
+        this.player.angle = Math.min(this.MAX_AIM_ANGLE, this.player.angle + this.ANGLE_ADJUST_SPEED);
       }
       if (this.keys['ArrowDown']) {
-        this.player.angle = Math.max(25, this.player.angle - 2);
+        this.player.angle = Math.max(this.MIN_AIM_ANGLE, this.player.angle - this.ANGLE_ADJUST_SPEED);
       }
 
       // Shoot (start charging)
@@ -389,24 +481,20 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private shoot() {
-    const baseAngleRad = (this.player.angle * Math.PI) / 180;
-    // Adjust angle based on tank facing direction and terrain angle
-    const angleRad =
-      -this.player.terrainAngle +
-      (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
-    const velocity = (this.player.power / 100) * 20; // Max velocity
+    const angleRad = this.getBarrelAngle();
+    const velocity = (this.player.power / 100) * this.MAX_PROJECTILE_VELOCITY; // Max velocity
 
     const vx = Math.cos(angleRad) * velocity;
     const vy = -Math.sin(angleRad) * velocity; // Negative because canvas Y increases downward
 
     // Calculate barrel end position
-    const barrelLength = 35;
+    const barrelLength = this.BARREL_LENGTH;
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, 5, {
-      friction: 0.01,
-      restitution: 0.8,
+    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, this.PROJECTILE_RADIUS, {
+      friction: this.PROJECTILE_FRICTION,
+      restitution: this.PROJECTILE_RESTITUTION,
     });
 
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
@@ -434,7 +522,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     ) {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
         // Hit terrain - create crater
-        this.createCrater(px, py, 20);
+        this.createCrater(px, py, this.CRATER_RADIUS);
         this.destroyProjectile();
         return;
       }
@@ -459,7 +547,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         terrainCheckY < this.terrain[checkX]?.length
       ) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
-          this.createCrater(checkX, checkY, 20);
+          this.createCrater(checkX, checkY, this.CRATER_RADIUS);
           this.destroyProjectile();
           return;
         }
@@ -502,9 +590,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.explosions.push({
         x: this.projectile.position.x,
         y: this.projectile.position.y,
-        radius: 5,
-        maxRadius: 30,
-        life: 15, // frames
+        radius: this.EXPLOSION_INITIAL_RADIUS,
+        maxRadius: this.EXPLOSION_MAX_RADIUS,
+        life: this.EXPLOSION_LIFETIME_FRAMES, // frames
       });
 
       this.World.remove(this.world, this.projectile);
@@ -523,12 +611,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       const terrainAngle = this.getTerrainAngleAt(this.player.x);
 
       // Position tank on terrain surface
-      const tankHalfHeight = 10; // Half the tank's physics body height
+      const tankHalfHeight = this.TANK_HALF_HEIGHT; // Half the tank's physics body height
       const targetY = terrainHeight - tankHalfHeight;
 
       // Only snap to terrain if it's below or at the tank's current position (prevent teleporting to overhangs)
       // Allow small tolerance for physics floating point issues
-      if (targetY >= this.player.y - 20) {
+      if (targetY >= this.player.y - this.TERRAIN_SNAP_TOLERANCE) {
         // Set tank position and rotation
         this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
         this.Body.setAngle(this.player.body, terrainAngle);
@@ -552,15 +640,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     if (!this.player.body) return;
 
     // If player falls below the bottom of the screen, respawn
-    if (this.player.y > this.CANVAS_HEIGHT + 50) {
+    if (this.player.y > this.CANVAS_HEIGHT + this.FALL_THRESHOLD_OFFSET) {
       this.respawnPlayer();
     }
   }
 
   private respawnPlayer() {
     // Reset player position to starting location
-    this.player.x = 100;
-    this.player.y = this.CANVAS_HEIGHT - 100 - 10; // 10 units above terrain surface
+    this.player.x = this.PLAYER_START_X;
+    this.player.y = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET - this.PLAYER_HOVER_HEIGHT; // 10 units above terrain surface
 
     // Reset physics body position and velocity
     if (this.player.body) {
@@ -570,11 +658,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
 
     // Reset player properties
-    this.player.angle = 45;
-    this.player.power = 50;
-    this.player.health = 100;
-    this.player.facing = 1;
-    this.player.terrainAngle = 0;
+    this.player.angle = this.PLAYER_START_ANGLE;
+    this.player.power = this.PLAYER_START_POWER;
+    this.player.health = this.PLAYER_START_HEALTH;
+    this.player.facing = this.PLAYER_START_FACING;
+    this.player.terrainAngle = this.PLAYER_START_TERRAIN_ANGLE;
     this.player.active = true;
 
     // Reset charging state
@@ -584,7 +672,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private render() {
     // Draw sky (entire background)
-    this.ctx.fillStyle = '#87CEEB'; // Sky blue
+    this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
 
     // Draw terrain
@@ -612,11 +700,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawTerrain() {
     // Draw destructible terrain more efficiently by finding solid segments
-    this.ctx.fillStyle = '#8B4513'; // Brown color for terrain
-    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+    this.ctx.fillStyle = this.TERRAIN_COLOR; // Brown color for terrain
+    const terrainY = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET; // Terrain starts at y=500
 
     // Draw terrain in horizontal segments for better performance
-    for (let y = 0; y < 50; y++) {
+    for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
       let startX = -1;
       for (let x = 0; x < this.TERRAIN_WIDTH; x++) {
         if (this.terrain[x] && this.terrain[x][y] === 1) {
@@ -642,15 +730,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawChargeBar() {
-    const barWidth = 8;
-    const barHeight = 30; // 50% shorter (was 60px)
+    const barWidth = this.CHARGE_BAR_WIDTH;
+    const barHeight = this.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
-    const offsetX = this.player.facing === 1 ? -30 : 30; // Further left of tank when facing right, further right when facing left
+    const offsetX = this.player.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
     const barX = this.player.x + offsetX;
     const barY = this.player.y - barHeight / 2; // Center vertically on tank
 
     // Background
-    this.ctx.fillStyle = '#333333';
+    this.ctx.fillStyle = this.CHARGE_BAR_BACKGROUND_COLOR;
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
 
     // Charge level (bottom to top)
@@ -664,32 +752,32 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     );
 
     // Border
-    this.ctx.strokeStyle = '#FFFFFF';
-    this.ctx.lineWidth = 1;
+    this.ctx.strokeStyle = this.CHARGE_BAR_BORDER_COLOR;
+    this.ctx.lineWidth = this.CHARGE_BAR_BORDER_WIDTH;
     this.ctx.strokeRect(barX, barY, barWidth, barHeight);
 
     // Power percentage text
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '10px Arial';
+    this.ctx.font = this.CHARGE_BAR_FONT;
     this.ctx.textAlign = 'center';
     const textX = barX + barWidth / 2;
-    const textY = barY - 5;
+    const textY = barY - this.CHARGE_BAR_TEXT_OFFSET_Y;
     this.ctx.fillText(`${Math.round(this.player.power)}%`, textX, textY);
     this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
   private drawTerrainDetails() {
     // Add some subtle details to make terrain look more natural
-    this.ctx.fillStyle = 'rgba(139, 69, 19, 0.4)'; // Semi-transparent brown for details
-    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+    this.ctx.fillStyle = this.TERRAIN_DETAIL_COLOR; // Semi-transparent brown for details
+    const terrainY = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET; // Terrain starts at y=500
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < this.TERRAIN_DETAIL_COUNT; i++) {
       const x = Math.random() * this.TERRAIN_WIDTH;
-      const terrainLocalY = Math.floor(Math.random() * 50); // Random within terrain height
+      const terrainLocalY = Math.floor(Math.random() * this.TERRAIN_STRIP_HEIGHT); // Random within terrain height
 
       if (this.terrain[Math.floor(x)] && this.terrain[Math.floor(x)][terrainLocalY] === 1) {
         // Draw small irregular shapes for texture
-        const size = Math.random() * 3 + 1;
+        const size = Math.random() * (this.TERRAIN_DETAIL_SIZE_MAX - this.TERRAIN_DETAIL_SIZE_MIN) + this.TERRAIN_DETAIL_SIZE_MIN;
         this.ctx.fillRect(x - size / 2, terrainY + terrainLocalY - size / 2, size, size);
       }
     }
@@ -698,7 +786,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawPlayer() {
     const centerX = this.player.x;
     const centerY = this.player.y;
-    const bodyRadius = 18;
+    const bodyRadius = this.TANK_BODY_RADIUS;
 
     // Save context for tank flipping and terrain rotation
     this.ctx.save();
@@ -713,30 +801,30 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     if (this.currentState === GameState.PLAYING) {
       let minAngle, maxAngle;
       if (this.player.facing === -1) {
-        minAngle = Math.PI - (60 * Math.PI) / 180; // 120°
-        maxAngle = Math.PI - (25 * Math.PI) / 180; // 155°
+        minAngle = Math.PI - (this.MAX_AIM_ANGLE * Math.PI) / 180; // 120°
+        maxAngle = Math.PI - (this.MIN_AIM_ANGLE * Math.PI) / 180; // 155°
       } else {
-        minAngle = (25 * Math.PI) / 180;
-        maxAngle = (60 * Math.PI) / 180;
+        minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
+        maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
       }
       this.ctx.globalAlpha = 0.2;
-      this.ctx.fillStyle = '#FFFF00'; // Yellow transparent
+      this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
-      this.ctx.arc(centerX, centerY, 40, -maxAngle, -minAngle);
+      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
       this.ctx.closePath();
       this.ctx.fill();
       this.ctx.globalAlpha = 1.0;
 
       // Draw grey aim guide 0° to 90°
       this.ctx.globalAlpha = 0.2; // Darker grey
-      this.ctx.fillStyle = '#808080'; // Grey transparent
+      this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
       if (this.player.facing === -1) {
-        this.ctx.arc(centerX, centerY, 40, -Math.PI, -Math.PI / 2); // -180° to -90°
+        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI, -Math.PI / 2); // -180° to -90°
       } else {
-        this.ctx.arc(centerX, centerY, 40, -Math.PI / 2, 0); // -90° to 0°
+        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
       }
       this.ctx.closePath();
       this.ctx.fill();
@@ -751,12 +839,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
     if (this.currentState === GameState.PLAYING) {
       this.ctx.globalAlpha = 1.0;
-      this.ctx.strokeStyle = '#000000';
-      this.ctx.lineWidth = 1;
+      this.ctx.strokeStyle = this.AIM_LINE_COLOR;
+      this.ctx.lineWidth = this.AIM_LINE_WIDTH;
       const angles = [0, -Math.PI / 4, -Math.PI / 2];
       angles.forEach((angle) => {
-        const endX = centerX + Math.cos(-angle) * 40;
-        const endY = centerY - Math.sin(-angle) * 40;
+        const endX = centerX + Math.cos(-angle) * this.AIM_LINE_LENGTH;
+        const endY = centerY - Math.sin(-angle) * this.AIM_LINE_LENGTH;
         this.ctx.beginPath();
         this.ctx.moveTo(centerX, centerY);
         this.ctx.lineTo(endX, endY);
@@ -765,9 +853,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
 
     // Draw tank shadow for depth
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    this.ctx.fillStyle = this.TANK_SHADOW_COLOR;
     this.ctx.beginPath();
-    this.ctx.ellipse(centerX, centerY + 2, bodyRadius, bodyRadius * 0.3, 0, 0, Math.PI, true);
+    this.ctx.ellipse(centerX, centerY + 2, bodyRadius, bodyRadius * this.TANK_SHADOW_HEIGHT_RATIO, 0, 0, Math.PI, true);
     this.ctx.fill();
 
     // Draw barrel (rotates with angle) - behind body
@@ -776,13 +864,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw aiming line (behind body)
     if (this.currentState === GameState.PLAYING) {
       const angleRad = (this.player.angle * Math.PI) / 180;
-      const lineLength = 40;
+      const lineLength = this.AIM_LINE_LENGTH;
       const endX = centerX + Math.cos(angleRad) * lineLength;
       const endY = centerY - Math.sin(angleRad) * lineLength;
 
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-      this.ctx.lineWidth = 1;
-      this.ctx.setLineDash([5, 5]);
+      this.ctx.strokeStyle = this.AIMING_LINE_COLOR;
+      this.ctx.lineWidth = this.AIMING_LINE_WIDTH;
+      this.ctx.setLineDash(this.AIMING_LINE_DASH);
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
       this.ctx.lineTo(endX, endY);
@@ -792,8 +880,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
     this.ctx.fillStyle = this.player.color;
-    this.ctx.strokeStyle = '#000000';
-    this.ctx.lineWidth = 2;
+    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
+    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
 
     // Draw semicircle body
     this.ctx.beginPath();
@@ -804,12 +892,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw tank tracks/details - on top
     this.ctx.fillStyle = '#333333';
-    this.ctx.fillRect(centerX - bodyRadius + 2, centerY - 3, bodyRadius * 2 - 4, 6);
-    this.ctx.strokeRect(centerX - bodyRadius + 2, centerY - 3, bodyRadius * 2 - 4, 6);
+    this.ctx.fillRect(centerX - bodyRadius + this.TANK_TRACK_OFFSET, centerY - 3, bodyRadius * 2 - 4, this.TANK_TRACK_HEIGHT);
+    this.ctx.strokeRect(centerX - bodyRadius + this.TANK_TRACK_OFFSET, centerY - 3, bodyRadius * 2 - 4, this.TANK_TRACK_HEIGHT);
 
     // Draw tank tracks (left and right)
     this.ctx.fillStyle = '#222222';
-    this.ctx.fillRect(centerX - bodyRadius + 4, centerY - 5, 3, 10);
+    this.ctx.fillRect(centerX - bodyRadius + 4, centerY - 5, this.TANK_TRACK_DETAIL_WIDTH, this.TANK_TRACK_DETAIL_HEIGHT);
     this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
 
     // Restore context
@@ -817,8 +905,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
-    const barrelLength = 35;
-    const barrelWidth = 5;
+    const barrelLength = this.BARREL_LENGTH;
+    const barrelWidth = this.BARREL_WIDTH;
     const angleRad = (this.player.angle * Math.PI) / 180;
 
     // Save context for rotation
@@ -829,29 +917,29 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.rotate(-angleRad); // Negative to match aiming line direction
 
     // Draw barrel
-    this.ctx.fillStyle = '#666666';
-    this.ctx.strokeStyle = '#000000';
-    this.ctx.lineWidth = 1;
+    this.ctx.fillStyle = this.BARREL_COLOR;
+    this.ctx.strokeStyle = this.BARREL_STROKE_COLOR;
+    this.ctx.lineWidth = this.BARREL_STROKE_WIDTH;
 
     // Main barrel rectangle
     this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
     this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
 
     // Barrel tip accent
-    this.ctx.fillStyle = '#444444';
-    this.ctx.fillRect(barrelLength - 3, -barrelWidth / 2 - 1, 3, barrelWidth + 2);
+    this.ctx.fillStyle = this.BARREL_TIP_COLOR;
+    this.ctx.fillRect(barrelLength - this.BARREL_TIP_LENGTH, -barrelWidth / 2 - 1, this.BARREL_TIP_LENGTH, barrelWidth + this.BARREL_TIP_EXTRA_HEIGHT);
 
     // Restore context
     this.ctx.restore();
   }
 
   private drawProjectile() {
-    this.ctx.fillStyle = '#FF0000';
+    this.ctx.fillStyle = this.PROJECTILE_COLOR;
     this.ctx.beginPath();
     this.ctx.arc(
       this.projectile.position.x,
       this.projectile.position.y,
-      10, // Increased from 5 to 10
+      this.PROJECTILE_DRAW_RADIUS, // Increased from 5 to 10
       0,
       Math.PI * 2,
     );
@@ -861,7 +949,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const explosion = this.explosions[i];
-      explosion.radius += 2; // Expand
+      explosion.radius += this.EXPLOSION_EXPANSION_RATE; // Expand
       explosion.life--;
 
       if (explosion.life <= 0 || explosion.radius >= explosion.maxRadius) {
@@ -881,9 +969,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         explosion.y,
         explosion.radius,
       );
-      gradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)'); // Yellow center
-      gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.6)'); // Orange middle
-      gradient.addColorStop(1, 'rgba(255, 0, 0, 0)'); // Red edge fading to transparent
+      gradient.addColorStop(0, this.EXPLOSION_CENTER_COLOR); // Yellow center
+      gradient.addColorStop(0.5, this.EXPLOSION_MIDDLE_COLOR); // Orange middle
+      gradient.addColorStop(1, this.EXPLOSION_EDGE_COLOR); // Red edge fading to transparent
 
       this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
@@ -891,24 +979,35 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.fill();
 
       // Add explosion outline
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = this.EXPLOSION_OUTLINE_COLOR;
+      this.ctx.lineWidth = this.EXPLOSION_OUTLINE_WIDTH;
       this.ctx.stroke();
     }
   }
 
   private drawUI() {
     // Draw angle and power
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '16px Arial';
-    this.ctx.fillText(`Angle: ${this.player.angle}°`, 10, 30);
-    this.ctx.fillText(`Power: ${this.player.power}%`, 10, 50);
-    this.ctx.fillText(`Health: ${this.player.health}`, 10, 70);
+    this.ctx.fillStyle = this.UI_TEXT_COLOR;
+    this.ctx.font = this.UI_FONT;
+    // Calculate true barrel angle (terrain + turret + facing adjustment)
+    const trueAngleRad = this.getBarrelAngle();
+    const trueAngleDeg = ((trueAngleRad * 180) / Math.PI).toFixed(this.UI_ANGLE_DECIMALS);
+    this.ctx.fillText(`Angle: ${trueAngleDeg}°`, this.UI_TEXT_X, this.UI_ANGLE_Y);
+    this.ctx.fillText(`Power: ${this.player.power}%`, this.UI_TEXT_X, this.UI_POWER_Y);
+    this.ctx.fillText(`Health: ${this.player.health}`, this.UI_TEXT_X, this.UI_HEALTH_Y);
     this.ctx.fillText(
       `Terrain Angle: ${((this.player.terrainAngle * 180) / Math.PI).toFixed(1)}°`,
-      10,
-      90,
+      this.UI_TEXT_X,
+      this.UI_TERRAIN_ANGLE_Y,
     );
+  }
+
+  private getBarrelAngle(): number {
+    const baseAngleRad = (this.player.angle * Math.PI) / 180;
+    const trueAngleRad =
+      -this.player.terrainAngle +
+      (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    return trueAngleRad;
   }
 
   @HostListener('window:keydown', ['$event'])
