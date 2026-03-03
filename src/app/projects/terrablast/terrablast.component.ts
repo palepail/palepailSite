@@ -500,17 +500,26 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       const tankHalfHeight = 10; // Half the tank's physics body height
       const targetY = terrainHeight - tankHalfHeight;
 
-      // Set tank position and rotation
-      this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
-      this.Body.setAngle(this.player.body, terrainAngle);
+      // Only snap to terrain if it's below or at the tank's current position (prevent teleporting to overhangs)
+      // Allow small tolerance for physics floating point issues
+      if (targetY >= this.player.y - 20) {
+        // Set tank position and rotation
+        this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
+        this.Body.setAngle(this.player.body, terrainAngle);
 
-      // Update player properties to match physics body
-      this.player.y = targetY;
+        // Update player properties to match physics body
+        this.player.y = targetY;
 
-      // Store terrain angle for visual rotation
-      this.player.terrainAngle = terrainAngle;
+        // Store terrain angle for visual rotation
+        this.player.terrainAngle = terrainAngle;
+      } else {
+        // Terrain is above (overhang), let physics handle falling
+        this.player.terrainAngle = 0;
+      }
+    } else {
+      // If no terrain exists, let physics handle the tank's position (it will fall)
+      this.player.terrainAngle = 0; // Reset terrain angle
     }
-    // If no terrain exists, let physics handle the tank's position (it will fall)
   }
 
   private checkPlayerFall() {
