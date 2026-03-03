@@ -373,8 +373,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private shoot() {
     const baseAngleRad = (this.player.angle * Math.PI) / 180;
-    // Adjust angle based on tank facing direction
-    const angleRad = this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad;
+    // Adjust angle based on tank facing direction and terrain angle
+    const angleRad = -this.player.terrainAngle + (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     const velocity = (this.player.power / 100) * 20; // Max velocity
 
     const vx = Math.cos(angleRad) * velocity;
