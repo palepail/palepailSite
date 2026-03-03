@@ -251,8 +251,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       20,
       20,
       {
-        friction: 0.9,        // Higher friction to prevent sliding
-        frictionAir: 0.05,    // Air resistance to stabilize movement
+        friction: 0.98,       // Very high friction for tight controls, minimal sliding
+        frictionAir: 0.15,    // Higher air resistance to stop quickly
         restitution: 0.05,    // Very low bounce
         density: 0.01,        // Lighter to respond better to controls
       }
@@ -275,8 +275,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       }
     }
 
-    // If no terrain found, return the base terrain level
-    return this.CANVAS_HEIGHT - 50;
+    // If no terrain found, return -1 to indicate no terrain
+    return -1;
   }
 
   private getTerrainAngleAt(x: number): number {
@@ -330,20 +330,28 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Check player collision with terrain
     this.checkPlayerTerrainCollision();
 
+    // Check if player fell off the screen
+    this.checkPlayerFall();
+
     // Update explosions
     this.updateExplosions();
   }
 
   private handleInput() {
     if (this.currentState === GameState.PLAYING) {
-      // Tank movement and facing
-      if (this.keys['ArrowLeft'] && this.player.body) {
-        this.Body.setVelocity(this.player.body, { x: -2.5, y: this.player.body.velocity.y });
-        this.player.facing = -1; // Face left
-      }
-      if (this.keys['ArrowRight'] && this.player.body) {
-        this.Body.setVelocity(this.player.body, { x: 2.5, y: this.player.body.velocity.y });
-        this.player.facing = 1; // Face right
+      // Check if player is on terrain (can move left/right)
+      const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
+
+      // Tank movement and facing - only when on terrain
+      if (isOnTerrain) {
+        if (this.keys['ArrowLeft'] && this.player.body) {
+          this.Body.setVelocity(this.player.body, { x: -2.0, y: this.player.body.velocity.y });
+          this.player.facing = -1; // Face left
+        }
+        if (this.keys['ArrowRight'] && this.player.body) {
+          this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
+          this.player.facing = 1; // Face right
+        }
       }
 
       // Angle adjustment (up/down arrows) - inverted, clamped to 25-60 degrees
@@ -470,21 +478,60 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Get terrain height and angle at player's position
     const terrainHeight = this.getTerrainHeightAt(this.player.x);
-    const terrainAngle = this.getTerrainAngleAt(this.player.x);
 
-    // Position tank on terrain surface
-    const tankHalfHeight = 10; // Half the tank's physics body height
-    const targetY = terrainHeight - tankHalfHeight;
+    // Only position tank on terrain if terrain actually exists
+    if (terrainHeight !== -1) {
+      const terrainAngle = this.getTerrainAngleAt(this.player.x);
 
-    // Set tank position and rotation
-    this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
-    this.Body.setAngle(this.player.body, terrainAngle);
+      // Position tank on terrain surface
+      const tankHalfHeight = 10; // Half the tank's physics body height
+      const targetY = terrainHeight - tankHalfHeight;
 
-    // Update player properties to match physics body
-    this.player.y = targetY;
+      // Set tank position and rotation
+      this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
+      this.Body.setAngle(this.player.body, terrainAngle);
 
-    // Store terrain angle for visual rotation
-    this.player.terrainAngle = terrainAngle;
+      // Update player properties to match physics body
+      this.player.y = targetY;
+
+      // Store terrain angle for visual rotation
+      this.player.terrainAngle = terrainAngle;
+    }
+    // If no terrain exists, let physics handle the tank's position (it will fall)
+  }
+
+  private checkPlayerFall() {
+    if (!this.player.body) return;
+
+    // If player falls below the bottom of the screen, respawn
+    if (this.player.y > this.CANVAS_HEIGHT + 50) {
+      this.respawnPlayer();
+    }
+  }
+
+  private respawnPlayer() {
+    // Reset player position to starting location
+    this.player.x = 100;
+    this.player.y = this.CANVAS_HEIGHT - 100 - 10; // 10 units above terrain surface
+
+    // Reset physics body position and velocity
+    if (this.player.body) {
+      this.Body.setPosition(this.player.body, { x: this.player.x, y: this.player.y });
+      this.Body.setVelocity(this.player.body, { x: 0, y: 0 });
+      this.Body.setAngle(this.player.body, 0);
+    }
+
+    // Reset player properties
+    this.player.angle = 45;
+    this.player.power = 50;
+    this.player.health = 100;
+    this.player.facing = 1;
+    this.player.terrainAngle = 0;
+    this.player.active = true;
+
+    // Reset charging state
+    this.isCharging = false;
+    this.chargeStartTime = 0;
   }
 
   private render() {
