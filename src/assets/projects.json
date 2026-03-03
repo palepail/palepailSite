@@ -20,6 +20,14 @@
           "image": "/resources/images/projects/potionDrop/potionDrop.png",
           "link": "/projects/interactable/potion-drop",
           "status": [{ "name": "In Development" }]
+        },
+        {
+          "title": "Terrablast",
+          "description": "Physics-based artillery game inspired by classic turn-based shooters",
+          "technologies": ["JavaScript", "HTML5", "CSS3", "Matter.js"],
+          "image": "/resources/images/projects/potionDrop/potionDrop.png",
+          "link": "/projects/interactable/terrablast",
+          "status": [{ "name": "In Development" }]
         }
       ]
     },
@@ -34,7 +42,8 @@
           "technologies": ["Angular", "TypeScript", "SCSS", "HTML", "CSS"],
           "image": "/resources/images/projects/website/palepailv1.1.png",
           "link": "#",
-          "status": [{ "name": "Completed" }]
+          "status": [{ "name": "Completed" }],
+          "hasLink": false
         },
         {
           "title": "palepail.com Overhaul",
