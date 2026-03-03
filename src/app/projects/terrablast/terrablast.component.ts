@@ -361,7 +361,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (!hasTerrain || this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE || isTurningAround) {
+          if (!hasTerrain || this.getTerrainAngleAt(targetX) >= -this.MAX_CLIMB_ANGLE || isTurningAround) {
             this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
           }
         }
@@ -810,12 +810,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillText(`Angle: ${this.player.angle}°`, 10, 30);
     this.ctx.fillText(`Power: ${this.player.power}%`, 10, 50);
     this.ctx.fillText(`Health: ${this.player.health}`, 10, 70);
-
-    // Draw controls
-    this.ctx.fillText('Controls:', 10, 100);
-    this.ctx.fillText('↑↓: Aim (25°-60°)', 10, 120);
-    this.ctx.fillText('←→: Move tank', 10, 140);
-    this.ctx.fillText('Hold Space: Charge & Shoot', 10, 160);
+    this.ctx.fillText(`Terrain Angle: ${(this.player.terrainAngle * 180 / Math.PI).toFixed(1)}°`, 10, 90);
   }
 
   @HostListener('window:keydown', ['$event'])
