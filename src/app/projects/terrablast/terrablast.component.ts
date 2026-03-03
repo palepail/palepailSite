@@ -116,7 +116,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   // Game physics
   private projectile: any = null;
-  private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] = [];
+  private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] =
+    [];
 
   // Input handling
   private keys: { [key: string]: boolean } = {};
@@ -246,18 +247,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.player.y = this.CANVAS_HEIGHT - 100 - 10; // 10 units above terrain surface
 
     // Create player body (rectangle physics, but visual is semicircle)
-    this.player.body = this.Bodies.rectangle(
-      this.player.x,
-      this.player.y,
-      20,
-      20,
-      {
-        friction: 0.98,       // Very high friction for tight controls, minimal sliding
-        frictionAir: 0.15,    // Higher air resistance to stop quickly
-        restitution: 0.05,    // Very low bounce
-        density: 0.01,        // Lighter to respond better to controls
-      }
-    );
+    this.player.body = this.Bodies.rectangle(this.player.x, this.player.y, 20, 20, {
+      friction: 0.98, // Very high friction for tight controls, minimal sliding
+      frictionAir: 0.15, // Higher air resistance to stop quickly
+      restitution: 0.05, // Very low bounce
+      density: 0.01, // Lighter to respond better to controls
+    });
 
     this.World.add(this.world, this.player.body);
   }
@@ -269,7 +264,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     if (terrainX >= 0 && terrainX < this.TERRAIN_WIDTH) {
       // Find the highest terrain pixel at this x position
-      for (let y = 0; y < 50; y++) { // Terrain is 50 pixels tall
+      for (let y = 0; y < 50; y++) {
+        // Terrain is 50 pixels tall
         if (this.terrain[terrainX] && this.terrain[terrainX][y] === 1) {
           return terrainY + y;
         }
@@ -351,7 +347,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
           const targetX = this.player.x - 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (!hasTerrain || this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE || isTurningAround) {
+          if (
+            !hasTerrain ||
+            this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE ||
+            isTurningAround
+          ) {
             this.Body.setVelocity(this.player.body, { x: -2.0, y: this.player.body.velocity.y });
           }
         }
@@ -361,7 +361,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (!hasTerrain || this.getTerrainAngleAt(targetX) >= -this.MAX_CLIMB_ANGLE || isTurningAround) {
+          if (
+            !hasTerrain ||
+            this.getTerrainAngleAt(targetX) >= -this.MAX_CLIMB_ANGLE ||
+            isTurningAround
+          ) {
             this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
           }
         }
@@ -387,7 +391,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private shoot() {
     const baseAngleRad = (this.player.angle * Math.PI) / 180;
     // Adjust angle based on tank facing direction and terrain angle
-    const angleRad = -this.player.terrainAngle + (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    const angleRad =
+      -this.player.terrainAngle +
+      (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     const velocity = (this.player.power / 100) * 20; // Max velocity
 
     const vx = Math.cos(angleRad) * velocity;
@@ -398,15 +404,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    this.projectile = this.Bodies.circle(
-      barrelEndX,
-      barrelEndY,
-      5,
-      {
-        friction: 0.01,
-        restitution: 0.8,
-      }
-    );
+    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, 5, {
+      friction: 0.01,
+      restitution: 0.8,
+    });
 
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
@@ -425,7 +426,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const terrainLocalY = py - terrainY;
 
     // Check a smaller area around projectile for performance
-    if (px >= 0 && px < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[px]?.length) {
+    if (
+      px >= 0 &&
+      px < this.TERRAIN_WIDTH &&
+      terrainLocalY >= 0 &&
+      terrainLocalY < this.terrain[px]?.length
+    ) {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
         // Hit terrain - create crater
         this.createCrater(px, py, 20);
@@ -435,13 +441,23 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
 
     // Check adjacent pixels for more accurate collision
-    const checkOffsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const checkOffsets = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ];
     for (const [offsetX, offsetY] of checkOffsets) {
       const checkX = px + offsetX;
       const checkY = py + offsetY;
       const terrainCheckY = checkY - terrainY;
 
-      if (checkX >= 0 && checkX < this.TERRAIN_WIDTH && terrainCheckY >= 0 && terrainCheckY < this.terrain[checkX]?.length) {
+      if (
+        checkX >= 0 &&
+        checkX < this.TERRAIN_WIDTH &&
+        terrainCheckY >= 0 &&
+        terrainCheckY < this.terrain[checkX]?.length
+      ) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
           this.createCrater(checkX, checkY, 20);
           this.destroyProjectile();
@@ -464,7 +480,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         // Convert screen coordinates to terrain array coordinates
         const terrainLocalY = y - terrainY;
 
-        if (x >= 0 && x < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[x]?.length) {
+        if (
+          x >= 0 &&
+          x < this.TERRAIN_WIDTH &&
+          terrainLocalY >= 0 &&
+          terrainLocalY < this.terrain[x]?.length
+        ) {
           const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
           if (distance < radius) {
             this.terrain[x][terrainLocalY] = 0;
@@ -483,7 +504,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         y: this.projectile.position.y,
         radius: 5,
         maxRadius: 30,
-        life: 15 // frames
+        life: 15, // frames
       });
 
       this.World.remove(this.world, this.projectile);
@@ -635,7 +656,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Charge level (bottom to top)
     const chargeRatio = (this.player.power - this.MIN_POWER) / (this.MAX_POWER - this.MIN_POWER);
     this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
-    this.ctx.fillRect(barX, barY + barHeight * (1 - chargeRatio), barWidth, barHeight * chargeRatio);
+    this.ctx.fillRect(
+      barX,
+      barY + barHeight * (1 - chargeRatio),
+      barWidth,
+      barHeight * chargeRatio,
+    );
 
     // Border
     this.ctx.strokeStyle = '#FFFFFF';
@@ -664,7 +690,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       if (this.terrain[Math.floor(x)] && this.terrain[Math.floor(x)][terrainLocalY] === 1) {
         // Draw small irregular shapes for texture
         const size = Math.random() * 3 + 1;
-        this.ctx.fillRect(x - size/2, terrainY + terrainLocalY - size/2, size, size);
+        this.ctx.fillRect(x - size / 2, terrainY + terrainLocalY - size / 2, size, size);
       }
     }
   }
@@ -682,10 +708,60 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.rotate(this.player.terrainAngle);
     this.ctx.translate(-centerX, -centerY);
 
+    // Draw cannon range arc (before facing flip)
+    // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
+    if (this.currentState === GameState.PLAYING) {
+      let minAngle, maxAngle;
+      if (this.player.facing === -1) {
+        minAngle = Math.PI - (60 * Math.PI) / 180; // 120°
+        maxAngle = Math.PI - (25 * Math.PI) / 180; // 155°
+      } else {
+        minAngle = (25 * Math.PI) / 180;
+        maxAngle = (60 * Math.PI) / 180;
+      }
+      this.ctx.globalAlpha = 0.2;
+      this.ctx.fillStyle = '#FFFF00'; // Yellow transparent
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      this.ctx.arc(centerX, centerY, 40, -maxAngle, -minAngle);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.globalAlpha = 1.0;
+
+      // Draw grey aim guide 0° to 90°
+      this.ctx.globalAlpha = 0.2; // Darker grey
+      this.ctx.fillStyle = '#808080'; // Grey transparent
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      if (this.player.facing === -1) {
+        this.ctx.arc(centerX, centerY, 40, -Math.PI, -Math.PI / 2); // -180° to -90°
+      } else {
+        this.ctx.arc(centerX, centerY, 40, -Math.PI / 2, 0); // -90° to 0°
+      }
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+
     // Flip tank based on facing direction
     if (this.player.facing === -1) {
       this.ctx.scale(-1, 1);
       this.ctx.translate(-centerX * 2, 0);
+    }
+
+    // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
+    if (this.currentState === GameState.PLAYING) {
+      this.ctx.globalAlpha = 1.0;
+      this.ctx.strokeStyle = '#000000';
+      this.ctx.lineWidth = 1;
+      const angles = [0, -Math.PI / 4, -Math.PI / 2];
+      angles.forEach((angle) => {
+        const endX = centerX + Math.cos(-angle) * 40;
+        const endY = centerY - Math.sin(-angle) * 40;
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, centerY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.stroke();
+      });
     }
 
     // Draw tank shadow for depth
@@ -758,12 +834,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.lineWidth = 1;
 
     // Main barrel rectangle
-    this.ctx.fillRect(0, -barrelWidth/2, barrelLength, barrelWidth);
-    this.ctx.strokeRect(0, -barrelWidth/2, barrelLength, barrelWidth);
+    this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+    this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
 
     // Barrel tip accent
     this.ctx.fillStyle = '#444444';
-    this.ctx.fillRect(barrelLength - 3, -barrelWidth/2 - 1, 3, barrelWidth + 2);
+    this.ctx.fillRect(barrelLength - 3, -barrelWidth / 2 - 1, 3, barrelWidth + 2);
 
     // Restore context
     this.ctx.restore();
@@ -777,7 +853,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.projectile.position.y,
       10, // Increased from 5 to 10
       0,
-      Math.PI * 2
+      Math.PI * 2,
     );
     this.ctx.fill();
   }
@@ -798,8 +874,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     for (const explosion of this.explosions) {
       // Create explosion gradient (orange to red)
       const gradient = this.ctx.createRadialGradient(
-        explosion.x, explosion.y, 0,
-        explosion.x, explosion.y, explosion.radius
+        explosion.x,
+        explosion.y,
+        0,
+        explosion.x,
+        explosion.y,
+        explosion.radius,
       );
       gradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)'); // Yellow center
       gradient.addColorStop(0.5, 'rgba(255, 165, 0, 0.6)'); // Orange middle
@@ -824,7 +904,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillText(`Angle: ${this.player.angle}°`, 10, 30);
     this.ctx.fillText(`Power: ${this.player.power}%`, 10, 50);
     this.ctx.fillText(`Health: ${this.player.health}`, 10, 70);
-    this.ctx.fillText(`Terrain Angle: ${(this.player.terrainAngle * 180 / Math.PI).toFixed(1)}°`, 10, 90);
+    this.ctx.fillText(
+      `Terrain Angle: ${((this.player.terrainAngle * 180) / Math.PI).toFixed(1)}°`,
+      10,
+      90,
+    );
   }
 
   @HostListener('window:keydown', ['$event'])
