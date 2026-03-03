@@ -25,6 +25,7 @@ interface Player {
   color: string;
   active: boolean;
   facing: number; // 1 for right, -1 for left
+  terrainAngle: number; // Angle of terrain beneath the tank
 }
 
 enum GameState {
@@ -102,6 +103,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     color: '#4ECDC4',
     active: true,
     facing: 1, // Start facing right
+    terrainAngle: 0, // Start level
   };
 
   // Charging system
@@ -259,13 +261,36 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.World.add(this.world, this.player.body);
   }
 
-  private findTerrainHeight(x: number): number {
-    for (let y = 0; y < this.TERRAIN_HEIGHT; y++) {
-      if (this.terrain[Math.floor(x)] && this.terrain[Math.floor(x)][y] === 1) {
-        return y;
+  private getTerrainHeightAt(x: number): number {
+    // Get the terrain height at a specific x position
+    const terrainX = Math.floor(x);
+    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+
+    if (terrainX >= 0 && terrainX < this.TERRAIN_WIDTH) {
+      // Find the highest terrain pixel at this x position
+      for (let y = 0; y < 50; y++) { // Terrain is 50 pixels tall
+        if (this.terrain[terrainX] && this.terrain[terrainX][y] === 1) {
+          return terrainY + y;
+        }
       }
     }
-    return this.TERRAIN_HEIGHT;
+
+    // If no terrain found, return the base terrain level
+    return this.CANVAS_HEIGHT - 50;
+  }
+
+  private getTerrainAngleAt(x: number): number {
+    // Calculate terrain slope by sampling points around x
+    const sampleDistance = 10;
+    const leftHeight = this.getTerrainHeightAt(x - sampleDistance);
+    const rightHeight = this.getTerrainHeightAt(x + sampleDistance);
+    const centerHeight = this.getTerrainHeightAt(x);
+
+    // Calculate angle based on height difference
+    const heightDiff = rightHeight - leftHeight;
+    const angle = Math.atan2(heightDiff, sampleDistance * 2);
+
+    return angle;
   }
 
   private gameLoop = () => {
@@ -443,35 +468,23 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private checkPlayerTerrainCollision() {
     if (!this.player.body) return;
 
-    const playerRadius = 18;
-    const px = Math.floor(this.player.x);
-    const py = Math.floor(this.player.y + playerRadius);
-    const terrainY = this.CANVAS_HEIGHT - 100; // Terrain starts at y=500
+    // Get terrain height and angle at player's position
+    const terrainHeight = this.getTerrainHeightAt(this.player.x);
+    const terrainAngle = this.getTerrainAngleAt(this.player.x);
 
-    // Only check if player is moving downward (falling)
-    if (this.player.body.velocity.y <= 0) return;
+    // Position tank on terrain surface
+    const tankHalfHeight = 10; // Half the tank's physics body height
+    const targetY = terrainHeight - tankHalfHeight;
 
-    // Check a smaller area below player for terrain collision
-    for (let x = px - playerRadius; x <= px + playerRadius; x += 2) { // Check every 2 pixels for performance
-      const checkY = py + 2; // Check slightly below player
-      const terrainLocalY = checkY - terrainY;
+    // Set tank position and rotation
+    this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
+    this.Body.setAngle(this.player.body, terrainAngle);
 
-      if (x >= 0 && x < this.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[x]?.length) {
-        if (this.terrain[x] && this.terrain[x][terrainLocalY] === 1) {
-          // Player is about to hit terrain - gently stop downward motion
-          this.Body.setVelocity(this.player.body, {
-            x: this.player.body.velocity.x * 0.9, // Slight horizontal damping
-            y: Math.min(0, this.player.body.velocity.y * 0.5) // Reduce upward bounce
-          });
-          // Position player just above terrain
-          this.Body.setPosition(this.player.body, {
-            x: this.player.x,
-            y: checkY - playerRadius - 2
-          });
-          return;
-        }
-      }
-    }
+    // Update player properties to match physics body
+    this.player.y = targetY;
+
+    // Store terrain angle for visual rotation
+    this.player.terrainAngle = terrainAngle;
   }
 
   private render() {
@@ -587,8 +600,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const centerY = this.player.y;
     const bodyRadius = 18;
 
-    // Save context for tank flipping
+    // Save context for tank flipping and terrain rotation
     this.ctx.save();
+
+    // Apply terrain rotation first
+    this.ctx.translate(centerX, centerY);
+    this.ctx.rotate(this.player.terrainAngle);
+    this.ctx.translate(-centerX, -centerY);
 
     // Flip tank based on facing direction
     if (this.player.facing === -1) {
