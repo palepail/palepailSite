@@ -91,6 +91,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private terrain: number[][] = [];
   private readonly TERRAIN_WIDTH = 800;
   private readonly TERRAIN_HEIGHT = 400;
+  private readonly MAX_CLIMB_ANGLE = (50 * Math.PI) / 180; // 50 degrees
 
   // Player
   player: Player = {
@@ -345,12 +346,24 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       // Tank movement and facing - only when on terrain
       if (isOnTerrain) {
         if (this.keys['ArrowLeft'] && this.player.body) {
-          this.Body.setVelocity(this.player.body, { x: -2.0, y: this.player.body.velocity.y });
+          const oldFacing = this.player.facing;
           this.player.facing = -1; // Face left
+          const targetX = this.player.x - 2.0;
+          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
+          const isTurningAround = oldFacing !== this.player.facing;
+          if (!hasTerrain || this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE || isTurningAround) {
+            this.Body.setVelocity(this.player.body, { x: -2.0, y: this.player.body.velocity.y });
+          }
         }
         if (this.keys['ArrowRight'] && this.player.body) {
-          this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
+          const oldFacing = this.player.facing;
           this.player.facing = 1; // Face right
+          const targetX = this.player.x + 2.0;
+          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
+          const isTurningAround = oldFacing !== this.player.facing;
+          if (!hasTerrain || this.getTerrainAngleAt(targetX) <= this.MAX_CLIMB_ANGLE || isTurningAround) {
+            this.Body.setVelocity(this.player.body, { x: 2.0, y: this.player.body.velocity.y });
+          }
         }
       }
 
