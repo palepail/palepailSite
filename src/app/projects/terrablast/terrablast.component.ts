@@ -111,7 +111,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private isCharging = false;
   private chargeStartTime = 0;
   private readonly MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
-  private readonly MIN_POWER = 20;
+  private readonly MIN_POWER = 10;
   private readonly MAX_POWER = 100;
 
   // Game physics
@@ -393,9 +393,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const vx = Math.cos(angleRad) * velocity;
     const vy = -Math.sin(angleRad) * velocity; // Negative because canvas Y increases downward
 
+    // Calculate barrel end position
+    const barrelLength = 35;
+    const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
+    const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
+
     this.projectile = this.Bodies.circle(
-      this.player.x,
-      this.player.y - 10,
+      barrelEndX,
+      barrelEndY,
       5,
       {
         friction: 0.01,
