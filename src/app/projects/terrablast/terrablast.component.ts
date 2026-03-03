@@ -104,6 +104,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     facing: 1, // Start facing right
   };
 
+  // Charging system
+  private isCharging = false;
+  private chargeStartTime = 0;
+  private readonly MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
+  private readonly MIN_POWER = 20;
+  private readonly MAX_POWER = 100;
+
   // Game physics
   private projectile: any = null;
   private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] = [];
@@ -277,6 +284,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Handle input
     this.handleInput();
 
+    // Update charging
+    if (this.isCharging) {
+      const chargeTime = Date.now() - this.chargeStartTime;
+      const chargeRatio = Math.min(chargeTime / this.MAX_CHARGE_TIME, 1);
+      this.player.power = this.MIN_POWER + (this.MAX_POWER - this.MIN_POWER) * chargeRatio;
+
+      // Auto-fire at 100% power
+      if (this.player.power >= this.MAX_POWER && !this.projectile) {
+        this.shoot();
+      }
+    }
+
     // Update projectile if exists
     if (this.projectile) {
       // Check for collisions with terrain
@@ -310,15 +329,19 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         this.player.angle = Math.max(25, this.player.angle - 2);
       }
 
-      // Shoot
-      if (this.keys[' '] && !this.projectile) {
-        this.shoot();
+      // Shoot (start charging)
+      if (this.keys[' '] && !this.projectile && !this.isCharging) {
+        this.isCharging = true;
+        this.chargeStartTime = Date.now();
+        this.player.power = this.MIN_POWER; // Start at minimum power
       }
     }
   }
 
   private shoot() {
-    const angleRad = (this.player.angle * Math.PI) / 180;
+    const baseAngleRad = (this.player.angle * Math.PI) / 180;
+    // Adjust angle based on tank facing direction
+    const angleRad = this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad;
     const velocity = (this.player.power / 100) * 20; // Max velocity
 
     const vx = Math.cos(angleRad) * velocity;
@@ -336,6 +359,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
+
+    // Reset charging state
+    this.isCharging = false;
   }
 
   private checkProjectileCollision() {
@@ -456,6 +482,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw terrain
     this.drawTerrain();
 
+    // Draw charge bar (behind tank)
+    if (this.isCharging) {
+      this.drawChargeBar();
+    }
+
     // Draw player
     this.drawPlayer();
 
@@ -500,6 +531,38 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Add some texture/detail to make it look more natural
     this.drawTerrainDetails();
+  }
+
+  private drawChargeBar() {
+    const barWidth = 8;
+    const barHeight = 30; // 50% shorter (was 60px)
+    // Position further behind tank based on facing direction
+    const offsetX = this.player.facing === 1 ? -30 : 30; // Further left of tank when facing right, further right when facing left
+    const barX = this.player.x + offsetX;
+    const barY = this.player.y - barHeight / 2; // Center vertically on tank
+
+    // Background
+    this.ctx.fillStyle = '#333333';
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Charge level (bottom to top)
+    const chargeRatio = (this.player.power - this.MIN_POWER) / (this.MAX_POWER - this.MIN_POWER);
+    this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
+    this.ctx.fillRect(barX, barY + barHeight * (1 - chargeRatio), barWidth, barHeight * chargeRatio);
+
+    // Border
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Power percentage text
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = '10px Arial';
+    this.ctx.textAlign = 'center';
+    const textX = barX + barWidth / 2;
+    const textY = barY - 5;
+    this.ctx.fillText(`${Math.round(this.player.power)}%`, textX, textY);
+    this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
   private drawTerrainDetails() {
@@ -674,7 +737,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillText('Controls:', 10, 100);
     this.ctx.fillText('↑↓: Aim (25°-60°)', 10, 120);
     this.ctx.fillText('←→: Move tank', 10, 140);
-    this.ctx.fillText('Space: Shoot', 10, 160);
+    this.ctx.fillText('Hold Space: Charge & Shoot', 10, 160);
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -688,6 +751,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent) {
+    // Handle spacebar release for shooting
+    if (event.key === ' ') {
+      if (this.isCharging && !this.projectile) {
+        this.shoot();
+      }
+      this.isCharging = false;
+    }
     this.keys[event.key] = false;
   }
 
