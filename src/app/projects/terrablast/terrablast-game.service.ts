@@ -61,6 +61,7 @@ export class TerrablastGameService {
       y: 0,
       angle: CONST.PLAYER_START_ANGLE,
       power: CONST.PLAYER_START_POWER,
+      maxPower: CONST.MAX_POWER,
       health: CONST.PLAYER_START_HEALTH,
       movementFuel: CONST.PLAYER_START_MOVEMENT_FUEL,
       color: '#4ECDC4',
@@ -184,7 +185,7 @@ export class TerrablastGameService {
     if (this.isCharging) {
       const chargeTime = Date.now() - this.chargeStartTime;
       const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
-      this.player.power = CONST.MIN_POWER + (CONST.MAX_POWER - CONST.MIN_POWER) * chargeRatio;
+      this.player.power = CONST.MIN_POWER + (this.player.maxPower - CONST.MIN_POWER) * chargeRatio;
     }
 
     // Update projectile if exists
@@ -315,7 +316,7 @@ export class TerrablastGameService {
       }
     }
 
-    if (px < 0 || px > CONST.TERRAIN_WIDTH || py < 0 || py > CONST.CANVAS_HEIGHT) {
+    if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.TERRAIN_HEIGHT) {
       this.destroyProjectileAt(this.projectile.position);
     }
   }
@@ -391,6 +392,8 @@ export class TerrablastGameService {
   private respawnPlayer() {
     this.player.health = CONST.PLAYER_START_HEALTH;
     this.player.movementFuel = CONST.PLAYER_START_MOVEMENT_FUEL;
+    this.player.power = CONST.PLAYER_START_POWER;
+    this.player.maxPower = CONST.MAX_POWER;
     this.player.x = CONST.PLAYER_START_X;
     this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
     this.player.angle = CONST.PLAYER_START_ANGLE;

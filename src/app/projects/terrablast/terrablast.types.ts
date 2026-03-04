@@ -7,6 +7,7 @@ export interface Player {
   y: number;
   angle: number;
   power: number;
+  maxPower: number;
   health: number;
   movementFuel: number;
   color: string;

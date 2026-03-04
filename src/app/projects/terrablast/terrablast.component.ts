@@ -19,6 +19,41 @@ import * as Matter from 'matter-js';
 // Local imports
 import { Player, GameState, GameSettings, Explosion, DamageText } from './terrablast.types';
 import * as CONST from './terrablast.constants';
+
+// Camera system
+interface Camera {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+class CameraController {
+  camera: Camera;
+
+  constructor() {
+    this.camera = { x: 0, y: 0, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
+  }
+
+  update(playerX: number, playerY: number, playerVelocityX: number, isCharging: boolean) {
+    // Recenter on player if moving or charging
+    if (Math.abs(playerVelocityX) > 0.1 || isCharging) {
+      this.camera.x = playerX - this.camera.width / 2;
+    }
+
+    // Clamp to world bounds - no vertical scrolling, y always 0
+    this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
+    this.camera.y = 0; // Fixed, no vertical camera movement
+  }
+
+  worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
+    return { x: worldX - this.camera.x, y: worldY - this.camera.y };
+  }
+
+  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+    return { x: screenX + this.camera.x, y: screenY + this.camera.y };
+  }
+}
 import { TerrablastGameService } from './terrablast-game.service';
 
 @Component({
@@ -31,6 +66,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('mobileInput') mobileInput!: ElementRef<HTMLInputElement>;
   private ctx!: CanvasRenderingContext2D;
+
+  // Camera system
+  private cameraController = new CameraController();
+
+  // Mouse control for camera
+  private isDragging = false;
+  private lastMouseX = 0;
 
   // Game state
   get currentState(): GameState {
@@ -140,6 +182,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.onKeyDown(event);
     });
     window.addEventListener('keyup', (event) => this.onKeyUp(event));
+
+    // Add mouse listeners for camera control
+    this.canvas.nativeElement.addEventListener('mousedown', (event) => this.onMouseDown(event));
+    this.canvas.nativeElement.addEventListener('mousemove', (event) => this.onMouseMove(event));
+    this.canvas.nativeElement.addEventListener('mouseup', () => this.onMouseUp());
+    this.canvas.nativeElement.addEventListener('mouseleave', () => this.onMouseUp());
   }
 
   ngOnDestroy() {
@@ -193,7 +241,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
 
   private render() {
-    console.log('Rendering frame');
+    // Update camera
+    this.cameraController.update(
+      this.gameService.player.x,
+      this.gameService.player.y,
+      this.gameService.player.body ? this.gameService.player.body.velocity.x : 0,
+      this.gameService.isCharging
+    );
+
     // Draw sky (entire background)
     this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
@@ -231,15 +286,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const barHeight = this.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
     const offsetX = this.gameService.player.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
-    const barX = this.gameService.player.x + offsetX;
-    const barY = this.gameService.player.y - barHeight / 2; // Center vertically on tank
+    const worldX = this.gameService.player.x + offsetX;
+    const worldY = this.gameService.player.y - barHeight / 2; // Center vertically on tank
+    const screenPos = this.cameraController.worldToScreen(worldX, worldY);
+    const barX = screenPos.x;
+    const barY = screenPos.y;
 
     // Background
     this.ctx.fillStyle = this.CHARGE_BAR_BACKGROUND_COLOR;
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
 
     // Charge level (bottom to top)
-    const chargeRatio = (this.gameService.player.power - this.MIN_POWER) / (this.MAX_POWER - this.MIN_POWER);
+    const chargeRatio = this.gameService.player.power / this.gameService.player.maxPower;
     this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
     this.ctx.fillRect(
       barX,
@@ -259,35 +317,42 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.textAlign = 'center';
     const textX = barX + barWidth / 2;
     const textY = barY - this.CHARGE_BAR_TEXT_OFFSET_Y;
-    this.ctx.fillText(`${Math.round(this.gameService.player.power)}%`, textX, textY);
+    this.ctx.fillText(`${Math.round(chargeRatio * 100)}%`, textX, textY);
     this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
   private drawTerrain() {
-    console.log('Drawing terrain, terrain[100]:', this.gameService.terrain[100]);
     // Draw destructible terrain more efficiently by finding solid segments
     this.ctx.fillStyle = '#8B4513'; // Brown color for terrain
     const terrainY = this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET; // Terrain starts at y=500
 
+    // Only draw visible terrain segments
+    const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
+    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH));
+
     // Draw terrain in horizontal segments for better performance
     for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
-      let startX = -1;
-      for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
+      let segmentStart = -1;
+      for (let x = startX; x < endX; x++) {
         if (this.gameService.terrain[x] && this.gameService.terrain[x][y] === 1) {
-          if (startX === -1) {
-            startX = x; // Start of solid segment
+          if (segmentStart === -1) {
+            segmentStart = x; // Start of solid segment
           }
         } else {
-          if (startX !== -1) {
-            // End of solid segment, draw it
-            this.ctx.fillRect(startX, terrainY + y, x - startX, 1);
-            startX = -1;
+          if (segmentStart !== -1) {
+            // End of solid segment, draw it at screen position
+            const screenX = x - this.cameraController.camera.x;
+            const prevScreenX = segmentStart - this.cameraController.camera.x;
+            this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
+            segmentStart = -1;
           }
         }
       }
       // Draw remaining segment if it goes to the end
-      if (startX !== -1) {
-        this.ctx.fillRect(startX, terrainY + y, CONST.TERRAIN_WIDTH - startX, 1);
+      if (segmentStart !== -1) {
+        const screenX = endX - this.cameraController.camera.x;
+        const prevScreenX = segmentStart - this.cameraController.camera.x;
+        this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
       }
     }
   }
@@ -297,8 +362,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.TERRAIN_DETAIL_COLOR; // Semi-transparent brown for details
     const terrainY = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET; // Terrain starts at y=500
 
+    const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
+    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH));
+
     for (let i = 0; i < this.TERRAIN_DETAIL_COUNT; i++) {
-      const x = Math.random() * CONST.TERRAIN_WIDTH;
+      const x = startX + Math.random() * (endX - startX);
       const terrainLocalY = Math.floor(Math.random() * this.TERRAIN_STRIP_HEIGHT); // Random within terrain height
 
       if (this.gameService.terrain[Math.floor(x)] && this.gameService.terrain[Math.floor(x)][terrainLocalY] === 1) {
@@ -306,14 +374,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         const size =
           Math.random() * (this.TERRAIN_DETAIL_SIZE_MAX - this.TERRAIN_DETAIL_SIZE_MIN) +
           this.TERRAIN_DETAIL_SIZE_MIN;
-        this.ctx.fillRect(x - size / 2, terrainY + terrainLocalY - size / 2, size, size);
+        const screenX = x - this.cameraController.camera.x;
+        this.ctx.fillRect(screenX - size / 2, terrainY + terrainLocalY - size / 2, size, size);
       }
     }
   }
 
   private drawPlayer() {
-    const centerX = this.gameService.player.x;
-    const centerY = this.gameService.player.y;
+    const screenPos = this.cameraController.worldToScreen(this.gameService.player.x, this.gameService.player.y);
+    const centerX = screenPos.x;
+    const centerY = screenPos.y;
     const bodyRadius = this.TANK_BODY_RADIUS;
 
     // Save context for tank flipping and terrain rotation
@@ -516,11 +586,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawProjectile() {
+    const screenPos = this.cameraController.worldToScreen(this.gameService.projectile.position.x, this.gameService.projectile.position.y);
     this.ctx.fillStyle = this.PROJECTILE_COLOR;
     this.ctx.beginPath();
     this.ctx.arc(
-      this.gameService.projectile.position.x,
-      this.gameService.projectile.position.y,
+      screenPos.x,
+      screenPos.y,
       this.PROJECTILE_DRAW_RADIUS, // Increased from 5 to 10
       0,
       Math.PI * 2,
@@ -534,13 +605,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawExplosions() {
     for (const explosion of this.gameService.explosions) {
+      const screenPos = this.cameraController.worldToScreen(explosion.x, explosion.y);
       // Create explosion gradient (orange to red)
       const gradient = this.ctx.createRadialGradient(
-        explosion.x,
-        explosion.y,
+        screenPos.x,
+        screenPos.y,
         0,
-        explosion.x,
-        explosion.y,
+        screenPos.x,
+        screenPos.y,
         explosion.radius,
       );
       gradient.addColorStop(0, this.EXPLOSION_CENTER_COLOR); // Yellow center
@@ -549,7 +621,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
       this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
-      this.ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+      this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
       this.ctx.fill();
 
       // Add explosion outline
@@ -564,9 +636,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.font = this.DAMAGE_TEXT_FONT;
     this.ctx.textAlign = 'center';
     for (const text of this.gameService.damageTexts) {
+      const screenPos = this.cameraController.worldToScreen(text.x, text.y);
       const alpha = text.life / this.DAMAGE_TEXT_LIFETIME;
       this.ctx.globalAlpha = alpha;
-      this.ctx.fillText(`-${text.damage}`, text.x, text.y);
+      this.ctx.fillText(`-${text.damage}`, screenPos.x, screenPos.y);
     }
     this.ctx.globalAlpha = 1; // Reset alpha
     this.ctx.textAlign = 'left'; // Reset text align
@@ -580,7 +653,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const trueAngleRad = this.gameService.getBarrelAngle();
     const trueAngleDeg = ((trueAngleRad * 180) / Math.PI).toFixed(this.UI_ANGLE_DECIMALS);
     this.ctx.fillText(`Angle: ${trueAngleDeg}°`, this.UI_TEXT_X, this.UI_ANGLE_Y);
-    this.ctx.fillText(`Power: ${this.gameService.player.power}%`, this.UI_TEXT_X, this.UI_POWER_Y);
+    this.ctx.fillText(`Power: ${Math.round((this.gameService.player.power / this.gameService.player.maxPower) * 100)}%`, this.UI_TEXT_X, this.UI_POWER_Y);
     this.ctx.fillText(
       `Terrain Angle: ${((this.gameService.player.terrainAngle * 180) / Math.PI).toFixed(1)}°`,
       this.UI_TEXT_X,
@@ -621,6 +694,25 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     this.mouseX = (event.clientX - rect.left) / this.canvasScale;
     this.mouseY = (event.clientY - rect.top) / this.canvasScale;
+
+    // Handle camera dragging
+    if (this.isDragging) {
+      const deltaX = (event.clientX - this.lastMouseX) / this.canvasScale;
+      this.cameraController.camera.x -= deltaX * 2; // Increased sensitivity
+      this.cameraController.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - CONST.CANVAS_WIDTH, this.cameraController.camera.x));
+      this.lastMouseX = event.clientX;
+    }
+
+    // Edge scrolling removed - only drag works now
+  }
+
+  onMouseDown(event: MouseEvent) {
+    this.isDragging = true;
+    this.lastMouseX = event.clientX;
+  }
+
+  onMouseUp() {
+    this.isDragging = false;
   }
 
   @HostListener('window:resize')

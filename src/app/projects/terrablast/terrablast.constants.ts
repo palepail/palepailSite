@@ -7,9 +7,9 @@ export const CANVAS_PADDING = 32;
 export const SKY_COLOR = '#87CEEB';
 
 // Terrain
-export const TERRAIN_WIDTH = 800;
-export const TERRAIN_HEIGHT = 400;
-export const TERRAIN_STRIP_HEIGHT = 100;
+export const TERRAIN_WIDTH = 2400;
+export const TERRAIN_HEIGHT = 1200;
+export const TERRAIN_STRIP_HEIGHT = 150;
 export const TERRAIN_SMOOTHING_WEIGHT = 2;
 export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 1;
@@ -29,7 +29,7 @@ export const MAX_CLIMB_ANGLE = (45 * Math.PI) / 180; // 45 degrees
 // Player
 export const PLAYER_START_X = 100;
 export const PLAYER_START_ANGLE = 45;
-export const PLAYER_START_POWER = 50;
+export const PLAYER_START_POWER = 0;
 export const PLAYER_START_HEALTH = 100;
 export const PLAYER_START_MOVEMENT_FUEL = 50;
 export const PLAYER_START_FACING = 1;
@@ -46,8 +46,8 @@ export const TANK_HALF_HEIGHT = 10;
 
 // Charging system
 export const MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
-export const MIN_POWER = 10;
-export const MAX_POWER = 100;
+export const MIN_POWER = 0;
+export const MAX_POWER = 145;
 export const MAX_PROJECTILE_VELOCITY = 20;
 export const BARREL_LENGTH = 35;
 export const PROJECTILE_RADIUS = 5;
