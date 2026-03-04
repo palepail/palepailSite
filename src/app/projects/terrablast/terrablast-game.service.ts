@@ -221,32 +221,32 @@ export class TerrablastGameService {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
 
       if (isOnTerrain) {
-        if (keys['ArrowLeft'] && this.player.body && this.player.movementFuel > 0) {
+        if (keys['ArrowLeft'] && this.player.body && !this.isCharging && !this.projectile) {
           const oldFacing = this.player.facing;
           this.player.facing = -1;
           const targetX = this.player.x - 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const angle = this.getTerrainAngleAt(targetX);
           const isTurningAround = oldFacing !== this.player.facing;
-          if (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) {
+          if (this.player.movementFuel > 0 && (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround)) {
             this.Body.setVelocity(this.player.body, { x: -CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
-        if (keys['ArrowRight'] && this.player.body && this.player.movementFuel > 0) {
+        if (keys['ArrowRight'] && this.player.body && !this.isCharging && !this.projectile) {
           const oldFacing = this.player.facing;
           this.player.facing = 1;
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (!hasTerrain || this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE || isTurningAround) {
+          if (this.player.movementFuel > 0 && (!hasTerrain || this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE || isTurningAround)) {
             this.Body.setVelocity(this.player.body, { x: CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
 
-        if (keys['ArrowUp']) {
+        if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
           this.player.angle = Math.min(CONST.MAX_AIM_ANGLE, this.player.angle + CONST.ANGLE_ADJUST_SPEED);
         }
-        if (keys['ArrowDown']) {
+        if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
           this.player.angle = Math.max(CONST.MIN_AIM_ANGLE, this.player.angle - CONST.ANGLE_ADJUST_SPEED);
         }
 

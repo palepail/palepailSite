@@ -35,15 +35,37 @@ class CameraController {
     this.camera = { x: 0, y: 0, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
   }
 
-  update(playerX: number, playerY: number, playerVelocityX: number, isCharging: boolean) {
-    // Recenter on player if moving or charging
+  update(playerX: number, playerY: number, playerVelocityX: number, isCharging: boolean, projectile: any | null) {
+    let targetX = this.camera.x;
+    let targetY = this.camera.y;
+
+    // Recenter on player if moving or charging (only horizontal)
     if (Math.abs(playerVelocityX) > 0.1 || isCharging) {
-      this.camera.x = playerX - this.camera.width / 2;
+      targetX = playerX - this.camera.width / 2;
+      // Keep vertical fixed for player
     }
 
-    // Clamp to world bounds - no vertical scrolling, y always 0
+    // Track projectile if it exists and is off screen
+    if (projectile) {
+      const screenX = projectile.position.x - this.camera.x;
+      const screenY = projectile.position.y - this.camera.y;
+      const margin = 100; // Keep projectile at least 100px from screen edges
+      if (screenX < margin || screenX > this.camera.width - margin) {
+        targetX = projectile.position.x - this.camera.width / 2;
+      }
+      if (screenY < margin || screenY > this.camera.height - margin) {
+        targetY = projectile.position.y - this.camera.height / 2;
+      }
+    }
+
+    // Smooth camera movement
+    const lerpFactor = 0.05; // Adjust for smoothness (lower = smoother but slower)
+    this.camera.x += (targetX - this.camera.x) * lerpFactor;
+    this.camera.y += (targetY - this.camera.y) * lerpFactor;
+
+    // Clamp to world bounds
     this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
-    this.camera.y = 0; // Fixed, no vertical camera movement
+    this.camera.y = Math.max(0, Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.camera.y));
   }
 
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
@@ -246,7 +268,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.player.x,
       this.gameService.player.y,
       this.gameService.player.body ? this.gameService.player.body.velocity.x : 0,
-      this.gameService.isCharging
+      this.gameService.isCharging,
+      this.gameService.projectile
     );
 
     // Draw sky (entire background)
