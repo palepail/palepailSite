@@ -9,11 +9,11 @@ export const SKY_COLOR = '#87CEEB';
 // Terrain
 export const TERRAIN_WIDTH = 800;
 export const TERRAIN_HEIGHT = 400;
-export const TERRAIN_STRIP_HEIGHT = 50;
+export const TERRAIN_STRIP_HEIGHT = 100;
 export const TERRAIN_SMOOTHING_WEIGHT = 2;
 export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 1;
-export const TERRAIN_BASE_Y_OFFSET = 50;
+export const TERRAIN_BASE_Y_OFFSET = 150;
 export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
 export const CRATER_RADIUS = 20;
