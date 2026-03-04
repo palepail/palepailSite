@@ -8,6 +8,7 @@ export interface Player {
   angle: number;
   power: number;
   health: number;
+  movementFuel: number;
   color: string;
   active: boolean;
   facing: number; // 1 for right, -1 for left

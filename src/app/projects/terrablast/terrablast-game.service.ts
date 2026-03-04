@@ -62,6 +62,7 @@ export class TerrablastGameService {
       angle: CONST.PLAYER_START_ANGLE,
       power: CONST.PLAYER_START_POWER,
       health: CONST.PLAYER_START_HEALTH,
+      movementFuel: CONST.PLAYER_START_MOVEMENT_FUEL,
       color: '#4ECDC4',
       active: true,
       facing: CONST.PLAYER_START_FACING,
@@ -194,6 +195,11 @@ export class TerrablastGameService {
     // Check player collision with terrain
     this.checkPlayerTerrainCollision();
 
+    // Deplete movement fuel if moving
+    if (this.player.body && Math.abs(this.player.body.velocity.x) > 0.1) {
+      this.player.movementFuel = Math.max(0, this.player.movementFuel - 0.5);
+    }
+
     // Check if player fell off the screen
     this.checkPlayerFall();
 
@@ -214,7 +220,7 @@ export class TerrablastGameService {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
 
       if (isOnTerrain) {
-        if (keys['ArrowLeft'] && this.player.body) {
+        if (keys['ArrowLeft'] && this.player.body && this.player.movementFuel > 0) {
           const oldFacing = this.player.facing;
           this.player.facing = -1;
           const targetX = this.player.x - 2.0;
@@ -225,7 +231,7 @@ export class TerrablastGameService {
             this.Body.setVelocity(this.player.body, { x: -CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
-        if (keys['ArrowRight'] && this.player.body) {
+        if (keys['ArrowRight'] && this.player.body && this.player.movementFuel > 0) {
           const oldFacing = this.player.facing;
           this.player.facing = 1;
           const targetX = this.player.x + 2.0;
@@ -384,6 +390,7 @@ export class TerrablastGameService {
 
   private respawnPlayer() {
     this.player.health = CONST.PLAYER_START_HEALTH;
+    this.player.movementFuel = CONST.PLAYER_START_MOVEMENT_FUEL;
     this.player.x = CONST.PLAYER_START_X;
     this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
     this.player.angle = CONST.PLAYER_START_ANGLE;

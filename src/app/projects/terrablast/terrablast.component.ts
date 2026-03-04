@@ -467,6 +467,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Health bar
     this.ctx.fillStyle = '#00FF00'; // Green
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
+
+    // Draw movement gauge if moving
+    if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
+      const movementRatio = this.gameService.player.movementFuel / CONST.PLAYER_START_MOVEMENT_FUEL;
+      const movementBarY = barY + barHeight + 2; // Below health bar
+      // Background
+      this.ctx.fillStyle = '#666666';
+      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
+      // Movement bar
+      this.ctx.fillStyle = '#FFFF00'; // Yellow
+      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
+    }
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
