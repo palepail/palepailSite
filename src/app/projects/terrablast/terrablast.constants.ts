@@ -1,0 +1,117 @@
+// terrablast.constants.ts
+// Constants for the Terrablast game component
+
+export const CANVAS_WIDTH = 800;
+export const CANVAS_HEIGHT = 600;
+export const CANVAS_PADDING = 32;
+export const SKY_COLOR = '#87CEEB';
+
+// Terrain
+export const TERRAIN_WIDTH = 800;
+export const TERRAIN_HEIGHT = 400;
+export const TERRAIN_STRIP_HEIGHT = 50;
+export const TERRAIN_SMOOTHING_WEIGHT = 2;
+export const TERRAIN_SMOOTHING_DIVISOR = 4;
+export const GRAVITY_STRENGTH = 1;
+export const TERRAIN_BASE_Y_OFFSET = 100;
+export const PLAYER_HOVER_HEIGHT = 10;
+export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
+export const CRATER_RADIUS = 20;
+export const TERRAIN_SNAP_TOLERANCE = 20;
+export const FALL_THRESHOLD_OFFSET = 50;
+export const TERRAIN_COLOR = '#8B4513';
+export const TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
+export const TERRAIN_DETAIL_COUNT = 30;
+export const TERRAIN_DETAIL_SIZE_MIN = 1;
+export const TERRAIN_DETAIL_SIZE_MAX = 4;
+export const MAX_CLIMB_ANGLE = (50 * Math.PI) / 180; // 50 degrees
+
+// Player
+export const PLAYER_START_X = 100;
+export const PLAYER_START_ANGLE = 45;
+export const PLAYER_START_POWER = 50;
+export const PLAYER_START_HEALTH = 100;
+export const PLAYER_START_FACING = 1;
+export const PLAYER_START_TERRAIN_ANGLE = 0;
+export const PLAYER_FRICTION = 0.98;
+export const PLAYER_AIR_FRICTION = 0.15;
+export const PLAYER_RESTITUTION = 0.05;
+export const PLAYER_DENSITY = 0.01;
+export const PLAYER_MOVE_SPEED = 2.0;
+export const ANGLE_ADJUST_SPEED = 2;
+export const MIN_AIM_ANGLE = 25;
+export const MAX_AIM_ANGLE = 60;
+export const TANK_HALF_HEIGHT = 10;
+
+// Charging system
+export const MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
+export const MIN_POWER = 10;
+export const MAX_POWER = 100;
+export const MAX_PROJECTILE_VELOCITY = 20;
+export const BARREL_LENGTH = 35;
+export const PROJECTILE_RADIUS = 5;
+export const PROJECTILE_FRICTION = 0.01;
+export const PROJECTILE_RESTITUTION = 0.8;
+
+// Game physics
+export const EXPLOSION_INITIAL_RADIUS = 5;
+export const EXPLOSION_MAX_RADIUS = 30;
+export const EXPLOSION_LIFETIME_FRAMES = 15;
+export const EXPLOSION_EXPANSION_RATE = 2;
+export const EXPLOSION_CENTER_COLOR = 'rgba(255, 255, 0, 0.8)';
+export const EXPLOSION_MIDDLE_COLOR = 'rgba(255, 165, 0, 0.6)';
+export const EXPLOSION_EDGE_COLOR = 'rgba(255, 0, 0, 0)';
+export const EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
+export const EXPLOSION_OUTLINE_WIDTH = 2;
+export const EXPLOSION_DAMAGE_MAX = 50;
+export const EXPLOSION_DAMAGE_RANGE = 50;
+export const DAMAGE_TEXT_LIFETIME = 60; // frames
+export const DAMAGE_TEXT_RISE_SPEED = 1;
+export const DAMAGE_TEXT_FONT = '20px Arial';
+export const DAMAGE_TEXT_COLOR = 'red';
+
+// UI and Rendering Constants
+export const CHARGE_BAR_WIDTH = 8;
+export const CHARGE_BAR_HEIGHT = 30;
+export const CHARGE_BAR_OFFSET_X = 30;
+export const CHARGE_BAR_BACKGROUND_COLOR = '#333333';
+export const CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
+export const CHARGE_BAR_BORDER_WIDTH = 1;
+export const CHARGE_BAR_FONT = '10px Arial';
+export const CHARGE_BAR_TEXT_OFFSET_Y = 5;
+export const TANK_BODY_RADIUS = 18;
+export const CANNON_ARC_RADIUS = 40;
+export const CANNON_ARC_COLOR = '#2f1cff';
+export const AIM_GUIDE_COLOR = '#808080';
+export const AIM_LINE_COLOR = '#232323';
+export const AIM_LINE_WIDTH = 1;
+export const AIM_GUIDE_ANGLES = [0, Math.PI / 4, Math.PI / 2];
+export const AIM_LINE_LENGTH = 40;
+export const TANK_SHADOW_COLOR = 'rgba(0, 0, 0, 0.2)';
+export const TANK_SHADOW_HEIGHT_RATIO = 0.3;
+export const AIMING_LINE_COLOR = 'rgba(255, 255, 255, 0.7)';
+export const AIMING_LINE_WIDTH = 1;
+export const AIMING_LINE_DASH = [5, 5];
+export const TANK_BODY_STROKE_COLOR = '#000000';
+export const TANK_BODY_STROKE_WIDTH = 2;
+export const TANK_TRACK_OFFSET = 2;
+export const TANK_TRACK_HEIGHT = 6;
+export const TANK_TRACK_DETAIL_WIDTH = 3;
+export const TANK_TRACK_DETAIL_HEIGHT = 10;
+export const BARREL_WIDTH = 5;
+export const BARREL_COLOR = '#666666';
+export const BARREL_STROKE_COLOR = '#000000';
+export const BARREL_STROKE_WIDTH = 1;
+export const BARREL_TIP_COLOR = '#444444';
+export const BARREL_TIP_LENGTH = 3;
+export const BARREL_TIP_EXTRA_HEIGHT = 2;
+export const PROJECTILE_DRAW_RADIUS = 10;
+export const PROJECTILE_COLOR = '#FF0000';
+export const UI_TEXT_COLOR = '#FFFFFF';
+export const UI_FONT = '16px Arial';
+export const UI_TEXT_X = 10;
+export const UI_ANGLE_Y = 30;
+export const UI_POWER_Y = 50;
+export const UI_HEALTH_Y = 70;
+export const UI_TERRAIN_ANGLE_Y = 90;
+export const UI_ANGLE_DECIMALS = 1;

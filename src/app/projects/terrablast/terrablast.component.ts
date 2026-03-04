@@ -15,36 +15,9 @@ import { LeaderboardService } from '../../services/leaderboard.service';
 // Matter.js imports
 declare var Matter: any;
 
-interface Player {
-  body: any; // Matter.js body
-  x: number;
-  y: number;
-  angle: number;
-  power: number;
-  health: number;
-  color: string;
-  active: boolean;
-  facing: number; // 1 for right, -1 for left
-  terrainAngle: number; // Angle of terrain beneath the tank
-}
-
-enum GameState {
-  LOADING = 'loading',
-  MENU = 'menu',
-  PLAYING = 'playing',
-  AIMING = 'aiming',
-  SHOOTING = 'shooting',
-  GAME_OVER = 'game_over',
-  LEADERBOARD = 'leaderboard',
-  LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
-}
-
-interface GameSettings {
-  bgmVolume: number;
-  sfxVolume: number;
-  difficulty: 'easy' | 'normal' | 'hard';
-  muted: boolean;
-}
+// Local imports
+import { Player, GameState, GameSettings, Explosion, DamageText } from './terrablast.types';
+import * as CONST from './terrablast.constants';
 
 @Component({
   selector: 'app-terrablast',
@@ -82,50 +55,50 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     muted: false,
   };
 
-  // Game constants
-  private readonly CANVAS_WIDTH = 800;
-  private readonly CANVAS_HEIGHT = 600;
-  private readonly CANVAS_PADDING = 32;
-  private readonly SKY_COLOR = '#87CEEB';
+  // Game constants (imported)
+  private readonly CANVAS_WIDTH = CONST.CANVAS_WIDTH;
+  private readonly CANVAS_HEIGHT = CONST.CANVAS_HEIGHT;
+  private readonly CANVAS_PADDING = CONST.CANVAS_PADDING;
+  private readonly SKY_COLOR = CONST.SKY_COLOR;
   private canvasScale = 1;
 
   // Terrain
   private terrain: number[][] = [];
-  private readonly TERRAIN_WIDTH = 800;
-  private readonly TERRAIN_HEIGHT = 400;
-  private readonly TERRAIN_STRIP_HEIGHT = 50;
-  private readonly TERRAIN_SMOOTHING_WEIGHT = 2;
-  private readonly TERRAIN_SMOOTHING_DIVISOR = 4;
-  private readonly GRAVITY_STRENGTH = 1;
-  private readonly TERRAIN_BASE_Y_OFFSET = 100;
-  private readonly PLAYER_HOVER_HEIGHT = 10;
-  private readonly TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
-  private readonly CRATER_RADIUS = 20;
-  private readonly TERRAIN_SNAP_TOLERANCE = 20;
-  private readonly FALL_THRESHOLD_OFFSET = 50;
-  private readonly TERRAIN_COLOR = '#8B4513';
-  private readonly TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
-  private readonly TERRAIN_DETAIL_COUNT = 30;
-  private readonly TERRAIN_DETAIL_SIZE_MIN = 1;
-  private readonly TERRAIN_DETAIL_SIZE_MAX = 4;
-  private readonly MAX_CLIMB_ANGLE = (50 * Math.PI) / 180; // 50 degrees
+  private readonly TERRAIN_WIDTH = CONST.TERRAIN_WIDTH;
+  private readonly TERRAIN_HEIGHT = CONST.TERRAIN_HEIGHT;
+  private readonly TERRAIN_STRIP_HEIGHT = CONST.TERRAIN_STRIP_HEIGHT;
+  private readonly TERRAIN_SMOOTHING_WEIGHT = CONST.TERRAIN_SMOOTHING_WEIGHT;
+  private readonly TERRAIN_SMOOTHING_DIVISOR = CONST.TERRAIN_SMOOTHING_DIVISOR;
+  private readonly GRAVITY_STRENGTH = CONST.GRAVITY_STRENGTH;
+  private readonly TERRAIN_BASE_Y_OFFSET = CONST.TERRAIN_BASE_Y_OFFSET;
+  private readonly PLAYER_HOVER_HEIGHT = CONST.PLAYER_HOVER_HEIGHT;
+  private readonly TERRAIN_SLOPE_SAMPLE_DISTANCE = CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE;
+  private readonly CRATER_RADIUS = CONST.CRATER_RADIUS;
+  private readonly TERRAIN_SNAP_TOLERANCE = CONST.TERRAIN_SNAP_TOLERANCE;
+  private readonly FALL_THRESHOLD_OFFSET = CONST.FALL_THRESHOLD_OFFSET;
+  private readonly TERRAIN_COLOR = CONST.TERRAIN_COLOR;
+  private readonly TERRAIN_DETAIL_COLOR = CONST.TERRAIN_DETAIL_COLOR;
+  private readonly TERRAIN_DETAIL_COUNT = CONST.TERRAIN_DETAIL_COUNT;
+  private readonly TERRAIN_DETAIL_SIZE_MIN = CONST.TERRAIN_DETAIL_SIZE_MIN;
+  private readonly TERRAIN_DETAIL_SIZE_MAX = CONST.TERRAIN_DETAIL_SIZE_MAX;
+  private readonly MAX_CLIMB_ANGLE = CONST.MAX_CLIMB_ANGLE; // 50 degrees
 
   // Player
-  private readonly PLAYER_START_X = 100;
-  private readonly PLAYER_START_ANGLE = 45;
-  private readonly PLAYER_START_POWER = 50;
-  private readonly PLAYER_START_HEALTH = 100;
-  private readonly PLAYER_START_FACING = 1;
-  private readonly PLAYER_START_TERRAIN_ANGLE = 0;
-  private readonly PLAYER_FRICTION = 0.98;
-  private readonly PLAYER_AIR_FRICTION = 0.15;
-  private readonly PLAYER_RESTITUTION = 0.05;
-  private readonly PLAYER_DENSITY = 0.01;
-  private readonly PLAYER_MOVE_SPEED = 2.0;
-  private readonly ANGLE_ADJUST_SPEED = 2;
-  private readonly MIN_AIM_ANGLE = 25;
-  private readonly MAX_AIM_ANGLE = 60;
-  private readonly TANK_HALF_HEIGHT = 10;
+  private readonly PLAYER_START_X = CONST.PLAYER_START_X;
+  private readonly PLAYER_START_ANGLE = CONST.PLAYER_START_ANGLE;
+  private readonly PLAYER_START_POWER = CONST.PLAYER_START_POWER;
+  private readonly PLAYER_START_HEALTH = CONST.PLAYER_START_HEALTH;
+  private readonly PLAYER_START_FACING = CONST.PLAYER_START_FACING;
+  private readonly PLAYER_START_TERRAIN_ANGLE = CONST.PLAYER_START_TERRAIN_ANGLE;
+  private readonly PLAYER_FRICTION = CONST.PLAYER_FRICTION;
+  private readonly PLAYER_AIR_FRICTION = CONST.PLAYER_AIR_FRICTION;
+  private readonly PLAYER_RESTITUTION = CONST.PLAYER_RESTITUTION;
+  private readonly PLAYER_DENSITY = CONST.PLAYER_DENSITY;
+  private readonly PLAYER_MOVE_SPEED = CONST.PLAYER_MOVE_SPEED;
+  private readonly ANGLE_ADJUST_SPEED = CONST.ANGLE_ADJUST_SPEED;
+  private readonly MIN_AIM_ANGLE = CONST.MIN_AIM_ANGLE;
+  private readonly MAX_AIM_ANGLE = CONST.MAX_AIM_ANGLE;
+  private readonly TANK_HALF_HEIGHT = CONST.TANK_HALF_HEIGHT;
   player: Player = {
     body: null,
     x: this.PLAYER_START_X,
@@ -142,28 +115,34 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   // Charging system
   private isCharging = false;
   private chargeStartTime = 0;
-  private readonly MAX_CHARGE_TIME = 1000; // 1 second for full charge (faster)
-  private readonly MIN_POWER = 10;
-  private readonly MAX_POWER = 100;
-  private readonly MAX_PROJECTILE_VELOCITY = 20;
-  private readonly BARREL_LENGTH = 35;
-  private readonly PROJECTILE_RADIUS = 5;
-  private readonly PROJECTILE_FRICTION = 0.01;
-  private readonly PROJECTILE_RESTITUTION = 0.8;
+  private readonly MAX_CHARGE_TIME = CONST.MAX_CHARGE_TIME; // 1 second for full charge (faster)
+  private readonly MIN_POWER = CONST.MIN_POWER;
+  private readonly MAX_POWER = CONST.MAX_POWER;
+  private readonly MAX_PROJECTILE_VELOCITY = CONST.MAX_PROJECTILE_VELOCITY;
+  private readonly BARREL_LENGTH = CONST.BARREL_LENGTH;
+  private readonly PROJECTILE_RADIUS = CONST.PROJECTILE_RADIUS;
+  private readonly PROJECTILE_FRICTION = CONST.PROJECTILE_FRICTION;
+  private readonly PROJECTILE_RESTITUTION = CONST.PROJECTILE_RESTITUTION;
 
   // Game physics
   private projectile: any = null;
-  private readonly EXPLOSION_INITIAL_RADIUS = 5;
-  private readonly EXPLOSION_MAX_RADIUS = 30;
-  private readonly EXPLOSION_LIFETIME_FRAMES = 15;
-  private readonly EXPLOSION_EXPANSION_RATE = 2;
-  private readonly EXPLOSION_CENTER_COLOR = 'rgba(255, 255, 0, 0.8)';
-  private readonly EXPLOSION_MIDDLE_COLOR = 'rgba(255, 165, 0, 0.6)';
-  private readonly EXPLOSION_EDGE_COLOR = 'rgba(255, 0, 0, 0)';
-  private readonly EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
-  private readonly EXPLOSION_OUTLINE_WIDTH = 2;
-  private explosions: { x: number; y: number; radius: number; maxRadius: number; life: number }[] =
-    [];
+  private readonly EXPLOSION_INITIAL_RADIUS = CONST.EXPLOSION_INITIAL_RADIUS;
+  private readonly EXPLOSION_MAX_RADIUS = CONST.EXPLOSION_MAX_RADIUS;
+  private readonly EXPLOSION_LIFETIME_FRAMES = CONST.EXPLOSION_LIFETIME_FRAMES;
+  private readonly EXPLOSION_EXPANSION_RATE = CONST.EXPLOSION_EXPANSION_RATE;
+  private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
+  private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
+  private readonly EXPLOSION_EDGE_COLOR = CONST.EXPLOSION_EDGE_COLOR;
+  private readonly EXPLOSION_OUTLINE_COLOR = CONST.EXPLOSION_OUTLINE_COLOR;
+  private readonly EXPLOSION_OUTLINE_WIDTH = CONST.EXPLOSION_OUTLINE_WIDTH;
+  private readonly EXPLOSION_DAMAGE_MAX = CONST.EXPLOSION_DAMAGE_MAX;
+  private readonly EXPLOSION_DAMAGE_RANGE = CONST.EXPLOSION_DAMAGE_RANGE;
+  private readonly DAMAGE_TEXT_LIFETIME = CONST.DAMAGE_TEXT_LIFETIME; // frames
+  private readonly DAMAGE_TEXT_RISE_SPEED = CONST.DAMAGE_TEXT_RISE_SPEED;
+  private readonly DAMAGE_TEXT_FONT = CONST.DAMAGE_TEXT_FONT;
+  private readonly DAMAGE_TEXT_COLOR = CONST.DAMAGE_TEXT_COLOR;
+  private explosions: Explosion[] = [];
+  private damageTexts: DamageText[] = [];
 
   // Input handling
   private keys: { [key: string]: boolean } = {};
@@ -171,50 +150,50 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private mouseY = 0;
 
   // UI and Rendering Constants
-  private readonly CHARGE_BAR_WIDTH = 8;
-  private readonly CHARGE_BAR_HEIGHT = 30;
-  private readonly CHARGE_BAR_OFFSET_X = 30;
-  private readonly CHARGE_BAR_BACKGROUND_COLOR = '#333333';
-  private readonly CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
-  private readonly CHARGE_BAR_BORDER_WIDTH = 1;
-  private readonly CHARGE_BAR_FONT = '10px Arial';
-  private readonly CHARGE_BAR_TEXT_OFFSET_Y = 5;
-  private readonly TANK_BODY_RADIUS = 18;
-  private readonly CANNON_ARC_RADIUS = 40;
-  private readonly CANNON_ARC_COLOR = '#2f1cff';
-  private readonly AIM_GUIDE_COLOR = '#808080';
-  private readonly AIM_LINE_COLOR = '#232323';
-  private readonly AIM_LINE_WIDTH = 1;
-  private readonly AIM_GUIDE_ANGLES = [0, Math.PI / 4, Math.PI / 2];
-  private readonly AIM_LINE_LENGTH = 40;
-  private readonly TANK_SHADOW_COLOR = 'rgba(0, 0, 0, 0.2)';
-  private readonly TANK_SHADOW_HEIGHT_RATIO = 0.3;
-  private readonly AIMING_LINE_COLOR = 'rgba(255, 255, 255, 0.7)';
-  private readonly AIMING_LINE_WIDTH = 1;
-  private readonly AIMING_LINE_DASH = [5, 5];
-  private readonly TANK_BODY_STROKE_COLOR = '#000000';
-  private readonly TANK_BODY_STROKE_WIDTH = 2;
-  private readonly TANK_TRACK_OFFSET = 2;
-  private readonly TANK_TRACK_HEIGHT = 6;
-  private readonly TANK_TRACK_DETAIL_WIDTH = 3;
-  private readonly TANK_TRACK_DETAIL_HEIGHT = 10;
-  private readonly BARREL_WIDTH = 5;
-  private readonly BARREL_COLOR = '#666666';
-  private readonly BARREL_STROKE_COLOR = '#000000';
-  private readonly BARREL_STROKE_WIDTH = 1;
-  private readonly BARREL_TIP_COLOR = '#444444';
-  private readonly BARREL_TIP_LENGTH = 3;
-  private readonly BARREL_TIP_EXTRA_HEIGHT = 2;
-  private readonly PROJECTILE_DRAW_RADIUS = 10;
-  private readonly PROJECTILE_COLOR = '#FF0000';
-  private readonly UI_TEXT_COLOR = '#FFFFFF';
-  private readonly UI_FONT = '16px Arial';
-  private readonly UI_TEXT_X = 10;
-  private readonly UI_ANGLE_Y = 30;
-  private readonly UI_POWER_Y = 50;
-  private readonly UI_HEALTH_Y = 70;
-  private readonly UI_TERRAIN_ANGLE_Y = 90;
-  private readonly UI_ANGLE_DECIMALS = 1;
+  private readonly CHARGE_BAR_WIDTH = CONST.CHARGE_BAR_WIDTH;
+  private readonly CHARGE_BAR_HEIGHT = CONST.CHARGE_BAR_HEIGHT;
+  private readonly CHARGE_BAR_OFFSET_X = CONST.CHARGE_BAR_OFFSET_X;
+  private readonly CHARGE_BAR_BACKGROUND_COLOR = CONST.CHARGE_BAR_BACKGROUND_COLOR;
+  private readonly CHARGE_BAR_BORDER_COLOR = CONST.CHARGE_BAR_BORDER_COLOR;
+  private readonly CHARGE_BAR_BORDER_WIDTH = CONST.CHARGE_BAR_BORDER_WIDTH;
+  private readonly CHARGE_BAR_FONT = CONST.CHARGE_BAR_FONT;
+  private readonly CHARGE_BAR_TEXT_OFFSET_Y = CONST.CHARGE_BAR_TEXT_OFFSET_Y;
+  private readonly TANK_BODY_RADIUS = CONST.TANK_BODY_RADIUS;
+  private readonly CANNON_ARC_RADIUS = CONST.CANNON_ARC_RADIUS;
+  private readonly CANNON_ARC_COLOR = CONST.CANNON_ARC_COLOR;
+  private readonly AIM_GUIDE_COLOR = CONST.AIM_GUIDE_COLOR;
+  private readonly AIM_LINE_COLOR = CONST.AIM_LINE_COLOR;
+  private readonly AIM_LINE_WIDTH = CONST.AIM_LINE_WIDTH;
+  private readonly AIM_GUIDE_ANGLES = CONST.AIM_GUIDE_ANGLES;
+  private readonly AIM_LINE_LENGTH = CONST.AIM_LINE_LENGTH;
+  private readonly TANK_SHADOW_COLOR = CONST.TANK_SHADOW_COLOR;
+  private readonly TANK_SHADOW_HEIGHT_RATIO = CONST.TANK_SHADOW_HEIGHT_RATIO;
+  private readonly AIMING_LINE_COLOR = CONST.AIMING_LINE_COLOR;
+  private readonly AIMING_LINE_WIDTH = CONST.AIMING_LINE_WIDTH;
+  private readonly AIMING_LINE_DASH = CONST.AIMING_LINE_DASH;
+  private readonly TANK_BODY_STROKE_COLOR = CONST.TANK_BODY_STROKE_COLOR;
+  private readonly TANK_BODY_STROKE_WIDTH = CONST.TANK_BODY_STROKE_WIDTH;
+  private readonly TANK_TRACK_OFFSET = CONST.TANK_TRACK_OFFSET;
+  private readonly TANK_TRACK_HEIGHT = CONST.TANK_TRACK_HEIGHT;
+  private readonly TANK_TRACK_DETAIL_WIDTH = CONST.TANK_TRACK_DETAIL_WIDTH;
+  private readonly TANK_TRACK_DETAIL_HEIGHT = CONST.TANK_TRACK_DETAIL_HEIGHT;
+  private readonly BARREL_WIDTH = CONST.BARREL_WIDTH;
+  private readonly BARREL_COLOR = CONST.BARREL_COLOR;
+  private readonly BARREL_STROKE_COLOR = CONST.BARREL_STROKE_COLOR;
+  private readonly BARREL_STROKE_WIDTH = CONST.BARREL_STROKE_WIDTH;
+  private readonly BARREL_TIP_COLOR = CONST.BARREL_TIP_COLOR;
+  private readonly BARREL_TIP_LENGTH = CONST.BARREL_TIP_LENGTH;
+  private readonly BARREL_TIP_EXTRA_HEIGHT = CONST.BARREL_TIP_EXTRA_HEIGHT;
+  private readonly PROJECTILE_DRAW_RADIUS = CONST.PROJECTILE_DRAW_RADIUS;
+  private readonly PROJECTILE_COLOR = CONST.PROJECTILE_COLOR;
+  private readonly UI_TEXT_COLOR = CONST.UI_TEXT_COLOR;
+  private readonly UI_FONT = CONST.UI_FONT;
+  private readonly UI_TEXT_X = CONST.UI_TEXT_X;
+  private readonly UI_ANGLE_Y = CONST.UI_ANGLE_Y;
+  private readonly UI_POWER_Y = CONST.UI_POWER_Y;
+  private readonly UI_HEALTH_Y = CONST.UI_HEALTH_Y;
+  private readonly UI_TERRAIN_ANGLE_Y = CONST.UI_TERRAIN_ANGLE_Y;
+  private readonly UI_ANGLE_DECIMALS = CONST.UI_ANGLE_DECIMALS;
 
   constructor(private cdr: ChangeDetectorRef) {}
 
@@ -328,6 +307,19 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Start physics
     this.runner = this.Runner.create();
     this.Runner.run(this.runner, this.engine);
+
+    // Add collision event for projectile vs player
+    this.Events.on(this.engine, 'collisionStart', (event: any) => {
+      const pairs = event.pairs;
+      for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        if ((pair.bodyA === this.projectile && pair.bodyB === this.player.body) ||
+            (pair.bodyB === this.projectile && pair.bodyA === this.player.body)) {
+          // Projectile hit player - destroy projectile and apply damage
+          this.destroyProjectileAt(this.projectile.position);
+        }
+      }
+    });
   }
 
   private createTerrainBodies() {
@@ -426,6 +418,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Update explosions
     this.updateExplosions();
+
+    // Update damage texts
+    this.updateDamageTexts();
+
+    // Check for game over
+    if (this.player.health <= 0) {
+      this.currentState = GameState.GAME_OVER;
+    }
   }
 
   private handleInput() {
@@ -537,7 +537,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
         // Hit terrain - create crater
         this.createCrater(px, py, this.CRATER_RADIUS);
-        this.destroyProjectile();
+        this.destroyProjectileAt({x: px, y: py});
         return;
       }
     }
@@ -562,7 +562,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       ) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
           this.createCrater(checkX, checkY, this.CRATER_RADIUS);
-          this.destroyProjectile();
+          this.destroyProjectileAt({x: checkX, y: checkY});
           return;
         }
       }
@@ -570,7 +570,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Remove if out of bounds
     if (px < 0 || px > this.TERRAIN_WIDTH || py < 0 || py > this.CANVAS_HEIGHT) {
-      this.destroyProjectile();
+      this.destroyProjectileAt(this.projectile.position);
     }
   }
 
@@ -598,16 +598,33 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Update physics bodies (simplified - would need proper terrain body updates)
   }
 
-  private destroyProjectile() {
+  private destroyProjectileAt(position: any) {
     if (this.projectile) {
-      // Create explosion at projectile position
+      // Create explosion at position
       this.explosions.push({
-        x: this.projectile.position.x,
-        y: this.projectile.position.y,
+        x: position.x,
+        y: position.y,
         radius: this.EXPLOSION_INITIAL_RADIUS,
         maxRadius: this.EXPLOSION_MAX_RADIUS,
-        life: this.EXPLOSION_LIFETIME_FRAMES, // frames
+        life: this.EXPLOSION_LIFETIME_FRAMES,
       });
+
+      // Calculate damage to player (self-damage reduced by 50%)
+      const distance = Math.sqrt((position.x - this.player.x) ** 2 + (position.y - this.player.y) ** 2);
+      const damage = this.EXPLOSION_DAMAGE_MAX * Math.max(0, 1 - distance / this.EXPLOSION_DAMAGE_RANGE);
+      const actualDamage = damage * 0.5; // Reduce self-damage by 50%
+      this.player.health -= actualDamage;
+      this.player.health = Math.max(0, this.player.health);
+
+      // Add damage text if damage was taken
+      if (actualDamage > 0) {
+        this.damageTexts.push({
+          x: position.x,
+          y: position.y,
+          damage: Math.round(actualDamage),
+          life: this.DAMAGE_TEXT_LIFETIME,
+        });
+      }
 
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
@@ -707,6 +724,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw explosions
     this.drawExplosions();
+
+    // Draw damage texts
+    this.drawDamageTexts();
 
     // Draw UI
     this.drawUI();
@@ -1016,6 +1036,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
   }
 
+  private updateDamageTexts() {
+    for (let i = this.damageTexts.length - 1; i >= 0; i--) {
+      const text = this.damageTexts[i];
+      text.y -= this.DAMAGE_TEXT_RISE_SPEED; // Rise up
+      text.life--;
+
+      if (text.life <= 0) {
+        this.damageTexts.splice(i, 1);
+      }
+    }
+  }
+
   private drawExplosions() {
     for (const explosion of this.explosions) {
       // Create explosion gradient (orange to red)
@@ -1041,6 +1073,19 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.lineWidth = this.EXPLOSION_OUTLINE_WIDTH;
       this.ctx.stroke();
     }
+  }
+
+  private drawDamageTexts() {
+    this.ctx.fillStyle = this.DAMAGE_TEXT_COLOR;
+    this.ctx.font = this.DAMAGE_TEXT_FONT;
+    this.ctx.textAlign = 'center';
+    for (const text of this.damageTexts) {
+      const alpha = text.life / this.DAMAGE_TEXT_LIFETIME;
+      this.ctx.globalAlpha = alpha;
+      this.ctx.fillText(`-${text.damage}`, text.x, text.y);
+    }
+    this.ctx.globalAlpha = 1; // Reset alpha
+    this.ctx.textAlign = 'left'; // Reset text align
   }
 
   private drawUI() {
