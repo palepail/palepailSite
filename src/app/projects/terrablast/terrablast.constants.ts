@@ -13,7 +13,7 @@ export const TERRAIN_STRIP_HEIGHT = 50;
 export const TERRAIN_SMOOTHING_WEIGHT = 2;
 export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 1;
-export const TERRAIN_BASE_Y_OFFSET = 100;
+export const TERRAIN_BASE_Y_OFFSET = 50;
 export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
 export const CRATER_RADIUS = 20;
@@ -24,7 +24,7 @@ export const TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
 export const TERRAIN_DETAIL_COUNT = 30;
 export const TERRAIN_DETAIL_SIZE_MIN = 1;
 export const TERRAIN_DETAIL_SIZE_MAX = 4;
-export const MAX_CLIMB_ANGLE = (50 * Math.PI) / 180; // 50 degrees
+export const MAX_CLIMB_ANGLE = (80 * Math.PI) / 180; // 80 degrees
 
 // Player
 export const PLAYER_START_X = 100;

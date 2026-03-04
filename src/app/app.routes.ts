@@ -25,6 +25,10 @@ export const routes: Routes = [
     component: NumberCrunch
   },
   {
+    path: 'projects/terrablast',
+    redirectTo: '/projects/interactable/terrablast'
+  },
+  {
     path: 'projects/interactable/potion-drop',
     component: PotionDropComponent
   },

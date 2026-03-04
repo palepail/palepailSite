@@ -26,7 +26,7 @@
           "description": "Physics-based artillery game inspired by classic turn-based shooters",
           "technologies": ["JavaScript", "HTML5", "CSS3", "Matter.js"],
           "image": "/resources/images/projects/potionDrop/potionDrop.png",
-          "link": "/projects/interactable/terrablast",
+          "link": "/projects/terrablast",
           "status": [{ "name": "In Development" }]
         }
       ]
