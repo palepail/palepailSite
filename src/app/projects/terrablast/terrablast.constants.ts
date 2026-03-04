@@ -24,7 +24,7 @@ export const TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
 export const TERRAIN_DETAIL_COUNT = 30;
 export const TERRAIN_DETAIL_SIZE_MIN = 1;
 export const TERRAIN_DETAIL_SIZE_MAX = 4;
-export const MAX_CLIMB_ANGLE = (80 * Math.PI) / 180; // 80 degrees
+export const MAX_CLIMB_ANGLE = (45 * Math.PI) / 180; // 45 degrees
 
 // Player
 export const PLAYER_START_X = 100;
