@@ -34,6 +34,16 @@ class CameraController {
   private projectileEndTime = 0;
   private hasHadProjectile = false;
   private previousIsDragging = false;
+  private readonly RECENTER_DISTANCE_THRESHOLD = 10;
+  private readonly DEFAULT_LERP = 0.02;
+  private readonly PROJECTILE_LERP = 0.05;
+  private readonly RECENTER_LERP = 0.1;
+  private readonly CATCHUP_LERP = 0.8;
+  private readonly TRACKING_MARGIN = 100;
+  private readonly MIN_TRACK_DISTANCE = 100;
+  private readonly INACTIVITY_DELAY_MS = 1000;
+  private readonly PREDICTION_TIME_S = 0.5;
+  private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
 
   constructor() {
     this.camera = { x: 0, y: 0, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
@@ -43,6 +53,43 @@ class CameraController {
     const playerCenterX = playerX - this.camera.width / 2;
     const clampedX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
     return { targetX: clampedX, targetY: 0 };
+  }
+
+  private trackProjectileIfNeeded(projectile: any, playerX: number, playerY: number): { targetX: number; targetY: number } | null {
+    if (!projectile) return null;
+    
+    const screenX = projectile.position.x - this.camera.x;
+    const screenY = projectile.position.y - this.camera.y;
+    const margin = this.TRACKING_MARGIN;
+    const distFromPlayer = Math.hypot(projectile.position.x - playerX, projectile.position.y - playerY);
+    
+    if (distFromPlayer > this.MIN_TRACK_DISTANCE && 
+        (screenX < margin || screenX > this.camera.width - margin || 
+         screenY < margin || screenY > this.camera.height - margin)) {
+      const predictionTime = this.PREDICTION_TIME_S;
+      const targetX = projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
+      const targetY = projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
+      return { targetX, targetY };
+    }
+    return null;
+  }
+
+  private recenterCameraIfNeeded(playerX: number, playerY: number, projectile: any | null, isDragging: boolean): { targetX: number; targetY: number } | null {
+    const timeSinceProjectileEnd = this.projectileEndTime > 0 ? Date.now() - this.projectileEndTime : 0;
+    const playerCenterX = playerX - this.camera.width / 2;
+    const clampedPlayerCenterX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
+    
+    if (timeSinceProjectileEnd > this.INACTIVITY_DELAY_MS && !isDragging && 
+        (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD || 
+         Math.abs(this.camera.y - 0) > this.RECENTER_DISTANCE_THRESHOLD)) {
+      return this.getCenterTargets(playerX);
+    } else if (!projectile && this.projectileEndTime === 0 && 
+               Date.now() - this.lastActivityTime > this.INACTIVITY_DELAY_MS && !isDragging && 
+               (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD || 
+                Math.abs(this.camera.y - 0) > this.RECENTER_DISTANCE_THRESHOLD)) {
+      return this.getCenterTargets(playerX);
+    }
+    return null;
   }
 
   update(
@@ -81,66 +128,31 @@ class CameraController {
       targetY = targets.targetY;
     }
 
-    // Pan back to player 1 second after projectile ends (if not actively controlling), or after 1s inactivity if no projectile ever
-    const timeSinceProjectileEnd =
-      this.projectileEndTime > 0 ? Date.now() - this.projectileEndTime : 0;
-    const playerCenterX = playerX - this.camera.width / 2;
-    const clampedPlayerCenterX = Math.max(
-      0,
-      Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX),
-    );
-    if (
-      this.projectileEndTime > 0 &&
-      timeSinceProjectileEnd > 1000 &&
-      !isDragging &&
-      (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
-    ) {
-      const targets = this.getCenterTargets(playerX);
-      targetX = targets.targetX;
-      targetY = targets.targetY;
-    } else if (
-      !projectile &&
-      this.projectileEndTime === 0 &&
-      Date.now() - this.lastActivityTime > 1000 &&
-      !isDragging &&
-      (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
-    ) {
-      const targets = this.getCenterTargets(playerX);
-      targetX = targets.targetX;
-      targetY = targets.targetY;
+    // Pan back to player after delay if inactive
+    const recenterTargets = this.recenterCameraIfNeeded(playerX, playerY, projectile, isDragging);
+    if (recenterTargets) {
+      targetX = recenterTargets.targetX;
+      targetY = recenterTargets.targetY;
     }
 
-    // Track projectile if it exists and is off screen
-    if (projectile) {
-      const screenX = projectile.position.x - this.camera.x;
-      const screenY = projectile.position.y - this.camera.y;
-      const margin = 100; // Margin to start tracking when bullet is near screen edge
-      const distFromPlayer = Math.hypot(
-        projectile.position.x - playerX,
-        projectile.position.y - playerY,
-      );
-      if (
-        distFromPlayer > 100 &&
-        (screenX < margin ||
-          screenX > this.camera.width - margin ||
-          screenY < margin ||
-          screenY > this.camera.height - margin)
-      ) {
-        // Predictive tracking: anticipate projectile position based on velocity
-        const predictionTime = 0.5; // Look ahead 0.5 seconds
-        targetX =
-          projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
-        targetY =
-          projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
-      }
+    // Track projectile if needed
+    const projectileTargets = this.trackProjectileIfNeeded(projectile, playerX, playerY);
+    if (projectileTargets) {
+      targetX = projectileTargets.targetX;
+      targetY = projectileTargets.targetY;
     }
+
+    // Determine if we're currently recentering
+    const isRecentering = recenterTargets !== null;
 
     // Smooth camera movement with variable lerp
-    let lerpFactor = 0.02; // Default smooth lerp
+    let lerpFactor = this.DEFAULT_LERP; // Default smooth lerp
     if (projectile) {
-      lerpFactor = 0.05; // Smooth lerp for projectile tracking
-    } else if (Math.abs(targetX - this.camera.x) > 150 || Math.abs(targetY - this.camera.y) > 150) {
-      lerpFactor = 0.8; // Faster lerp when catching up otherwise
+      lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
+    } else if (isRecentering) {
+      lerpFactor = this.RECENTER_LERP; // Smooth lerp for recentering
+    } else if (Math.abs(targetX - this.camera.x) > this.CATCHUP_DISTANCE_THRESHOLD || Math.abs(targetY - this.camera.y) > this.CATCHUP_DISTANCE_THRESHOLD) {
+      lerpFactor = this.CATCHUP_LERP; // Faster lerp when catching up otherwise
     }
     this.camera.x += (targetX - this.camera.x) * lerpFactor;
     this.camera.y += (targetY - this.camera.y) * lerpFactor;
@@ -494,38 +506,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.translate(-centerX, -centerY);
 
     // Draw cannon range arc (before facing flip)
-    // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
-    if (this.gameService.currentState === GameState.PLAYING) {
-      let minAngle, maxAngle;
-      if (this.gameService.player.facing === -1) {
-        minAngle = Math.PI - (this.MAX_AIM_ANGLE * Math.PI) / 180; // 120°
-        maxAngle = Math.PI - (this.MIN_AIM_ANGLE * Math.PI) / 180; // 155°
-      } else {
-        minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
-        maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
-      }
-      this.ctx.globalAlpha = 0.2;
-      this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
-      this.ctx.beginPath();
-      this.ctx.moveTo(centerX, centerY);
-      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
-      this.ctx.closePath();
-      this.ctx.fill();
-      this.ctx.globalAlpha = 1.0;
-
-      // Draw grey aim guide 0° to 90°
-      this.ctx.globalAlpha = 0.2; // Darker grey
-      this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
-      this.ctx.beginPath();
-      this.ctx.moveTo(centerX, centerY);
-      if (this.gameService.player.facing === -1) {
-        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI, -Math.PI / 2); // -180° to -90°
-      } else {
-        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
-      }
-      this.ctx.closePath();
-      this.ctx.fill();
-    }
+    this.drawTankAimingArc(centerX, centerY);
 
     // Flip tank based on facing direction
     if (this.gameService.player.facing === -1) {
@@ -533,36 +514,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.translate(-centerX * 2, 0);
     }
 
-    // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
-    if (this.gameService.currentState === GameState.PLAYING) {
-      this.ctx.globalAlpha = 1.0;
-      this.ctx.strokeStyle = this.AIM_LINE_COLOR;
-      this.ctx.lineWidth = this.AIM_LINE_WIDTH;
-      const angles = [0, -Math.PI / 4, -Math.PI / 2];
-      angles.forEach((angle) => {
-        const endX = centerX + Math.cos(-angle) * this.AIM_LINE_LENGTH;
-        const endY = centerY - Math.sin(-angle) * this.AIM_LINE_LENGTH;
-        this.ctx.beginPath();
-        this.ctx.moveTo(centerX, centerY);
-        this.ctx.lineTo(endX, endY);
-        this.ctx.stroke();
-      });
-    }
+    // Draw aim lines (after facing flip, so they flip with tank)
+    this.drawTankAimLines(centerX, centerY);
 
     // Draw tank shadow for depth
-    this.ctx.fillStyle = this.TANK_SHADOW_COLOR;
-    this.ctx.beginPath();
-    this.ctx.ellipse(
-      centerX,
-      centerY + 2,
-      bodyRadius,
-      bodyRadius * this.TANK_SHADOW_HEIGHT_RATIO,
-      0,
-      0,
-      Math.PI,
-      true,
-    );
-    this.ctx.fill();
+    this.drawTankShadow(centerX, centerY, bodyRadius);
 
     // Draw barrel (rotates with angle) - behind body
     this.drawTankBarrel(centerX, centerY, bodyRadius);
@@ -585,69 +541,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
 
     // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
-    this.ctx.fillStyle = this.gameService.player.color;
-    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
-    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
-
-    // Draw semicircle body
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, 0, Math.PI, true); // Semicircle facing up
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.stroke();
+    this.drawTankBody(centerX, centerY, bodyRadius);
 
     // Draw tank tracks/details - on top
-    this.ctx.fillStyle = '#333333';
-    this.ctx.fillRect(
-      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
-      centerY - 3,
-      bodyRadius * 2 - 4,
-      this.TANK_TRACK_HEIGHT,
-    );
-    this.ctx.strokeRect(
-      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
-      centerY - 3,
-      bodyRadius * 2 - 4,
-      this.TANK_TRACK_HEIGHT,
-    );
-
-    // Draw tank tracks (left and right)
-    this.ctx.fillStyle = '#222222';
-    this.ctx.fillRect(
-      centerX - bodyRadius + 4,
-      centerY - 5,
-      this.TANK_TRACK_DETAIL_WIDTH,
-      this.TANK_TRACK_DETAIL_HEIGHT,
-    );
-    this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
+    this.drawTankTracks(centerX, centerY, bodyRadius);
 
     // Restore context
     this.ctx.restore();
 
-    // Draw health bar under the tank
-    const healthRatio = this.gameService.player.health / CONST.PLAYER_START_HEALTH;
-    const barWidth = 60;
-    const barHeight = 5;
-    const barX = centerX - barWidth / 2;
-    const barY = centerY + bodyRadius - 5; // Even closer to the tank
-    // Background bar
-    this.ctx.fillStyle = '#666666';
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-    // Health bar
-    this.ctx.fillStyle = '#00FF00'; // Green
-    this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
-
-    // Draw movement gauge if moving
-    if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
-      const movementRatio = this.gameService.player.movementFuel / CONST.PLAYER_START_MOVEMENT_FUEL;
-      const movementBarY = barY + barHeight + 2; // Below health bar
-      // Background
-      this.ctx.fillStyle = '#666666';
-      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
-      // Movement bar
-      this.ctx.fillStyle = '#FFFF00'; // Yellow
-      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
-    }
+    // Draw UI elements (health and movement bars)
+    this.drawTankUI(centerX, centerY, bodyRadius);
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
@@ -682,6 +585,145 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Restore context
     this.ctx.restore();
+  }
+
+  private drawTankAimingArc(centerX: number, centerY: number) {
+    // Draw cannon range arc (before facing flip)
+    // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
+    if (this.gameService.currentState === GameState.PLAYING) {
+      let minAngle, maxAngle;
+      if (this.gameService.player.facing === -1) {
+        minAngle = Math.PI - (this.MAX_AIM_ANGLE * Math.PI) / 180; // 120°
+        maxAngle = Math.PI - (this.MIN_AIM_ANGLE * Math.PI) / 180; // 155°
+      } else {
+        minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
+        maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
+      }
+      this.ctx.globalAlpha = 0.2;
+      this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.globalAlpha = 1.0;
+
+      // Draw grey aim guide 0° to 90°
+      this.ctx.globalAlpha = 0.2; // Darker grey
+      this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
+      this.ctx.beginPath();
+      this.ctx.moveTo(centerX, centerY);
+      if (this.gameService.player.facing === -1) {
+        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI, -Math.PI / 2); // -180° to -90°
+      } else {
+        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
+      }
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+  }
+
+  private drawTankAimLines(centerX: number, centerY: number) {
+    // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
+    if (this.gameService.currentState === GameState.PLAYING) {
+      this.ctx.globalAlpha = 1.0;
+      this.ctx.strokeStyle = this.AIM_LINE_COLOR;
+      this.ctx.lineWidth = this.AIM_LINE_WIDTH;
+      const angles = [0, -Math.PI / 4, -Math.PI / 2];
+      angles.forEach((angle) => {
+        const endX = centerX + Math.cos(-angle) * this.AIM_LINE_LENGTH;
+        const endY = centerY - Math.sin(-angle) * this.AIM_LINE_LENGTH;
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, centerY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.stroke();
+      });
+    }
+  }
+
+  private drawTankShadow(centerX: number, centerY: number, bodyRadius: number) {
+    // Draw tank shadow for depth
+    this.ctx.fillStyle = this.TANK_SHADOW_COLOR;
+    this.ctx.beginPath();
+    this.ctx.ellipse(
+      centerX,
+      centerY + 2,
+      bodyRadius,
+      bodyRadius * this.TANK_SHADOW_HEIGHT_RATIO,
+      0,
+      0,
+      Math.PI,
+      true,
+    );
+    this.ctx.fill();
+  }
+
+  private drawTankBody(centerX: number, centerY: number, bodyRadius: number) {
+    // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
+    this.ctx.fillStyle = this.gameService.player.color;
+    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
+    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
+
+    // Draw semicircle body
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, bodyRadius, 0, Math.PI, true); // Semicircle facing up
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.stroke();
+  }
+
+  private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
+    // Draw tank tracks/details - on top
+    this.ctx.fillStyle = '#333333';
+    this.ctx.fillRect(
+      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
+      centerY - 3,
+      bodyRadius * 2 - 4,
+      this.TANK_TRACK_HEIGHT,
+    );
+    this.ctx.strokeRect(
+      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
+      centerY - 3,
+      bodyRadius * 2 - 4,
+      this.TANK_TRACK_HEIGHT,
+    );
+
+    // Draw tank tracks (left and right)
+    this.ctx.fillStyle = '#222222';
+    this.ctx.fillRect(
+      centerX - bodyRadius + 4,
+      centerY - 5,
+      this.TANK_TRACK_DETAIL_WIDTH,
+      this.TANK_TRACK_DETAIL_HEIGHT,
+    );
+    this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
+  }
+
+  private drawTankUI(centerX: number, centerY: number, bodyRadius: number) {
+    // Draw health bar under the tank
+    const healthRatio = this.gameService.player.health / CONST.PLAYER_START_HEALTH;
+    const barWidth = 60;
+    const barHeight = 5;
+    const barX = centerX - barWidth / 2;
+    const barY = centerY + bodyRadius - 5; // Even closer to the tank
+    // Background bar
+    this.ctx.fillStyle = '#666666';
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+    // Health bar
+    this.ctx.fillStyle = '#00FF00'; // Green
+    this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
+
+    // Draw movement gauge if moving
+    if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
+      const movementRatio = this.gameService.player.movementFuel / CONST.PLAYER_START_MOVEMENT_FUEL;
+      const movementBarY = barY + barHeight + 2; // Below health bar
+      // Background
+      this.ctx.fillStyle = '#666666';
+      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
+      // Movement bar
+      this.ctx.fillStyle = '#FFFF00'; // Yellow
+      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
+    }
   }
 
   private drawProjectile() {
