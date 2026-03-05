@@ -54,9 +54,6 @@ class CameraController {
     isDragging: boolean,
     isAdjustingAngle: boolean,
   ) {
-    console.log(
-      `Camera update: isDragging=${isDragging}, lastActivityTime=${this.lastActivityTime}`,
-    );
     if (!isDragging && this.previousIsDragging) {
       this.lastActivityTime = Date.now();
     }
@@ -98,7 +95,6 @@ class CameraController {
       !isDragging &&
       (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
     ) {
-      console.log('Camera recenter: post-projectile');
       const targets = this.getCenterTargets(playerX);
       targetX = targets.targetX;
       targetY = targets.targetY;
@@ -109,7 +105,6 @@ class CameraController {
       !isDragging &&
       (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
     ) {
-      console.log('Camera recenter: initial inactivity');
       const targets = this.getCenterTargets(playerX);
       targetX = targets.targetX;
       targetY = targets.targetY;
