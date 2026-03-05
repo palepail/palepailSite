@@ -168,7 +168,7 @@ export class TerrablastGameService {
   private initPlayer() {
     this.player.vehicle = CONST.PLAYER_VEHICLE;
     this.player.x = CONST.PLAYER_START_X;
-    this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
+    this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET;
     this.player.maxPower = this.player.vehicle.power;
     this.player.health = this.player.vehicle.health;
     this.player.movementFuel = this.player.vehicle.fuel;
@@ -194,7 +194,7 @@ export class TerrablastGameService {
     for (let i = 0; i < numEnemies; i++) {
       const x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
       const terrainHeight = this.getTerrainHeightAt(x);
-      const y = terrainHeight !== -1 ? terrainHeight - CONST.TANK_HALF_HEIGHT : CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
+      const y = terrainHeight !== -1 ? terrainHeight - CONST.TANK_HALF_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET : CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET;
       
       const enemy: Enemy = {
         body: null,
@@ -306,6 +306,7 @@ export class TerrablastGameService {
     if (this.player.body) {
       this.player.x = this.player.body.position.x;
       this.player.y = this.player.body.position.y;
+      console.log(`Player position: x=${this.player.x.toFixed(2)}, y=${this.player.y.toFixed(2)}`);
     }
 
     // Update enemies
@@ -522,12 +523,16 @@ export class TerrablastGameService {
     if (terrainHeight !== -1) {
       const terrainAngle = this.getTerrainAngleAt(this.player.x);
       const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
-      const targetY = terrainHeight - tankHalfHeight;
+      const tankBottom = this.player.body.position.y + tankHalfHeight;
 
-      this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
-      this.Body.setVelocity(this.player.body, { x: this.player.body.velocity.x, y: 0 });
+      if (tankBottom > terrainHeight) {
+        // Player is below terrain surface, reposition to surface
+        const targetY = terrainHeight - tankHalfHeight;
+        this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
+        this.Body.setVelocity(this.player.body, { x: this.player.body.velocity.x, y: 0 });
 
-      this.player.terrainAngle = terrainAngle;
+        this.player.terrainAngle = terrainAngle;
+      }
     }
   }
 

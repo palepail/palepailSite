@@ -44,15 +44,27 @@ class CameraController {
   private readonly INACTIVITY_DELAY_MS = 1000;
   private readonly PREDICTION_TIME_S = 0.5;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
+  private hasLanded = false;
 
   constructor() {
-    this.camera = { x: 0, y: 0, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
+    const initialPlayerY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET;
+    const initialCameraY = initialPlayerY - (CONST.CANVAS_HEIGHT * 2 / 3);
+    this.camera = { x: 0, y: initialCameraY, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
   }
 
-  private getCenterTargets(playerX: number): { targetX: number; targetY: number } {
+  reset() {
+    this.hasLanded = false;
+    this.lastActivityTime = Date.now();
+    this.projectileEndTime = 0;
+    this.hasHadProjectile = false;
+  }
+
+  private getCenterTargets(playerX: number, playerY: number): { targetX: number; targetY: number } {
     const playerCenterX = playerX - this.camera.width / 2;
     const clampedX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
-    return { targetX: clampedX, targetY: 0 };
+    const playerCenterY = playerY - this.camera.height * (2 / 3);
+    const clampedY = Math.max(-this.camera.height, Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, playerCenterY));
+    return { targetX: clampedX, targetY: clampedY };
   }
 
   private trackProjectileIfNeeded(projectile: any, playerX: number, playerY: number): { targetX: number; targetY: number } | null {
@@ -81,13 +93,13 @@ class CameraController {
     
     if (timeSinceProjectileEnd > this.INACTIVITY_DELAY_MS && Date.now() - this.lastActivityTime > this.INACTIVITY_DELAY_MS && !isDragging && 
         (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD || 
-         Math.abs(this.camera.y - 0) > this.RECENTER_DISTANCE_THRESHOLD)) {
-      return this.getCenterTargets(playerX);
+         Math.abs(this.camera.y - (playerY - this.camera.height * (2 / 3))) > this.RECENTER_DISTANCE_THRESHOLD)) {
+      return this.getCenterTargets(playerX, playerY);
     } else if (!projectile && this.projectileEndTime === 0 && 
                Date.now() - this.lastActivityTime > this.INACTIVITY_DELAY_MS && !isDragging && 
                (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD || 
-                Math.abs(this.camera.y - 0) > this.RECENTER_DISTANCE_THRESHOLD)) {
-      return this.getCenterTargets(playerX);
+                Math.abs(this.camera.y - (playerY - this.camera.height * (2 / 3))) > this.RECENTER_DISTANCE_THRESHOLD)) {
+      return this.getCenterTargets(playerX, playerY);
     }
     return null;
   }
@@ -100,6 +112,8 @@ class CameraController {
     projectile: any | null,
     isDragging: boolean,
     isAdjustingAngle: boolean,
+    currentState: GameState,
+    playerBody: any,
   ) {
     if (!isDragging && this.previousIsDragging) {
       this.lastActivityTime = Date.now();
@@ -107,6 +121,7 @@ class CameraController {
     this.previousIsDragging = isDragging;
     let targetX = this.camera.x;
     let targetY = this.camera.y;
+    let isFollowingFall = false;
 
     // Track projectile state for delay
     if (projectile) {
@@ -121,9 +136,20 @@ class CameraController {
       this.lastActivityTime = Date.now();
     }
 
+    // Follow player when falling at game start
+    if (!this.hasLanded && currentState === GameState.PLAYING && !isDragging && !projectile) {
+      const targets = this.getCenterTargets(playerX, playerY);
+      targetX = targets.targetX;
+      targetY = targets.targetY;
+      isFollowingFall = true;
+      if (playerBody && playerBody.velocity.y <= 0.1) {
+        this.hasLanded = true;
+      }
+    }
+
     // Recenter on player if moving or charging (horizontal only, vertical to default)
     if (Math.abs(playerVelocityX) > 0.1 || isCharging) {
-      const targets = this.getCenterTargets(playerX);
+      const targets = this.getCenterTargets(playerX, playerY);
       targetX = targets.targetX;
       targetY = targets.targetY;
     }
@@ -151,6 +177,8 @@ class CameraController {
       lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
     } else if (isRecentering) {
       lerpFactor = this.RECENTER_LERP; // Smooth lerp for recentering
+    } else if (isFollowingFall) {
+      lerpFactor = 0.2; // Smooth follow for fall
     } else if (Math.abs(targetX - this.camera.x) > this.CATCHUP_DISTANCE_THRESHOLD || Math.abs(targetY - this.camera.y) > this.CATCHUP_DISTANCE_THRESHOLD) {
       lerpFactor = this.CATCHUP_LERP; // Faster lerp when catching up otherwise
     }
@@ -294,6 +322,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.initCanvas();
     this.canvas.nativeElement.focus();
     this.gameService.initGame();
+    this.cameraController.reset();
     this.gameLoop();
 
     // Add key listeners
@@ -345,6 +374,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.projectile,
       this.isDragging,
       this.gameService.keys['ArrowUp'] || this.gameService.keys['ArrowDown'],
+      this.gameService.currentState,
+      this.gameService.player.body,
     );
 
     // Draw sky (entire background)
