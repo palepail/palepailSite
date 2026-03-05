@@ -79,7 +79,7 @@ class CameraController {
     const playerCenterX = playerX - this.camera.width / 2;
     const clampedPlayerCenterX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
     
-    if (timeSinceProjectileEnd > this.INACTIVITY_DELAY_MS && !isDragging && 
+    if (timeSinceProjectileEnd > this.INACTIVITY_DELAY_MS && Date.now() - this.lastActivityTime > this.INACTIVITY_DELAY_MS && !isDragging && 
         (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD || 
          Math.abs(this.camera.y - 0) > this.RECENTER_DISTANCE_THRESHOLD)) {
       return this.getCenterTargets(playerX);
@@ -117,7 +117,7 @@ class CameraController {
     }
 
     // Update activity time
-    if (Math.abs(playerVelocityX) > 0.1 || isCharging || isAdjustingAngle) {
+    if (Math.abs(playerVelocityX) > 0.1 || isCharging || isAdjustingAngle || isDragging) {
       this.lastActivityTime = Date.now();
     }
 
