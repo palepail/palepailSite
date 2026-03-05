@@ -69,6 +69,7 @@ export class TerrablastGameService {
       active: true,
       facing: CONST.PLAYER_START_FACING,
       terrainAngle: CONST.PLAYER_START_TERRAIN_ANGLE,
+      vehicle: null as any, // Will be assigned in initPlayer
     };
   }
 
@@ -165,8 +166,12 @@ export class TerrablastGameService {
   }
 
   private initPlayer() {
+    this.player.vehicle = CONST.PLAYER_VEHICLE;
     this.player.x = CONST.PLAYER_START_X;
     this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
+    this.player.maxPower = this.player.vehicle.power;
+    this.player.health = this.player.vehicle.health;
+    this.player.movementFuel = this.player.vehicle.fuel;
 
     this.player.body = this.Bodies.rectangle(
       this.player.x,
@@ -196,11 +201,12 @@ export class TerrablastGameService {
         x: x,
         y: y,
         angle: 0,
-        health: 100,
+        health: CONST.ENEMY_VEHICLE.health,
         color: '#FF6B6B',
         active: true,
         facing: Math.random() > 0.5 ? 1 : -1,
         terrainAngle: this.getTerrainAngleAt(x),
+        vehicle: CONST.ENEMY_VEHICLE,
       };
       // Ensure not too close to player
       if (Math.abs(enemy.x - this.player.x) < 200) {
@@ -238,11 +244,17 @@ export class TerrablastGameService {
     this.checkEnemiesTerrainCollision();
   }
 
-  private calculateExplosionDamage(explosionX: number, explosionY: number) {
-    const maxDamage = 50;
+  private calculateExplosionDamage(explosionX: number, explosionY: number, bullet: any) {
+    const maxDamage = bullet.damage;
     const damageRadius = 50;
-    const radiusX = damageRadius * 1.5; // Horizontal ellipse
-    const radiusY = damageRadius;
+    let radiusX = damageRadius;
+    let radiusY = damageRadius;
+    if (bullet.explosionShape === 'horizontal_oval') {
+      radiusX = damageRadius * 1.5;
+    } else if (bullet.explosionShape === 'vertical_oval') {
+      radiusY = damageRadius * 1.5;
+    }
+    // For 'circle', keep as is
 
     // Damage player
     if (this.player.active) {
@@ -385,7 +397,8 @@ export class TerrablastGameService {
 
   shoot() {
     const angleRad = this.getBarrelAngle();
-    const velocity = (this.player.power / 100) * CONST.MAX_PROJECTILE_VELOCITY;
+    const bullet = this.player.vehicle.bullet;
+    const velocity = (this.player.power / 100) * bullet.speed;
     const vx = Math.cos(angleRad) * velocity;
     const vy = -Math.sin(angleRad) * velocity;
     const barrelLength = CONST.BARREL_LENGTH;
@@ -398,7 +411,7 @@ export class TerrablastGameService {
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
     this.projectile.owner = 'player';
-    this.projectile.explosionShape = 'horizontal_oval';
+    this.projectile.bullet = bullet;
     this.isCharging = false;
   }
 
@@ -415,7 +428,7 @@ export class TerrablastGameService {
 
     if (px >= 0 && px < CONST.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[px]?.length) {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
-        this.createCrater(px, py, CONST.CRATER_RADIUS);
+        this.createCrater(px, py, CONST.CRATER_RADIUS, this.projectile.bullet);
         this.destroyProjectileAt({ x: px, y: py });
         return;
       }
@@ -429,7 +442,7 @@ export class TerrablastGameService {
 
       if (checkX >= 0 && checkX < CONST.TERRAIN_WIDTH && terrainCheckY >= 0 && terrainCheckY < this.terrain[checkX]?.length) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
-          this.createCrater(checkX, checkY, CONST.CRATER_RADIUS);
+          this.createCrater(checkX, checkY, CONST.CRATER_RADIUS, this.projectile.bullet);
           this.destroyProjectileAt({ x: checkX, y: checkY });
           return;
         }
@@ -452,10 +465,15 @@ export class TerrablastGameService {
     }
   }
 
-  private createCrater(centerX: number, centerY: number, radius: number) {
+  private createCrater(centerX: number, centerY: number, radius: number, bullet: any) {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    const craterRadiusX = radius * 1.5; // Horizontal ellipse
-    const craterRadiusY = radius;
+    let craterRadiusX = radius;
+    let craterRadiusY = radius;
+    if (bullet.explosionShape === 'horizontal_oval') {
+      craterRadiusX = radius * 1.5;
+    } else if (bullet.explosionShape === 'vertical_oval') {
+      craterRadiusY = radius * 1.5;
+    }
 
     for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
       for (let y = centerY - craterRadiusY; y < centerY + craterRadiusY; y++) {
@@ -483,11 +501,14 @@ export class TerrablastGameService {
         radius: CONST.EXPLOSION_INITIAL_RADIUS,
         maxRadius: CONST.EXPLOSION_MAX_RADIUS,
         life: CONST.EXPLOSION_LIFETIME_FRAMES,
-        shape: this.projectile.explosionShape,
+        shape: this.projectile.bullet.explosionShape,
       });
 
       // Apply universal explosion damage
-      this.calculateExplosionDamage(position.x, position.y);
+      this.calculateExplosionDamage(position.x, position.y, this.projectile.bullet);
+
+      // Create crater
+      this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet.explosionShape);
 
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
@@ -541,10 +562,10 @@ export class TerrablastGameService {
   }
 
   private respawnPlayer() {
-    this.player.health = CONST.PLAYER_START_HEALTH;
-    this.player.movementFuel = CONST.PLAYER_START_MOVEMENT_FUEL;
+    this.player.health = this.player.vehicle.health;
+    this.player.movementFuel = this.player.vehicle.fuel;
     this.player.power = CONST.PLAYER_START_POWER;
-    this.player.maxPower = CONST.MAX_POWER;
+    this.player.maxPower = this.player.vehicle.power;
     this.player.x = CONST.PLAYER_START_X;
     this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
     this.player.angle = CONST.PLAYER_START_ANGLE;

@@ -751,7 +751,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawTankUI(centerX: number, centerY: number, bodyRadius: number) {
     // Draw health bar under the tank
-    const healthRatio = this.gameService.player.health / CONST.PLAYER_START_HEALTH;
+    const healthRatio = this.gameService.player.health / this.gameService.player.vehicle.health;
     const barWidth = 60;
     const barHeight = 5;
     const barX = centerX - barWidth / 2;
@@ -773,7 +773,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw movement gauge if moving
     if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
-      const movementRatio = this.gameService.player.movementFuel / CONST.PLAYER_START_MOVEMENT_FUEL;
+      const movementRatio = this.gameService.player.movementFuel / this.gameService.player.vehicle.fuel;
       const movementBarY = barY + barHeight + 2; // Below health bar
       // Background
       this.ctx.fillStyle = '#666666';
@@ -885,7 +885,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.beginPath();
       if (explosion.shape === 'horizontal_oval') {
         this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius * 1.5, explosion.radius, 0, 0, Math.PI * 2);
+      } else if (explosion.shape === 'vertical_oval') {
+        this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius, explosion.radius * 1.5, 0, 0, Math.PI * 2);
       } else {
+        // 'circle' or default
         this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
       }
       this.ctx.fill();

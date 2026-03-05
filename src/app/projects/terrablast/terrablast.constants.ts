@@ -1,6 +1,8 @@
 // terrablast.constants.ts
 // Constants for the Terrablast game component
 
+import { Vehicle } from './terrablast.types';
+
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 500;
 export const CANVAS_PADDING = 32;
@@ -66,6 +68,45 @@ export const EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
 export const EXPLOSION_OUTLINE_WIDTH = 2;
 export const EXPLOSION_DAMAGE_MAX = 50;
 export const EXPLOSION_DAMAGE_RANGE = 100;
+
+// Vehicle Configurations
+export const PLAYER_VEHICLE: Vehicle = {
+  speed: 1.0,
+  power: 145,
+  shape: 'tank',
+  climbAngle: 45,
+  fuel: 50,
+  health: 100,
+  minAimAngle: 25,
+  maxAimAngle: 60,
+  bullet: {
+    damage: 50,
+    shape: 'circle',
+    explosionShape: 'horizontal_oval',
+    explosionRadius: 50,
+    craterRadius: 40,
+    speed: 20,
+  },
+};
+
+export const ENEMY_VEHICLE: Vehicle = {
+  speed: 0.8,
+  power: 100,
+  shape: 'enemy_tank',
+  climbAngle: 30,
+  fuel: 40,
+  health: 80,
+  minAimAngle: 20,
+  maxAimAngle: 55,
+  bullet: {
+    damage: 40,
+    shape: 'circle',
+    explosionShape: 'circle',
+    explosionRadius: 40,
+    craterRadius: 30,
+    speed: 15,
+  },
+};
 export const DAMAGE_TEXT_LIFETIME = 60; // frames
 export const DAMAGE_TEXT_RISE_SPEED = 1;
 export const DAMAGE_TEXT_FONT = '20px Arial';

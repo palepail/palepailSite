@@ -14,6 +14,7 @@ export interface Player {
   active: boolean;
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
+  vehicle: Vehicle;
 }
 
 export interface Enemy {
@@ -26,6 +27,7 @@ export interface Enemy {
   active: boolean;
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
+  vehicle: Vehicle;
 }
 
 export enum GameState {
@@ -60,4 +62,25 @@ export interface DamageText {
   y: number;
   damage: number;
   life: number;
+}
+
+export interface Bullet {
+  damage: number;
+  shape: string;
+  explosionShape: string;
+  explosionRadius: number;
+  craterRadius: number;
+  speed: number;
+}
+
+export interface Vehicle {
+  speed: number;
+  power: number;
+  shape: string;
+  climbAngle: number;
+  fuel: number;
+  health: number;
+  minAimAngle: number;
+  maxAimAngle: number;
+  bullet: Bullet;
 }
