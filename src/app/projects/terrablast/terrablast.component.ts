@@ -866,7 +866,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawEnemyUI(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
     // Draw health bar under the tank
-    const healthRatio = enemy.health / 100; // Assuming max health 100
+    const healthRatio = enemy.health / enemy.vehicle.health;
     const barWidth = 60;
     const barHeight = 5;
     const barX = centerX - barWidth / 2;

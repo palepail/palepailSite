@@ -306,7 +306,6 @@ export class TerrablastGameService {
     if (this.player.body) {
       this.player.x = this.player.body.position.x;
       this.player.y = this.player.body.position.y;
-      console.log(`Player position: x=${this.player.x.toFixed(2)}, y=${this.player.y.toFixed(2)}`);
     }
 
     // Update enemies
