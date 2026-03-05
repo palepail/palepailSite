@@ -52,6 +52,7 @@ export interface Explosion {
   radius: number;
   maxRadius: number;
   life: number;
+  shape: string;
 }
 
 export interface DamageText {

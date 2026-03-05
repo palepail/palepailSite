@@ -858,7 +858,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.arc(
       screenPos.x,
       screenPos.y,
-      this.PROJECTILE_DRAW_RADIUS, // Increased from 5 to 10
+      this.PROJECTILE_DRAW_RADIUS,
       0,
       Math.PI * 2,
     );
@@ -883,7 +883,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
       this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
+      if (explosion.shape === 'horizontal_oval') {
+        this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius * 1.5, explosion.radius, 0, 0, Math.PI * 2);
+      } else {
+        this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
+      }
       this.ctx.fill();
 
       // Add explosion outline

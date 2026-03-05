@@ -171,8 +171,8 @@ export class TerrablastGameService {
     this.player.body = this.Bodies.rectangle(
       this.player.x,
       this.player.y,
-      20,
-      20,
+      30,
+      30,
       {
         friction: CONST.PLAYER_FRICTION,
         frictionAir: CONST.PLAYER_AIR_FRICTION,
@@ -212,8 +212,8 @@ export class TerrablastGameService {
       enemy.body = this.Bodies.rectangle(
         enemy.x,
         enemy.y,
-        20,
-        20,
+        30,
+        30,
         {
           friction: CONST.PLAYER_FRICTION,
           frictionAir: CONST.PLAYER_AIR_FRICTION,
@@ -241,12 +241,16 @@ export class TerrablastGameService {
   private calculateExplosionDamage(explosionX: number, explosionY: number) {
     const maxDamage = 50;
     const damageRadius = 50;
+    const radiusX = damageRadius * 1.5; // Horizontal ellipse
+    const radiusY = damageRadius;
 
     // Damage player
     if (this.player.active) {
-      const distance = Math.hypot(this.player.x - explosionX, this.player.y - explosionY);
-      if (distance <= damageRadius) {
-        const damage = Math.round(maxDamage * (1 - distance / damageRadius));
+      const dx = this.player.x - explosionX;
+      const dy = this.player.y - explosionY;
+      const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
+      if (normalizedDist <= 1) {
+        const damage = Math.round(maxDamage * (1 - normalizedDist));
         this.player.health -= damage / 2; // 50% self-harm reduction
         this.damageTexts.push({
           x: this.player.x,
@@ -260,9 +264,11 @@ export class TerrablastGameService {
     // Damage enemies
     for (const enemy of this.enemies) {
       if (enemy.active) {
-        const distance = Math.hypot(enemy.x - explosionX, enemy.y - explosionY);
-        if (distance <= damageRadius) {
-          const damage = Math.round(maxDamage * (1 - distance / damageRadius));
+        const dx = enemy.x - explosionX;
+        const dy = enemy.y - explosionY;
+        const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
+        if (normalizedDist <= 1) {
+          const damage = Math.round(maxDamage * (1 - normalizedDist));
           enemy.health -= damage;
           this.damageTexts.push({
             x: enemy.x,
@@ -289,6 +295,9 @@ export class TerrablastGameService {
       this.player.x = this.player.body.position.x;
       this.player.y = this.player.body.position.y;
     }
+
+    // Update enemies
+    this.updateEnemies();
 
     // Update charging
     if (this.isCharging) {
@@ -388,6 +397,8 @@ export class TerrablastGameService {
     });
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
+    this.projectile.owner = 'player';
+    this.projectile.explosionShape = 'horizontal_oval';
     this.isCharging = false;
   }
 
@@ -429,7 +440,7 @@ export class TerrablastGameService {
     for (const enemy of this.enemies) {
       if (enemy.active) {
         const dist = Math.hypot(px - enemy.x, py - enemy.y);
-        if (dist < 25) { // Threshold for collision
+        if (dist < 40) { // Threshold for collision
           this.destroyProjectileAt({ x: px, y: py });
           return;
         }
@@ -443,11 +454,15 @@ export class TerrablastGameService {
 
   private createCrater(centerX: number, centerY: number, radius: number) {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    const craterRadiusX = radius * 1.5; // Horizontal ellipse
+    const craterRadiusY = radius;
 
-    for (let x = centerX - radius; x < centerX + radius; x++) {
-      for (let y = centerY - radius; y < centerY + radius; y++) {
-        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-        if (distance < radius) {
+    for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
+      for (let y = centerY - craterRadiusY; y < centerY + craterRadiusY; y++) {
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const normalizedDist = Math.sqrt((dx / craterRadiusX) ** 2 + (dy / craterRadiusY) ** 2);
+        if (normalizedDist <= 1) {
           const ix = Math.floor(x);
           const iy = Math.floor(y - terrainY);
           if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
@@ -468,6 +483,7 @@ export class TerrablastGameService {
         radius: CONST.EXPLOSION_INITIAL_RADIUS,
         maxRadius: CONST.EXPLOSION_MAX_RADIUS,
         life: CONST.EXPLOSION_LIFETIME_FRAMES,
+        shape: this.projectile.explosionShape,
       });
 
       // Apply universal explosion damage
@@ -498,23 +514,22 @@ export class TerrablastGameService {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
         const terrainHeight = this.getTerrainHeightAt(enemy.x);
-        let effectiveTerrainHeight = terrainHeight;
-        if (terrainHeight === -1) {
-          effectiveTerrainHeight = CONST.CANVAS_HEIGHT;
-        }
-        const terrainAngle = this.getTerrainAngleAt(enemy.x);
-        const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
-        const tankBottom = enemy.body.position.y + tankHalfHeight;
+        if (terrainHeight !== -1) {
+          const terrainAngle = this.getTerrainAngleAt(enemy.x);
+          const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
+          const tankBottom = enemy.body.position.y + tankHalfHeight;
 
-        if (tankBottom > effectiveTerrainHeight) {
-          // Enemy is below terrain surface, reposition to surface
-          const targetY = effectiveTerrainHeight - tankHalfHeight;
-          this.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
-          this.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
-        }
-        // If enemy is above terrain, let gravity pull it down
+          if (tankBottom > terrainHeight) {
+            // Enemy is below terrain surface, reposition to surface
+            const targetY = terrainHeight - tankHalfHeight;
+            this.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
+            this.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+          }
+          // If enemy is above terrain, let gravity pull it down
 
-        enemy.terrainAngle = terrainAngle;
+          enemy.terrainAngle = terrainAngle;
+        }
+        // If no terrain at enemy position, let it fall under gravity
       }
     }
   }
