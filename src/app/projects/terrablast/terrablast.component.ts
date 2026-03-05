@@ -713,6 +713,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = '#00FF00'; // Green
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
+    // Draw angle text to the right of health bar
+    this.ctx.fillStyle = this.UI_TEXT_COLOR;
+    this.ctx.font = '12px Arial'; // Smaller font for angle display
+    this.ctx.textAlign = 'left';
+    const trueAngleRad = this.gameService.getBarrelAngle();
+    const trueAngleDeg = Math.round((trueAngleRad * 180) / Math.PI); // Whole numbers only
+    this.ctx.fillText(`${trueAngleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
+
     // Draw movement gauge if moving
     if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
       const movementRatio = this.gameService.player.movementFuel / CONST.PLAYER_START_MOVEMENT_FUEL;
@@ -786,28 +794,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawUI() {
-    // Draw angle and power
-    this.ctx.fillStyle = this.UI_TEXT_COLOR;
-    this.ctx.font = this.UI_FONT;
-    // Calculate true barrel angle (terrain + turret + facing adjustment)
-    const trueAngleRad = this.gameService.getBarrelAngle();
-    const trueAngleDeg = ((trueAngleRad * 180) / Math.PI).toFixed(this.UI_ANGLE_DECIMALS);
-    this.ctx.fillText(`Angle: ${trueAngleDeg}°`, this.UI_TEXT_X, this.UI_ANGLE_Y);
-    this.ctx.fillText(
-      `Power: ${Math.round((this.gameService.player.power / this.gameService.player.maxPower) * 100)}%`,
-      this.UI_TEXT_X,
-      this.UI_POWER_Y,
-    );
-    this.ctx.fillText(
-      `Terrain Angle: ${((this.gameService.player.terrainAngle * 180) / Math.PI).toFixed(1)}°`,
-      this.UI_TEXT_X,
-      this.UI_TERRAIN_ANGLE_Y,
-    );
-    this.ctx.fillText(
-      `Health: ${this.gameService.player.health}`,
-      this.UI_TEXT_X,
-      this.UI_HEALTH_Y,
-    );
+    // UI elements moved to tank-specific drawing
   }
 
   private gameLoop() {
