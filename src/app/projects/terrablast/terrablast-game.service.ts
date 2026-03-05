@@ -102,7 +102,6 @@ export class TerrablastGameService {
 
     // Smooth terrain
     this.smoothTerrain();
-    console.log('Terrain generated at x=100:', this.terrain[100]);
   }
 
   private smoothTerrain() {

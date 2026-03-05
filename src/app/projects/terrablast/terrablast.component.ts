@@ -30,9 +30,19 @@ interface Camera {
 
 class CameraController {
   camera: Camera;
+  public lastActivityTime = Date.now();
+  private projectileEndTime = 0;
+  private hasHadProjectile = false;
+  private previousIsDragging = false;
 
   constructor() {
     this.camera = { x: 0, y: 0, width: CONST.CANVAS_WIDTH, height: CONST.CANVAS_HEIGHT };
+  }
+
+  private getCenterTargets(playerX: number): { targetX: number; targetY: number } {
+    const playerCenterX = playerX - this.camera.width / 2;
+    const clampedX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
+    return { targetX: clampedX, targetY: 0 };
   }
 
   update(
@@ -41,34 +51,101 @@ class CameraController {
     playerVelocityX: number,
     isCharging: boolean,
     projectile: any | null,
+    isDragging: boolean,
+    isAdjustingAngle: boolean,
   ) {
+    console.log(
+      `Camera update: isDragging=${isDragging}, lastActivityTime=${this.lastActivityTime}`,
+    );
+    if (!isDragging && this.previousIsDragging) {
+      this.lastActivityTime = Date.now();
+    }
+    this.previousIsDragging = isDragging;
     let targetX = this.camera.x;
     let targetY = this.camera.y;
 
+    // Track projectile state for delay
+    if (projectile) {
+      this.projectileEndTime = 0; // Reset when projectile exists
+      this.hasHadProjectile = true;
+    } else if (this.hasHadProjectile && this.projectileEndTime === 0) {
+      this.projectileEndTime = Date.now(); // Set when projectile disappears
+    }
+
+    // Update activity time
+    if (Math.abs(playerVelocityX) > 0.1 || isCharging || isAdjustingAngle) {
+      this.lastActivityTime = Date.now();
+    }
+
     // Recenter on player if moving or charging (horizontal only, vertical to default)
     if (Math.abs(playerVelocityX) > 0.1 || isCharging) {
-      targetX = playerX - this.camera.width / 2;
-      targetY = 0; // Return to default vertical position
+      const targets = this.getCenterTargets(playerX);
+      targetX = targets.targetX;
+      targetY = targets.targetY;
+    }
+
+    // Pan back to player 1 second after projectile ends (if not actively controlling), or after 1s inactivity if no projectile ever
+    const timeSinceProjectileEnd =
+      this.projectileEndTime > 0 ? Date.now() - this.projectileEndTime : 0;
+    const playerCenterX = playerX - this.camera.width / 2;
+    const clampedPlayerCenterX = Math.max(
+      0,
+      Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX),
+    );
+    if (
+      this.projectileEndTime > 0 &&
+      timeSinceProjectileEnd > 1000 &&
+      !isDragging &&
+      (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
+    ) {
+      console.log('Camera recenter: post-projectile');
+      const targets = this.getCenterTargets(playerX);
+      targetX = targets.targetX;
+      targetY = targets.targetY;
+    } else if (
+      !projectile &&
+      this.projectileEndTime === 0 &&
+      Date.now() - this.lastActivityTime > 1000 &&
+      !isDragging &&
+      (Math.abs(this.camera.x - clampedPlayerCenterX) > 10 || Math.abs(this.camera.y - 0) > 10)
+    ) {
+      console.log('Camera recenter: initial inactivity');
+      const targets = this.getCenterTargets(playerX);
+      targetX = targets.targetX;
+      targetY = targets.targetY;
     }
 
     // Track projectile if it exists and is off screen
     if (projectile) {
       const screenX = projectile.position.x - this.camera.x;
       const screenY = projectile.position.y - this.camera.y;
-      const margin = 300; // Increased margin to start tracking earlier
-      if (screenX < margin || screenX > this.camera.width - margin ||
-          screenY < margin || screenY > this.camera.height - margin) {
+      const margin = 100; // Margin to start tracking when bullet is near screen edge
+      const distFromPlayer = Math.hypot(
+        projectile.position.x - playerX,
+        projectile.position.y - playerY,
+      );
+      if (
+        distFromPlayer > 100 &&
+        (screenX < margin ||
+          screenX > this.camera.width - margin ||
+          screenY < margin ||
+          screenY > this.camera.height - margin)
+      ) {
         // Predictive tracking: anticipate projectile position based on velocity
         const predictionTime = 0.5; // Look ahead 0.5 seconds
-        targetX = (projectile.position.x + projectile.velocity.x * predictionTime) - this.camera.width / 2;
-        targetY = (projectile.position.y + projectile.velocity.y * predictionTime) - this.camera.height / 2;
+        targetX =
+          projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
+        targetY =
+          projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
       }
     }
 
     // Smooth camera movement with variable lerp
-    let lerpFactor = 0.05; // Default smooth lerp
-    if (projectile && (Math.abs(targetX - this.camera.x) > 100 || Math.abs(targetY - this.camera.y) > 100)) {
-      lerpFactor = 0.15; // Faster lerp when catching up to projectile
+    let lerpFactor = 0.02; // Default smooth lerp
+    if (projectile) {
+      lerpFactor = 0.05; // Smooth lerp for projectile tracking
+    } else if (Math.abs(targetX - this.camera.x) > 150 || Math.abs(targetY - this.camera.y) > 150) {
+      lerpFactor = 0.8; // Faster lerp when catching up otherwise
     }
     this.camera.x += (targetX - this.camera.x) * lerpFactor;
     this.camera.y += (targetY - this.camera.y) * lerpFactor;
@@ -203,13 +280,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   constructor(
     private cdr: ChangeDetectorRef,
     private gameService: TerrablastGameService,
-  ) {
-    console.log('TerrablastComponent constructor called');
-  }
+  ) {}
 
   ngOnInit() {
-    console.log('TerrablastComponent ngOnInit called');
-    console.log('Matter.js loaded, initializing game');
     this.gameService.setMatterJS(Matter);
     this.initCanvas();
     this.canvas.nativeElement.focus();
@@ -263,6 +336,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.player.body ? this.gameService.player.body.velocity.x : 0,
       this.gameService.isCharging,
       this.gameService.projectile,
+      this.isDragging,
+      this.gameService.keys['ArrowUp'] || this.gameService.keys['ArrowDown'],
     );
 
     // Draw sky (entire background)
@@ -339,8 +414,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawTerrain() {
     // Draw destructible terrain more efficiently by finding solid segments
     this.ctx.fillStyle = '#8B4513'; // Brown color for terrain
-    const terrainY =
-      this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y; // Terrain starts at y=500, adjusted for camera
+    const terrainY = Math.floor(
+      this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
+    ); // Terrain starts at y=500, adjusted for camera
 
     // Only draw visible terrain segments
     const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
@@ -360,8 +436,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         } else {
           if (segmentStart !== -1) {
             // End of solid segment, draw it at screen position
-            const screenX = x - this.cameraController.camera.x;
-            const prevScreenX = segmentStart - this.cameraController.camera.x;
+            const screenX = Math.floor(x - this.cameraController.camera.x);
+            const prevScreenX = Math.floor(segmentStart - this.cameraController.camera.x);
             this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
             segmentStart = -1;
           }
@@ -369,8 +445,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       }
       // Draw remaining segment if it goes to the end
       if (segmentStart !== -1) {
-        const screenX = endX - this.cameraController.camera.x;
-        const prevScreenX = segmentStart - this.cameraController.camera.x;
+        const screenX = Math.floor(endX - this.cameraController.camera.x);
+        const prevScreenX = Math.floor(segmentStart - this.cameraController.camera.x);
         this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
       }
     }
@@ -759,6 +835,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   onMouseUp() {
     this.isDragging = false;
+    this.cameraController.lastActivityTime = Date.now();
   }
 
   @HostListener('window:resize')
