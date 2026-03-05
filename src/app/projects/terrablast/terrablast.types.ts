@@ -16,6 +16,18 @@ export interface Player {
   terrainAngle: number; // Angle of terrain beneath the tank
 }
 
+export interface Enemy {
+  body: any; // Matter.js body
+  x: number;
+  y: number;
+  angle: number;
+  health: number;
+  color: string;
+  active: boolean;
+  facing: number; // 1 for right, -1 for left
+  terrainAngle: number; // Angle of terrain beneath the tank
+}
+
 export enum GameState {
   LOADING = 'loading',
   MENU = 'menu',

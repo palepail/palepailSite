@@ -362,6 +362,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw player
     this.drawPlayer();
 
+    // Draw enemies
+    this.drawEnemies();
+
     // Draw projectile
     if (this.gameService.projectile) {
       this.drawProjectile();
@@ -553,6 +556,53 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.drawTankUI(centerX, centerY, bodyRadius);
   }
 
+  private drawEnemies() {
+    for (const enemy of this.gameService.enemies) {
+      if (enemy.active) {
+        this.drawEnemy(enemy);
+      }
+    }
+  }
+
+  private drawEnemy(enemy: any) {
+    const screenPos = this.cameraController.worldToScreen(enemy.x, enemy.y);
+    const centerX = screenPos.x;
+    const centerY = screenPos.y;
+    const bodyRadius = this.TANK_BODY_RADIUS;
+
+    // Save context for tank flipping and terrain rotation
+    this.ctx.save();
+
+    // Apply terrain rotation first
+    this.ctx.translate(centerX, centerY);
+    this.ctx.rotate(enemy.terrainAngle);
+    this.ctx.translate(-centerX, -centerY);
+
+    // Flip tank based on facing direction
+    if (enemy.facing === -1) {
+      this.ctx.scale(-1, 1);
+      this.ctx.translate(-centerX * 2, 0);
+    }
+
+    // Draw tank shadow for depth
+    this.drawTankShadow(centerX, centerY, bodyRadius);
+
+    // Draw barrel (fixed angle for enemies) - behind body
+    this.drawEnemyBarrel(centerX, centerY, bodyRadius);
+
+    // Draw tank body (semicircle on bottom) - in front of barrel
+    this.drawEnemyBody(centerX, centerY, bodyRadius);
+
+    // Draw tank tracks/details - on top
+    this.drawTankTracks(centerX, centerY, bodyRadius);
+
+    // Restore context
+    this.ctx.restore();
+
+    // Draw UI elements (health bar)
+    this.drawEnemyUI(centerX, centerY, bodyRadius, enemy);
+  }
+
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
     const barrelLength = this.BARREL_LENGTH;
     const barrelWidth = this.BARREL_WIDTH;
@@ -732,6 +782,70 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.fillStyle = '#FFFF00'; // Yellow
       this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
     }
+  }
+
+  private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number) {
+    const barrelLength = this.BARREL_LENGTH;
+    const barrelWidth = this.BARREL_WIDTH;
+    // Fixed angle for enemies, say 0 degrees (straight ahead)
+    const angleRad = 0;
+
+    // Save context for rotation
+    this.ctx.save();
+
+    // Move to tank center and rotate
+    this.ctx.translate(centerX, centerY);
+    this.ctx.rotate(-angleRad);
+
+    // Draw barrel
+    this.ctx.fillStyle = this.BARREL_COLOR;
+    this.ctx.strokeStyle = this.BARREL_STROKE_COLOR;
+    this.ctx.lineWidth = this.BARREL_STROKE_WIDTH;
+
+    // Main barrel rectangle
+    this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+    this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+
+    // Barrel tip accent
+    this.ctx.fillStyle = this.BARREL_TIP_COLOR;
+    this.ctx.fillRect(
+      barrelLength - this.BARREL_TIP_LENGTH,
+      -barrelWidth / 2 - 1,
+      this.BARREL_TIP_LENGTH,
+      barrelWidth + this.BARREL_TIP_EXTRA_HEIGHT,
+    );
+
+    // Restore context
+    this.ctx.restore();
+  }
+
+  private drawEnemyBody(centerX: number, centerY: number, bodyRadius: number) {
+    // Draw tank body (semicircle on bottom) - in front of barrel
+    this.ctx.fillStyle = '#FF6B6B'; // Enemy color
+    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
+    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
+
+    // Draw semicircle body
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, bodyRadius, 0, Math.PI, true); // Semicircle facing up
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.stroke();
+  }
+
+  private drawEnemyUI(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
+    // Draw health bar under the tank
+    const healthRatio = enemy.health / 100; // Assuming max health 100
+    const barWidth = 60;
+    const barHeight = 5;
+    const barX = centerX - barWidth / 2;
+    const barY = centerY + bodyRadius - 5;
+    // Background bar
+    this.ctx.fillStyle = '#666666';
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+    // Health bar
+    this.ctx.fillStyle = '#FF0000'; // Red for enemies
+    this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
   }
 
   private drawProjectile() {

@@ -2,7 +2,7 @@
 // Service handling core game logic for Terrablast
 
 import { Injectable } from '@angular/core';
-import { Player, GameState, Explosion, DamageText } from './terrablast.types';
+import { Player, Enemy, GameState, Explosion, DamageText } from './terrablast.types';
 import * as CONST from './terrablast.constants';
 
 @Injectable({
@@ -27,6 +27,7 @@ export class TerrablastGameService {
   // Game data
   terrain: number[][] = [];
   player: Player;
+  enemies: Enemy[] = [];
   projectile: any = null;
   explosions: Explosion[] = [];
   damageTexts: DamageText[] = [];
@@ -75,6 +76,7 @@ export class TerrablastGameService {
     this.generateTerrain();
     this.initPhysics();
     this.initPlayer();
+    this.spawnEnemies();
     this.currentState = GameState.PLAYING;
   }
 
@@ -139,14 +141,24 @@ export class TerrablastGameService {
     this.runner = this.Runner.create();
     this.Runner.run(this.runner, this.engine);
 
-    // Add collision event for projectile vs player
+    // Add collision event for projectile vs player and enemies
     this.Events.on(this.engine, 'collisionStart', (event: any) => {
       const pairs = event.pairs;
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
+        // Check projectile vs player
         if ((pair.bodyA === this.projectile && pair.bodyB === this.player.body) ||
             (pair.bodyB === this.projectile && pair.bodyA === this.player.body)) {
           this.destroyProjectileAt(this.projectile.position);
+        }
+        // Check projectile vs enemies
+        for (const enemy of this.enemies) {
+          if (enemy.active && enemy.body &&
+              ((pair.bodyA === this.projectile && pair.bodyB === enemy.body) ||
+               (pair.bodyB === this.projectile && pair.bodyA === enemy.body))) {
+            this.destroyProjectileAt(this.projectile.position);
+            break;
+          }
         }
       }
     });
@@ -169,6 +181,104 @@ export class TerrablastGameService {
       }
     );
     this.World.add(this.world, this.player.body);
+  }
+
+  private spawnEnemies() {
+    this.enemies = [];
+    const numEnemies = 3; // Spawn 3 enemies for now
+    for (let i = 0; i < numEnemies; i++) {
+      const x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
+      const terrainHeight = this.getTerrainHeightAt(x);
+      const y = terrainHeight !== -1 ? terrainHeight - CONST.TANK_HALF_HEIGHT : CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
+      
+      const enemy: Enemy = {
+        body: null,
+        x: x,
+        y: y,
+        angle: 0,
+        health: 100,
+        color: '#FF6B6B',
+        active: true,
+        facing: Math.random() > 0.5 ? 1 : -1,
+        terrainAngle: this.getTerrainAngleAt(x),
+      };
+      // Ensure not too close to player
+      if (Math.abs(enemy.x - this.player.x) < 200) {
+        enemy.x += enemy.x < this.player.x ? -200 : 200;
+        enemy.x = Math.max(50, Math.min(CONST.TERRAIN_WIDTH - 50, enemy.x));
+        enemy.y = this.getTerrainHeightAt(enemy.x) !== -1 ? this.getTerrainHeightAt(enemy.x) - CONST.TANK_HALF_HEIGHT : y;
+        enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
+      }
+      enemy.body = this.Bodies.rectangle(
+        enemy.x,
+        enemy.y,
+        20,
+        20,
+        {
+          friction: CONST.PLAYER_FRICTION,
+          frictionAir: CONST.PLAYER_AIR_FRICTION,
+          restitution: CONST.PLAYER_RESTITUTION,
+          density: CONST.PLAYER_DENSITY
+        }
+      );
+      this.World.add(this.world, enemy.body);
+      this.enemies.push(enemy);
+    }
+  }
+
+  private updateEnemies() {
+    for (const enemy of this.enemies) {
+      if (enemy.body && enemy.active) {
+        enemy.x = enemy.body.position.x;
+        enemy.y = enemy.body.position.y;
+        // Update terrain angle
+        enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
+      }
+    }
+    this.checkEnemiesTerrainCollision();
+  }
+
+  private calculateExplosionDamage(explosionX: number, explosionY: number) {
+    const maxDamage = 50;
+    const damageRadius = 50;
+
+    // Damage player
+    if (this.player.active) {
+      const distance = Math.hypot(this.player.x - explosionX, this.player.y - explosionY);
+      if (distance <= damageRadius) {
+        const damage = Math.round(maxDamage * (1 - distance / damageRadius));
+        this.player.health -= damage / 2; // 50% self-harm reduction
+        this.damageTexts.push({
+          x: this.player.x,
+          y: this.player.y - 30,
+          damage: damage,
+          life: CONST.DAMAGE_TEXT_LIFETIME,
+        });
+      }
+    }
+
+    // Damage enemies
+    for (const enemy of this.enemies) {
+      if (enemy.active) {
+        const distance = Math.hypot(enemy.x - explosionX, enemy.y - explosionY);
+        if (distance <= damageRadius) {
+          const damage = Math.round(maxDamage * (1 - distance / damageRadius));
+          enemy.health -= damage;
+          this.damageTexts.push({
+            x: enemy.x,
+            y: enemy.y - 30,
+            damage: damage,
+            life: CONST.DAMAGE_TEXT_LIFETIME,
+          });
+          if (enemy.health <= 0) {
+            enemy.active = false;
+            if (enemy.body) {
+              this.World.remove(this.world, enemy.body);
+            }
+          }
+        }
+      }
+    }
   }
 
   update() {
@@ -315,6 +425,17 @@ export class TerrablastGameService {
       }
     }
 
+    // Check collision with enemies
+    for (const enemy of this.enemies) {
+      if (enemy.active) {
+        const dist = Math.hypot(px - enemy.x, py - enemy.y);
+        if (dist < 25) { // Threshold for collision
+          this.destroyProjectileAt({ x: px, y: py });
+          return;
+        }
+      }
+    }
+
     if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.TERRAIN_HEIGHT) {
       this.destroyProjectileAt(this.projectile.position);
     }
@@ -327,9 +448,12 @@ export class TerrablastGameService {
       for (let y = centerY - radius; y < centerY + radius; y++) {
         const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
         if (distance < radius) {
-          const terrainLocalY = y - terrainY;
-          if (x >= 0 && x < CONST.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[x]?.length) {
-            this.terrain[x][terrainLocalY] = 0;
+          const ix = Math.floor(x);
+          const iy = Math.floor(y - terrainY);
+          if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
+            if (this.terrain[ix] && this.terrain[ix][iy] === 1) {
+              this.terrain[ix][iy] = 0; // Remove terrain
+            }
           }
         }
       }
@@ -346,20 +470,8 @@ export class TerrablastGameService {
         life: CONST.EXPLOSION_LIFETIME_FRAMES,
       });
 
-      const distance = Math.sqrt((position.x - this.player.x) ** 2 + (position.y - this.player.y) ** 2);
-      const damage = CONST.EXPLOSION_DAMAGE_MAX * Math.max(0, 1 - distance / CONST.EXPLOSION_DAMAGE_RANGE);
-      const actualDamage = damage * 0.5;
-      this.player.health -= actualDamage;
-      this.player.health = Math.max(0, this.player.health);
-
-      if (actualDamage > 0) {
-        this.damageTexts.push({
-          x: position.x,
-          y: position.y,
-          damage: Math.round(actualDamage),
-          life: CONST.DAMAGE_TEXT_LIFETIME,
-        });
-      }
+      // Apply universal explosion damage
+      this.calculateExplosionDamage(position.x, position.y);
 
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
@@ -379,6 +491,31 @@ export class TerrablastGameService {
       this.Body.setVelocity(this.player.body, { x: this.player.body.velocity.x, y: 0 });
 
       this.player.terrainAngle = terrainAngle;
+    }
+  }
+
+  private checkEnemiesTerrainCollision() {
+    for (const enemy of this.enemies) {
+      if (enemy.body && enemy.active) {
+        const terrainHeight = this.getTerrainHeightAt(enemy.x);
+        let effectiveTerrainHeight = terrainHeight;
+        if (terrainHeight === -1) {
+          effectiveTerrainHeight = CONST.CANVAS_HEIGHT;
+        }
+        const terrainAngle = this.getTerrainAngleAt(enemy.x);
+        const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
+        const tankBottom = enemy.body.position.y + tankHalfHeight;
+
+        if (tankBottom > effectiveTerrainHeight) {
+          // Enemy is below terrain surface, reposition to surface
+          const targetY = effectiveTerrainHeight - tankHalfHeight;
+          this.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
+          this.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+        }
+        // If enemy is above terrain, let gravity pull it down
+
+        enemy.terrainAngle = terrainAngle;
+      }
     }
   }
 
