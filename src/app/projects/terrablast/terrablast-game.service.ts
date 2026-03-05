@@ -29,6 +29,8 @@ export class TerrablastGameService {
   player: Player;
   enemies: Enemy[] = [];
   projectile: any = null;
+  projectileRemovalTime = 0;
+  projectileInvisible = false;
   explosions: Explosion[] = [];
   damageTexts: DamageText[] = [];
   currentState: GameState = GameState.MENU;
@@ -242,25 +244,27 @@ export class TerrablastGameService {
     this._turnQueue = [];
     
     // Add player to queue
+    const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
     this._turnQueue.push({
       id: 'player',
       type: 'player',
       entity: this.player,
-      actionTime: 100, // Base action time
+      actionTime: 100 / this.player.vehicle.speed + playerRandomOffset,
     });
 
     // Add enemies to queue
     this.enemies.forEach((enemy, index) => {
+      const enemyRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
       this._turnQueue.push({
         id: `enemy_${index}`,
         type: 'enemy',
         entity: enemy,
-        actionTime: 120 + Math.random() * 40, // Slight variation in enemy turn times
+        actionTime: 100 / enemy.vehicle.speed + enemyRandomOffset,
       });
     });
 
-    // Sort queue by action time (lowest first)
-    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime);
+    // Sort queue by action time (lowest first) with random tie breaks
+    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime || Math.random() - 0.5);
     this.currentTurnIndex = 0;
     this.turnTime = 0;
   }
@@ -471,6 +475,12 @@ export class TerrablastGameService {
     if (this.projectile) {
       this.checkProjectileCollision();
     }
+    if (this.projectile && this.projectileRemovalTime > 0 && Date.now() >= this.projectileRemovalTime) {
+      this.World.remove(this.world, this.projectile);
+      this.projectile = null;
+      this.projectileRemovalTime = 0;
+      this.projectileInvisible = false;
+    }
 
     // Check player collision with terrain
     this.checkPlayerTerrainCollision();
@@ -660,10 +670,12 @@ export class TerrablastGameService {
       this.calculateExplosionDamage(position.x, position.y, this.projectile.bullet);
 
       // Create crater
-      this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet.explosionShape);
+      this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet);
 
-      this.World.remove(this.world, this.projectile);
-      this.projectile = null;
+      this.projectileInvisible = true;
+      this.projectile.velocity = {x: 0, y: 0};
+      this.Body.setStatic(this.projectile, true);
+      this.projectileRemovalTime = Date.now() + 500;
     }
   }
 
