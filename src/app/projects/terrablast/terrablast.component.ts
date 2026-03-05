@@ -409,6 +409,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw UI
     this.drawUI();
+    this.drawTurnQueue();
   }
 
   private drawChargeBar() {
@@ -947,6 +948,38 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawUI() {
     // UI elements moved to tank-specific drawing
+  }
+
+  private drawTurnQueue() {
+    const queue: any[] = this.gameService.turnQueue;
+    if (queue.length === 0) return;
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(10, 10, 200, queue.length * 25 + 10);
+
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = '14px Arial';
+    this.ctx.textAlign = 'left';
+
+    queue.forEach((turnEntity, index) => {
+      const y = 30 + index * 25;
+      const isCurrent = index === this.gameService.currentTurnIndex;
+      
+      if (isCurrent) {
+        this.ctx.fillStyle = '#FFFF00'; // Yellow for current turn
+      } else if (turnEntity.type === 'player') {
+        this.ctx.fillStyle = '#00FF00'; // Green for player
+      } else {
+        this.ctx.fillStyle = '#FF0000'; // Red for enemies
+      }
+
+      const name = turnEntity.type === 'player' ? 'Player' : `Enemy ${turnEntity.id.split('_')[1]}`;
+      const timeStr = Math.round(turnEntity.actionTime);
+      
+      this.ctx.fillText(`${name}: ${timeStr}`, 20, y);
+    });
+
+    this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
   private gameLoop() {

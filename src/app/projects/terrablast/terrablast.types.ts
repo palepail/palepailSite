@@ -41,6 +41,13 @@ export enum GameState {
   LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
 }
 
+export interface TurnEntity {
+  id: string;
+  type: 'player' | 'enemy';
+  entity: Player | Enemy;
+  actionTime: number; // Time cost for actions (lower = faster turn)
+}
+
 export interface GameSettings {
   bgmVolume: number;
   sfxVolume: number;

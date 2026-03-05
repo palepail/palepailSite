@@ -2,7 +2,7 @@
 // Service handling core game logic for Terrablast
 
 import { Injectable } from '@angular/core';
-import { Player, Enemy, GameState, Explosion, DamageText } from './terrablast.types';
+import { Player, Enemy, GameState, Explosion, DamageText, TurnEntity } from './terrablast.types';
 import * as CONST from './terrablast.constants';
 
 @Injectable({
@@ -32,6 +32,11 @@ export class TerrablastGameService {
   explosions: Explosion[] = [];
   damageTexts: DamageText[] = [];
   currentState: GameState = GameState.MENU;
+
+  // Turn-based system
+  private _turnQueue: TurnEntity[] = [];
+  currentTurnIndex: number = 0;
+  turnTime: number = 0; // Current turn timer
 
   // Flags
   isCharging = false;
@@ -78,6 +83,7 @@ export class TerrablastGameService {
     this.initPhysics();
     this.initPlayer();
     this.spawnEnemies();
+    this.initTurnQueue();
     this.currentState = GameState.PLAYING;
   }
 
@@ -232,6 +238,33 @@ export class TerrablastGameService {
     }
   }
 
+  private initTurnQueue() {
+    this._turnQueue = [];
+    
+    // Add player to queue
+    this._turnQueue.push({
+      id: 'player',
+      type: 'player',
+      entity: this.player,
+      actionTime: 100, // Base action time
+    });
+
+    // Add enemies to queue
+    this.enemies.forEach((enemy, index) => {
+      this._turnQueue.push({
+        id: `enemy_${index}`,
+        type: 'enemy',
+        entity: enemy,
+        actionTime: 120 + Math.random() * 40, // Slight variation in enemy turn times
+      });
+    });
+
+    // Sort queue by action time (lowest first)
+    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime);
+    this.currentTurnIndex = 0;
+    this.turnTime = 0;
+  }
+
   private updateEnemies() {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
@@ -241,7 +274,123 @@ export class TerrablastGameService {
         enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
       }
     }
+
+    // Handle enemy AI turns
+    this.handleEnemyTurns();
+
     this.checkEnemiesTerrainCollision();
+  }
+
+  private handleEnemyTurns() {
+    const currentTurn = this.getCurrentTurnEntity();
+    if (!currentTurn || currentTurn.type !== 'enemy') return;
+
+    const enemy = currentTurn.entity as Enemy;
+    if (!enemy.active) return;
+
+    // Simple enemy AI: aim at player and shoot
+    this.performEnemyAction(enemy);
+  }
+
+  private performEnemyAction(enemy: Enemy) {
+    // Calculate angle to player
+    const dx = this.player.x - enemy.x;
+    const dy = this.player.y - enemy.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > 50) { // Don't shoot if too close
+      const angleRad = Math.atan2(-dy, dx);
+      let angleDeg = (angleRad * 180) / Math.PI;
+      
+      // Adjust for terrain angle
+      angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
+      
+      // Clamp to enemy aiming range
+      angleDeg = Math.max(enemy.vehicle.minAimAngle, Math.min(enemy.vehicle.maxAimAngle, angleDeg));
+      
+      enemy.angle = angleDeg;
+      
+      // Set random power
+      const power = 50 + Math.random() * 50;
+      
+      // Shoot after a brief delay (simulate charging)
+      setTimeout(() => {
+        this.enemyShoot(enemy, power);
+      }, 500);
+    } else {
+      // Skip turn if too close
+      this.endTurn(50);
+    }
+  }
+
+  private enemyShoot(enemy: Enemy, power: number) {
+    const angleRad = (enemy.angle * Math.PI) / 180 - enemy.terrainAngle;
+    const bullet = enemy.vehicle.bullet;
+    const velocity = (power / 100) * bullet.speed;
+    const vx = Math.cos(angleRad) * velocity;
+    const vy = -Math.sin(angleRad) * velocity;
+    const barrelLength = CONST.BARREL_LENGTH;
+    const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
+    const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
+    
+    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
+      friction: CONST.PROJECTILE_FRICTION,
+      restitution: CONST.PROJECTILE_RESTITUTION,
+    });
+    this.Body.setVelocity(this.projectile, { x: vx, y: vy });
+    this.World.add(this.world, this.projectile);
+    this.projectile.owner = 'enemy';
+    this.projectile.bullet = bullet;
+
+    // End enemy turn
+    this.endTurn(180); // Enemy shooting takes longer
+  }
+
+  getCurrentTurnEntity(): TurnEntity | null {
+    if (this._turnQueue.length === 0) return null;
+    return this._turnQueue[this.currentTurnIndex];
+  }
+
+  isPlayerTurn(): boolean {
+    const current = this.getCurrentTurnEntity();
+    return current?.type === 'player';
+  }
+
+  endTurn(actionCost: number = 100) {
+    if (this._turnQueue.length === 0) return;
+
+    // Update the current entity's action time
+    this._turnQueue[this.currentTurnIndex].actionTime += actionCost;
+
+    // Move to next turn
+    this.currentTurnIndex = (this.currentTurnIndex + 1) % this._turnQueue.length;
+
+    // Resort queue by action time
+    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime);
+
+    // Reset turn time
+    this.turnTime = 0;
+
+    // Reset player-specific flags
+    if (this.isPlayerTurn()) {
+      this.isCharging = false;
+      this.chargeStartTime = 0;
+    }
+  }
+
+  updateTurnQueue() {
+    // Remove inactive enemies from queue
+    this._turnQueue = this._turnQueue.filter(turnEntity => {
+      if (turnEntity.type === 'enemy') {
+        return (turnEntity.entity as Enemy).active;
+      }
+      return true;
+    });
+
+    // If current turn entity was removed, reset to first
+    if (this.currentTurnIndex >= this._turnQueue.length) {
+      this.currentTurnIndex = 0;
+    }
   }
 
   private calculateExplosionDamage(explosionX: number, explosionY: number, bullet: any) {
@@ -311,8 +460,8 @@ export class TerrablastGameService {
     // Update enemies
     this.updateEnemies();
 
-    // Update charging
-    if (this.isCharging) {
+    // Update charging (only if it's player's turn)
+    if (this.isPlayerTurn() && this.isCharging) {
       const chargeTime = Date.now() - this.chargeStartTime;
       const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
       this.player.power = CONST.MIN_POWER + (this.player.maxPower - CONST.MIN_POWER) * chargeRatio;
@@ -326,8 +475,8 @@ export class TerrablastGameService {
     // Check player collision with terrain
     this.checkPlayerTerrainCollision();
 
-    // Deplete movement fuel if moving
-    if (this.player.body && Math.abs(this.player.body.velocity.x) > 0.1) {
+    // Deplete movement fuel if moving (only on player's turn)
+    if (this.isPlayerTurn() && this.player.body && Math.abs(this.player.body.velocity.x) > 0.1) {
       this.player.movementFuel = Math.max(0, this.player.movementFuel - 0.5);
     }
 
@@ -339,6 +488,9 @@ export class TerrablastGameService {
 
     // Update damage texts
     this.updateDamageTexts();
+
+    // Update turn queue (remove inactive enemies)
+    this.updateTurnQueue();
 
     // Check for game over
     if (this.player.health <= 0) {
@@ -395,7 +547,7 @@ export class TerrablastGameService {
     return trueAngleRad;
   }
 
-  shoot() {
+  public shoot() {
     const angleRad = this.getBarrelAngle();
     const bullet = this.player.vehicle.bullet;
     const velocity = (this.player.power / 100) * bullet.speed;
@@ -465,7 +617,7 @@ export class TerrablastGameService {
     }
   }
 
-  private createCrater(centerX: number, centerY: number, radius: number, bullet: any) {
+  private createCrater(centerX: number, centerY: number, radius: number, bullet: any): void {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     let craterRadiusX = radius;
     let craterRadiusY = radius;
@@ -626,6 +778,10 @@ export class TerrablastGameService {
 
     const slope = (h2 - h1) / (2 * CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE);
     return Math.atan(slope);
+  }
+
+  get turnQueue(): TurnEntity[] {
+    return this._turnQueue;
   }
 
   destroy() {
