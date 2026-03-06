@@ -9,15 +9,13 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { LeaderboardService } from '../../services/leaderboard.service';
 
 // Matter.js imports
 // @ts-ignore
 import * as Matter from 'matter-js';
 
 // Local imports
-import { Player, GameState, GameSettings, Explosion, DamageText } from './terrablast.types';
+import { Player, GameState, Explosion, DamageText } from './terrablast.types';
 import * as CONST from './terrablast.constants';
 import { TerrablastGameService } from './terrablast-game.service';
 import { CameraController } from './camera-controller';
@@ -26,13 +24,12 @@ import { CameraController } from './camera-controller';
 
 @Component({
   selector: 'app-terrablast',
-  imports: [RouterLink, CommonModule, FormsModule],
+  imports: [RouterLink, CommonModule],
   templateUrl: './terrablast.component.html',
   styleUrl: './terrablast.component.css',
 })
 export class TerrablastComponent implements OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('mobileInput') mobileInput!: ElementRef<HTMLInputElement>;
   private ctx!: CanvasRenderingContext2D;
 
   // Camera system
@@ -47,12 +44,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   get currentState(): GameState {
     return this.gameService.currentState;
   }
-  settings: GameSettings = {
-    bgmVolume: 0.25,
-    sfxVolume: 0.35,
-    difficulty: 'normal',
-    muted: false,
-  };
 
   // Game constants (imported)
   private readonly CANVAS_WIDTH = CONST.CANVAS_WIDTH;
@@ -66,8 +57,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   // Input handling
   // keys moved to service
-  private mouseX = 0;
-  private mouseY = 0;
 
   // UI and Rendering Constants
   private readonly CHARGE_BAR_WIDTH = CONST.CHARGE_BAR_WIDTH;
@@ -842,10 +831,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   @HostListener('window:mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
-    this.mouseX = (event.clientX - rect.left) / this.canvasScale;
-    this.mouseY = (event.clientY - rect.top) / this.canvasScale;
-
     // Handle camera dragging
     if (this.isDragging) {
       const deltaX = (event.clientX - this.lastMouseX) / this.canvasScale;

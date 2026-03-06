@@ -15,13 +15,13 @@ class CameraController {
   private previousIsDragging = false;
   private readonly RECENTER_DISTANCE_THRESHOLD = 10;
   private readonly DEFAULT_LERP = 0.02;
-  private readonly PROJECTILE_LERP = 0.1;
+  private readonly PROJECTILE_LERP = 0.06;
   private readonly RECENTER_LERP = 0.1;
   private readonly CATCHUP_LERP = 0.8;
-  private readonly TRACKING_MARGIN = 100;
+  private readonly TRACKING_MARGIN = 150;
   private readonly MIN_TRACK_DISTANCE = 100;
   private readonly INACTIVITY_DELAY_MS = 1000;
-  private readonly PREDICTION_TIME_S = 1.0;
+  private readonly PREDICTION_TIME_S = 1.5;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private hasLanded = false;
 
@@ -66,7 +66,10 @@ class CameraController {
     const screenX = projectile.position.x - this.camera.x;
     const screenY = projectile.position.y - this.camera.y;
     const margin = this.TRACKING_MARGIN;
-    const distFromPlayer = Math.hypot(projectile.position.x - playerX, projectile.position.y - playerY);
+    const distFromPlayer = Math.hypot(
+      projectile.position.x - playerX,
+      projectile.position.y - playerY,
+    );
 
     if (
       distFromPlayer > this.MIN_TRACK_DISTANCE &&
@@ -76,8 +79,10 @@ class CameraController {
         screenY > this.camera.height - margin)
     ) {
       const predictionTime = this.PREDICTION_TIME_S;
-      const targetX = projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
-      const targetY = projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
+      const targetX =
+        projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
+      const targetY =
+        projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
       return { targetX, targetY };
     }
     return null;
