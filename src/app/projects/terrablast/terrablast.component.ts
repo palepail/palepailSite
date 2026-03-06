@@ -188,6 +188,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.player.body,
     );
 
+    // Pan to entity if requested
+    if (this.gameService.panToEntity && isFinite(this.gameService.panToEntity.x) && isFinite(this.gameService.panToEntity.y)) {
+      this.cameraController.panToEntity(this.gameService.panToEntity);
+      this.gameService.panToEntity = null;
+    } else if (this.gameService.panToEntity) {
+      this.gameService.panToEntity = null; // Clear invalid request
+    }
+
     // Draw sky (entire background)
     this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
@@ -704,7 +712,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawExplosions() {
-    for (const explosion of this.gameService.explosions) {
+    for (let i = this.gameService.explosions.length - 1; i >= 0; i--) {
+      const explosion = this.gameService.explosions[i];
+      if (!isFinite(explosion.x) || !isFinite(explosion.y) || !isFinite(explosion.radius) || explosion.radius <= 0) {
+        this.gameService.explosions.splice(i, 1);
+        continue;
+      }
       const screenPos = this.cameraController.worldToScreen(explosion.x, explosion.y);
       // Create explosion gradient (orange to red)
       const gradient = this.ctx.createRadialGradient(

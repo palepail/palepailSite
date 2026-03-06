@@ -33,6 +33,7 @@ export class TerrablastGameService {
   projectileDestroyed = false;
   explosions: Explosion[] = [];
   damageTexts: DamageText[] = [];
+  public panToEntity: any = null;
   currentState: GameState = GameState.MENU;
 
   // Turn-based system
@@ -215,6 +216,9 @@ export class TerrablastGameService {
         facing: Math.random() > 0.5 ? 1 : -1,
         terrainAngle: this.getTerrainAngleAt(x),
         vehicle: CONST.ENEMY_VEHICLE,
+        turnState: 'idle',
+        turnTimer: 0,
+        targetPower: 0,
       };
       // Ensure not too close to player
       if (Math.abs(enemy.x - this.player.x) < 200) {
@@ -297,33 +301,59 @@ export class TerrablastGameService {
   }
 
   private performEnemyAction(enemy: Enemy) {
-    // Calculate angle to player
-    const dx = this.player.x - enemy.x;
-    const dy = this.player.y - enemy.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distance > 50) { // Don't shoot if too close
-      const angleRad = Math.atan2(-dy, dx);
-      let angleDeg = (angleRad * 180) / Math.PI;
-      
-      // Adjust for terrain angle
-      angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
-      
-      // Clamp to enemy aiming range
-      angleDeg = Math.max(enemy.vehicle.minAimAngle, Math.min(enemy.vehicle.maxAimAngle, angleDeg));
-      
-      enemy.angle = angleDeg;
-      
-      // Set random power
-      const power = 50 + Math.random() * 50;
-      
-      // Shoot after a brief delay (simulate charging)
-      setTimeout(() => {
-        this.enemyShoot(enemy, power);
-      }, 500);
-    } else {
-      // Skip turn if too close
-      this.endTurn(50);
+    switch (enemy.turnState) {
+      case 'idle':
+        // Start aiming
+        enemy.turnState = 'aiming';
+        enemy.turnTimer = 0;
+        break;
+
+      case 'aiming':
+        // Calculate angle to player
+        const dx = this.player.x - enemy.x;
+        const dy = this.player.y - enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= 50) {
+          // Too close, skip turn
+          this.endTurn(50);
+          enemy.turnState = 'idle';
+          return;
+        }
+
+        const angleRad = Math.atan2(-dy, dx);
+        let angleDeg = (angleRad * 180) / Math.PI;
+
+        // Adjust for terrain angle
+        angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
+
+        // Clamp to enemy aiming range
+        angleDeg = Math.max(enemy.vehicle.minAimAngle, Math.min(enemy.vehicle.maxAimAngle, angleDeg));
+
+        enemy.angle = angleDeg;
+
+        // Set target power
+        enemy.targetPower = 50 + Math.random() * 50;
+
+        // Move to charging
+        enemy.turnState = 'charging';
+        enemy.turnTimer = 0;
+        break;
+
+      case 'charging':
+        // Simulate charging
+        enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
+        if (enemy.turnTimer >= 1000) { // Charge for 1 second
+          enemy.turnState = 'shooting';
+        }
+        break;
+
+      case 'shooting':
+        // Shoot
+        this.enemyShoot(enemy, enemy.targetPower);
+        this.endTurn(180); // Enemy shooting takes longer
+        enemy.turnState = 'idle';
+        break;
     }
   }
 
@@ -345,9 +375,6 @@ export class TerrablastGameService {
     this.World.add(this.world, this.projectile);
     this.projectile.owner = enemy;
     this.projectile.bullet = bullet;
-
-    // End enemy turn
-    this.endTurn(180); // Enemy shooting takes longer
   }
 
   getCurrentTurnEntity(): TurnEntity | null {
@@ -380,6 +407,8 @@ export class TerrablastGameService {
       this.isCharging = false;
       this.chargeStartTime = 0;
     }
+
+    this.panToEntity = this.getCurrentTurnEntity();
   }
 
   updateTurnQueue() {
@@ -477,10 +506,14 @@ export class TerrablastGameService {
       this.checkProjectileCollision();
     }
     if (this.projectile && this.projectileRemovalTime > 0 && Date.now() >= this.projectileRemovalTime) {
+      const projectileOwner = this.projectile.owner;
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
       this.projectileRemovalTime = 0;
       this.projectileDestroyed = false;
+      if (projectileOwner === this.player) {
+        this.endTurn();
+      }
     }
 
     // Check player collision with terrain
@@ -659,7 +692,7 @@ export class TerrablastGameService {
   private destroyProjectileAt(position: any) {
     if (this.projectileDestroyed) return;
 
-    if (this.projectileDestroyed) return;
+    if (!isFinite(position.x) || !isFinite(position.y)) return;
 
     if (this.projectile) {
       this.explosions.push({
@@ -680,7 +713,7 @@ export class TerrablastGameService {
       this.projectileDestroyed = true;
       this.projectile.velocity = {x: 0, y: 0};
       this.Body.setStatic(this.projectile, true);
-      this.projectileRemovalTime = Date.now() + 500;
+      this.projectileRemovalTime = Date.now() + 1000;
     }
   }
 

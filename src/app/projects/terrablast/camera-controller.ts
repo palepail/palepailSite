@@ -24,6 +24,9 @@ class CameraController {
   private readonly PREDICTION_TIME_S = 1.5;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private hasLanded = false;
+  private panTargetX: number | null = null;
+  private panTargetY: number | null = null;
+  private isPanning = false;
 
   constructor() {
     const initialPlayerY =
@@ -43,6 +46,15 @@ class CameraController {
   reset() {
     this.hasLanded = false;
     this.lastActivityTime = Date.now();
+  }
+
+  panToEntity(entity: any) {
+    if (!entity || !isFinite(entity.x) || !isFinite(entity.y)) return;
+    this.panTargetX = entity.x - this.camera.width / 2;
+    this.panTargetY = entity.y - this.camera.height * (2 / 3);
+    this.panTargetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.panTargetX));
+    this.panTargetY = Math.max(-this.camera.height, Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.panTargetY));
+    this.isPanning = true;
   }
 
   private getCenterTargets(playerX: number, playerY: number): { targetX: number; targetY: number } {
@@ -169,6 +181,18 @@ class CameraController {
       targetY = projectileTargets.targetY;
     }
 
+    // Pan to entity if panning
+    if (this.isPanning && this.panTargetX !== null && this.panTargetY !== null && isFinite(this.panTargetX) && isFinite(this.panTargetY)) {
+      targetX = this.panTargetX;
+      targetY = this.panTargetY;
+      // Check if close enough
+      if (Math.abs(this.camera.x - this.panTargetX) < 5 && Math.abs(this.camera.y - this.panTargetY) < 5) {
+        this.isPanning = false;
+        this.panTargetX = null;
+        this.panTargetY = null;
+      }
+    }
+
     // Determine if we're currently recentering
     const isRecentering = recenterTargets !== null;
 
@@ -176,6 +200,8 @@ class CameraController {
     let lerpFactor = this.DEFAULT_LERP; // Default smooth lerp
     if (projectile) {
       lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
+    } else if (this.isPanning) {
+      lerpFactor = this.RECENTER_LERP; // Smooth lerp for panning
     } else if (isRecentering) {
       lerpFactor = this.RECENTER_LERP; // Smooth lerp for recentering
     } else if (isFollowingFall) {
@@ -186,6 +212,8 @@ class CameraController {
     ) {
       lerpFactor = this.CATCHUP_LERP; // Faster lerp when catching up otherwise
     }
+    if (!isFinite(targetX)) targetX = this.camera.x;
+    if (!isFinite(targetY)) targetY = this.camera.y;
     this.camera.x += (targetX - this.camera.x) * lerpFactor;
     this.camera.y += (targetY - this.camera.y) * lerpFactor;
 

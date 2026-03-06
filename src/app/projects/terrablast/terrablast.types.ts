@@ -28,6 +28,9 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
+  turnState: 'idle' | 'aiming' | 'charging' | 'shooting';
+  turnTimer: number;
+  targetPower: number;
 }
 
 export enum GameState {
