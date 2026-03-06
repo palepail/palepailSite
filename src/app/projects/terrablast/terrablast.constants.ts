@@ -42,13 +42,13 @@ export const PLAYER_AIR_FRICTION = 0.15;
 export const PLAYER_RESTITUTION = 0.05;
 export const PLAYER_DENSITY = 0.01;
 export const PLAYER_MOVE_SPEED = 1.0;
-export const ANGLE_ADJUST_SPEED = 2;
+export const ANGLE_ADJUST_SPEED = 100;
 export const MIN_AIM_ANGLE = 25;
 export const MAX_AIM_ANGLE = 60;
 export const TANK_HALF_HEIGHT = 15;
 
 // Charging system
-export const MAX_CHARGE_TIME = 1500; // 1 second for full charge (faster)
+export const MAX_CHARGE_TIME = 2000; // 1 second for full charge (faster)
 export const MIN_POWER = 0;
 export const MAX_POWER = 200;
 export const MAX_PROJECTILE_VELOCITY = 20;
@@ -73,15 +73,15 @@ export const EXPLOSION_DAMAGE_RANGE = 100;
 // Vehicle Configurations
 export const PLAYER_VEHICLE: Vehicle = {
   speed: 1.0,
-  power: 200 ,
+  power: 200,
   shape: 'tank',
   climbAngle: 45,
-  fuel: 50,
+  fuel: 75,
   health: 100,
   minAimAngle: 25,
   maxAimAngle: 60,
   bullet: {
-    damage: 50,
+    damage: 100,
     shape: 'circle',
     explosionShape: 'horizontal_oval',
     explosionRadius: 50,

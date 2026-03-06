@@ -692,7 +692,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawProjectile() {
-    if (!this.gameService.projectile || this.gameService.projectileInvisible) return;
+    if (!this.gameService.projectile || this.gameService.projectileDestroyed) return;
     const screenPos = this.cameraController.worldToScreen(
       this.gameService.projectile.position.x,
       this.gameService.projectile.position.y,

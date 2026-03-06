@@ -30,7 +30,7 @@ export class TerrablastGameService {
   enemies: Enemy[] = [];
   projectile: any = null;
   projectileRemovalTime = 0;
-  projectileInvisible = false;
+  projectileDestroyed = false;
   explosions: Explosion[] = [];
   damageTexts: DamageText[] = [];
   currentState: GameState = GameState.MENU;
@@ -343,7 +343,7 @@ export class TerrablastGameService {
     });
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
-    this.projectile.owner = 'enemy';
+    this.projectile.owner = enemy;
     this.projectile.bullet = bullet;
 
     // End enemy turn
@@ -397,14 +397,14 @@ export class TerrablastGameService {
     }
   }
 
-  private calculateExplosionDamage(explosionX: number, explosionY: number, bullet: any) {
-    const maxDamage = bullet.damage;
+  private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
+    const maxDamage = projectile.bullet.damage;
     const damageRadius = 50;
     let radiusX = damageRadius;
     let radiusY = damageRadius;
-    if (bullet.explosionShape === 'horizontal_oval') {
+    if (projectile.bullet.explosionShape === 'horizontal_oval') {
       radiusX = damageRadius * 1.5;
-    } else if (bullet.explosionShape === 'vertical_oval') {
+    } else if (projectile.bullet.explosionShape === 'vertical_oval') {
       radiusY = damageRadius * 1.5;
     }
     // For 'circle', keep as is
@@ -416,11 +416,12 @@ export class TerrablastGameService {
       const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
       if (normalizedDist <= 1) {
         const damage = Math.round(maxDamage * (1 - normalizedDist));
-        this.player.health -= damage / 2; // 50% self-harm reduction
+        const actualDamage = projectile.owner === this.player ? damage * 0.5 : damage;
+        this.player.health -= actualDamage;
         this.damageTexts.push({
           x: this.player.x,
           y: this.player.y - 30,
-          damage: damage,
+          damage: actualDamage,
           life: CONST.DAMAGE_TEXT_LIFETIME,
         });
       }
@@ -479,7 +480,7 @@ export class TerrablastGameService {
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
       this.projectileRemovalTime = 0;
-      this.projectileInvisible = false;
+      this.projectileDestroyed = false;
     }
 
     // Check player collision with terrain
@@ -536,10 +537,10 @@ export class TerrablastGameService {
         }
 
         if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
-          this.player.angle = Math.min(CONST.MAX_AIM_ANGLE, this.player.angle + CONST.ANGLE_ADJUST_SPEED);
+          this.player.angle = Math.min(CONST.MAX_AIM_ANGLE, this.player.angle + CONST.ANGLE_ADJUST_SPEED / 400);
         }
         if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
-          this.player.angle = Math.max(CONST.MIN_AIM_ANGLE, this.player.angle - CONST.ANGLE_ADJUST_SPEED);
+          this.player.angle = Math.max(CONST.MIN_AIM_ANGLE, this.player.angle - CONST.ANGLE_ADJUST_SPEED / 400);
         }
 
         if (keys[' '] && !this.projectile && !this.isCharging) {
@@ -572,7 +573,7 @@ export class TerrablastGameService {
     });
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
-    this.projectile.owner = 'player';
+    this.projectile.owner = this.player;
     this.projectile.bullet = bullet;
     this.isCharging = false;
   }
@@ -656,6 +657,10 @@ export class TerrablastGameService {
   }
 
   private destroyProjectileAt(position: any) {
+    if (this.projectileDestroyed) return;
+
+    if (this.projectileDestroyed) return;
+
     if (this.projectile) {
       this.explosions.push({
         x: position.x,
@@ -667,12 +672,12 @@ export class TerrablastGameService {
       });
 
       // Apply universal explosion damage
-      this.calculateExplosionDamage(position.x, position.y, this.projectile.bullet);
+      this.calculateExplosionDamage(position.x, position.y, this.projectile);
 
       // Create crater
       this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet);
 
-      this.projectileInvisible = true;
+      this.projectileDestroyed = true;
       this.projectile.velocity = {x: 0, y: 0};
       this.Body.setStatic(this.projectile, true);
       this.projectileRemovalTime = Date.now() + 500;
