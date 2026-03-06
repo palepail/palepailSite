@@ -48,7 +48,7 @@ export const MAX_AIM_ANGLE = 60;
 export const TANK_HALF_HEIGHT = 15;
 
 // Charging system
-export const MAX_CHARGE_TIME = 2000; // 1 second for full charge (faster)
+export const MAX_CHARGE_TIME = 2500; // 1 second for full charge (faster)
 export const MIN_POWER = 0;
 export const MAX_POWER = 200;
 export const MAX_PROJECTILE_VELOCITY = 20;
