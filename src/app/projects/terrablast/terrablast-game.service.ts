@@ -39,6 +39,8 @@ export class TerrablastGameService {
   private _turnQueue: TurnEntity[] = [];
   currentTurnIndex: number = 0;
   turnTime: number = 0; // Current turn timer
+  private turnStartTime: number = 0;
+  private readonly TIMEOUT_MS = 10000;
 
   // Flags
   isCharging = false;
@@ -313,6 +315,12 @@ export class TerrablastGameService {
   }
 
   private performPlayerAction(player: Player) {
+    // Check for skip
+    if (this.keys['S'] && player.turnState !== 'shooting' && player.turnState !== 'post_bullet') {
+      this.endTurn();
+      return;
+    }
+
     switch (player.turnState) {
       case 'turn_start':
         // Wait for turn start (camera panning, etc.)
@@ -403,6 +411,11 @@ export class TerrablastGameService {
         break;
 
       case 'shooting':
+        this.enemyShoot(enemy, enemy.targetPower);
+        enemy.turnState = 'post_bullet';
+        break;
+
+      case 'post_bullet':
         // Wait for projectile and explosion to finish
         if (!this.projectile && this.explodedProjectiles.length === 0) {
           // Projectile and explosion finished, end turn
@@ -475,7 +488,19 @@ export class TerrablastGameService {
       }
     }
 
+    // Clean up projectiles owned by previous entity
+    const prevEntity = this._turnQueue[(this.currentTurnIndex - 1 + this._turnQueue.length) % this._turnQueue.length];
+    if (prevEntity) {
+      if (this.projectile && this.projectile.owner === prevEntity.entity) {
+        this.destroyProjectileAt(this.projectile.position);
+      }
+      this.explodedProjectiles = this.explodedProjectiles.filter(ep => ep.owner !== prevEntity.entity);
+    }
+
     this.panToEntity = nextEntity;
+
+    // Set turn start time
+    this.turnStartTime = Date.now();
   }
 
   updateTurnQueue() {
@@ -599,6 +624,11 @@ export class TerrablastGameService {
 
     // Update turn queue (remove inactive enemies)
     this.updateTurnQueue();
+
+    // Check for turn timeout
+    if (this.currentTurnIndex < this._turnQueue.length && Date.now() - this.turnStartTime > this.TIMEOUT_MS) {
+      this.endTurn();
+    }
 
     // Check for game over
     if (this.player.health <= 0) {
