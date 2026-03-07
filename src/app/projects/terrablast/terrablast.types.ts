@@ -17,6 +17,7 @@ export interface Player {
   vehicle: Vehicle;
   turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'shooting' | 'post_bullet';
   turnTimer: number;
+  delay: number;
 }
 
 export interface Enemy {
@@ -33,6 +34,7 @@ export interface Enemy {
   turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'shooting' | 'post_bullet';
   turnTimer: number;
   targetPower: number;
+  delay: number;
 }
 
 export enum GameState {
@@ -51,7 +53,8 @@ export interface TurnEntity {
   id: string;
   type: 'player' | 'enemy';
   entity: Player | Enemy;
-  actionTime: number; // Time cost for actions (lower = faster turn)
+  delay: number; // Delay before next turn (lower = faster turn)
+  baseDelay: number; // Base delay value
 }
 
 export interface GameSettings {
@@ -103,4 +106,5 @@ export interface Vehicle {
   minAimAngle: number;
   maxAimAngle: number;
   bullet: Bullet;
+  shotDelay: number;
 }

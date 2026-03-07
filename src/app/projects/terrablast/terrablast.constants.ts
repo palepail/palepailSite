@@ -80,6 +80,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   health: 100,
   minAimAngle: 25,
   maxAimAngle: 60,
+  shotDelay: 100,
   bullet: {
     damage: 100,
     shape: 'circle',
@@ -99,6 +100,7 @@ export const ENEMY_VEHICLE: Vehicle = {
   health: 80,
   minAimAngle: 20,
   maxAimAngle: 55,
+  shotDelay: 100,
   bullet: {
     damage: 40,
     shape: 'circle',

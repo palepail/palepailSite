@@ -39,8 +39,12 @@ export class TerrablastGameService {
   private _turnQueue: TurnEntity[] = [];
   currentTurnIndex: number = 0;
   turnTime: number = 0; // Current turn timer
-  private turnStartTime: number = 0;
-  private readonly TIMEOUT_MS = 10000;
+  private _turnStartTime: number = 0;
+  private readonly TIMEOUT_MS = 45000;
+
+  get turnStartTime(): number {
+    return this._turnStartTime;
+  }
 
   // Flags
   isCharging = false;
@@ -81,6 +85,7 @@ export class TerrablastGameService {
       vehicle: null as any, // Will be assigned in initPlayer
       turnState: 'turn_start',
       turnTimer: 0,
+      delay: 0,
     };
   }
 
@@ -222,6 +227,7 @@ export class TerrablastGameService {
         turnState: 'turn_start',
         turnTimer: 0,
         targetPower: 0,
+        delay: 0,
       };
       // Ensure not too close to player
       if (Math.abs(enemy.x - this.player.x) < 200) {
@@ -247,31 +253,42 @@ export class TerrablastGameService {
     }
   }
 
+  startTurn() {
+    if (this._turnQueue.length > 0) {
+      const waited = this._turnQueue[0].entity.delay;
+      this._turnQueue.forEach(te => te.entity.delay -= waited);
+    }
+  }
+
   private initTurnQueue() {
     this._turnQueue = [];
     
     // Add player to queue
     const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
+    this.player.delay = 100 / this.player.vehicle.speed + playerRandomOffset;
     this._turnQueue.push({
       id: 'player',
       type: 'player',
       entity: this.player,
-      actionTime: 100 / this.player.vehicle.speed + playerRandomOffset,
+      baseDelay: 100 / this.player.vehicle.speed,
+      delay: this.player.delay,
     });
 
     // Add enemies to queue
     this.enemies.forEach((enemy, index) => {
       const enemyRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
+      enemy.delay = 100 / enemy.vehicle.speed + enemyRandomOffset;
       this._turnQueue.push({
         id: `enemy_${index}`,
         type: 'enemy',
         entity: enemy,
-        actionTime: 100 / enemy.vehicle.speed + enemyRandomOffset,
+        baseDelay: 100 / enemy.vehicle.speed,
+        delay: enemy.delay,
       });
     });
 
-    // Sort queue by action time (lowest first) with random tie breaks
-    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime || Math.random() - 0.5);
+    // Sort queue by entity.delay (lowest first)
+    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
     this.currentTurnIndex = 0;
     this.turnTime = 0;
   }
@@ -347,7 +364,8 @@ export class TerrablastGameService {
         // Player has shot - wait for projectile and explosion to finish
         if (!this.projectile && this.explodedProjectiles.length === 0) {
           // Projectile and explosion finished, end turn
-          this.endTurn(100);
+          const delay = this.player.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
+          this.endTurn(delay);
         }
         break;
     }
@@ -419,7 +437,8 @@ export class TerrablastGameService {
         // Wait for projectile and explosion to finish
         if (!this.projectile && this.explodedProjectiles.length === 0) {
           // Projectile and explosion finished, end turn
-          this.endTurn(100);
+          const delay = enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
+          this.endTurn(delay);
         }
         break;
     }
@@ -458,14 +477,11 @@ export class TerrablastGameService {
   endTurn(actionCost: number = 100) {
     if (this._turnQueue.length === 0) return;
 
-    // Update the current entity's action time
-    this._turnQueue[this.currentTurnIndex].actionTime += actionCost;
+    // Add actionCost to the current entity's delay
+    this._turnQueue[0].entity.delay += actionCost;
 
-    // Move to next turn
-    this.currentTurnIndex = (this.currentTurnIndex + 1) % this._turnQueue.length;
-
-    // Resort queue by action time
-    this._turnQueue.sort((a, b) => a.actionTime - b.actionTime);
+    // Resort queue by entity.delay
+    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
     // Reset turn time
     this.turnTime = 0;
@@ -489,7 +505,7 @@ export class TerrablastGameService {
     }
 
     // Clean up projectiles owned by previous entity
-    const prevEntity = this._turnQueue[(this.currentTurnIndex - 1 + this._turnQueue.length) % this._turnQueue.length];
+    const prevEntity = this._turnQueue[this._turnQueue.length - 1]; // Since resorted, last is previous
     if (prevEntity) {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
         this.destroyProjectileAt(this.projectile.position);
@@ -500,7 +516,7 @@ export class TerrablastGameService {
     this.panToEntity = nextEntity;
 
     // Set turn start time
-    this.turnStartTime = Date.now();
+    this._turnStartTime = Date.now();
   }
 
   updateTurnQueue() {
@@ -626,8 +642,8 @@ export class TerrablastGameService {
     this.updateTurnQueue();
 
     // Check for turn timeout
-    if (this.currentTurnIndex < this._turnQueue.length && Date.now() - this.turnStartTime > this.TIMEOUT_MS) {
-      this.endTurn();
+    if (this.currentTurnIndex < this._turnQueue.length && Date.now() - this._turnStartTime > this.TIMEOUT_MS) {
+      this.endTurn(150);
     }
 
     // Check for game over

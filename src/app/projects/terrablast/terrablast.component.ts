@@ -189,6 +189,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.cameraController.disableFollow();
     }
 
+    // Enable camera follow for player turn, disable for enemy turn
+    if (this.gameService.isPlayerTurn()) {
+      this.cameraController.enableFollow();
+    } else {
+      this.cameraController.disableFollow();
+    }
+
+    // Start turn: subtract current delay from all
+    this.gameService.startTurn();
+
     // Update camera
     this.cameraController.update(
       this.gameService.player.x,
@@ -806,11 +816,19 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawUI() {
-    // UI elements moved to tank-specific drawing
+    // Draw countdown timer in top right
+    if (this.gameService.currentState === GameState.PLAYING) {
+      const remaining = Math.max(0, Math.floor(45 - (Date.now() - this.gameService.turnStartTime) / 1000));
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '20px Arial';
+      this.ctx.textAlign = 'right';
+      this.ctx.fillText(`Time: ${remaining}s`, this.CANVAS_WIDTH - 20, 30);
+      this.ctx.textAlign = 'left'; // Reset
+    }
   }
 
   private drawTurnQueue() {
-    const queue: any[] = this.gameService.turnQueue;
+    const queue = [...this.gameService.turnQueue].sort((a, b) => a.entity.delay - b.entity.delay);
     if (queue.length === 0) return;
 
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -820,9 +838,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.font = '14px Arial';
     this.ctx.textAlign = 'left';
 
+    const currentEntity = this.gameService.getCurrentTurnEntity();
+
     queue.forEach((turnEntity, index) => {
       const y = 30 + index * 25;
-      const isCurrent = index === this.gameService.currentTurnIndex;
+      const isCurrent = turnEntity.id === currentEntity?.id;
 
       if (isCurrent) {
         this.ctx.fillStyle = '#FFFF00'; // Yellow for current turn
@@ -833,7 +853,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       }
 
       const name = turnEntity.type === 'player' ? 'Player' : `Enemy ${turnEntity.id.split('_')[1]}`;
-      const timeStr = Math.round(turnEntity.actionTime);
+      const timeStr = isCurrent ? '0' : Math.round(turnEntity.entity.delay);
 
       this.ctx.fillText(`${name}: ${timeStr}`, 20, y);
     });
