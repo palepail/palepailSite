@@ -199,6 +199,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.cameraController.disableFollow();
     }
 
+    // Start turn: subtract current delay from all
+    this.gameService.startTurn();
+
     // Update camera
     this.cameraController.update(
       this.gameService.player.x,
@@ -217,10 +220,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Pan to entity if requested
     if (
       this.gameService.panToEntity &&
-      isFinite(this.gameService.panToEntity.x) &&
-      isFinite(this.gameService.panToEntity.y)
+      this.gameService.panToEntity.entity &&
+      isFinite(this.gameService.panToEntity.entity.x) &&
+      isFinite(this.gameService.panToEntity.entity.y) &&
+      this.gameService.currentState !== GameState.SETUP
     ) {
-      this.cameraController.panToEntity(this.gameService.panToEntity);
+      this.cameraController.panToEntity(this.gameService.panToEntity.entity);
       this.gameService.panToEntity = null;
     } else if (this.gameService.panToEntity) {
       this.gameService.panToEntity = null; // Clear invalid request

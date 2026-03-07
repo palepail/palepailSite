@@ -48,6 +48,7 @@ export class TerrablastGameService {
   currentTurnIndex: number = 0;
   turnTime: number = 0; // Current turn timer
   private _turnStartTime: number = 0;
+  private lastUpdateTime = Date.now();
   private readonly TIMEOUT_MS = 45000;
 
   get turnStartTime(): number {
@@ -305,8 +306,6 @@ export class TerrablastGameService {
     this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
     this.currentTurnIndex = 0;
     this.turnTime = 0;
-
-    this.startTurn();
   }
 
   private updateEnemies() {
@@ -349,7 +348,7 @@ export class TerrablastGameService {
 
   private performPlayerAction(player: Player) {
     // Check for skip
-    if (this.keys['S'] && player.turnState !== 'shooting' && player.turnState !== 'post_bullet') {
+    if (this.keys['S'] && player.turnState !== 'bullet_in_flight' && player.turnState !== 'post_bullet') {
       this.endTurn();
       return;
     }
@@ -377,15 +376,16 @@ export class TerrablastGameService {
         // Player is charging - handled in update
         break;
 
-      case 'shooting':
-        // Player has shot - wait for projectile and explosion to finish
-        if (!this.projectile && this.explodedProjectiles.length === 0) {
-          // Projectile and explosion finished, end turn
-          const delay =
-            this.player.vehicle.shotDelay +
-            (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
-          this.endTurn(delay);
+      case 'bullet_in_flight':
+        if (!this.projectile && player.turnState === 'bullet_in_flight') {
+          console.log('Game: Player post_bullet started');
+          player.turnState = 'post_bullet';
+          player.turnTimer = 1.0;
         }
+        break;
+
+      case 'post_bullet':
+        // Timer handled in updateTurnQueue
         break;
     }
   }
@@ -395,8 +395,8 @@ export class TerrablastGameService {
       case 'turn_start':
         // Wait for turn start (camera panning, etc.)
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (enemy.turnTimer >= 2000) {
-          // Wait 2 seconds for turn start
+        if (enemy.turnTimer >= 500) {
+          // Wait 0.5 seconds for turn start
           enemy.turnState = 'idle';
           enemy.turnTimer = 0;
         }
@@ -448,23 +448,19 @@ export class TerrablastGameService {
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (enemy.turnTimer >= 1000) {
           // Charge for 1 second
-          enemy.turnState = 'shooting';
+          enemy.turnState = 'bullet_in_flight';
         }
         break;
 
-      case 'shooting':
+      case 'bullet_in_flight':
         this.enemyShoot(enemy, enemy.targetPower);
+        console.log('Game: Enemy post_bullet started');
         enemy.turnState = 'post_bullet';
+        enemy.turnTimer = 1.0;
         break;
 
       case 'post_bullet':
-        // Wait for projectile and explosion to finish
-        if (!this.projectile && this.explodedProjectiles.length === 0) {
-          // Projectile and explosion finished, end turn
-          const delay =
-            enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
-          this.endTurn(delay);
-        }
+        // Timer handled in updateTurnQueue
         break;
     }
   }
@@ -508,8 +504,6 @@ export class TerrablastGameService {
     // Resort queue by entity.delay
     this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
-    this.startTurn();
-
     // Reset turn time
     this.turnTime = 0;
 
@@ -543,12 +537,13 @@ export class TerrablastGameService {
     }
 
     this.panToEntity = nextEntity;
+    console.log('Game: Turn ended');
 
     // Set turn start time
     this._turnStartTime = Date.now();
   }
 
-  updateTurnQueue() {
+  updateTurnQueue(deltaTime: number = 0) {
     // Remove inactive enemies from queue
     this._turnQueue = this._turnQueue.filter((turnEntity) => {
       if (turnEntity.type === 'enemy') {
@@ -560,6 +555,29 @@ export class TerrablastGameService {
     // If current turn entity was removed, reset to first
     if (this.currentTurnIndex >= this._turnQueue.length) {
       this.currentTurnIndex = 0;
+    }
+
+    if (this._turnQueue.length > 0) {
+      if (this._turnQueue[0].type === 'player') {
+        const player = this._turnQueue[0].entity as Player;
+        if (player.turnState === 'post_bullet') {
+          player.turnTimer -= deltaTime;
+          if (player.turnTimer <= 0) {
+            console.log('Game: Post bullet ended for player');
+            this.endTurn(100);
+          }
+        }
+      } else if (this._turnQueue[0].type === 'enemy') {
+        const enemy = this._turnQueue[0].entity as Enemy;
+        if (enemy.turnState === 'post_bullet') {
+          enemy.turnTimer -= deltaTime;
+          if (enemy.turnTimer <= 0) {
+            console.log('Game: Post bullet ended for enemy');
+            const delay = enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
+            this.endTurn(delay);
+          }
+        }
+      }
     }
   }
 
@@ -620,6 +638,10 @@ export class TerrablastGameService {
   }
 
   update() {
+    const now = Date.now();
+    const deltaTime = (now - this.lastUpdateTime) / 1000;
+    this.lastUpdateTime = now;
+
     this.handleInput(this.keys);
 
     // Update player position from physics body
@@ -668,7 +690,7 @@ export class TerrablastGameService {
     this.explodedProjectiles = this.explodedProjectiles.filter((ep) => Date.now() < ep.removalTime);
 
     // Update turn queue (remove inactive enemies)
-    this.updateTurnQueue();
+    this.updateTurnQueue(deltaTime);
 
     // Check for turn timeout
     if (
@@ -804,7 +826,7 @@ export class TerrablastGameService {
     this.projectile.owner = this.player;
     this.projectile.bullet = bullet;
     this.isCharging = false;
-    this.player.turnState = 'shooting';
+    this.player.turnState = 'bullet_in_flight';
   }
 
   private startCharging() {
@@ -923,12 +945,13 @@ export class TerrablastGameService {
       this.explodedProjectiles.push({
         position: { x: position.x, y: position.y },
         bullet: this.projectile.bullet,
-        removalTime: Date.now() + 1000,
+        removalTime: Date.now() + 2000,
         owner: this.projectile.owner,
       });
 
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
+      console.log('Game: Projectile destroyed');
     }
   }
 

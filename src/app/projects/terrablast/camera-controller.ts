@@ -31,6 +31,11 @@ class CameraController {
   private isPanning = false;
   private followTarget: any = null;
   public isFollowing = false;
+  private isTrackingProjectile = false;
+  private lastTrackedType: 'projectile' | 'explosion' | null = null;
+  private trackedExplosion: any = null;
+  private hasLoggedStart = false;
+  private hasLoggedEnd = false;
 
   constructor() {
     const initialPlayerY =
@@ -77,7 +82,13 @@ class CameraController {
       -this.camera.height,
       Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.panTargetY),
     );
-    this.isPanning = true;
+    if (
+      Math.abs(this.panTargetX - this.camera.x) > 5 ||
+      Math.abs(this.panTargetY - this.camera.y) > 5
+    ) {
+      this.isPanning = true;
+      console.log('Camera: Pan started');
+    }
   }
 
   private getCenterTargets(entityX: number, entityY: number): { targetX: number; targetY: number } {
@@ -96,7 +107,7 @@ class CameraController {
     explodedProjectiles: any[],
     playerX: number,
     playerY: number,
-  ): { targetX: number; targetY: number } | null {
+  ): { targetX: number; targetY: number; type: 'projectile' | 'explosion' } | null {
     let trackPos = null;
     if (projectile) {
       trackPos = projectile.position;
@@ -122,12 +133,12 @@ class CameraController {
         const targetX = trackPos.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
         const targetY =
           trackPos.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
-        return { targetX, targetY };
+        return { targetX, targetY, type: 'projectile' };
       } else {
         // For exploded, just center without prediction
         const targetX = trackPos.x - this.camera.width / 2;
         const targetY = trackPos.y - this.camera.height * (2 / 3);
-        return { targetX, targetY };
+        return { targetX, targetY, type: 'explosion' };
       }
     }
     return null;
@@ -140,7 +151,7 @@ class CameraController {
     isDragging: boolean,
     currentTurnEntity: any,
   ): { targetX: number; targetY: number } | null {
-    if (currentTurnEntity?.turnState === 'shooting') return null;
+    if (currentTurnEntity?.turnState === 'bullet_in_flight') return null;
 
     const turnEntityX = currentTurnEntity?.x ?? playerX;
     const turnEntityY = currentTurnEntity?.y ?? playerY;
@@ -185,7 +196,7 @@ class CameraController {
     let isFollowingFall = false;
 
     // Follow target if enabled (high priority, but allow manual override)
-    if (this.isFollowing && this.followTarget && !isDragging) {
+    if (this.isFollowing && this.followTarget && !isDragging && !projectile && !this.isPanning) {
       const targets = this.getCenterTargets(this.followTarget.x, this.followTarget.y);
       targetX = targets.targetX;
       targetY = targets.targetY;
@@ -225,15 +236,59 @@ class CameraController {
     }
 
     // Track projectile if needed
-    const projectileTargets = this.trackProjectileIfNeeded(
-      projectile,
-      explodedProjectiles,
-      playerX,
-      playerY,
-    );
+    let projectileTargets: { targetX: number; targetY: number; type: 'projectile' | 'explosion' } | null = null;
+
+    // If we're already tracking an explosion and it still exists, continue tracking it
+    if (this.trackedExplosion && explodedProjectiles.includes(this.trackedExplosion)) {
+      const trackPos = this.trackedExplosion.position;
+      projectileTargets = {
+        targetX: trackPos.x - this.camera.width / 2,
+        targetY: trackPos.y - this.camera.height * (2 / 3),
+        type: 'explosion'
+      };
+    } else if (explodedProjectiles.length > 0) {
+      // Start tracking a new explosion
+      this.trackedExplosion = explodedProjectiles[0];
+      const trackPos = this.trackedExplosion.position;
+      projectileTargets = {
+        targetX: trackPos.x - this.camera.width / 2,
+        targetY: trackPos.y - this.camera.height * (2 / 3),
+        type: 'explosion'
+      };
+    } else {
+      // No explosions, check for projectile
+      this.trackedExplosion = null;
+      projectileTargets = this.trackProjectileIfNeeded(
+        projectile,
+        explodedProjectiles,
+        playerX,
+        playerY,
+      );
+    }
+
     if (projectileTargets && !this.isPanning) {
+      if (!this.isTrackingProjectile || this.lastTrackedType !== projectileTargets.type) {
+        if (!this.hasLoggedStart) {
+          console.log(`Camera: Entity tracking started (${projectileTargets.type})`);
+          this.hasLoggedStart = true;
+          this.hasLoggedEnd = false;
+        }
+        this.isTrackingProjectile = true;
+        this.lastTrackedType = projectileTargets.type;
+      }
       targetX = projectileTargets.targetX;
       targetY = projectileTargets.targetY;
+    } else {
+      if (this.isTrackingProjectile) {
+        if (!this.hasLoggedEnd) {
+          console.log('Camera: Entity tracking ended');
+          this.hasLoggedEnd = true;
+          this.hasLoggedStart = false;
+        }
+        this.isTrackingProjectile = false;
+        this.lastTrackedType = null;
+        this.trackedExplosion = null; // Reset when stopping
+      }
     }
 
     // Pan to entity if panning
@@ -252,6 +307,7 @@ class CameraController {
         Math.abs(this.camera.y - this.panTargetY) < 5
       ) {
         this.isPanning = false;
+        console.log('Camera: Pan ended');
         this.panTargetX = null;
         this.panTargetY = null;
       }
