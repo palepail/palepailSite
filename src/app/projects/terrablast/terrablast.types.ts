@@ -15,6 +15,8 @@ export interface Player {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'shooting';
+  turnTimer: number;
 }
 
 export interface Enemy {
@@ -28,7 +30,7 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'idle' | 'aiming' | 'charging' | 'shooting';
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'shooting';
   turnTimer: number;
   targetPower: number;
 }
@@ -36,6 +38,7 @@ export interface Enemy {
 export enum GameState {
   LOADING = 'loading',
   MENU = 'menu',
+  SETUP = 'setup',
   PLAYING = 'playing',
   AIMING = 'aiming',
   SHOOTING = 'shooting',
@@ -65,6 +68,13 @@ export interface Explosion {
   maxRadius: number;
   life: number;
   shape: string;
+}
+
+export interface ExplodedProjectile {
+  position: {x: number, y: number};
+  bullet: Bullet;
+  removalTime: number;
+  owner: any;
 }
 
 export interface DamageText {

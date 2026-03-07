@@ -35,6 +35,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   // Camera system
   private cameraController = new CameraController();
 
+  // Setup timer
+  private setupStartTime: number = 0;
+
   // Mouse control for camera
   private isDragging = false;
   private lastMouseX = 0;
@@ -133,6 +136,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.canvas.nativeElement.focus();
     this.gameService.initGame();
     this.cameraController.reset();
+    // Set up camera follow for player during setup
+    this.cameraController.setFollowTarget(this.gameService.player);
+    this.cameraController.enableFollow();
+    this.setupStartTime = Date.now();
     this.gameLoop();
 
     // Add key listeners
@@ -175,6 +182,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private render() {
+    // Check if setup is complete (3 seconds)
+    if (this.gameService.currentState === GameState.SETUP && Date.now() - this.setupStartTime >= 3000) {
+      this.gameService.currentState = GameState.PLAYING;
+      // Disable camera follow when setup is done
+      this.cameraController.disableFollow();
+    }
+
     // Update camera
     this.cameraController.update(
       this.gameService.player.x,
@@ -186,6 +200,8 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.keys['ArrowUp'] || this.gameService.keys['ArrowDown'],
       this.gameService.currentState,
       this.gameService.player.body,
+      this.gameService.getCurrentTurnEntity()?.entity,
+      this.gameService.explodedProjectiles,
     );
 
     // Pan to entity if requested
@@ -700,15 +716,23 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private drawProjectile() {
-    if (!this.gameService.projectile || this.gameService.projectileDestroyed) return;
-    const screenPos = this.cameraController.worldToScreen(
-      this.gameService.projectile.position.x,
-      this.gameService.projectile.position.y,
-    );
-    this.ctx.fillStyle = this.PROJECTILE_COLOR;
-    this.ctx.beginPath();
-    this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
-    this.ctx.fill();
+    if (this.gameService.projectile) {
+      const screenPos = this.cameraController.worldToScreen(
+        this.gameService.projectile.position.x,
+        this.gameService.projectile.position.y,
+      );
+      this.ctx.fillStyle = this.PROJECTILE_COLOR;
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+      this.ctx.fill();
+    } else if (this.gameService.explodedProjectiles.length > 0) {
+      const ep = this.gameService.explodedProjectiles[0];
+      const screenPos = this.cameraController.worldToScreen(ep.position.x, ep.position.y);
+      this.ctx.fillStyle = this.PROJECTILE_COLOR;
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
   }
 
   private drawExplosions() {

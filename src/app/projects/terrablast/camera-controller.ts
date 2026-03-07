@@ -15,7 +15,8 @@ class CameraController {
   private previousIsDragging = false;
   private readonly RECENTER_DISTANCE_THRESHOLD = 10;
   private readonly DEFAULT_LERP = 0.02;
-  private readonly PROJECTILE_LERP = 0.06;
+  private readonly PROJECTILE_LERP = 0.05;
+  private readonly EXPLODED_LERP = 0.05;
   private readonly RECENTER_LERP = 0.1;
   private readonly CATCHUP_LERP = 0.8;
   private readonly TRACKING_MARGIN = 150;
@@ -24,9 +25,12 @@ class CameraController {
   private readonly PREDICTION_TIME_S = 1.5;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private hasLanded = false;
+  private landingCounter = 0;
   private panTargetX: number | null = null;
   private panTargetY: number | null = null;
   private isPanning = false;
+  private followTarget: any = null;
+  public isFollowing = false;
 
   constructor() {
     const initialPlayerY =
@@ -45,22 +49,41 @@ class CameraController {
 
   reset() {
     this.hasLanded = false;
+    this.landingCounter = 0;
     this.lastActivityTime = Date.now();
+  }
+
+  setFollowTarget(target: any) {
+    this.followTarget = target;
+  }
+
+  enableFollow() {
+    this.isFollowing = true;
+  }
+
+  disableFollow() {
+    this.isFollowing = false;
   }
 
   panToEntity(entity: any) {
     if (!entity || !isFinite(entity.x) || !isFinite(entity.y)) return;
     this.panTargetX = entity.x - this.camera.width / 2;
     this.panTargetY = entity.y - this.camera.height * (2 / 3);
-    this.panTargetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.panTargetX));
-    this.panTargetY = Math.max(-this.camera.height, Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.panTargetY));
+    this.panTargetX = Math.max(
+      0,
+      Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.panTargetX),
+    );
+    this.panTargetY = Math.max(
+      -this.camera.height,
+      Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.panTargetY),
+    );
     this.isPanning = true;
   }
 
-  private getCenterTargets(playerX: number, playerY: number): { targetX: number; targetY: number } {
-    const playerCenterX = playerX - this.camera.width / 2;
+  private getCenterTargets(entityX: number, entityY: number): { targetX: number; targetY: number } {
+    const playerCenterX = entityX - this.camera.width / 2;
     const clampedX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX));
-    const playerCenterY = playerY - this.camera.height * (2 / 3);
+    const playerCenterY = entityY - this.camera.height * (2 / 3);
     const clampedY = Math.max(
       -this.camera.height,
       Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, playerCenterY),
@@ -70,18 +93,22 @@ class CameraController {
 
   private trackProjectileIfNeeded(
     projectile: any,
+    explodedProjectiles: any[],
     playerX: number,
     playerY: number,
   ): { targetX: number; targetY: number } | null {
-    if (!projectile) return null;
+    let trackPos = null;
+    if (projectile) {
+      trackPos = projectile.position;
+    } else if (explodedProjectiles.length > 0) {
+      trackPos = explodedProjectiles[0].position;
+    }
+    if (!trackPos) return null;
 
-    const screenX = projectile.position.x - this.camera.x;
-    const screenY = projectile.position.y - this.camera.y;
+    const screenX = trackPos.x - this.camera.x;
+    const screenY = trackPos.y - this.camera.y;
     const margin = this.TRACKING_MARGIN;
-    const distFromPlayer = Math.hypot(
-      projectile.position.x - playerX,
-      projectile.position.y - playerY,
-    );
+    const distFromPlayer = Math.hypot(trackPos.x - playerX, trackPos.y - playerY);
 
     if (
       distFromPlayer > this.MIN_TRACK_DISTANCE &&
@@ -90,12 +117,18 @@ class CameraController {
         screenY < margin ||
         screenY > this.camera.height - margin)
     ) {
-      const predictionTime = this.PREDICTION_TIME_S;
-      const targetX =
-        projectile.position.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
-      const targetY =
-        projectile.position.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
-      return { targetX, targetY };
+      if (projectile) {
+        const predictionTime = this.PREDICTION_TIME_S;
+        const targetX = trackPos.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
+        const targetY =
+          trackPos.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
+        return { targetX, targetY };
+      } else {
+        // For exploded, just center without prediction
+        const targetX = trackPos.x - this.camera.width / 2;
+        const targetY = trackPos.y - this.camera.height * (2 / 3);
+        return { targetX, targetY };
+      }
     }
     return null;
   }
@@ -105,22 +138,27 @@ class CameraController {
     playerY: number,
     projectile: any | null,
     isDragging: boolean,
+    currentTurnEntity: any,
   ): { targetX: number; targetY: number } | null {
-    const playerCenterX = playerX - this.camera.width / 2;
-    const clampedPlayerCenterX = Math.max(
+    if (currentTurnEntity?.turnState === 'shooting') return null;
+
+    const turnEntityX = currentTurnEntity?.x ?? playerX;
+    const turnEntityY = currentTurnEntity?.y ?? playerY;
+    const turnEntityCenterX = turnEntityX - this.camera.width / 2;
+    const clampedTurnEntityCenterX = Math.max(
       0,
-      Math.min(CONST.TERRAIN_WIDTH - this.camera.width, playerCenterX),
+      Math.min(CONST.TERRAIN_WIDTH - this.camera.width, turnEntityCenterX),
     );
 
     if (
       !projectile &&
       Date.now() - this.lastActivityTime > this.INACTIVITY_DELAY_MS &&
       !isDragging &&
-      (Math.abs(this.camera.x - clampedPlayerCenterX) > this.RECENTER_DISTANCE_THRESHOLD ||
-        Math.abs(this.camera.y - (playerY - this.camera.height * (2 / 3))) >
+      (Math.abs(this.camera.x - clampedTurnEntityCenterX) > this.RECENTER_DISTANCE_THRESHOLD ||
+        Math.abs(this.camera.y - (turnEntityY - this.camera.height * (2 / 3))) >
           this.RECENTER_DISTANCE_THRESHOLD)
     ) {
-      return this.getCenterTargets(playerX, playerY);
+      return this.getCenterTargets(turnEntityX, turnEntityY);
     }
     return null;
   }
@@ -135,6 +173,8 @@ class CameraController {
     isAdjustingAngle: boolean,
     currentState: GameState,
     playerBody: any,
+    currentTurnEntity: any,
+    explodedProjectiles: any[],
   ) {
     if (!isDragging && this.previousIsDragging) {
       this.lastActivityTime = Date.now();
@@ -144,19 +184,36 @@ class CameraController {
     let targetY = this.camera.y;
     let isFollowingFall = false;
 
+    // Follow target if enabled (high priority, but allow manual override)
+    if (this.isFollowing && this.followTarget && !isDragging) {
+      const targets = this.getCenterTargets(this.followTarget.x, this.followTarget.y);
+      targetX = targets.targetX;
+      targetY = targets.targetY;
+    }
+
     // Update activity time
     if (Math.abs(playerVelocityX) > 0.1 || isCharging || isAdjustingAngle || isDragging) {
       this.lastActivityTime = Date.now();
     }
 
     // Follow player when falling at game start
-    if (!this.hasLanded && currentState === GameState.PLAYING && !isDragging && !projectile) {
+    if (
+      !this.hasLanded &&
+      (currentState === GameState.SETUP || currentState === GameState.PLAYING) &&
+      !isDragging &&
+      !projectile
+    ) {
       const targets = this.getCenterTargets(playerX, playerY);
       targetX = targets.targetX;
       targetY = targets.targetY;
       isFollowingFall = true;
       if (playerBody && playerBody.velocity.y <= 0.1) {
-        this.hasLanded = true;
+        this.landingCounter++;
+        if (this.landingCounter > 10) {
+          this.hasLanded = true;
+        }
+      } else {
+        this.landingCounter = 0;
       }
     }
 
@@ -167,26 +224,33 @@ class CameraController {
       targetY = targets.targetY;
     }
 
-    // Pan back to player after delay if inactive
-    const recenterTargets = this.recenterCameraIfNeeded(playerX, playerY, projectile, isDragging);
-    if (recenterTargets) {
-      targetX = recenterTargets.targetX;
-      targetY = recenterTargets.targetY;
-    }
-
     // Track projectile if needed
-    const projectileTargets = this.trackProjectileIfNeeded(projectile, playerX, playerY);
-    if (projectileTargets) {
+    const projectileTargets = this.trackProjectileIfNeeded(
+      projectile,
+      explodedProjectiles,
+      playerX,
+      playerY,
+    );
+    if (projectileTargets && !this.isPanning) {
       targetX = projectileTargets.targetX;
       targetY = projectileTargets.targetY;
     }
 
     // Pan to entity if panning
-    if (this.isPanning && this.panTargetX !== null && this.panTargetY !== null && isFinite(this.panTargetX) && isFinite(this.panTargetY)) {
+    if (
+      this.isPanning &&
+      this.panTargetX !== null &&
+      this.panTargetY !== null &&
+      isFinite(this.panTargetX) &&
+      isFinite(this.panTargetY)
+    ) {
       targetX = this.panTargetX;
       targetY = this.panTargetY;
       // Check if close enough
-      if (Math.abs(this.camera.x - this.panTargetX) < 5 && Math.abs(this.camera.y - this.panTargetY) < 5) {
+      if (
+        Math.abs(this.camera.x - this.panTargetX) < 5 &&
+        Math.abs(this.camera.y - this.panTargetY) < 5
+      ) {
         this.isPanning = false;
         this.panTargetX = null;
         this.panTargetY = null;
@@ -194,12 +258,14 @@ class CameraController {
     }
 
     // Determine if we're currently recentering
-    const isRecentering = recenterTargets !== null;
+    const isRecentering = false; // Removed automatic recenter
 
     // Smooth camera movement with variable lerp
     let lerpFactor = this.DEFAULT_LERP; // Default smooth lerp
     if (projectile) {
       lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
+    } else if (explodedProjectiles.length > 0) {
+      lerpFactor = this.EXPLODED_LERP; // Slower lerp for exploded projectile tracking
     } else if (this.isPanning) {
       lerpFactor = this.RECENTER_LERP; // Smooth lerp for panning
     } else if (isRecentering) {

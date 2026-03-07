@@ -2,7 +2,7 @@
 // Service handling core game logic for Terrablast
 
 import { Injectable } from '@angular/core';
-import { Player, Enemy, GameState, Explosion, DamageText, TurnEntity } from './terrablast.types';
+import { Player, Enemy, GameState, Explosion, DamageText, TurnEntity, ExplodedProjectile } from './terrablast.types';
 import * as CONST from './terrablast.constants';
 
 @Injectable({
@@ -29,9 +29,8 @@ export class TerrablastGameService {
   player: Player;
   enemies: Enemy[] = [];
   projectile: any = null;
-  projectileRemovalTime = 0;
-  projectileDestroyed = false;
   explosions: Explosion[] = [];
+  explodedProjectiles: ExplodedProjectile[] = [];
   damageTexts: DamageText[] = [];
   public panToEntity: any = null;
   currentState: GameState = GameState.MENU;
@@ -78,6 +77,8 @@ export class TerrablastGameService {
       facing: CONST.PLAYER_START_FACING,
       terrainAngle: CONST.PLAYER_START_TERRAIN_ANGLE,
       vehicle: null as any, // Will be assigned in initPlayer
+      turnState: 'turn_start',
+      turnTimer: 0,
     };
   }
 
@@ -87,7 +88,7 @@ export class TerrablastGameService {
     this.initPlayer();
     this.spawnEnemies();
     this.initTurnQueue();
-    this.currentState = GameState.PLAYING;
+    this.currentState = GameState.SETUP;
   }
 
   private generateTerrain() {
@@ -216,7 +217,7 @@ export class TerrablastGameService {
         facing: Math.random() > 0.5 ? 1 : -1,
         terrainAngle: this.getTerrainAngleAt(x),
         vehicle: CONST.ENEMY_VEHICLE,
-        turnState: 'idle',
+        turnState: 'turn_start',
         turnTimer: 0,
         targetPower: 0,
       };
@@ -300,8 +301,61 @@ export class TerrablastGameService {
     this.performEnemyAction(enemy);
   }
 
+  private handlePlayerTurns() {
+    const currentTurn = this.getCurrentTurnEntity();
+    if (!currentTurn || currentTurn.type !== 'player') return;
+
+    const player = currentTurn.entity as Player;
+    if (!player.active) return;
+
+    // Handle player turn states
+    this.performPlayerAction(player);
+  }
+
+  private performPlayerAction(player: Player) {
+    switch (player.turnState) {
+      case 'turn_start':
+        // Wait for turn start (camera panning, etc.)
+        player.turnTimer += 16; // Assuming 60fps, ~16ms per frame
+        if (player.turnTimer >= 500) { // Wait 0.5 seconds for turn start
+          player.turnState = 'idle';
+          player.turnTimer = 0;
+        }
+        break;
+
+      case 'idle':
+        // Player is ready for input - no action needed here
+        break;
+
+      case 'aiming':
+        // Player is aiming - handled in input
+        break;
+
+      case 'charging':
+        // Player is charging - handled in update
+        break;
+
+      case 'shooting':
+        // Player has shot - wait for projectile and explosion to finish
+        if (!this.projectile && this.explodedProjectiles.length === 0) {
+          // Projectile and explosion finished, end turn
+          this.endTurn(100);
+        }
+        break;
+    }
+  }
+
   private performEnemyAction(enemy: Enemy) {
     switch (enemy.turnState) {
+      case 'turn_start':
+        // Wait for turn start (camera panning, etc.)
+        enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
+        if (enemy.turnTimer >= 500) { // Wait 0.5 seconds for turn start
+          enemy.turnState = 'idle';
+          enemy.turnTimer = 0;
+        }
+        break;
+
       case 'idle':
         // Start aiming
         enemy.turnState = 'aiming';
@@ -349,10 +403,11 @@ export class TerrablastGameService {
         break;
 
       case 'shooting':
-        // Shoot
-        this.enemyShoot(enemy, enemy.targetPower);
-        this.endTurn(180); // Enemy shooting takes longer
-        enemy.turnState = 'idle';
+        // Wait for projectile and explosion to finish
+        if (!this.projectile && this.explodedProjectiles.length === 0) {
+          // Projectile and explosion finished, end turn
+          this.endTurn(100);
+        }
         break;
     }
   }
@@ -408,7 +463,19 @@ export class TerrablastGameService {
       this.chargeStartTime = 0;
     }
 
-    this.panToEntity = this.getCurrentTurnEntity();
+    // Set next entity's turn state to turn_start
+    const nextEntity = this.getCurrentTurnEntity();
+    if (nextEntity) {
+      if (nextEntity.type === 'player') {
+        (nextEntity.entity as Player).turnState = 'turn_start';
+        (nextEntity.entity as Player).turnTimer = 0;
+      } else {
+        (nextEntity.entity as Enemy).turnState = 'turn_start';
+        (nextEntity.entity as Enemy).turnTimer = 0;
+      }
+    }
+
+    this.panToEntity = nextEntity;
   }
 
   updateTurnQueue() {
@@ -494,6 +561,9 @@ export class TerrablastGameService {
     // Update enemies
     this.updateEnemies();
 
+    // Handle player turns
+    this.handlePlayerTurns();
+
     // Update charging (only if it's player's turn)
     if (this.isPlayerTurn() && this.isCharging) {
       const chargeTime = Date.now() - this.chargeStartTime;
@@ -504,16 +574,6 @@ export class TerrablastGameService {
     // Update projectile if exists
     if (this.projectile) {
       this.checkProjectileCollision();
-    }
-    if (this.projectile && this.projectileRemovalTime > 0 && Date.now() >= this.projectileRemovalTime) {
-      const projectileOwner = this.projectile.owner;
-      this.World.remove(this.world, this.projectile);
-      this.projectile = null;
-      this.projectileRemovalTime = 0;
-      this.projectileDestroyed = false;
-      if (projectileOwner === this.player) {
-        this.endTurn();
-      }
     }
 
     // Check player collision with terrain
@@ -533,6 +593,10 @@ export class TerrablastGameService {
     // Update damage texts
     this.updateDamageTexts();
 
+    // Remove expired exploded projectiles
+    const expired = this.explodedProjectiles.filter(ep => Date.now() >= ep.removalTime);
+    this.explodedProjectiles = this.explodedProjectiles.filter(ep => Date.now() < ep.removalTime);
+
     // Update turn queue (remove inactive enemies)
     this.updateTurnQueue();
 
@@ -547,39 +611,40 @@ export class TerrablastGameService {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
 
       if (isOnTerrain) {
-        if (keys['ArrowLeft'] && this.player.body && !this.isCharging && !this.projectile) {
+        if (keys['ArrowLeft'] && this.player.body && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
           const oldFacing = this.player.facing;
           this.player.facing = -1;
           const targetX = this.player.x - 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const angle = this.getTerrainAngleAt(targetX);
           const isTurningAround = oldFacing !== this.player.facing;
-          if (this.player.movementFuel > 0 && (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround)) {
+          if (this.player.movementFuel > 0 && (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) && this.isPlayerTurn()) {
             this.Body.setVelocity(this.player.body, { x: -CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
-        if (keys['ArrowRight'] && this.player.body && !this.isCharging && !this.projectile) {
+        if (keys['ArrowRight'] && this.player.body && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
           const oldFacing = this.player.facing;
           this.player.facing = 1;
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (this.player.movementFuel > 0 && (!hasTerrain || this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE || isTurningAround)) {
+          if (this.player.movementFuel > 0 && (!hasTerrain || this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE || isTurningAround) && this.isPlayerTurn()) {
             this.Body.setVelocity(this.player.body, { x: CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
           }
         }
 
-        if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
+        if (keys['ArrowUp'] && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
           this.player.angle = Math.min(CONST.MAX_AIM_ANGLE, this.player.angle + CONST.ANGLE_ADJUST_SPEED / 400);
         }
-        if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
+        if (keys['ArrowDown'] && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
           this.player.angle = Math.max(CONST.MIN_AIM_ANGLE, this.player.angle - CONST.ANGLE_ADJUST_SPEED / 400);
         }
 
-        if (keys[' '] && !this.projectile && !this.isCharging) {
+        if (keys[' '] && !this.projectile && !this.isCharging && this.isPlayerTurn() && this.player.turnState === 'idle') {
           this.isCharging = true;
           this.chargeStartTime = Date.now();
           this.player.power = CONST.MIN_POWER;
+          this.player.turnState = 'charging';
         }
       }
     }
@@ -609,6 +674,7 @@ export class TerrablastGameService {
     this.projectile.owner = this.player;
     this.projectile.bullet = bullet;
     this.isCharging = false;
+    this.player.turnState = 'shooting';
   }
 
   private startCharging() {
@@ -690,8 +756,6 @@ export class TerrablastGameService {
   }
 
   private destroyProjectileAt(position: any) {
-    if (this.projectileDestroyed) return;
-
     if (!isFinite(position.x) || !isFinite(position.y)) return;
 
     if (this.projectile) {
@@ -710,10 +774,15 @@ export class TerrablastGameService {
       // Create crater
       this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet);
 
-      this.projectileDestroyed = true;
-      this.projectile.velocity = {x: 0, y: 0};
-      this.Body.setStatic(this.projectile, true);
-      this.projectileRemovalTime = Date.now() + 1000;
+      this.explodedProjectiles.push({
+        position: {x: position.x, y: position.y},
+        bullet: this.projectile.bullet,
+        removalTime: Date.now() + 1000,
+        owner: this.projectile.owner,
+      });
+
+      this.World.remove(this.world, this.projectile);
+      this.projectile = null;
     }
   }
 
