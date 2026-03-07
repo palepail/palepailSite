@@ -2,11 +2,19 @@
 // Service handling core game logic for Terrablast
 
 import { Injectable } from '@angular/core';
-import { Player, Enemy, GameState, Explosion, DamageText, TurnEntity, ExplodedProjectile } from './terrablast.types';
+import {
+  Player,
+  Enemy,
+  GameState,
+  Explosion,
+  DamageText,
+  TurnEntity,
+  ExplodedProjectile,
+} from './terrablast.types';
 import * as CONST from './terrablast.constants';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class TerrablastGameService {
   // Matter.js functions (passed from component)
@@ -165,15 +173,20 @@ export class TerrablastGameService {
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
         // Check projectile vs player
-        if ((pair.bodyA === this.projectile && pair.bodyB === this.player.body) ||
-            (pair.bodyB === this.projectile && pair.bodyA === this.player.body)) {
+        if (
+          (pair.bodyA === this.projectile && pair.bodyB === this.player.body) ||
+          (pair.bodyB === this.projectile && pair.bodyA === this.player.body)
+        ) {
           this.destroyProjectileAt(this.projectile.position);
         }
         // Check projectile vs enemies
         for (const enemy of this.enemies) {
-          if (enemy.active && enemy.body &&
-              ((pair.bodyA === this.projectile && pair.bodyB === enemy.body) ||
-               (pair.bodyB === this.projectile && pair.bodyA === enemy.body))) {
+          if (
+            enemy.active &&
+            enemy.body &&
+            ((pair.bodyA === this.projectile && pair.bodyB === enemy.body) ||
+              (pair.bodyB === this.projectile && pair.bodyA === enemy.body))
+          ) {
             this.destroyProjectileAt(this.projectile.position);
             break;
           }
@@ -185,23 +198,21 @@ export class TerrablastGameService {
   private initPlayer() {
     this.player.vehicle = CONST.PLAYER_VEHICLE;
     this.player.x = CONST.PLAYER_START_X;
-    this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET;
+    this.player.y =
+      CONST.CANVAS_HEIGHT -
+      CONST.TERRAIN_BASE_Y_OFFSET -
+      CONST.PLAYER_HOVER_HEIGHT -
+      CONST.SPAWN_HEIGHT_OFFSET;
     this.player.maxPower = this.player.vehicle.power;
     this.player.health = this.player.vehicle.health;
     this.player.movementFuel = this.player.vehicle.fuel;
 
-    this.player.body = this.Bodies.rectangle(
-      this.player.x,
-      this.player.y,
-      30,
-      30,
-      {
-        friction: CONST.PLAYER_FRICTION,
-        frictionAir: CONST.PLAYER_AIR_FRICTION,
-        restitution: CONST.PLAYER_RESTITUTION,
-        density: CONST.PLAYER_DENSITY
-      }
-    );
+    this.player.body = this.Bodies.rectangle(this.player.x, this.player.y, 30, 30, {
+      friction: CONST.PLAYER_FRICTION,
+      frictionAir: CONST.PLAYER_AIR_FRICTION,
+      restitution: CONST.PLAYER_RESTITUTION,
+      density: CONST.PLAYER_DENSITY,
+    });
     this.World.add(this.world, this.player.body);
   }
 
@@ -211,8 +222,14 @@ export class TerrablastGameService {
     for (let i = 0; i < numEnemies; i++) {
       const x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
       const terrainHeight = this.getTerrainHeightAt(x);
-      const y = terrainHeight !== -1 ? terrainHeight - CONST.TANK_HALF_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET : CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET;
-      
+      const y =
+        terrainHeight !== -1
+          ? terrainHeight - CONST.TANK_HALF_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET
+          : CONST.CANVAS_HEIGHT -
+            CONST.TERRAIN_BASE_Y_OFFSET -
+            CONST.PLAYER_HOVER_HEIGHT -
+            CONST.SPAWN_HEIGHT_OFFSET;
+
       const enemy: Enemy = {
         body: null,
         x: x,
@@ -233,21 +250,18 @@ export class TerrablastGameService {
       if (Math.abs(enemy.x - this.player.x) < 200) {
         enemy.x += enemy.x < this.player.x ? -200 : 200;
         enemy.x = Math.max(50, Math.min(CONST.TERRAIN_WIDTH - 50, enemy.x));
-        enemy.y = this.getTerrainHeightAt(enemy.x) !== -1 ? this.getTerrainHeightAt(enemy.x) - CONST.TANK_HALF_HEIGHT : y;
+        enemy.y =
+          this.getTerrainHeightAt(enemy.x) !== -1
+            ? this.getTerrainHeightAt(enemy.x) - CONST.TANK_HALF_HEIGHT
+            : y;
         enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
       }
-      enemy.body = this.Bodies.rectangle(
-        enemy.x,
-        enemy.y,
-        30,
-        30,
-        {
-          friction: CONST.PLAYER_FRICTION,
-          frictionAir: CONST.PLAYER_AIR_FRICTION,
-          restitution: CONST.PLAYER_RESTITUTION,
-          density: CONST.PLAYER_DENSITY
-        }
-      );
+      enemy.body = this.Bodies.rectangle(enemy.x, enemy.y, 30, 30, {
+        friction: CONST.PLAYER_FRICTION,
+        frictionAir: CONST.PLAYER_AIR_FRICTION,
+        restitution: CONST.PLAYER_RESTITUTION,
+        density: CONST.PLAYER_DENSITY,
+      });
       this.World.add(this.world, enemy.body);
       this.enemies.push(enemy);
     }
@@ -256,13 +270,13 @@ export class TerrablastGameService {
   startTurn() {
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
-      this._turnQueue.forEach(te => te.entity.delay -= waited);
+      this._turnQueue.forEach((te) => (te.entity.delay -= waited));
     }
   }
 
   private initTurnQueue() {
     this._turnQueue = [];
-    
+
     // Add player to queue
     const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
     this.player.delay = 100 / this.player.vehicle.speed + playerRandomOffset;
@@ -291,6 +305,8 @@ export class TerrablastGameService {
     this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
     this.currentTurnIndex = 0;
     this.turnTime = 0;
+
+    this.startTurn();
   }
 
   private updateEnemies() {
@@ -342,7 +358,8 @@ export class TerrablastGameService {
       case 'turn_start':
         // Wait for turn start (camera panning, etc.)
         player.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (player.turnTimer >= 500) { // Wait 0.5 seconds for turn start
+        if (player.turnTimer >= 500) {
+          // Wait 0.5 seconds for turn start
           player.turnState = 'idle';
           player.turnTimer = 0;
         }
@@ -364,7 +381,9 @@ export class TerrablastGameService {
         // Player has shot - wait for projectile and explosion to finish
         if (!this.projectile && this.explodedProjectiles.length === 0) {
           // Projectile and explosion finished, end turn
-          const delay = this.player.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
+          const delay =
+            this.player.vehicle.shotDelay +
+            (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
           this.endTurn(delay);
         }
         break;
@@ -376,7 +395,8 @@ export class TerrablastGameService {
       case 'turn_start':
         // Wait for turn start (camera panning, etc.)
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (enemy.turnTimer >= 500) { // Wait 0.5 seconds for turn start
+        if (enemy.turnTimer >= 2000) {
+          // Wait 2 seconds for turn start
           enemy.turnState = 'idle';
           enemy.turnTimer = 0;
         }
@@ -408,7 +428,10 @@ export class TerrablastGameService {
         angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
 
         // Clamp to enemy aiming range
-        angleDeg = Math.max(enemy.vehicle.minAimAngle, Math.min(enemy.vehicle.maxAimAngle, angleDeg));
+        angleDeg = Math.max(
+          enemy.vehicle.minAimAngle,
+          Math.min(enemy.vehicle.maxAimAngle, angleDeg),
+        );
 
         enemy.angle = angleDeg;
 
@@ -423,7 +446,8 @@ export class TerrablastGameService {
       case 'charging':
         // Simulate charging
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (enemy.turnTimer >= 1000) { // Charge for 1 second
+        if (enemy.turnTimer >= 1000) {
+          // Charge for 1 second
           enemy.turnState = 'shooting';
         }
         break;
@@ -437,7 +461,8 @@ export class TerrablastGameService {
         // Wait for projectile and explosion to finish
         if (!this.projectile && this.explodedProjectiles.length === 0) {
           // Projectile and explosion finished, end turn
-          const delay = enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
+          const delay =
+            enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
           this.endTurn(delay);
         }
         break;
@@ -453,7 +478,7 @@ export class TerrablastGameService {
     const barrelLength = CONST.BARREL_LENGTH;
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
-    
+
     this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
       friction: CONST.PROJECTILE_FRICTION,
       restitution: CONST.PROJECTILE_RESTITUTION,
@@ -483,6 +508,8 @@ export class TerrablastGameService {
     // Resort queue by entity.delay
     this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
+    this.startTurn();
+
     // Reset turn time
     this.turnTime = 0;
 
@@ -510,7 +537,9 @@ export class TerrablastGameService {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
         this.destroyProjectileAt(this.projectile.position);
       }
-      this.explodedProjectiles = this.explodedProjectiles.filter(ep => ep.owner !== prevEntity.entity);
+      this.explodedProjectiles = this.explodedProjectiles.filter(
+        (ep) => ep.owner !== prevEntity.entity,
+      );
     }
 
     this.panToEntity = nextEntity;
@@ -521,7 +550,7 @@ export class TerrablastGameService {
 
   updateTurnQueue() {
     // Remove inactive enemies from queue
-    this._turnQueue = this._turnQueue.filter(turnEntity => {
+    this._turnQueue = this._turnQueue.filter((turnEntity) => {
       if (turnEntity.type === 'enemy') {
         return (turnEntity.entity as Enemy).active;
       }
@@ -635,14 +664,17 @@ export class TerrablastGameService {
     this.updateDamageTexts();
 
     // Remove expired exploded projectiles
-    const expired = this.explodedProjectiles.filter(ep => Date.now() >= ep.removalTime);
-    this.explodedProjectiles = this.explodedProjectiles.filter(ep => Date.now() < ep.removalTime);
+    const expired = this.explodedProjectiles.filter((ep) => Date.now() >= ep.removalTime);
+    this.explodedProjectiles = this.explodedProjectiles.filter((ep) => Date.now() < ep.removalTime);
 
     // Update turn queue (remove inactive enemies)
     this.updateTurnQueue();
 
     // Check for turn timeout
-    if (this.currentTurnIndex < this._turnQueue.length && Date.now() - this._turnStartTime > this.TIMEOUT_MS) {
+    if (
+      this.currentTurnIndex < this._turnQueue.length &&
+      Date.now() - this._turnStartTime > this.TIMEOUT_MS
+    ) {
       this.endTurn(150);
     }
 
@@ -657,36 +689,86 @@ export class TerrablastGameService {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
 
       if (isOnTerrain) {
-        if (keys['ArrowLeft'] && this.player.body && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
+        if (
+          keys['ArrowLeft'] &&
+          this.player.body &&
+          !this.isCharging &&
+          !this.projectile &&
+          this.player.turnState === 'idle'
+        ) {
           const oldFacing = this.player.facing;
           this.player.facing = -1;
           const targetX = this.player.x - 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const angle = this.getTerrainAngleAt(targetX);
           const isTurningAround = oldFacing !== this.player.facing;
-          if (this.player.movementFuel > 0 && (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) && this.isPlayerTurn()) {
-            this.Body.setVelocity(this.player.body, { x: -CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
+          if (
+            this.player.movementFuel > 0 &&
+            (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) &&
+            this.isPlayerTurn()
+          ) {
+            this.Body.setVelocity(this.player.body, {
+              x: -CONST.PLAYER_MOVE_SPEED,
+              y: this.player.body.velocity.y,
+            });
           }
         }
-        if (keys['ArrowRight'] && this.player.body && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
+        if (
+          keys['ArrowRight'] &&
+          this.player.body &&
+          !this.isCharging &&
+          !this.projectile &&
+          this.player.turnState === 'idle'
+        ) {
           const oldFacing = this.player.facing;
           this.player.facing = 1;
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;
-          if (this.player.movementFuel > 0 && (!hasTerrain || this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE || isTurningAround) && this.isPlayerTurn()) {
-            this.Body.setVelocity(this.player.body, { x: CONST.PLAYER_MOVE_SPEED, y: this.player.body.velocity.y });
+          if (
+            this.player.movementFuel > 0 &&
+            (!hasTerrain ||
+              this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE ||
+              isTurningAround) &&
+            this.isPlayerTurn()
+          ) {
+            this.Body.setVelocity(this.player.body, {
+              x: CONST.PLAYER_MOVE_SPEED,
+              y: this.player.body.velocity.y,
+            });
           }
         }
 
-        if (keys['ArrowUp'] && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
-          this.player.angle = Math.min(CONST.MAX_AIM_ANGLE, this.player.angle + CONST.ANGLE_ADJUST_SPEED / 400);
+        if (
+          keys['ArrowUp'] &&
+          !this.isCharging &&
+          !this.projectile &&
+          this.player.turnState === 'idle'
+        ) {
+          this.player.angle = Math.min(
+            CONST.MAX_AIM_ANGLE,
+            this.player.angle + CONST.ANGLE_ADJUST_SPEED / 400,
+          );
         }
-        if (keys['ArrowDown'] && !this.isCharging && !this.projectile && this.player.turnState === 'idle') {
-          this.player.angle = Math.max(CONST.MIN_AIM_ANGLE, this.player.angle - CONST.ANGLE_ADJUST_SPEED / 400);
+        if (
+          keys['ArrowDown'] &&
+          !this.isCharging &&
+          !this.projectile &&
+          this.player.turnState === 'idle'
+        ) {
+          this.player.angle = Math.max(
+            CONST.MIN_AIM_ANGLE,
+            this.player.angle - CONST.ANGLE_ADJUST_SPEED / 400,
+          );
         }
 
-        if (keys[' '] && !this.projectile && !this.isCharging && this.isPlayerTurn() && this.player.turnState === 'idle') {
+        if (
+          keys[' '] &&
+          !this.projectile &&
+          !this.isCharging &&
+          this.isPlayerTurn() &&
+          this.player.turnState === 'idle'
+        ) {
           this.isCharging = true;
           this.chargeStartTime = Date.now();
           this.player.power = CONST.MIN_POWER;
@@ -698,7 +780,9 @@ export class TerrablastGameService {
 
   getBarrelAngle(): number {
     const baseAngleRad = (this.player.angle * Math.PI) / 180;
-    const trueAngleRad = -this.player.terrainAngle + (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    const trueAngleRad =
+      -this.player.terrainAngle +
+      (this.player.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     return trueAngleRad;
   }
 
@@ -734,7 +818,12 @@ export class TerrablastGameService {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     const terrainLocalY = py - terrainY;
 
-    if (px >= 0 && px < CONST.TERRAIN_WIDTH && terrainLocalY >= 0 && terrainLocalY < this.terrain[px]?.length) {
+    if (
+      px >= 0 &&
+      px < CONST.TERRAIN_WIDTH &&
+      terrainLocalY >= 0 &&
+      terrainLocalY < this.terrain[px]?.length
+    ) {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
         this.createCrater(px, py, CONST.CRATER_RADIUS, this.projectile.bullet);
         this.destroyProjectileAt({ x: px, y: py });
@@ -742,13 +831,23 @@ export class TerrablastGameService {
       }
     }
 
-    const checkOffsets = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const checkOffsets = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ];
     for (const [offsetX, offsetY] of checkOffsets) {
       const checkX = px + offsetX;
       const checkY = py + offsetY;
       const terrainCheckY = checkY - terrainY;
 
-      if (checkX >= 0 && checkX < CONST.TERRAIN_WIDTH && terrainCheckY >= 0 && terrainCheckY < this.terrain[checkX]?.length) {
+      if (
+        checkX >= 0 &&
+        checkX < CONST.TERRAIN_WIDTH &&
+        terrainCheckY >= 0 &&
+        terrainCheckY < this.terrain[checkX]?.length
+      ) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
           this.createCrater(checkX, checkY, CONST.CRATER_RADIUS, this.projectile.bullet);
           this.destroyProjectileAt({ x: checkX, y: checkY });
@@ -761,7 +860,8 @@ export class TerrablastGameService {
     for (const enemy of this.enemies) {
       if (enemy.active) {
         const dist = Math.hypot(px - enemy.x, py - enemy.y);
-        if (dist < 40) { // Threshold for collision
+        if (dist < 40) {
+          // Threshold for collision
           this.destroyProjectileAt({ x: px, y: py });
           return;
         }
@@ -821,7 +921,7 @@ export class TerrablastGameService {
       this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet);
 
       this.explodedProjectiles.push({
-        position: {x: position.x, y: position.y},
+        position: { x: position.x, y: position.y },
         bullet: this.projectile.bullet,
         removalTime: Date.now() + 1000,
         owner: this.projectile.owner,

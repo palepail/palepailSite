@@ -183,7 +183,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private render() {
     // Check if setup is complete (3 seconds)
-    if (this.gameService.currentState === GameState.SETUP && Date.now() - this.setupStartTime >= 3000) {
+    if (
+      this.gameService.currentState === GameState.SETUP &&
+      Date.now() - this.setupStartTime >= 3000
+    ) {
       this.gameService.currentState = GameState.PLAYING;
       // Disable camera follow when setup is done
       this.cameraController.disableFollow();
@@ -195,9 +198,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     } else {
       this.cameraController.disableFollow();
     }
-
-    // Start turn: subtract current delay from all
-    this.gameService.startTurn();
 
     // Update camera
     this.cameraController.update(
@@ -215,7 +215,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     );
 
     // Pan to entity if requested
-    if (this.gameService.panToEntity && isFinite(this.gameService.panToEntity.x) && isFinite(this.gameService.panToEntity.y)) {
+    if (
+      this.gameService.panToEntity &&
+      isFinite(this.gameService.panToEntity.x) &&
+      isFinite(this.gameService.panToEntity.y)
+    ) {
       this.cameraController.panToEntity(this.gameService.panToEntity);
       this.gameService.panToEntity = null;
     } else if (this.gameService.panToEntity) {
@@ -748,7 +752,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawExplosions() {
     for (let i = this.gameService.explosions.length - 1; i >= 0; i--) {
       const explosion = this.gameService.explosions[i];
-      if (!isFinite(explosion.x) || !isFinite(explosion.y) || !isFinite(explosion.radius) || explosion.radius <= 0) {
+      if (
+        !isFinite(explosion.x) ||
+        !isFinite(explosion.y) ||
+        !isFinite(explosion.radius) ||
+        explosion.radius <= 0
+      ) {
         this.gameService.explosions.splice(i, 1);
         continue;
       }
@@ -818,7 +827,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawUI() {
     // Draw countdown timer in top right
     if (this.gameService.currentState === GameState.PLAYING) {
-      const remaining = Math.max(0, Math.floor(45 - (Date.now() - this.gameService.turnStartTime) / 1000));
+      const remaining = Math.max(
+        0,
+        Math.floor(45 - (Date.now() - this.gameService.turnStartTime) / 1000),
+      );
       this.ctx.fillStyle = '#FFFFFF';
       this.ctx.font = '20px Arial';
       this.ctx.textAlign = 'right';

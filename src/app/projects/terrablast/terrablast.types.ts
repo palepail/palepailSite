@@ -74,7 +74,7 @@ export interface Explosion {
 }
 
 export interface ExplodedProjectile {
-  position: {x: number, y: number};
+  position: { x: number; y: number };
   bullet: Bullet;
   removalTime: number;
   owner: any;

@@ -13,37 +13,37 @@ export const routes: Routes = [
   {
     path: 'home',
     component: Home,
-    resolve: { navigationData: navigationResolver }
+    resolve: { navigationData: navigationResolver },
   },
   {
     path: 'projects',
     component: Projects,
-    resolve: { navigationData: navigationResolver }
+    resolve: { navigationData: navigationResolver },
   },
   {
     path: 'projects/interactable/number-crunch',
-    component: NumberCrunch
+    component: NumberCrunch,
   },
   {
     path: 'projects/terrablast',
-    redirectTo: '/projects/interactable/terrablast'
+    redirectTo: '/projects/interactable/terrablast',
   },
   {
     path: 'projects/interactable/potion-drop',
-    component: PotionDropComponent
+    component: PotionDropComponent,
   },
   {
     path: 'projects/interactable/terrablast',
-    component: TerrablastComponent
+    component: TerrablastComponent,
   },
   {
     path: 'hobbies',
     component: Hobbies,
-    resolve: { navigationData: navigationResolver }
+    resolve: { navigationData: navigationResolver },
   },
   {
     path: 'contact',
     component: Contact,
-    resolve: { navigationData: navigationResolver }
+    resolve: { navigationData: navigationResolver },
   },
 ];
