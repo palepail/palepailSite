@@ -235,7 +235,7 @@ export class TerrablastGameService {
         body: null,
         x: x,
         y: y,
-        angle: 0,
+        angle: (CONST.ENEMY_VEHICLE.minAimAngle + CONST.ENEMY_VEHICLE.maxAimAngle) / 2,
         health: CONST.ENEMY_VEHICLE.health,
         color: '#FF6B6B',
         active: true,
@@ -497,7 +497,7 @@ export class TerrablastGameService {
           );
 
           enemy.targetAngle = relativeAngleDeg;
-          enemy.angle = enemy.angle || 0; // start from current angle or 0
+          enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2; // start from current angle or midway
 
           // Set target power based on distance
           if (distance < 200) {
@@ -1093,7 +1093,7 @@ export class TerrablastGameService {
     this.player.maxPower = this.player.vehicle.power;
     this.player.x = CONST.PLAYER_START_X;
     this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
-    this.player.angle = CONST.PLAYER_START_ANGLE;
+    this.player.angle = (this.player.vehicle.minAimAngle + this.player.vehicle.maxAimAngle) / 2;
     this.player.power = CONST.PLAYER_START_POWER;
     this.player.facing = CONST.PLAYER_START_FACING;
     this.player.terrainAngle = CONST.PLAYER_START_TERRAIN_ANGLE;
