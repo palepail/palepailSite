@@ -271,6 +271,7 @@ export class TerrablastGameService {
   startTurn() {
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
+
       this._turnQueue.forEach((te) => (te.entity.delay -= waited));
     }
   }
@@ -280,24 +281,24 @@ export class TerrablastGameService {
 
     // Add player to queue
     const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
-    this.player.delay = 100 / this.player.vehicle.speed + playerRandomOffset;
+    this.player.delay = 100 - this.player.vehicle.speed + playerRandomOffset;
     this._turnQueue.push({
       id: 'player',
       type: 'player',
       entity: this.player,
-      baseDelay: 100 / this.player.vehicle.speed,
+      baseDelay: 100 - this.player.vehicle.speed,
       delay: this.player.delay,
     });
 
     // Add enemies to queue
     this.enemies.forEach((enemy, index) => {
       const enemyRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
-      enemy.delay = 100 / enemy.vehicle.speed + enemyRandomOffset;
+      enemy.delay = 100 - enemy.vehicle.speed + enemyRandomOffset;
       this._turnQueue.push({
         id: `enemy_${index}`,
         type: 'enemy',
         entity: enemy,
-        baseDelay: 100 / enemy.vehicle.speed,
+        baseDelay: 100 - enemy.vehicle.speed,
         delay: enemy.delay,
       });
     });
@@ -348,7 +349,11 @@ export class TerrablastGameService {
 
   private performPlayerAction(player: Player) {
     // Check for skip
-    if (this.keys['S'] && player.turnState !== 'bullet_in_flight' && player.turnState !== 'post_bullet') {
+    if (
+      this.keys['S'] &&
+      player.turnState !== 'bullet_in_flight' &&
+      player.turnState !== 'post_bullet'
+    ) {
       this.endTurn();
       return;
     }
@@ -418,7 +423,7 @@ export class TerrablastGameService {
 
           if (distance <= 50) {
             // Too close, skip turn
-            this.endTurn(50);
+            this.endTurn(100);
             enemy.turnState = 'idle';
             return;
           }
@@ -550,6 +555,9 @@ export class TerrablastGameService {
 
     // Set turn start time
     this._turnStartTime = Date.now();
+
+    // Normalize delays after turn transition
+    this.startTurn();
   }
 
   updateTurnQueue(deltaTime: number = 0) {

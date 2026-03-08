@@ -72,7 +72,7 @@ export const EXPLOSION_DAMAGE_RANGE = 100;
 
 // Vehicle Configurations
 export const PLAYER_VEHICLE: Vehicle = {
-  speed: 1.0,
+  speed: 100.0,
   power: 200,
   shape: 'tank',
   climbAngle: 45,
@@ -92,7 +92,7 @@ export const PLAYER_VEHICLE: Vehicle = {
 };
 
 export const ENEMY_VEHICLE: Vehicle = {
-  speed: 0.8,
+  speed: 95.0,
   power: 100,
   shape: 'enemy_tank',
   climbAngle: 30,

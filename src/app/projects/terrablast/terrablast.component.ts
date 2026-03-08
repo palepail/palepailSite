@@ -193,10 +193,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.currentState = GameState.PLAYING;
       // Disable camera follow when setup is done
       this.cameraController.disableFollow();
+      // Normalize initial delays
+      this.gameService.startTurn();
     }
-
-    // Start turn: subtract current delay from all
-    this.gameService.startTurn();
 
     // Reset player movement flag
     this.playerMovementStarted = false;
