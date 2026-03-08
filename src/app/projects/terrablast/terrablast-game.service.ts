@@ -246,6 +246,7 @@ export class TerrablastGameService {
         turnTimer: 0,
         targetPower: 0,
         delay: 0,
+        movementFuel: CONST.ENEMY_VEHICLE.fuel,
       };
       // Ensure not too close to player
       if (Math.abs(enemy.x - this.player.x) < 200) {
@@ -360,6 +361,8 @@ export class TerrablastGameService {
 
     switch (player.turnState) {
       case 'turn_start':
+        // Reset fuel at turn start
+        player.movementFuel = player.vehicle.fuel;
         // Wait for turn start (camera panning, etc.)
         player.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (player.turnTimer >= 500) {
@@ -398,6 +401,8 @@ export class TerrablastGameService {
   private performEnemyAction(enemy: Enemy) {
     switch (enemy.turnState) {
       case 'turn_start':
+        // Reset fuel at turn start
+        enemy.movementFuel = enemy.vehicle.fuel;
         // Wait for turn start (camera panning, etc.)
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (enemy.turnTimer >= 500) {

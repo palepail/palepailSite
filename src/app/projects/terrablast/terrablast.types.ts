@@ -36,6 +36,7 @@ export interface Enemy {
   targetPower: number;
   delay: number;
   targetAngle?: number;
+  movementFuel?: number; // Optional, for enemies if needed
 }
 
 export enum GameState {
