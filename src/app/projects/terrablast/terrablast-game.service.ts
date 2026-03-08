@@ -281,7 +281,7 @@ export class TerrablastGameService {
 
     // Add player to queue
     const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
-    this.player.delay = 100 - this.player.vehicle.speed + playerRandomOffset;
+    this.player.delay = Math.round(100 - this.player.vehicle.speed + playerRandomOffset);
     this._turnQueue.push({
       id: 'player',
       type: 'player',
@@ -293,7 +293,7 @@ export class TerrablastGameService {
     // Add enemies to queue
     this.enemies.forEach((enemy, index) => {
       const enemyRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
-      enemy.delay = 100 - enemy.vehicle.speed + enemyRandomOffset;
+      enemy.delay = Math.round(100 - enemy.vehicle.speed + enemyRandomOffset);
       this._turnQueue.push({
         id: `enemy_${index}`,
         type: 'enemy',
@@ -717,7 +717,7 @@ export class TerrablastGameService {
     ) {
       console.log('timed out');
 
-      this.endTurn(0);
+      this.endTurn(150);
     }
 
     // Check for game over
