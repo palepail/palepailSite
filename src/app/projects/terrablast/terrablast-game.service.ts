@@ -54,7 +54,6 @@ export class TerrablastGameService {
   get turnStartTime(): number {
     return this._turnStartTime;
   }
-
   // Flags
   isCharging = false;
   chargeStartTime = 0;
@@ -272,9 +271,9 @@ export class TerrablastGameService {
   startTurn() {
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
-
       this._turnQueue.forEach((te) => (te.entity.delay -= waited));
     }
+    this._turnStartTime = Date.now();
   }
 
   private initTurnQueue() {
@@ -517,7 +516,10 @@ export class TerrablastGameService {
   endTurn(actionCost: number = 100) {
     if (this._turnQueue.length === 0) return;
 
-    // Add actionCost to the current entity's delay
+    // Normalize delays first
+    this.startTurn();
+
+    // Then add actionCost to the current entity's delay
     this._turnQueue[0].entity.delay += actionCost;
 
     // Resort queue by entity.delay
@@ -557,12 +559,6 @@ export class TerrablastGameService {
 
     this.panToEntity = nextEntity;
     console.log('Game: Turn ended');
-
-    // Set turn start time
-    this._turnStartTime = Date.now();
-
-    // Normalize delays after turn transition
-    this.startTurn();
   }
 
   updateTurnQueue(deltaTime: number = 0) {
@@ -715,10 +711,13 @@ export class TerrablastGameService {
 
     // Check for turn timeout
     if (
+      this.currentState === GameState.PLAYING &&
       this.currentTurnIndex < this._turnQueue.length &&
       Date.now() - this._turnStartTime > this.TIMEOUT_MS
     ) {
-      this.endTurn(150);
+      console.log('timed out');
+
+      this.endTurn(0);
     }
 
     // Check for game over
