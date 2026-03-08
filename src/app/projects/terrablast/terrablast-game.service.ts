@@ -561,7 +561,7 @@ export class TerrablastGameService {
 
   getCurrentTurnEntity(): TurnEntity | null {
     if (this._turnQueue.length === 0) return null;
-    return this._turnQueue[this.currentTurnIndex];
+    return this._turnQueue[0];
   }
 
   isPlayerTurn(): boolean {

@@ -499,7 +499,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.restore();
 
     // Draw UI elements (health and movement bars)
-    this.drawTankUI(centerX, centerY, bodyRadius);
+    this.drawEntityUI(this.gameService.player, centerX, centerY, bodyRadius, true);
   }
 
   private drawEnemies() {
@@ -546,7 +546,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.restore();
 
     // Draw UI elements (health bar)
-    this.drawEnemyUI(centerX, centerY, bodyRadius, enemy);
+    this.drawEntityUI(enemy, centerX, centerY, bodyRadius, false);
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
@@ -695,32 +695,33 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
   }
 
-  private drawTankUI(centerX: number, centerY: number, bodyRadius: number) {
+  private drawEntityUI(entity: any, centerX: number, centerY: number, bodyRadius: number, isPlayer: boolean = false) {
     // Draw health bar under the tank
-    const healthRatio = this.gameService.player.health / this.gameService.player.vehicle.health;
+    const healthRatio = entity.health / entity.vehicle.health;
     const barWidth = 60;
     const barHeight = 5;
     const barX = centerX - barWidth / 2;
-    const barY = centerY + bodyRadius - 5; // Even closer to the tank
+    const barY = centerY + bodyRadius - 5;
     // Background bar
     this.ctx.fillStyle = '#666666';
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     // Health bar
-    this.ctx.fillStyle = '#00FF00'; // Green
+    this.ctx.fillStyle = isPlayer ? '#00FF00' : '#FF0000'; // Green for player, red for enemies
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
-    // Draw angle text to the right of health bar
-    this.ctx.fillStyle = this.UI_TEXT_COLOR;
-    this.ctx.font = '12px Arial'; // Smaller font for angle display
-    this.ctx.textAlign = 'left';
-    const trueAngleRad = this.gameService.getBarrelAngle();
-    const trueAngleDeg = Math.round((trueAngleRad * 180) / Math.PI); // Whole numbers only
-    this.ctx.fillText(`${trueAngleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
+    // Draw angle text for player only
+    if (isPlayer) {
+      this.ctx.fillStyle = this.UI_TEXT_COLOR;
+      this.ctx.font = '12px Arial';
+      this.ctx.textAlign = 'left';
+      const trueAngleRad = this.gameService.getBarrelAngle();
+      const trueAngleDeg = Math.round((trueAngleRad * 180) / Math.PI);
+      this.ctx.fillText(`${trueAngleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
+    }
 
     // Draw movement gauge if moving
-    if (Math.abs(this.gameService.player.body.velocity.x) > 0.1) {
-      const movementRatio =
-        this.gameService.player.movementFuel / this.gameService.player.vehicle.fuel;
+    if (Math.abs(entity.body.velocity.x) > 0.1) {
+      const movementRatio = entity.movementFuel / entity.vehicle.fuel;
       const movementBarY = barY + barHeight + 2; // Below health bar
       // Background
       this.ctx.fillStyle = '#666666';
@@ -778,33 +779,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.closePath();
     this.ctx.fill();
     this.ctx.stroke();
-  }
-
-  private drawEnemyUI(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
-    // Draw health bar under the tank
-    const healthRatio = enemy.health / enemy.vehicle.health;
-    const barWidth = 60;
-    const barHeight = 5;
-    const barX = centerX - barWidth / 2;
-    const barY = centerY + bodyRadius - 5;
-    // Background bar
-    this.ctx.fillStyle = '#666666';
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-    // Health bar
-    this.ctx.fillStyle = '#FF0000'; // Red for enemies
-    this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
-
-    // Draw movement gauge if moving
-    if (Math.abs(enemy.body.velocity.x) > 0.1) {
-      const movementRatio = enemy.movementFuel / enemy.vehicle.fuel;
-      const movementBarY = barY + barHeight + 2; // Below health bar
-      // Background
-      this.ctx.fillStyle = '#666666';
-      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
-      // Movement bar
-      this.ctx.fillStyle = '#FFFF00'; // Yellow
-      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
-    }
   }
 
   private drawProjectile() {
