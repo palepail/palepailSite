@@ -197,7 +197,7 @@ export class TerrablastGameService {
 
   private initPlayer() {
     this.player.vehicle = CONST.PLAYER_VEHICLE;
-    this.player.x = CONST.PLAYER_START_X;
+    this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
     this.player.y =
       CONST.CANVAS_HEIGHT -
       CONST.TERRAIN_BASE_Y_OFFSET -
@@ -206,6 +206,7 @@ export class TerrablastGameService {
     this.player.maxPower = this.player.vehicle.power;
     this.player.health = this.player.vehicle.health;
     this.player.movementFuel = this.player.vehicle.fuel;
+    this.player.terrainAngle = this.getTerrainAngleAt(this.player.x);
 
     this.player.body = this.Bodies.rectangle(this.player.x, this.player.y, 30, 30, {
       friction: CONST.PLAYER_FRICTION,
