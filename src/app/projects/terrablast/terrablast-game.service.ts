@@ -436,6 +436,7 @@ export class TerrablastGameService {
           enemy.turnState = 'moving';
         } else {
           // Good distance, aim and shoot
+          enemy.facing = dx > 0 ? 1 : -1; // Face toward player
           enemy.turnState = 'aiming';
           enemy.turnTimer = 0;
         }
@@ -486,13 +487,16 @@ export class TerrablastGameService {
           // Adjust for terrain angle
           angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
 
+          // Calculate relative angle based on facing
+          let relativeAngleDeg = enemy.facing === 1 ? angleDeg : 180 - angleDeg;
+
           // Clamp to enemy aiming range
-          angleDeg = Math.max(
+          relativeAngleDeg = Math.max(
             enemy.vehicle.minAimAngle,
-            Math.min(enemy.vehicle.maxAimAngle, angleDeg),
+            Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
           );
 
-          enemy.targetAngle = angleDeg;
+          enemy.targetAngle = relativeAngleDeg;
           enemy.angle = enemy.angle || 0; // start from current angle or 0
 
           // Set target power based on distance
@@ -540,7 +544,8 @@ export class TerrablastGameService {
   }
 
   private enemyShoot(enemy: Enemy, power: number) {
-    const angleRad = (enemy.angle * Math.PI) / 180 - enemy.terrainAngle;
+    const baseAngleRad = (enemy.angle * Math.PI) / 180;
+    const angleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     const bullet = enemy.vehicle.bullet;
     const velocity = (power / 100) * bullet.speed;
     const vx = Math.cos(angleRad) * velocity;
@@ -781,6 +786,16 @@ export class TerrablastGameService {
     if (this.currentState === GameState.PLAYING) {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
 
+      const oldFacing = this.player.facing;
+
+      // Handle facing changes (allowed anytime)
+      if (keys['ArrowLeft'] && this.player.facing !== -1) {
+        this.player.facing = -1;
+      }
+      if (keys['ArrowRight'] && this.player.facing !== 1) {
+        this.player.facing = 1;
+      }
+
       if (isOnTerrain) {
         if (
           keys['ArrowLeft'] &&
@@ -789,8 +804,6 @@ export class TerrablastGameService {
           !this.projectile &&
           this.player.turnState === 'idle'
         ) {
-          const oldFacing = this.player.facing;
-          this.player.facing = -1;
           const targetX = this.player.x - 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const angle = this.getTerrainAngleAt(targetX);
@@ -813,8 +826,6 @@ export class TerrablastGameService {
           !this.projectile &&
           this.player.turnState === 'idle'
         ) {
-          const oldFacing = this.player.facing;
-          this.player.facing = 1;
           const targetX = this.player.x + 2.0;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const isTurningAround = oldFacing !== this.player.facing;

@@ -330,8 +330,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const barWidth = this.CHARGE_BAR_WIDTH;
     const barHeight = this.CHARGE_BAR_HEIGHT;
     // Position further behind tank based on facing direction
-    const offsetX =
-      enemy.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const offsetX = enemy.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
     const worldX = enemy.x + offsetX;
     const worldY = enemy.y - barHeight / 2; // Center vertically on tank
     const screenPos = this.cameraController.worldToScreen(worldX, worldY);
@@ -695,7 +694,13 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
   }
 
-  private drawEntityUI(entity: any, centerX: number, centerY: number, bodyRadius: number, isPlayer: boolean = false) {
+  private drawEntityUI(
+    entity: any,
+    centerX: number,
+    centerY: number,
+    bodyRadius: number,
+    isPlayer: boolean = false,
+  ) {
     // Draw health bar under the tank
     const healthRatio = entity.health / entity.vehicle.health;
     const barWidth = 60;
@@ -709,15 +714,12 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = isPlayer ? '#00FF00' : '#FF0000'; // Green for player, red for enemies
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
-    // Draw angle text for player only
-    if (isPlayer) {
-      this.ctx.fillStyle = this.UI_TEXT_COLOR;
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'left';
-      const trueAngleRad = this.gameService.getBarrelAngle();
-      const trueAngleDeg = Math.round((trueAngleRad * 180) / Math.PI);
-      this.ctx.fillText(`${trueAngleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
-    }
+    // Draw angle text to the right of health bar
+    this.ctx.fillStyle = this.UI_TEXT_COLOR;
+    this.ctx.font = '12px Arial'; // Smaller font for angle display
+    this.ctx.textAlign = 'left';
+    const angleDeg = Math.round(entity.angle); // Relative angle
+    this.ctx.fillText(`${angleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
 
     // Draw movement gauge if moving
     if (Math.abs(entity.body.velocity.x) > 0.1) {
@@ -735,15 +737,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
     const barrelLength = this.BARREL_LENGTH;
     const barrelWidth = this.BARREL_WIDTH;
-    // Use enemy angle for aiming animation
-    const angleRad = (enemy.angle * Math.PI) / 180;
+    // Calculate absolute angle like for player
+    const baseAngleRad = (enemy.angle * Math.PI) / 180;
+    const trueAngleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
 
     // Save context for rotation
     this.ctx.save();
 
     // Move to tank center and rotate
     this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(-angleRad);
+    this.ctx.rotate(-trueAngleRad);
 
     // Draw barrel
     this.ctx.fillStyle = this.BARREL_COLOR;
