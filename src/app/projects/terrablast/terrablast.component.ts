@@ -108,6 +108,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly BARREL_TIP_LENGTH = CONST.BARREL_TIP_LENGTH;
   private readonly BARREL_TIP_EXTRA_HEIGHT = CONST.BARREL_TIP_EXTRA_HEIGHT;
   private readonly PROJECTILE_DRAW_RADIUS = CONST.PROJECTILE_DRAW_RADIUS;
+  private readonly PROJECTILE_RADIUS = CONST.PROJECTILE_RADIUS;
   private readonly PROJECTILE_COLOR = CONST.PROJECTILE_COLOR;
   private readonly UI_TEXT_COLOR = CONST.UI_TEXT_COLOR;
   private readonly UI_FONT = CONST.UI_FONT;
@@ -553,11 +554,20 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw prediction path if enabled
     if (this.showPrediction && enemy.turnState === 'charging') {
       const baseAngleRad = (enemy.angle * Math.PI) / 180;
-      const angleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+      const angleRad =
+        -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
       const barrelLength = this.BARREL_LENGTH;
       const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
       const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
-      this.drawPredictionPath(barrelEndX, barrelEndY, angleRad, enemy.power, enemy.vehicle.bullet, '#FF0000');
+
+      this.drawPredictionPath(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        enemy.power + 50,
+        enemy.vehicle.bullet,
+        '#FF0000',
+      );
     }
   }
 
@@ -640,8 +650,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
   }
 
-  private drawPredictionPath(startX: number, startY: number, angleRad: number, power: number, bullet: any, color: string = '#FFFFFF') {
-    const v = (power / 100) * bullet.speed;
+  private drawPredictionPath(
+    startX: number,
+    startY: number,
+    angleRad: number,
+    power: number,
+    bullet: any,
+    color: string = '#FFFFFF',
+  ) {
+    const effectivePower = Math.max(CONST.MIN_POWER, power);
+    const v = (effectivePower / 100) * bullet.speed;
     const vx = Math.cos(angleRad) * v;
     const vy = -Math.sin(angleRad) * v;
     const g = CONST.GRAVITY_STRENGTH;
@@ -655,7 +673,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       const x = startX + vx * t;
       const y = startY + vy * t + 0.5 * g * t * t;
       const terrainY = this.gameService.getTerrainHeightAt(x);
-      if (y >= terrainY || x < 0 || x > CONST.TERRAIN_WIDTH) break;
+      if (y + this.PROJECTILE_RADIUS >= terrainY || x < 0 || x > CONST.TERRAIN_WIDTH) break;
       const screenPos = this.cameraController.worldToScreen(x, y);
       this.ctx.lineTo(screenPos.x, screenPos.y);
     }

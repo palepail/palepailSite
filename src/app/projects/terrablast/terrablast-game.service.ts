@@ -571,6 +571,7 @@ export class TerrablastGameService {
     this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
       friction: CONST.PROJECTILE_FRICTION,
       restitution: CONST.PROJECTILE_RESTITUTION,
+      frictionAir: 0,
     });
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
@@ -916,6 +917,7 @@ export class TerrablastGameService {
     this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
       friction: CONST.PROJECTILE_FRICTION,
       restitution: CONST.PROJECTILE_RESTITUTION,
+      frictionAir: 0,
     });
     this.Body.setVelocity(this.projectile, { x: vx, y: vy });
     this.World.add(this.world, this.projectile);
