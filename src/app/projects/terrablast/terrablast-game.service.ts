@@ -404,59 +404,68 @@ export class TerrablastGameService {
 
       case 'idle':
         // Start aiming
+        enemy.targetAngle = undefined;
         enemy.turnState = 'aiming';
         enemy.turnTimer = 0;
         break;
 
       case 'aiming':
-        // Calculate angle to player
-        const dx = this.player.x - enemy.x;
-        const dy = this.player.y - enemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (!enemy.targetAngle) {
+          // Calculate angle to player
+          const dx = this.player.x - enemy.x;
+          const dy = this.player.y - enemy.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance <= 50) {
-          // Too close, skip turn
-          this.endTurn(50);
-          enemy.turnState = 'idle';
-          return;
+          if (distance <= 50) {
+            // Too close, skip turn
+            this.endTurn(50);
+            enemy.turnState = 'idle';
+            return;
+          }
+
+          const angleRad = Math.atan2(-dy, dx);
+          let angleDeg = (angleRad * 180) / Math.PI;
+
+          // Adjust for terrain angle
+          angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
+
+          // Clamp to enemy aiming range
+          angleDeg = Math.max(
+            enemy.vehicle.minAimAngle,
+            Math.min(enemy.vehicle.maxAimAngle, angleDeg),
+          );
+
+          enemy.targetAngle = angleDeg;
+          enemy.angle = enemy.angle || 0; // start from current angle or 0
+          // Set target power
+          enemy.targetPower = 50 + Math.random() * 50;
         }
 
-        const angleRad = Math.atan2(-dy, dx);
-        let angleDeg = (angleRad * 180) / Math.PI;
+        enemy.turnTimer += 16;
+        const diff = enemy.targetAngle - enemy.angle;
+        enemy.angle += diff * 0.1; // adjust 10% towards target per frame
 
-        // Adjust for terrain angle
-        angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
-
-        // Clamp to enemy aiming range
-        angleDeg = Math.max(
-          enemy.vehicle.minAimAngle,
-          Math.min(enemy.vehicle.maxAimAngle, angleDeg),
-        );
-
-        enemy.angle = angleDeg;
-
-        // Set target power
-        enemy.targetPower = 50 + Math.random() * 50;
-
-        // Move to charging
-        enemy.turnState = 'charging';
-        enemy.turnTimer = 0;
+        if (enemy.turnTimer >= 1000) {
+          enemy.angle = enemy.targetAngle;
+          enemy.turnState = 'charging';
+          enemy.turnTimer = 0;
+        }
         break;
 
       case 'charging':
         // Simulate charging
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (enemy.turnTimer >= 1000) {
-          // Charge for 1 second
+          this.enemyShoot(enemy, enemy.targetPower);
           enemy.turnState = 'bullet_in_flight';
         }
         break;
 
       case 'bullet_in_flight':
-        this.enemyShoot(enemy, enemy.targetPower);
-        console.log('Game: Enemy post_bullet started');
-        enemy.turnState = 'post_bullet';
-        enemy.turnTimer = 1.0;
+        if (!this.projectile) {
+          enemy.turnState = 'post_bullet';
+          enemy.turnTimer = 1.0;
+        }
         break;
 
       case 'post_bullet':
@@ -573,8 +582,7 @@ export class TerrablastGameService {
           enemy.turnTimer -= deltaTime;
           if (enemy.turnTimer <= 0) {
             console.log('Game: Post bullet ended for enemy');
-            const delay = enemy.vehicle.shotDelay + (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
-            this.endTurn(delay);
+            this.endTurn(100);
           }
         }
       }

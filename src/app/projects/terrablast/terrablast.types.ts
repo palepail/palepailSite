@@ -35,6 +35,7 @@ export interface Enemy {
   turnTimer: number;
   targetPower: number;
   delay: number;
+  targetAngle?: number;
 }
 
 export enum GameState {
