@@ -121,13 +121,7 @@ class CameraController {
     const margin = this.TRACKING_MARGIN;
     const distFromPlayer = Math.hypot(trackPos.x - playerX, trackPos.y - playerY);
 
-    if (
-      distFromPlayer > this.MIN_TRACK_DISTANCE &&
-      (screenX < margin ||
-        screenX > this.camera.width - margin ||
-        screenY < margin ||
-        screenY > this.camera.height - margin)
-    ) {
+    if (distFromPlayer > this.MIN_TRACK_DISTANCE) {
       if (projectile) {
         const predictionTime = this.PREDICTION_TIME_S;
         const targetX = trackPos.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
@@ -226,13 +220,6 @@ class CameraController {
       } else {
         this.landingCounter = 0;
       }
-    }
-
-    // Recenter on player if moving or charging (horizontal only, vertical to default)
-    if (Math.abs(playerVelocityX) > 0.1 || isCharging) {
-      const targets = this.getCenterTargets(playerX, playerY);
-      targetX = targets.targetX;
-      targetY = targets.targetY;
     }
 
     // Track projectile if needed

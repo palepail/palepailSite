@@ -43,6 +43,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private lastMouseX = 0;
   private lastMouseY = 0;
 
+  // Player movement tracking
+  private playerMovementStarted = false;
+
   // Game state
   get currentState(): GameState {
     return this.gameService.currentState;
@@ -189,13 +192,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     ) {
       this.gameService.currentState = GameState.PLAYING;
       // Disable camera follow when setup is done
-      this.cameraController.disableFollow();
-    }
-
-    // Enable camera follow for player turn, disable for enemy turn
-    if (this.gameService.isPlayerTurn()) {
-      this.cameraController.enableFollow();
-    } else {
       this.cameraController.disableFollow();
     }
 
