@@ -34,9 +34,12 @@ export interface Enemy {
   turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'bullet_in_flight' | 'post_bullet';
   turnTimer: number;
   targetPower: number;
+  power: number;
   delay: number;
   targetAngle?: number;
   movementFuel?: number; // Optional, for enemies if needed
+  movementTimer?: number;
+  moveDirection?: number;
 }
 
 export enum GameState {

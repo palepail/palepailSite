@@ -252,6 +252,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.drawChargeBar();
     }
 
+    // Draw enemy charge bars (behind tanks)
+    this.drawEnemyChargeBars();
+
     // Draw player
     this.drawPlayer();
 
@@ -292,6 +295,55 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Charge level (bottom to top)
     const chargeRatio = this.gameService.player.power / this.gameService.player.maxPower;
+    this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
+    this.ctx.fillRect(
+      barX,
+      barY + barHeight * (1 - chargeRatio),
+      barWidth,
+      barHeight * chargeRatio,
+    );
+
+    // Border
+    this.ctx.strokeStyle = this.CHARGE_BAR_BORDER_COLOR;
+    this.ctx.lineWidth = this.CHARGE_BAR_BORDER_WIDTH;
+    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Power percentage text
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = this.CHARGE_BAR_FONT;
+    this.ctx.textAlign = 'center';
+    const textX = barX + barWidth / 2;
+    const textY = barY - this.CHARGE_BAR_TEXT_OFFSET_Y;
+    this.ctx.fillText(`${Math.round(chargeRatio * 100)}%`, textX, textY);
+    this.ctx.textAlign = 'left'; // Reset text alignment
+  }
+
+  private drawEnemyChargeBars() {
+    for (const enemy of this.gameService.enemies) {
+      if (enemy.active && enemy.turnState === 'charging') {
+        this.drawEnemyChargeBar(enemy);
+      }
+    }
+  }
+
+  private drawEnemyChargeBar(enemy: any) {
+    const barWidth = this.CHARGE_BAR_WIDTH;
+    const barHeight = this.CHARGE_BAR_HEIGHT;
+    // Position further behind tank based on facing direction
+    const offsetX =
+      enemy.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const worldX = enemy.x + offsetX;
+    const worldY = enemy.y - barHeight / 2; // Center vertically on tank
+    const screenPos = this.cameraController.worldToScreen(worldX, worldY);
+    const barX = screenPos.x;
+    const barY = screenPos.y;
+
+    // Background
+    this.ctx.fillStyle = this.CHARGE_BAR_BACKGROUND_COLOR;
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Charge level (bottom to top)
+    const chargeRatio = enemy.power / enemy.targetPower;
     this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
     this.ctx.fillRect(
       barX,
@@ -482,7 +534,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.drawTankShadow(centerX, centerY, bodyRadius);
 
     // Draw barrel (fixed angle for enemies) - behind body
-    this.drawEnemyBarrel(centerX, centerY, bodyRadius);
+    this.drawEnemyBarrel(centerX, centerY, bodyRadius, enemy);
 
     // Draw tank body (semicircle on bottom) - in front of barrel
     this.drawEnemyBody(centerX, centerY, bodyRadius);
@@ -679,11 +731,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
   }
 
-  private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number) {
+  private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
     const barrelLength = this.BARREL_LENGTH;
     const barrelWidth = this.BARREL_WIDTH;
-    // Fixed angle for enemies, say 0 degrees (straight ahead)
-    const angleRad = 0;
+    // Use enemy angle for aiming animation
+    const angleRad = (enemy.angle * Math.PI) / 180;
 
     // Save context for rotation
     this.ctx.save();
@@ -741,6 +793,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Health bar
     this.ctx.fillStyle = '#FF0000'; // Red for enemies
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
+
+    // Draw movement gauge if moving
+    if (Math.abs(enemy.body.velocity.x) > 0.1) {
+      const movementRatio = enemy.movementFuel / enemy.vehicle.fuel;
+      const movementBarY = barY + barHeight + 2; // Below health bar
+      // Background
+      this.ctx.fillStyle = '#666666';
+      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
+      // Movement bar
+      this.ctx.fillStyle = '#FFFF00'; // Yellow
+      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
+    }
   }
 
   private drawProjectile() {

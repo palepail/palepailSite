@@ -245,6 +245,7 @@ export class TerrablastGameService {
         turnState: 'turn_start',
         turnTimer: 0,
         targetPower: 0,
+        power: 0,
         delay: 0,
         movementFuel: CONST.ENEMY_VEHICLE.fuel,
       };
@@ -317,6 +318,11 @@ export class TerrablastGameService {
         enemy.y = enemy.body.position.y;
         // Update terrain angle
         enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
+        // Smoothly interpolate enemy barrel angle toward target
+        if (enemy.targetAngle !== undefined) {
+          const diff = enemy.targetAngle - enemy.angle;
+          enemy.angle += diff * 0.1; // 10% interpolation per frame
+        }
       }
     }
 
@@ -412,10 +418,38 @@ export class TerrablastGameService {
         break;
 
       case 'idle':
-        // Start aiming
-        enemy.targetAngle = undefined;
-        enemy.turnState = 'aiming';
-        enemy.turnTimer = 0;
+        // Initialize movement properties if not set
+        if (enemy.movementTimer === undefined) {
+          enemy.movementTimer = 0;
+        }
+        if (enemy.moveDirection === undefined) {
+          // Randomly decide to move or aim
+          if (Math.random() < 0.5) {
+            // Move
+            enemy.moveDirection = Math.random() < 0.5 ? -1 : 1; // left or right
+            enemy.movementTimer = 500 + Math.random() * 1000; // 0.5 to 1.5 seconds
+          } else {
+            // Aim
+            enemy.moveDirection = 0;
+            enemy.movementTimer = 0;
+          }
+        }
+
+        if (enemy.moveDirection !== 0 && enemy.movementTimer > 0 && enemy.movementFuel! > 0) {
+          // Apply movement
+          const moveSpeed = CONST.PLAYER_MOVE_SPEED; // Same speed as players
+          const vx = enemy.moveDirection * moveSpeed;
+          this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
+          enemy.movementTimer -= 16;
+          enemy.movementFuel! -= Math.abs(vx) * 0.01; // Deplete fuel
+        } else {
+          // Stop moving and start aiming
+          this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
+          enemy.moveDirection = 0;
+          enemy.movementTimer = 0;
+          enemy.turnState = 'aiming';
+          enemy.turnTimer = 0;
+        }
         break;
 
       case 'aiming':
@@ -451,10 +485,9 @@ export class TerrablastGameService {
         }
 
         enemy.turnTimer += 16;
-        const diff = enemy.targetAngle - enemy.angle;
-        enemy.angle += diff * 0.1; // adjust 10% towards target per frame
+        // Angle interpolation is now handled in updateEnemies
 
-        if (enemy.turnTimer >= 1000) {
+        if (enemy.turnTimer >= 2000) { // Extended from 1000ms to 2000ms for smoother aiming
           enemy.angle = enemy.targetAngle;
           enemy.turnState = 'charging';
           enemy.turnTimer = 0;
@@ -462,8 +495,10 @@ export class TerrablastGameService {
         break;
 
       case 'charging':
-        // Simulate charging
+        // Ramp up power over time for visual feedback
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
+        const chargeRatio = Math.min(enemy.turnTimer / 1000, 1);
+        enemy.power = chargeRatio * enemy.targetPower;
         if (enemy.turnTimer >= 1000) {
           this.enemyShoot(enemy, enemy.targetPower);
           enemy.turnState = 'bullet_in_flight';
