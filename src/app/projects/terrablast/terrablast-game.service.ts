@@ -539,7 +539,7 @@ export class TerrablastGameService {
         const chargeRatio = Math.min(enemy.turnTimer / 1500, 1); // Extended to 1.5s
         enemy.power = chargeRatio * enemy.targetPower;
         if (enemy.turnTimer >= 1500) {
-          this.enemyShoot(enemy, enemy.targetPower);
+          this.enemyShoot(enemy, enemy.power);
           enemy.turnState = 'bullet_in_flight';
         }
         break;

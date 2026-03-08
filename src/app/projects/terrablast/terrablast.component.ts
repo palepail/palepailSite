@@ -46,6 +46,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   // Player movement tracking
   private playerMovementStarted = false;
 
+  // Prediction path toggle
+  private showPrediction: boolean = true;
+
   // Game state
   get currentState(): GameState {
     return this.gameService.currentState;
@@ -546,6 +549,16 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw UI elements (health bar)
     this.drawEntityUI(enemy, centerX, centerY, bodyRadius, false);
+
+    // Draw prediction path if enabled
+    if (this.showPrediction && enemy.turnState === 'charging') {
+      const baseAngleRad = (enemy.angle * Math.PI) / 180;
+      const angleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+      const barrelLength = this.BARREL_LENGTH;
+      const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
+      const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
+      this.drawPredictionPath(barrelEndX, barrelEndY, angleRad, enemy.power, enemy.vehicle.bullet, '#FF0000');
+    }
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
@@ -625,6 +638,29 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         this.ctx.stroke();
       });
     }
+  }
+
+  private drawPredictionPath(startX: number, startY: number, angleRad: number, power: number, bullet: any, color: string = '#FFFFFF') {
+    const v = (power / 100) * bullet.speed;
+    const vx = Math.cos(angleRad) * v;
+    const vy = -Math.sin(angleRad) * v;
+    const g = CONST.GRAVITY_STRENGTH;
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.beginPath();
+    const startScreen = this.cameraController.worldToScreen(startX, startY);
+    this.ctx.moveTo(startScreen.x, startScreen.y);
+    for (let t = 0.5; t < 50; t += 0.5) {
+      const x = startX + vx * t;
+      const y = startY + vy * t + 0.5 * g * t * t;
+      const terrainY = this.gameService.getTerrainHeightAt(x);
+      if (y >= terrainY || x < 0 || x > CONST.TERRAIN_WIDTH) break;
+      const screenPos = this.cameraController.worldToScreen(x, y);
+      this.ctx.lineTo(screenPos.x, screenPos.y);
+    }
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
   }
 
   private drawTankShadow(centerX: number, centerY: number, bodyRadius: number) {
@@ -927,6 +963,10 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   onKeyDown(event: KeyboardEvent) {
     // Prevent default browser behavior for game controls
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+      event.preventDefault();
+    }
+    if (event.key === 'p' || event.key === 'P') {
+      this.showPrediction = !this.showPrediction;
       event.preventDefault();
     }
     this.gameService.keys[event.key] = true;
