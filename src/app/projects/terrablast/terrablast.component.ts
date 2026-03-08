@@ -453,14 +453,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.rotate(this.gameService.player.terrainAngle);
     this.ctx.translate(-centerX, -centerY);
 
-    // Draw cannon range arc (before facing flip)
-    this.drawTankAimingArc(centerX, centerY);
-
     // Flip tank based on facing direction
     if (this.gameService.player.facing === -1) {
       this.ctx.scale(-1, 1);
       this.ctx.translate(-centerX * 2, 0);
     }
+
+    // Draw cannon range arc (after facing flip, so it flips with tank)
+    this.drawTankAimingArc(centerX, centerY);
 
     // Draw aim lines (after facing flip, so they flip with tank)
     this.drawTankAimLines(centerX, centerY);
@@ -586,14 +586,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw cannon range arc (before facing flip)
     // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
     if (this.gameService.currentState === GameState.PLAYING) {
-      let minAngle, maxAngle;
-      if (this.gameService.player.facing === -1) {
-        minAngle = Math.PI - (this.MAX_AIM_ANGLE * Math.PI) / 180; // 120°
-        maxAngle = Math.PI - (this.MIN_AIM_ANGLE * Math.PI) / 180; // 155°
-      } else {
-        minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
-        maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
-      }
+      const minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
+      const maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
+
       this.ctx.globalAlpha = 0.2;
       this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
       this.ctx.beginPath();
@@ -608,11 +603,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
-      if (this.gameService.player.facing === -1) {
-        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI, -Math.PI / 2); // -180° to -90°
-      } else {
-        this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
-      }
+      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
       this.ctx.closePath();
       this.ctx.fill();
     }
@@ -661,7 +652,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw semicircle body
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, 0, Math.PI, true); // Semicircle facing up
+    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false); // Lower semicircle
     this.ctx.closePath();
     this.ctx.fill();
     this.ctx.stroke();
@@ -737,16 +728,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
     const barrelLength = this.BARREL_LENGTH;
     const barrelWidth = this.BARREL_WIDTH;
-    // Calculate absolute angle like for player
-    const baseAngleRad = (enemy.angle * Math.PI) / 180;
-    const trueAngleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    // Use enemy angle for aiming animation
+    const angleRad = (enemy.angle * Math.PI) / 180;
 
     // Save context for rotation
     this.ctx.save();
 
     // Move to tank center and rotate
     this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(-trueAngleRad);
+    this.ctx.rotate(-angleRad);
 
     // Draw barrel
     this.ctx.fillStyle = this.BARREL_COLOR;
@@ -778,7 +768,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
     // Draw semicircle body
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, 0, Math.PI, true); // Semicircle facing up
+    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false); // Lower semicircle
     this.ctx.closePath();
     this.ctx.fill();
     this.ctx.stroke();

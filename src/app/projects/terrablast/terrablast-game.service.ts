@@ -487,8 +487,22 @@ export class TerrablastGameService {
           // Adjust for terrain angle
           angleDeg -= (enemy.terrainAngle * 180) / Math.PI;
 
-          // Calculate relative angle based on facing
-          let relativeAngleDeg = enemy.facing === 1 ? angleDeg : 180 - angleDeg;
+          // Normalize to 0-360
+          angleDeg = ((angleDeg % 360) + 360) % 360;
+
+          // Determine facing and relative angle
+          let relativeAngleDeg: number;
+          if (angleDeg <= 90) {
+            enemy.facing = 1;
+            relativeAngleDeg = angleDeg;
+          } else if (angleDeg <= 180) {
+            enemy.facing = -1;
+            relativeAngleDeg = 180 - angleDeg;
+          } else {
+            // Target not in aimable range, face closest direction and set to 0
+            enemy.facing = angleDeg <= 270 ? -1 : 1;
+            relativeAngleDeg = 0;
+          }
 
           // Clamp to enemy aiming range
           relativeAngleDeg = Math.max(
