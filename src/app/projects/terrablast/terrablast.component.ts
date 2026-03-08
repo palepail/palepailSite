@@ -198,6 +198,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Start turn: subtract current delay from all
     this.gameService.startTurn();
 
+    // Reset player movement flag
+    this.playerMovementStarted = false;
+
     // Update camera
     this.cameraController.update(
       this.gameService.player.x,
@@ -225,6 +228,17 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.gameService.panToEntity = null;
     } else if (this.gameService.panToEntity) {
       this.gameService.panToEntity = null; // Clear invalid request
+    }
+
+    // Pan to player when they start moving
+    if (
+      this.gameService.isPlayerTurn() &&
+      !this.playerMovementStarted &&
+      this.gameService.player.body &&
+      Math.abs(this.gameService.player.body.velocity.x) > 0.1
+    ) {
+      this.playerMovementStarted = true;
+      this.cameraController.panToEntity(this.gameService.player);
     }
 
     // Draw sky (entire background)
