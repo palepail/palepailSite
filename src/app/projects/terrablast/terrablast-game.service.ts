@@ -412,49 +412,63 @@ export class TerrablastGameService {
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (enemy.turnTimer >= 500) {
           // Wait 0.5 seconds for turn start
-          enemy.turnState = 'idle';
+          enemy.turnState = 'assess';
           enemy.turnTimer = 0;
         }
         break;
 
-      case 'idle':
-        // Initialize movement properties if not set
-        if (enemy.movementTimer === undefined) {
-          enemy.movementTimer = 0;
-        }
-        if (enemy.moveDirection === undefined) {
-          // Randomly decide to move or aim
-          if (Math.random() < 0.5) {
-            // Move
-            enemy.moveDirection = Math.random() < 0.5 ? -1 : 1; // left or right
-            enemy.movementTimer = 500 + Math.random() * 1000; // 0.5 to 1.5 seconds
-          } else {
-            // Aim
-            enemy.moveDirection = 0;
-            enemy.movementTimer = 0;
-          }
-        }
+      case 'assess':
+        // Assess situation and decide action
+        const dx = this.player.x - enemy.x;
+        const dy = this.player.y - enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (enemy.moveDirection !== 0 && enemy.movementTimer > 0 && enemy.movementFuel! > 0) {
-          // Apply movement
-          const moveSpeed = CONST.PLAYER_MOVE_SPEED; // Same speed as players
-          const vx = enemy.moveDirection * moveSpeed;
-          this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
-          enemy.movementTimer -= 16;
-          enemy.movementFuel! -= Math.abs(vx) * 0.01; // Deplete fuel
+        // Decide based on distance and fuel
+        if (distance > 400 && enemy.movementFuel! > 50) {
+          // Too far, move closer
+          enemy.moveDirection = dx > 0 ? 1 : -1; // Move toward player
+          enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
+          enemy.turnState = 'moving';
+        } else if (distance < 150 && enemy.movementFuel! > 30) {
+          // Too close, move away
+          enemy.moveDirection = dx > 0 ? -1 : 1; // Move away from player
+          enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
+          enemy.turnState = 'moving';
         } else {
-          // Stop moving and start aiming
-          this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
-          enemy.moveDirection = 0;
-          enemy.movementTimer = 0;
+          // Good distance, aim and shoot
           enemy.turnState = 'aiming';
           enemy.turnTimer = 0;
         }
         break;
 
+      case 'moving':
+        if (enemy.movementTimer! > 0 && enemy.movementFuel! > 0) {
+          // Apply movement
+          const moveSpeed = CONST.PLAYER_MOVE_SPEED;
+          const vx = enemy.moveDirection! * moveSpeed;
+          this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
+          enemy.movementTimer! -= 16;
+          enemy.movementFuel! -= Math.abs(vx) * 0.01; // Deplete fuel
+        } else {
+          // Stop moving and assess again or aim
+          this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
+          enemy.moveDirection = 0;
+          enemy.movementTimer = 0;
+          // After moving, reassess or go to aiming
+          const newDx = this.player.x - enemy.x;
+          const newDistance = Math.abs(newDx);
+          if (newDistance > 500 || newDistance < 100) {
+            enemy.turnState = 'assess'; // Reassess if still not ideal
+          } else {
+            enemy.turnState = 'aiming';
+            enemy.turnTimer = 0;
+          }
+        }
+        break;
+
       case 'aiming':
         if (!enemy.targetAngle) {
-          // Calculate angle to player
+          // Calculate precise angle to player
           const dx = this.player.x - enemy.x;
           const dy = this.player.y - enemy.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -462,7 +476,7 @@ export class TerrablastGameService {
           if (distance <= 50) {
             // Too close, skip turn
             this.endTurn(100);
-            enemy.turnState = 'idle';
+            enemy.turnState = 'assess';
             return;
           }
 
@@ -480,14 +494,21 @@ export class TerrablastGameService {
 
           enemy.targetAngle = angleDeg;
           enemy.angle = enemy.angle || 0; // start from current angle or 0
-          // Set target power
-          enemy.targetPower = 50 + Math.random() * 50;
+
+          // Set target power based on distance
+          if (distance < 200) {
+            enemy.targetPower = 30 + Math.random() * 20; // Low power for close shots
+          } else if (distance < 400) {
+            enemy.targetPower = 50 + Math.random() * 30; // Medium power
+          } else {
+            enemy.targetPower = 70 + Math.random() * 30; // High power for long shots
+          }
         }
 
         enemy.turnTimer += 16;
         // Angle interpolation is now handled in updateEnemies
 
-        if (enemy.turnTimer >= 2000) { // Extended from 1000ms to 2000ms for smoother aiming
+        if (enemy.turnTimer >= 2500) { // Extended to 2.5s for better aiming
           enemy.angle = enemy.targetAngle;
           enemy.turnState = 'charging';
           enemy.turnTimer = 0;
@@ -497,9 +518,9 @@ export class TerrablastGameService {
       case 'charging':
         // Ramp up power over time for visual feedback
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        const chargeRatio = Math.min(enemy.turnTimer / 1000, 1);
+        const chargeRatio = Math.min(enemy.turnTimer / 1500, 1); // Extended to 1.5s
         enemy.power = chargeRatio * enemy.targetPower;
-        if (enemy.turnTimer >= 1000) {
+        if (enemy.turnTimer >= 1500) {
           this.enemyShoot(enemy, enemy.targetPower);
           enemy.turnState = 'bullet_in_flight';
         }
