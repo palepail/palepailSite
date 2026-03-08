@@ -385,7 +385,6 @@ export class TerrablastGameService {
 
       case 'bullet_in_flight':
         if (!this.projectile && player.turnState === 'bullet_in_flight') {
-          console.log('Game: Player post_bullet started');
           player.turnState = 'post_bullet';
           player.turnTimer = 1.0;
         }
@@ -558,7 +557,6 @@ export class TerrablastGameService {
     }
 
     this.panToEntity = nextEntity;
-    console.log('Game: Turn ended');
   }
 
   updateTurnQueue(deltaTime: number = 0) {
@@ -581,7 +579,6 @@ export class TerrablastGameService {
         if (player.turnState === 'post_bullet') {
           player.turnTimer -= deltaTime;
           if (player.turnTimer <= 0) {
-            console.log('Game: Post bullet ended for player');
             this.endTurn(100);
           }
         }
@@ -590,7 +587,6 @@ export class TerrablastGameService {
         if (enemy.turnState === 'post_bullet') {
           enemy.turnTimer -= deltaTime;
           if (enemy.turnTimer <= 0) {
-            console.log('Game: Post bullet ended for enemy');
             this.endTurn(100);
           }
         }
@@ -715,8 +711,6 @@ export class TerrablastGameService {
       this.currentTurnIndex < this._turnQueue.length &&
       Date.now() - this._turnStartTime > this.TIMEOUT_MS
     ) {
-      console.log('timed out');
-
       this.endTurn(150);
     }
 
@@ -971,7 +965,6 @@ export class TerrablastGameService {
 
       this.World.remove(this.world, this.projectile);
       this.projectile = null;
-      console.log('Game: Projectile destroyed');
     }
   }
 
