@@ -34,8 +34,6 @@ class CameraController {
   private isTrackingProjectile = false;
   private lastTrackedType: 'projectile' | 'explosion' | null = null;
   private trackedExplosion: any = null;
-  private hasLoggedStart = false;
-  private hasLoggedEnd = false;
 
   constructor() {
     const initialPlayerY =
@@ -87,7 +85,6 @@ class CameraController {
       Math.abs(this.panTargetY - this.camera.y) > 5
     ) {
       this.isPanning = true;
-      console.log('Camera: Pan started');
     }
   }
 
@@ -255,11 +252,6 @@ class CameraController {
 
     if (projectileTargets && !this.isPanning) {
       if (!this.isTrackingProjectile || this.lastTrackedType !== projectileTargets.type) {
-        if (!this.hasLoggedStart) {
-          console.log(`Camera: Entity tracking started (${projectileTargets.type})`);
-          this.hasLoggedStart = true;
-          this.hasLoggedEnd = false;
-        }
         this.isTrackingProjectile = true;
         this.lastTrackedType = projectileTargets.type;
       }
@@ -267,11 +259,6 @@ class CameraController {
       targetY = projectileTargets.targetY;
     } else {
       if (this.isTrackingProjectile) {
-        if (!this.hasLoggedEnd) {
-          console.log('Camera: Entity tracking ended');
-          this.hasLoggedEnd = true;
-          this.hasLoggedStart = false;
-        }
         this.isTrackingProjectile = false;
         this.lastTrackedType = null;
         this.trackedExplosion = null; // Reset when stopping
@@ -294,7 +281,6 @@ class CameraController {
         Math.abs(this.camera.y - this.panTargetY) < 5
       ) {
         this.isPanning = false;
-        console.log('Camera: Pan ended');
         this.panTargetX = null;
         this.panTargetY = null;
       }
