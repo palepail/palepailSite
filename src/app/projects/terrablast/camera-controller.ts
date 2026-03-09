@@ -22,7 +22,7 @@ class CameraController {
   private readonly TRACKING_MARGIN = 150;
   private readonly MIN_TRACK_DISTANCE = 100;
   private readonly INACTIVITY_DELAY_MS = 1000;
-  private readonly PREDICTION_TIME_S = 1.5;
+  private readonly PREDICTION_TIME_S = 0.2;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private hasLanded = false;
   private landingCounter = 0;
@@ -122,19 +122,26 @@ class CameraController {
       if (projectile) {
         let targetX, targetY;
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
-          const stepsAhead = Math.floor(this.PREDICTION_TIME_S * 60); // assuming 60 FPS simulation
+          const remainingSteps = projectile.trajectory.length - projectile.trajectoryIndex;
+          const stepsAhead = Math.min(remainingSteps * 0.1, 12);
           const futureIndex = projectile.trajectoryIndex + stepsAhead;
-          const futurePos = futureIndex < projectile.trajectory.length ? projectile.trajectory[futureIndex] : projectile.trajectory[projectile.trajectory.length - 1];
+          const futurePos = projectile.trajectory[futureIndex];
           targetX = futurePos.x - this.camera.width / 2;
           targetY = futurePos.y - this.camera.height / 2;
+          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
+          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else if (projectile.body) {
           const predictionTime = this.PREDICTION_TIME_S;
           targetX = trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
           targetY = trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
+          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
+          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else {
           // no prediction available, just center on current position
           targetX = trackPos.x - this.camera.width / 2;
           targetY = trackPos.y - this.camera.height / 2;
+          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
+          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         }
         return { targetX, targetY, type: 'projectile' };
       } else {
@@ -307,6 +314,9 @@ class CameraController {
       lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
     } else if (explodedProjectiles.length > 0) {
       lerpFactor = this.EXPLODED_LERP; // Slower lerp for exploded projectile tracking
+      if (this.lastTrackedType === 'projectile') {
+        lerpFactor = Math.max(lerpFactor, 0.15); // Boost when switching from projectile to explosion
+      }
     } else if (this.isPanning) {
       lerpFactor = this.RECENTER_LERP; // Smooth lerp for panning
     } else if (isRecentering) {
@@ -325,11 +335,16 @@ class CameraController {
     this.camera.y += (targetY - this.camera.y) * lerpFactor;
 
     // Clamp to world bounds (allow camera to go above terrain for projectiles)
-    this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
-    this.camera.y = Math.max(
-      -this.camera.height,
-      Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.camera.y),
-    );
+    if (this.isTrackingProjectile) {
+      this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
+      this.camera.y = Math.max(-this.camera.height, this.camera.y); // no upper clamp for projectiles
+    } else {
+      this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
+      this.camera.y = Math.max(
+        -this.camera.height,
+        Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.camera.y),
+      );
+    }
   }
 
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
