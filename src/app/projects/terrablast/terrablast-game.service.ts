@@ -60,7 +60,10 @@ export class TerrablastGameService {
   chargeStartTime = 0;
 
   // Trajectory cache
-  private trajectoryCache: Map<string, { positions: { x: number; y: number }[]; endReason: string }> = new Map();
+  private trajectoryCache: Map<
+    string,
+    { positions: { x: number; y: number }[]; endReason: string }
+  > = new Map();
 
   // Input
   keys: { [key: string]: boolean } = {};
@@ -69,7 +72,13 @@ export class TerrablastGameService {
     this.player = this.createInitialPlayer();
   }
 
-  simulateTrajectory(startX: number, startY: number, angleRad: number, power: number, bullet: any): { positions: { x: number; y: number }[]; endReason: string } {
+  simulateTrajectory(
+    startX: number,
+    startY: number,
+    angleRad: number,
+    power: number,
+    bullet: any,
+  ): { positions: { x: number; y: number }[]; endReason: string } {
     const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}`;
     if (this.trajectoryCache.has(cacheKey)) {
       return this.trajectoryCache.get(cacheKey)!;
@@ -98,6 +107,13 @@ export class TerrablastGameService {
     while (step < maxSteps) {
       // Record position
       positions.push({ x: projectile.position.x, y: projectile.position.y });
+
+      // Check for terrain collision or off-screen
+      // if (projectile.position.y > this.getTerrainHeightAt(projectile.position.x) ||
+      //     projectile.position.x < 0 || projectile.position.x > CONST.CANVAS_WIDTH) {
+      //   endReason = projectile.position.y > this.getTerrainHeightAt(projectile.position.x) ? 'terrain' : 'offscreen';
+      //   break;
+      // }
 
       // Apply wind force
       this.Body.applyForce(projectile, projectile.position, { x: CONST.WIND_STRENGTH, y: 0 });
@@ -464,6 +480,7 @@ export class TerrablastGameService {
       case 'turn_start':
         // Reset fuel at turn start
         enemy.movementFuel = enemy.vehicle.fuel;
+        enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
         // Wait for turn start (camera panning, etc.)
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         if (enemy.turnTimer >= 500) {
@@ -479,22 +496,56 @@ export class TerrablastGameService {
         const dy = this.player.y - enemy.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Decide based on distance and fuel
-        if (distance > 400 && enemy.movementFuel! > 50) {
-          // Too far, move closer
-          enemy.moveDirection = dx > 0 ? 1 : -1; // Move toward player
+        // Set behavior
+        if (!enemy.behavior) {
+          if (enemy.health < 50) {
+            enemy.behavior = 'defensive';
+          } else {
+            const rand = Math.random();
+            enemy.behavior = rand < 0.4 ? 'aggressive' : rand < 0.7 ? 'defensive' : 'flanking';
+          }
+        }
+
+        console.log(
+          `Enemy assess: distance=${distance.toFixed(1)}, fuel=${enemy.movementFuel}, behavior=${enemy.behavior}`,
+        );
+
+        // Decide based on distance, fuel, and behavior
+        let moveCloserThreshold = 400;
+        let moveAwayThreshold = 150;
+        if (enemy.behavior === 'aggressive') {
+          moveCloserThreshold = 300;
+          moveAwayThreshold = 100;
+        } else if (enemy.behavior === 'defensive') {
+          moveCloserThreshold = 500;
+          moveAwayThreshold = 200;
+        }
+
+        if (distance > moveCloserThreshold && enemy.movementFuel! > 10) {
+          // Too far, move closer or flank
+          if (enemy.behavior === 'flanking') {
+            enemy.moveDirection =
+              Math.abs(dx) > distance * 0.5 ? (dy > 0 ? -1 : 1) : dx > 0 ? 1 : -1; // Perpendicular
+          } else {
+            enemy.moveDirection = dx > 0 ? 1 : -1; // Toward player
+          }
           enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
           enemy.turnState = 'moving';
-        } else if (distance < 150 && enemy.movementFuel! > 30) {
+          console.log(`Enemy moving closer, direction=${enemy.moveDirection}`);
+        } else if (distance < moveAwayThreshold && enemy.movementFuel! > 5) {
           // Too close, move away
-          enemy.moveDirection = dx > 0 ? -1 : 1; // Move away from player
+          enemy.moveDirection = dx > 0 ? -1 : 1; // Away from player
           enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
           enemy.turnState = 'moving';
+          console.log(`Enemy moving away, direction=${enemy.moveDirection}`);
         } else {
           // Good distance, aim and shoot
           enemy.facing = dx > 0 ? 1 : -1; // Face toward player
+          enemy.targetAngle = undefined;
+          enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.turnTimer = 0;
+          console.log(`Enemy aiming, facing=${enemy.facing}`);
         }
         break;
 
@@ -505,7 +556,7 @@ export class TerrablastGameService {
           const vx = enemy.moveDirection! * moveSpeed;
           this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
           enemy.movementTimer! -= 16;
-          enemy.movementFuel! -= Math.abs(vx) * 0.01; // Deplete fuel
+          enemy.movementFuel! -= Math.abs(vx) * 0.1; // Deplete fuel
         } else {
           // Stop moving and assess again or aim
           this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
@@ -546,43 +597,85 @@ export class TerrablastGameService {
           // Normalize to 0-360
           angleDeg = ((angleDeg % 360) + 360) % 360;
 
-          // Determine facing and relative angle
-          let relativeAngleDeg: number;
+          // Determine facing
           if (angleDeg <= 90) {
             enemy.facing = 1;
-            relativeAngleDeg = angleDeg;
           } else if (angleDeg <= 180) {
             enemy.facing = -1;
-            relativeAngleDeg = 180 - angleDeg;
           } else {
-            // Target not in aimable range, face closest direction and set to 0
             enemy.facing = angleDeg <= 270 ? -1 : 1;
-            relativeAngleDeg = 0;
           }
 
-          // Clamp to enemy aiming range
-          relativeAngleDeg = Math.max(
-            enemy.vehicle.minAimAngle,
-            Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
-          );
+          // Trajectory-based aiming
+          let bestHit: { angle: number; power: number; dist: number } | null = null;
+          const angleStep = 10; // degrees
+          const powerStep = 20; // power units
+          for (
+            let relAng = enemy.vehicle.minAimAngle;
+            relAng <= enemy.vehicle.maxAimAngle;
+            relAng += angleStep
+          ) {
+            const baseAngleRad = (relAng * Math.PI) / 180;
+            const simAngleRad =
+              -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+            const barrelEndX = enemy.x + Math.cos(simAngleRad) * CONST.BARREL_LENGTH;
+            const barrelEndY = enemy.y - Math.sin(simAngleRad) * CONST.BARREL_LENGTH;
+            for (let pow = 20; pow <= 100; pow += powerStep) {
+              const { positions } = this.simulateTrajectory(
+                barrelEndX,
+                barrelEndY,
+                simAngleRad,
+                pow,
+                enemy.vehicle.bullet,
+              );
+              for (const pos of positions) {
+                const distToPlayer = Math.hypot(pos.x - this.player.x, pos.y - this.player.y);
+                if (distToPlayer < 50 && (!bestHit || distToPlayer < bestHit.dist)) {
+                  bestHit = { angle: relAng, power: pow, dist: distToPlayer };
+                }
+              }
+            }
+          }
 
-          enemy.targetAngle = relativeAngleDeg;
-          enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2; // start from current angle or midway
-
-          // Set target power based on distance
-          if (distance < 200) {
-            enemy.targetPower = 30 + Math.random() * 20; // Low power for close shots
-          } else if (distance < 400) {
-            enemy.targetPower = 50 + Math.random() * 30; // Medium power
+          if (bestHit) {
+            enemy.targetAngle = bestHit.angle;
+            enemy.targetPower = bestHit.power;
+            console.log(
+              `Enemy aiming: found hit at angle=${bestHit.angle}, power=${bestHit.power}, dist=${bestHit.dist.toFixed(1)}`,
+            );
           } else {
-            enemy.targetPower = 70 + Math.random() * 30; // High power for long shots
+            // Fallback to old logic
+            let relativeAngleDeg: number;
+            if (enemy.facing === 1) {
+              relativeAngleDeg = angleDeg;
+            } else {
+              relativeAngleDeg = 180 - angleDeg;
+            }
+            relativeAngleDeg = Math.max(
+              enemy.vehicle.minAimAngle,
+              Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
+            );
+            enemy.targetAngle = relativeAngleDeg;
+            if (distance < 200) {
+              enemy.targetPower = 30 + Math.random() * 20;
+            } else if (distance < 400) {
+              enemy.targetPower = 50 + Math.random() * 30;
+            } else {
+              enemy.targetPower = 70 + Math.random() * 30;
+            }
+            console.log(
+              `Enemy aiming: fallback angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
+            );
           }
+
+          enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
         }
 
         enemy.turnTimer += 16;
         // Angle interpolation is now handled in updateEnemies
 
-        if (enemy.turnTimer >= 2500) { // Extended to 2.5s for better aiming
+        if (enemy.turnTimer >= 2500) {
+          // Extended to 2.5s for better aiming
           enemy.angle = enemy.targetAngle;
           enemy.turnState = 'charging';
           enemy.turnTimer = 0;
@@ -593,7 +686,7 @@ export class TerrablastGameService {
         // Ramp up power over time for visual feedback
         enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
         const chargeRatio = Math.min(enemy.turnTimer / 1500, 1); // Extended to 1.5s
-        enemy.power = chargeRatio * enemy.targetPower;
+        enemy.power = chargeRatio * (enemy.targetPower || 0);
         if (enemy.turnTimer >= 1500) {
           this.enemyShoot(enemy, enemy.power);
           enemy.turnState = 'bullet_in_flight';
@@ -615,7 +708,8 @@ export class TerrablastGameService {
 
   private enemyShoot(enemy: Enemy, power: number) {
     const baseAngleRad = (enemy.angle * Math.PI) / 180;
-    const angleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    const angleRad =
+      -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     const bullet = enemy.vehicle.bullet;
     const barrelLength = CONST.BARREL_LENGTH;
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
@@ -976,7 +1070,13 @@ export class TerrablastGameService {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    const { positions } = this.simulateTrajectory(barrelEndX, barrelEndY, angleRad, this.player.power, bullet);
+    const { positions } = this.simulateTrajectory(
+      barrelEndX,
+      barrelEndY,
+      angleRad,
+      this.player.power,
+      bullet,
+    );
 
     this.projectile = {
       x: barrelEndX,
@@ -992,7 +1092,12 @@ export class TerrablastGameService {
   }
 
   private updateTrajectoryProjectile() {
-    if (!this.projectile || !this.projectile.trajectory || this.projectile.trajectoryIndex === undefined) return;
+    if (
+      !this.projectile ||
+      !this.projectile.trajectory ||
+      this.projectile.trajectoryIndex === undefined
+    )
+      return;
 
     const index = this.projectile.trajectoryIndex;
     const positions = this.projectile.trajectory;
@@ -1038,7 +1143,10 @@ export class TerrablastGameService {
 
     // Check offsets for collision
     const checkOffsets = [
-      [-1, 0], [1, 0], [0, -1], [0, 1],
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
     ];
     let collided = false;
     for (const [offsetX, offsetY] of checkOffsets) {
@@ -1069,7 +1177,8 @@ export class TerrablastGameService {
         const dx = enemy.x - this.projectile.x;
         const dy = enemy.y - this.projectile.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < CONST.PROJECTILE_RADIUS + 15) { // Approximate enemy radius
+        if (distance < CONST.PROJECTILE_RADIUS + 15) {
+          // Approximate enemy radius
           console.log('Collided with enemy, exploding');
           this.destroyTrajectoryProjectile();
           return;
@@ -1097,7 +1206,12 @@ export class TerrablastGameService {
     this.calculateExplosionDamage(this.projectile.x, this.projectile.y, this.projectile);
 
     // Create crater
-    this.createCrater(this.projectile.x, this.projectile.y, CONST.CRATER_RADIUS, this.projectile.bullet);
+    this.createCrater(
+      this.projectile.x,
+      this.projectile.y,
+      CONST.CRATER_RADIUS,
+      this.projectile.bullet,
+    );
 
     this.explodedProjectiles.push({
       position: { x: this.projectile.x, y: this.projectile.y },

@@ -124,7 +124,7 @@ class CameraController {
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
           const remainingSteps = projectile.trajectory.length - projectile.trajectoryIndex;
           const stepsAhead = Math.min(remainingSteps * 0.1, 12);
-          const futureIndex = projectile.trajectoryIndex + stepsAhead;
+          const futureIndex = Math.min(projectile.trajectoryIndex + stepsAhead, projectile.trajectory.length - 1);
           const futurePos = projectile.trajectory[futureIndex];
           targetX = futurePos.x - this.camera.width / 2;
           targetY = futurePos.y - this.camera.height / 2;

@@ -33,13 +33,14 @@ export interface Enemy {
   vehicle: Vehicle;
   turnState: 'turn_start' | 'assess' | 'moving' | 'aiming' | 'charging' | 'bullet_in_flight' | 'post_bullet';
   turnTimer: number;
-  targetPower: number;
+  targetPower?: number;
   power: number;
   delay: number;
   targetAngle?: number;
   movementFuel?: number; // Optional, for enemies if needed
   movementTimer?: number;
   moveDirection?: number;
+  behavior?: 'aggressive' | 'defensive' | 'flanking';
 }
 
 export enum GameState {
