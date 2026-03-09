@@ -111,8 +111,6 @@ export class TerrablastGameService {
     // Clean up
     this.World.remove(tempEngine.world, projectile);
 
-    console.log('Trajectory simulated: positions.length =', positions.length, 'endReason =', endReason);
-
     const result = { positions, endReason };
     this.trajectoryCache.set(cacheKey, result);
     return result;
@@ -999,10 +997,7 @@ export class TerrablastGameService {
     const index = this.projectile.trajectoryIndex;
     const positions = this.projectile.trajectory;
 
-    console.log('Updating trajectory projectile: index =', index, 'total positions =', positions.length);
-
     if (index >= positions.length) {
-      console.log('Reached end of trajectory, removing projectile');
       this.projectile = null;
       return;
     }
@@ -1010,8 +1005,6 @@ export class TerrablastGameService {
     // Set position to current trajectory point
     this.projectile.x = positions[index].x;
     this.projectile.y = positions[index].y;
-
-    console.log('Set position to', this.projectile.x, this.projectile.y);
 
     // Check if projectile went off game area
     if (
@@ -1086,7 +1079,6 @@ export class TerrablastGameService {
 
     // Advance to next position
     this.projectile.trajectoryIndex++;
-    console.log('Advanced to index', this.projectile.trajectoryIndex);
   }
 
   private destroyTrajectoryProjectile() {

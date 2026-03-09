@@ -165,5 +165,5 @@ export const UI_ANGLE_DECIMALS = 1;
 
 // Off-screen explosion margins
 export const OFFSCREEN_EXPLODE_MARGIN_X = 200;
-export const OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM = 200;
+export const OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM = 400;
 export const OFFSCREEN_EXPLODE_MARGIN_Y_TOP = 2000;
