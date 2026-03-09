@@ -105,59 +105,13 @@ export class TerrablastGameService {
       // Update simulation
       this.Engine.update(tempEngine, 16.666); // ~60 FPS
 
-      // Check terrain collision
-      const px = Math.floor(projectile.position.x);
-      const py = Math.floor(projectile.position.y);
-      const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-      const terrainLocalY = py - terrainY;
-
-      if (
-        px >= 0 &&
-        px < CONST.TERRAIN_WIDTH &&
-        terrainLocalY >= 0 &&
-        terrainLocalY < this.terrain[px]?.length &&
-        this.terrain[px][terrainLocalY] === 1
-      ) {
-        endReason = 'terrain';
-        break;
-      }
-
-      // Check offsets for collision
-      const checkOffsets = [
-        [-1, 0], [1, 0], [0, -1], [0, 1],
-      ];
-      let collided = false;
-      for (const [offsetX, offsetY] of checkOffsets) {
-        const checkX = px + offsetX;
-        const checkY = py + offsetY;
-        const terrainCheckY = checkY - terrainY;
-        if (
-          checkX >= 0 &&
-          checkX < CONST.TERRAIN_WIDTH &&
-          terrainCheckY >= 0 &&
-          terrainCheckY < this.terrain[checkX]?.length &&
-          this.terrain[checkX][terrainCheckY] === 1
-        ) {
-          collided = true;
-          break;
-        }
-      }
-      if (collided) {
-        endReason = 'terrain';
-        break;
-      }
-
-      // Check bounds
-      if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.CANVAS_HEIGHT) {
-        endReason = 'bounds';
-        break;
-      }
-
       step++;
     }
 
     // Clean up
     this.World.remove(tempEngine.world, projectile);
+
+    console.log('Trajectory simulated: positions.length =', positions.length, 'endReason =', endReason);
 
     const result = { positions, endReason };
     this.trajectoryCache.set(cacheKey, result);
@@ -197,6 +151,7 @@ export class TerrablastGameService {
   }
 
   initGame() {
+    this.trajectoryCache.clear();
     this.generateTerrain();
     this.initPhysics();
     this.initPlayer();
@@ -1044,14 +999,19 @@ export class TerrablastGameService {
     const index = this.projectile.trajectoryIndex;
     const positions = this.projectile.trajectory;
 
+    console.log('Updating trajectory projectile: index =', index, 'total positions =', positions.length);
+
     if (index >= positions.length) {
-      this.destroyTrajectoryProjectile();
+      console.log('Reached end of trajectory, removing projectile');
+      this.projectile = null;
       return;
     }
 
     // Set position to current trajectory point
     this.projectile.x = positions[index].x;
     this.projectile.y = positions[index].y;
+
+    console.log('Set position to', this.projectile.x, this.projectile.y);
 
     // Check terrain collision
     const px = Math.floor(this.projectile.x);
@@ -1066,6 +1026,7 @@ export class TerrablastGameService {
       terrainLocalY < this.terrain[px]?.length &&
       this.terrain[px][terrainLocalY] === 1
     ) {
+      console.log('Collided with terrain at center, exploding');
       this.destroyTrajectoryProjectile();
       return;
     }
@@ -1088,6 +1049,7 @@ export class TerrablastGameService {
         this.terrain[checkX][terrainCheckY] === 1
       ) {
         collided = true;
+        console.log('Collided with terrain at offset', offsetX, offsetY, ', exploding');
         break;
       }
     }
@@ -1103,20 +1065,16 @@ export class TerrablastGameService {
         const dy = enemy.y - this.projectile.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < CONST.PROJECTILE_RADIUS + 15) { // Approximate enemy radius
+          console.log('Collided with enemy, exploding');
           this.destroyTrajectoryProjectile();
           return;
         }
       }
     }
 
-    // Check bounds
-    if (this.projectile.x < 0 || this.projectile.x > CONST.TERRAIN_WIDTH || this.projectile.y > CONST.CANVAS_HEIGHT) {
-      this.destroyTrajectoryProjectile();
-      return;
-    }
-
     // Advance to next position
     this.projectile.trajectoryIndex++;
+    console.log('Advanced to index', this.projectile.trajectoryIndex);
   }
 
   private destroyTrajectoryProjectile() {

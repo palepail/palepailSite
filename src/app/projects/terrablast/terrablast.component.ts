@@ -492,9 +492,18 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.setLineDash([]);
     }
 
+    // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
+    this.drawTankBody(centerX, centerY, bodyRadius);
+
+    // Draw tank tracks/details - on top
+    this.drawTankTracks(centerX, centerY, bodyRadius);
+
+    // Restore context
+    this.ctx.restore();
+
     // Draw player prediction path when charging
     if (this.showPrediction && this.gameService.isCharging) {
-      const angleRad = (this.gameService.player.angle * Math.PI) / 180;
+      const angleRad = this.gameService.getBarrelAngle();
       const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * this.BARREL_LENGTH;
       const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * this.BARREL_LENGTH;
       this.drawPredictionPath(
@@ -506,15 +515,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         '#0000FF',
       );
     }
-
-    // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
-    this.drawTankBody(centerX, centerY, bodyRadius);
-
-    // Draw tank tracks/details - on top
-    this.drawTankTracks(centerX, centerY, bodyRadius);
-
-    // Restore context
-    this.ctx.restore();
 
     // Draw UI elements (health and movement bars)
     this.drawEntityUI(this.gameService.player, centerX, centerY, bodyRadius, true);
@@ -780,7 +780,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.UI_TEXT_COLOR;
     this.ctx.font = '12px Arial'; // Smaller font for angle display
     this.ctx.textAlign = 'left';
-    const angleDeg = Math.round(entity.angle); // Relative angle
+    let angleDeg: number;
+    if (isPlayer) {
+      angleDeg = Math.round((this.gameService.getBarrelAngle() * 180) / Math.PI);
+    } else {
+      // For enemy, calculate true angle
+      const baseAngleRad = (entity.angle * Math.PI) / 180;
+      const angleRad = -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+      angleDeg = Math.round((angleRad * 180) / Math.PI);
+    }
     this.ctx.fillText(`${angleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
 
     // Draw movement gauge if moving

@@ -107,7 +107,7 @@ class CameraController {
   ): { targetX: number; targetY: number; type: 'projectile' | 'explosion' } | null {
     let trackPos = null;
     if (projectile) {
-      trackPos = projectile.position;
+      trackPos = projectile.position || { x: projectile.x, y: projectile.y };
     } else if (explodedProjectiles.length > 0) {
       trackPos = explodedProjectiles[0].position;
     }
@@ -120,10 +120,22 @@ class CameraController {
 
     if (distFromPlayer > this.MIN_TRACK_DISTANCE) {
       if (projectile) {
-        const predictionTime = this.PREDICTION_TIME_S;
-        const targetX = trackPos.x + projectile.velocity.x * predictionTime - this.camera.width / 2;
-        const targetY =
-          trackPos.y + projectile.velocity.y * predictionTime - this.camera.height / 2;
+        let targetX, targetY;
+        if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
+          const stepsAhead = Math.floor(this.PREDICTION_TIME_S * 60); // assuming 60 FPS simulation
+          const futureIndex = projectile.trajectoryIndex + stepsAhead;
+          const futurePos = futureIndex < projectile.trajectory.length ? projectile.trajectory[futureIndex] : projectile.trajectory[projectile.trajectory.length - 1];
+          targetX = futurePos.x - this.camera.width / 2;
+          targetY = futurePos.y - this.camera.height / 2;
+        } else if (projectile.body) {
+          const predictionTime = this.PREDICTION_TIME_S;
+          targetX = trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
+          targetY = trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
+        } else {
+          // no prediction available, just center on current position
+          targetX = trackPos.x - this.camera.width / 2;
+          targetY = trackPos.y - this.camera.height / 2;
+        }
         return { targetX, targetY, type: 'projectile' };
       } else {
         // For exploded, just center without prediction
