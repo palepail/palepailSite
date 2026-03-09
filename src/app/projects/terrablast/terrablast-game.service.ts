@@ -293,7 +293,14 @@ export class TerrablastGameService {
     this.enemies = [];
     const numEnemies = 3; // Spawn 3 enemies for now
     for (let i = 0; i < numEnemies; i++) {
-      const x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
+      let x: number;
+      let attempts = 0;
+      do {
+        x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
+        attempts++;
+        if (attempts > 100) break; // Prevent infinite loop
+      } while (Math.abs(x - this.player.x) < 200);
+
       const terrainHeight = this.getTerrainHeightAt(x);
       const y =
         terrainHeight !== -1
@@ -321,16 +328,6 @@ export class TerrablastGameService {
         delay: 0,
         movementFuel: CONST.ENEMY_VEHICLE.fuel,
       };
-      // Ensure not too close to player
-      if (Math.abs(enemy.x - this.player.x) < 200) {
-        enemy.x += enemy.x < this.player.x ? -200 : 200;
-        enemy.x = Math.max(50, Math.min(CONST.TERRAIN_WIDTH - 50, enemy.x));
-        enemy.y =
-          this.getTerrainHeightAt(enemy.x) !== -1
-            ? this.getTerrainHeightAt(enemy.x) - CONST.TANK_HALF_HEIGHT
-            : y;
-        enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
-      }
       enemy.body = this.Bodies.rectangle(enemy.x, enemy.y, 30, 30, {
         friction: CONST.PLAYER_FRICTION,
         frictionAir: CONST.PLAYER_AIR_FRICTION,
@@ -388,6 +385,9 @@ export class TerrablastGameService {
       if (enemy.body && enemy.active) {
         enemy.x = enemy.body.position.x;
         enemy.y = enemy.body.position.y;
+        // Clamp horizontal position to screen bounds
+        enemy.x = Math.max(0, Math.min(CONST.CANVAS_WIDTH, enemy.x));
+        this.Body.setPosition(enemy.body, { x: enemy.x, y: enemy.y });
         // Update terrain angle
         enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
         // Smoothly interpolate enemy barrel angle toward target
@@ -890,6 +890,9 @@ export class TerrablastGameService {
     if (this.player.body) {
       this.player.x = this.player.body.position.x;
       this.player.y = this.player.body.position.y;
+      // Clamp horizontal position to screen bounds
+      this.player.x = Math.max(0, Math.min(CONST.CANVAS_WIDTH, this.player.x));
+      this.Body.setPosition(this.player.body, { x: this.player.x, y: this.player.y });
     }
 
     // Update enemies
@@ -924,8 +927,8 @@ export class TerrablastGameService {
       this.player.movementFuel = Math.max(0, this.player.movementFuel - 0.5);
     }
 
-    // Check if player fell off the screen
-    this.checkPlayerFall();
+    // Check if entities fell off the screen
+    this.checkEntitiesFall();
 
     // Update explosions
     this.updateExplosions();
@@ -1392,9 +1395,20 @@ export class TerrablastGameService {
     }
   }
 
-  private checkPlayerFall() {
+  private checkEntitiesFall() {
+    // Check player fall
     if (this.player.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
       this.respawnPlayer();
+    }
+
+    // Check enemies fall
+    for (const enemy of this.enemies) {
+      if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
+        enemy.active = false;
+        if (enemy.body) {
+          this.World.remove(this.world, enemy.body);
+        }
+      }
     }
   }
 
