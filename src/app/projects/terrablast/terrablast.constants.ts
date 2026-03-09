@@ -15,6 +15,7 @@ export const TERRAIN_STRIP_HEIGHT = 300;
 export const TERRAIN_SMOOTHING_WEIGHT = 2;
 export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 2;
+export const WIND_STRENGTH = 0;
 export const TERRAIN_BASE_Y_OFFSET = 200;
 export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;

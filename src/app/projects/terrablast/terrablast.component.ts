@@ -492,6 +492,21 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.setLineDash([]);
     }
 
+    // Draw player prediction path when charging
+    if (this.showPrediction && this.gameService.isCharging) {
+      const angleRad = (this.gameService.player.angle * Math.PI) / 180;
+      const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * this.BARREL_LENGTH;
+      const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * this.BARREL_LENGTH;
+      this.drawPredictionPath(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        this.gameService.player.power,
+        this.gameService.player.vehicle.bullet,
+        '#0000FF',
+      );
+    }
+
     // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
     this.drawTankBody(centerX, centerY, bodyRadius);
 
@@ -564,7 +579,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         barrelEndX,
         barrelEndY,
         angleRad,
-        enemy.power + 50,
+        enemy.power,
         enemy.vehicle.bullet,
         '#FF0000',
       );
@@ -658,24 +673,26 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     bullet: any,
     color: string = '#FFFFFF',
   ) {
-    const effectivePower = Math.max(CONST.MIN_POWER, power);
-    const v = (effectivePower / 100) * bullet.speed;
-    const vx = Math.cos(angleRad) * v;
-    const vy = -Math.sin(angleRad) * v;
-    const g = CONST.GRAVITY_STRENGTH;
+    const { positions } = this.gameService.simulateTrajectory(
+      startX,
+      startY,
+      angleRad,
+      power,
+      bullet,
+    );
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([5, 5]);
     this.ctx.beginPath();
-    const startScreen = this.cameraController.worldToScreen(startX, startY);
-    this.ctx.moveTo(startScreen.x, startScreen.y);
-    for (let t = 0.5; t < 50; t += 0.5) {
-      const x = startX + vx * t;
-      const y = startY + vy * t + 0.5 * g * t * t;
-      const terrainY = this.gameService.getTerrainHeightAt(x);
-      if (y + this.PROJECTILE_RADIUS >= terrainY || x < 0 || x > CONST.TERRAIN_WIDTH) break;
-      const screenPos = this.cameraController.worldToScreen(x, y);
-      this.ctx.lineTo(screenPos.x, screenPos.y);
+    let started = false;
+    for (const pos of positions) {
+      const screenPos = this.cameraController.worldToScreen(pos.x, pos.y);
+      if (!started) {
+        this.ctx.moveTo(screenPos.x, screenPos.y);
+        started = true;
+      } else {
+        this.ctx.lineTo(screenPos.x, screenPos.y);
+      }
     }
     this.ctx.stroke();
     this.ctx.setLineDash([]);
@@ -830,10 +847,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
 
   private drawProjectile() {
     if (this.gameService.projectile) {
-      const screenPos = this.cameraController.worldToScreen(
-        this.gameService.projectile.position.x,
-        this.gameService.projectile.position.y,
-      );
+      let pos: { x: number; y: number };
+      if (this.gameService.projectile.body) {
+        // Legacy physics projectile
+        pos = this.gameService.projectile.body.position;
+      } else {
+        // Trajectory projectile
+        pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
+      }
+      const screenPos = this.cameraController.worldToScreen(pos.x, pos.y);
       this.ctx.fillStyle = this.PROJECTILE_COLOR;
       this.ctx.beginPath();
       this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);

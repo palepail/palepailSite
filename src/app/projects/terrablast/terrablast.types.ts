@@ -92,6 +92,16 @@ export interface DamageText {
   life: number;
 }
 
+export interface Projectile {
+  body?: any; // Matter.js body (for physics mode)
+  x: number;
+  y: number;
+  trajectory?: { x: number; y: number }[]; // Precomputed positions
+  trajectoryIndex?: number; // Current index in trajectory
+  owner: Player | Enemy;
+  bullet: Bullet;
+}
+
 export interface Bullet {
   damage: number;
   shape: string;

@@ -10,6 +10,7 @@ import {
   DamageText,
   TurnEntity,
   ExplodedProjectile,
+  Projectile,
 } from './terrablast.types';
 import * as CONST from './terrablast.constants';
 
@@ -36,7 +37,7 @@ export class TerrablastGameService {
   terrain: number[][] = [];
   player: Player;
   enemies: Enemy[] = [];
-  projectile: any = null;
+  projectile: Projectile | null = null;
   explosions: Explosion[] = [];
   explodedProjectiles: ExplodedProjectile[] = [];
   damageTexts: DamageText[] = [];
@@ -58,11 +59,109 @@ export class TerrablastGameService {
   isCharging = false;
   chargeStartTime = 0;
 
+  // Trajectory cache
+  private trajectoryCache: Map<string, { positions: { x: number; y: number }[]; endReason: string }> = new Map();
+
   // Input
   keys: { [key: string]: boolean } = {};
 
   constructor() {
     this.player = this.createInitialPlayer();
+  }
+
+  simulateTrajectory(startX: number, startY: number, angleRad: number, power: number, bullet: any): { positions: { x: number; y: number }[]; endReason: string } {
+    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}`;
+    if (this.trajectoryCache.has(cacheKey)) {
+      return this.trajectoryCache.get(cacheKey)!;
+    }
+
+    const tempEngine = this.Engine.create();
+    tempEngine.world.gravity.y = CONST.GRAVITY_STRENGTH;
+
+    const velocity = (power / 100) * bullet.speed;
+    const vx = Math.cos(angleRad) * velocity;
+    const vy = -Math.sin(angleRad) * velocity;
+
+    const projectile = this.Bodies.circle(startX, startY, CONST.PROJECTILE_RADIUS, {
+      friction: CONST.PROJECTILE_FRICTION,
+      restitution: CONST.PROJECTILE_RESTITUTION,
+      frictionAir: 0,
+    });
+    this.Body.setVelocity(projectile, { x: vx, y: vy });
+    this.World.add(tempEngine.world, projectile);
+
+    const positions: { x: number; y: number }[] = [];
+    let endReason = 'timeout';
+    const maxSteps = 1000;
+    let step = 0;
+
+    while (step < maxSteps) {
+      // Record position
+      positions.push({ x: projectile.position.x, y: projectile.position.y });
+
+      // Apply wind force
+      this.Body.applyForce(projectile, projectile.position, { x: CONST.WIND_STRENGTH, y: 0 });
+
+      // Update simulation
+      this.Engine.update(tempEngine, 16.666); // ~60 FPS
+
+      // Check terrain collision
+      const px = Math.floor(projectile.position.x);
+      const py = Math.floor(projectile.position.y);
+      const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+      const terrainLocalY = py - terrainY;
+
+      if (
+        px >= 0 &&
+        px < CONST.TERRAIN_WIDTH &&
+        terrainLocalY >= 0 &&
+        terrainLocalY < this.terrain[px]?.length &&
+        this.terrain[px][terrainLocalY] === 1
+      ) {
+        endReason = 'terrain';
+        break;
+      }
+
+      // Check offsets for collision
+      const checkOffsets = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+      ];
+      let collided = false;
+      for (const [offsetX, offsetY] of checkOffsets) {
+        const checkX = px + offsetX;
+        const checkY = py + offsetY;
+        const terrainCheckY = checkY - terrainY;
+        if (
+          checkX >= 0 &&
+          checkX < CONST.TERRAIN_WIDTH &&
+          terrainCheckY >= 0 &&
+          terrainCheckY < this.terrain[checkX]?.length &&
+          this.terrain[checkX][terrainCheckY] === 1
+        ) {
+          collided = true;
+          break;
+        }
+      }
+      if (collided) {
+        endReason = 'terrain';
+        break;
+      }
+
+      // Check bounds
+      if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.CANVAS_HEIGHT) {
+        endReason = 'bounds';
+        break;
+      }
+
+      step++;
+    }
+
+    // Clean up
+    this.World.remove(tempEngine.world, projectile);
+
+    const result = { positions, endReason };
+    this.trajectoryCache.set(cacheKey, result);
+    return result;
   }
 
   setMatterJS(matter: any) {
@@ -174,20 +273,24 @@ export class TerrablastGameService {
         const pair = pairs[i];
         // Check projectile vs player
         if (
-          (pair.bodyA === this.projectile && pair.bodyB === this.player.body) ||
-          (pair.bodyB === this.projectile && pair.bodyA === this.player.body)
+          this.projectile &&
+          this.projectile.body &&
+          ((pair.bodyA === this.projectile.body && pair.bodyB === this.player.body) ||
+            (pair.bodyB === this.projectile.body && pair.bodyA === this.player.body))
         ) {
-          this.destroyProjectileAt(this.projectile.position);
+          this.destroyProjectileAt(this.projectile.body.position);
         }
         // Check projectile vs enemies
         for (const enemy of this.enemies) {
           if (
+            this.projectile &&
+            this.projectile.body &&
             enemy.active &&
             enemy.body &&
-            ((pair.bodyA === this.projectile && pair.bodyB === enemy.body) ||
-              (pair.bodyB === this.projectile && pair.bodyA === enemy.body))
+            ((pair.bodyA === this.projectile.body && pair.bodyB === enemy.body) ||
+              (pair.bodyB === this.projectile.body && pair.bodyA === enemy.body))
           ) {
-            this.destroyProjectileAt(this.projectile.position);
+            this.destroyProjectileAt(this.projectile.body.position);
             break;
           }
         }
@@ -561,22 +664,20 @@ export class TerrablastGameService {
     const baseAngleRad = (enemy.angle * Math.PI) / 180;
     const angleRad = -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
     const bullet = enemy.vehicle.bullet;
-    const velocity = (power / 100) * bullet.speed;
-    const vx = Math.cos(angleRad) * velocity;
-    const vy = -Math.sin(angleRad) * velocity;
     const barrelLength = CONST.BARREL_LENGTH;
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
-    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
-      friction: CONST.PROJECTILE_FRICTION,
-      restitution: CONST.PROJECTILE_RESTITUTION,
-      frictionAir: 0,
-    });
-    this.Body.setVelocity(this.projectile, { x: vx, y: vy });
-    this.World.add(this.world, this.projectile);
-    this.projectile.owner = enemy;
-    this.projectile.bullet = bullet;
+    const { positions } = this.simulateTrajectory(barrelEndX, barrelEndY, angleRad, power, bullet);
+
+    this.projectile = {
+      x: barrelEndX,
+      y: barrelEndY,
+      trajectory: positions,
+      trajectoryIndex: 0,
+      owner: enemy,
+      bullet: bullet,
+    };
   }
 
   getCurrentTurnEntity(): TurnEntity | null {
@@ -626,7 +727,11 @@ export class TerrablastGameService {
     const prevEntity = this._turnQueue[this._turnQueue.length - 1]; // Since resorted, last is previous
     if (prevEntity) {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
-        this.destroyProjectileAt(this.projectile.position);
+        if (this.projectile.body) {
+          this.destroyProjectileAt(this.projectile.body.position);
+        } else {
+          this.destroyTrajectoryProjectile();
+        }
       }
       this.explodedProjectiles = this.explodedProjectiles.filter(
         (ep) => ep.owner !== prevEntity.entity,
@@ -755,7 +860,13 @@ export class TerrablastGameService {
 
     // Update projectile if exists
     if (this.projectile) {
-      this.checkProjectileCollision();
+      if (this.projectile.body) {
+        // Legacy physics projectile
+        this.checkProjectileCollision();
+      } else {
+        // Trajectory-based projectile
+        this.updateTrajectoryProjectile();
+      }
     }
 
     // Check player collision with terrain
@@ -908,23 +1019,132 @@ export class TerrablastGameService {
   public shoot() {
     const angleRad = this.getBarrelAngle();
     const bullet = this.player.vehicle.bullet;
-    const velocity = (this.player.power / 100) * bullet.speed;
-    const vx = Math.cos(angleRad) * velocity;
-    const vy = -Math.sin(angleRad) * velocity;
     const barrelLength = CONST.BARREL_LENGTH;
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
-    this.projectile = this.Bodies.circle(barrelEndX, barrelEndY, CONST.PROJECTILE_RADIUS, {
-      friction: CONST.PROJECTILE_FRICTION,
-      restitution: CONST.PROJECTILE_RESTITUTION,
-      frictionAir: 0,
-    });
-    this.Body.setVelocity(this.projectile, { x: vx, y: vy });
-    this.World.add(this.world, this.projectile);
-    this.projectile.owner = this.player;
-    this.projectile.bullet = bullet;
+
+    const { positions } = this.simulateTrajectory(barrelEndX, barrelEndY, angleRad, this.player.power, bullet);
+
+    this.projectile = {
+      x: barrelEndX,
+      y: barrelEndY,
+      trajectory: positions,
+      trajectoryIndex: 0,
+      owner: this.player,
+      bullet: bullet,
+    };
+
     this.isCharging = false;
     this.player.turnState = 'bullet_in_flight';
+  }
+
+  private updateTrajectoryProjectile() {
+    if (!this.projectile || !this.projectile.trajectory || this.projectile.trajectoryIndex === undefined) return;
+
+    const index = this.projectile.trajectoryIndex;
+    const positions = this.projectile.trajectory;
+
+    if (index >= positions.length) {
+      this.destroyTrajectoryProjectile();
+      return;
+    }
+
+    // Set position to current trajectory point
+    this.projectile.x = positions[index].x;
+    this.projectile.y = positions[index].y;
+
+    // Check terrain collision
+    const px = Math.floor(this.projectile.x);
+    const py = Math.floor(this.projectile.y);
+    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    const terrainLocalY = py - terrainY;
+
+    if (
+      px >= 0 &&
+      px < CONST.TERRAIN_WIDTH &&
+      terrainLocalY >= 0 &&
+      terrainLocalY < this.terrain[px]?.length &&
+      this.terrain[px][terrainLocalY] === 1
+    ) {
+      this.destroyTrajectoryProjectile();
+      return;
+    }
+
+    // Check offsets for collision
+    const checkOffsets = [
+      [-1, 0], [1, 0], [0, -1], [0, 1],
+    ];
+    let collided = false;
+    for (const [offsetX, offsetY] of checkOffsets) {
+      const checkX = px + offsetX;
+      const checkY = py + offsetY;
+      const terrainCheckY = checkY - terrainY;
+
+      if (
+        checkX >= 0 &&
+        checkX < CONST.TERRAIN_WIDTH &&
+        terrainCheckY >= 0 &&
+        terrainCheckY < this.terrain[checkX]?.length &&
+        this.terrain[checkX][terrainCheckY] === 1
+      ) {
+        collided = true;
+        break;
+      }
+    }
+    if (collided) {
+      this.destroyTrajectoryProjectile();
+      return;
+    }
+
+    // Check collision with enemies
+    for (const enemy of this.enemies) {
+      if (enemy.active) {
+        const dx = enemy.x - this.projectile.x;
+        const dy = enemy.y - this.projectile.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < CONST.PROJECTILE_RADIUS + 15) { // Approximate enemy radius
+          this.destroyTrajectoryProjectile();
+          return;
+        }
+      }
+    }
+
+    // Check bounds
+    if (this.projectile.x < 0 || this.projectile.x > CONST.TERRAIN_WIDTH || this.projectile.y > CONST.CANVAS_HEIGHT) {
+      this.destroyTrajectoryProjectile();
+      return;
+    }
+
+    // Advance to next position
+    this.projectile.trajectoryIndex++;
+  }
+
+  private destroyTrajectoryProjectile() {
+    if (!this.projectile) return;
+
+    this.explosions.push({
+      x: this.projectile.x,
+      y: this.projectile.y,
+      radius: CONST.EXPLOSION_INITIAL_RADIUS,
+      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
+      life: CONST.EXPLOSION_LIFETIME_FRAMES,
+      shape: this.projectile.bullet.explosionShape,
+    });
+
+    // Apply damage
+    this.calculateExplosionDamage(this.projectile.x, this.projectile.y, this.projectile);
+
+    // Create crater
+    this.createCrater(this.projectile.x, this.projectile.y, CONST.CRATER_RADIUS, this.projectile.bullet);
+
+    this.explodedProjectiles.push({
+      position: { x: this.projectile.x, y: this.projectile.y },
+      bullet: this.projectile.bullet,
+      removalTime: Date.now() + 2000,
+      owner: this.projectile.owner,
+    });
+
+    this.projectile = null;
   }
 
   private startCharging() {
@@ -933,8 +1153,8 @@ export class TerrablastGameService {
   }
 
   private checkProjectileCollision() {
-    const px = Math.floor(this.projectile.position.x);
-    const py = Math.floor(this.projectile.position.y);
+    const px = Math.floor(this.projectile!.body.position.x);
+    const py = Math.floor(this.projectile!.body.position.y);
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     const terrainLocalY = py - terrainY;
 
@@ -945,7 +1165,7 @@ export class TerrablastGameService {
       terrainLocalY < this.terrain[px]?.length
     ) {
       if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
-        this.createCrater(px, py, CONST.CRATER_RADIUS, this.projectile.bullet);
+        this.createCrater(px, py, CONST.CRATER_RADIUS, this.projectile!.bullet);
         this.destroyProjectileAt({ x: px, y: py });
         return;
       }
@@ -969,7 +1189,7 @@ export class TerrablastGameService {
         terrainCheckY < this.terrain[checkX]?.length
       ) {
         if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
-          this.createCrater(checkX, checkY, CONST.CRATER_RADIUS, this.projectile.bullet);
+          this.createCrater(checkX, checkY, CONST.CRATER_RADIUS, this.projectile!.bullet);
           this.destroyProjectileAt({ x: checkX, y: checkY });
           return;
         }
@@ -989,7 +1209,7 @@ export class TerrablastGameService {
     }
 
     if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.TERRAIN_HEIGHT) {
-      this.destroyProjectileAt(this.projectile.position);
+      this.destroyProjectileAt(this.projectile!.body.position);
     }
   }
 
