@@ -162,3 +162,8 @@ export const UI_HEALTH_Y = 70;
 export const UI_MOVEMENT_Y = 90;
 export const UI_TERRAIN_ANGLE_Y = 110;
 export const UI_ANGLE_DECIMALS = 1;
+
+// Off-screen explosion margins
+export const OFFSCREEN_EXPLODE_MARGIN_X = 200;
+export const OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM = 200;
+export const OFFSCREEN_EXPLODE_MARGIN_Y_TOP = 2000;

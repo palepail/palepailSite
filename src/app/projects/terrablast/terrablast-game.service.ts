@@ -1013,6 +1013,18 @@ export class TerrablastGameService {
 
     console.log('Set position to', this.projectile.x, this.projectile.y);
 
+    // Check if projectile went off game area
+    if (
+      this.projectile.x < -CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+      this.projectile.x > CONST.TERRAIN_WIDTH + CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+      this.projectile.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
+      this.projectile.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
+    ) {
+      console.log('Projectile went off game area, exploding');
+      this.destroyTrajectoryProjectile();
+      return;
+    }
+
     // Check terrain collision
     const px = Math.floor(this.projectile.x);
     const py = Math.floor(this.projectile.y);
