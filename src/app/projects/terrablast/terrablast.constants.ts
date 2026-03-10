@@ -3,8 +3,8 @@
 
 import { Vehicle } from './terrablast.types';
 
-export const CANVAS_WIDTH = 800;
-export const CANVAS_HEIGHT = 500;
+export const CANVAS_WIDTH = 1200;
+export const CANVAS_HEIGHT = 720;
 export const CANVAS_PADDING = 32;
 export const SKY_COLOR = '#87CEEB';
 

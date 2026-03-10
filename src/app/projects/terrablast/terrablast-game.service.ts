@@ -1370,16 +1370,13 @@ export class TerrablastGameService {
   private checkEntitiesFall() {
     // Check player fall
     if (this.player.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-      this.respawnPlayer();
+      this.player.health = 0;
     }
 
     // Check enemies fall
     for (const enemy of this.enemies) {
       if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-        enemy.active = false;
-        if (enemy.body) {
-          this.World.remove(this.world, enemy.body);
-        }
+        enemy.health = 0;
       }
     }
   }
