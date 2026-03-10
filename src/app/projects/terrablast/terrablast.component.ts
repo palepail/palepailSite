@@ -738,15 +738,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillStyle = this.UI_TEXT_COLOR;
     this.ctx.font = '12px Arial'; // Smaller font for angle display
     this.ctx.textAlign = 'left';
-    let angleDeg: number;
-    if (isPlayer) {
-      angleDeg = Math.round((this.gameService.getBarrelAngle() * 180) / Math.PI);
-    } else {
-      // For enemy, calculate true angle
-      const baseAngleRad = (entity.angle * Math.PI) / 180;
-      const angleRad = -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
-      angleDeg = Math.round((angleRad * 180) / Math.PI);
-    }
+    const angleDeg = this.gameService.getEntityDisplayedAngle(entity);
     this.ctx.fillText(`${angleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
 
     // Draw movement gauge if moving
