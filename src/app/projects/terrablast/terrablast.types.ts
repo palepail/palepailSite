@@ -31,11 +31,22 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'assess' | 'moving' | 'aiming' | 'charging' | 'bullet_in_flight' | 'post_bullet';
+  turnState:
+    | 'turn_start'
+    | 'assess'
+    | 'moving'
+    | 'aiming'
+    | 'charging'
+    | 'bullet_in_flight'
+    | 'post_bullet';
   turnTimer: number;
   targetPower?: number;
   power: number;
   delay: number;
+  stuckCounter: number;
+  assessCounter: number;
+  lastX?: number;
+  lastY?: number;
   targetAngle?: number;
   movementFuel?: number; // Optional, for enemies if needed
   movementTimer?: number;

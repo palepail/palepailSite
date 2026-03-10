@@ -269,7 +269,7 @@ export class TerrablastGameService {
         x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
         attempts++;
         if (attempts > 100) break; // Prevent infinite loop
-      } while ([this.player, ...this.enemies].some(entity => Math.abs(entity.x - x) < 200));
+      } while ([this.player, ...this.enemies].some((entity) => Math.abs(entity.x - x) < 200));
       console.log(`Spawning enemy ${i + 1} at x=${x.toFixed(1)}`);
       const terrainHeight = this.getTerrainHeightAt(x);
       const y =
@@ -296,6 +296,10 @@ export class TerrablastGameService {
         targetPower: 0,
         power: 0,
         delay: 0,
+        stuckCounter: 0,
+        assessCounter: 0,
+        lastX: x,
+        lastY: y,
         movementFuel: CONST.ENEMY_VEHICLE.fuel,
       };
       enemy.body = this.Bodies.rectangle(enemy.x, enemy.y, 30, 30, {
@@ -310,7 +314,10 @@ export class TerrablastGameService {
   }
 
   startTurn() {
-    console.log('Enemy positions at turn start:', this.enemies.map((e, i) => `Enemy ${i}: x=${e.x.toFixed(1)}, y=${e.y.toFixed(1)}`));
+    console.log(
+      'Enemy positions at turn start:',
+      this.enemies.map((e, i) => `Enemy ${i}: x=${e.x.toFixed(1)}, y=${e.y.toFixed(1)}`),
+    );
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
       this._turnQueue.forEach((te) => (te.entity.delay -= waited));
@@ -381,6 +388,12 @@ export class TerrablastGameService {
 
     const enemy = currentTurn.entity as Enemy;
     if (!enemy.active) return;
+
+    // Check for timeout
+    if (this.turnTime > this.TIMEOUT_MS) {
+      this.endTurn();
+      return;
+    }
 
     // Simple enemy AI: aim at player and shoot
     this.performEnemyAction(enemy);
@@ -458,10 +471,16 @@ export class TerrablastGameService {
           // Wait 0.5 seconds for turn start
           enemy.turnState = 'assess';
           enemy.turnTimer = 0;
+          enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
+          enemy.stuckCounter = 0;
         }
         break;
 
       case 'assess':
+        enemy.assessCounter -= 16;
+        if (enemy.assessCounter > 0) {
+          return;
+        }
         // Assess situation and decide action
         const dx = this.player.x - enemy.x;
         const dy = this.player.y - enemy.y;
@@ -521,6 +540,10 @@ export class TerrablastGameService {
         break;
 
       case 'moving':
+        if (enemy.lastX === undefined) {
+          enemy.lastX = enemy.x;
+          enemy.lastY = enemy.y;
+        }
         if (enemy.movementTimer! > 0 && enemy.movementFuel! > 0) {
           // Apply movement
           const moveSpeed = CONST.PLAYER_MOVE_SPEED;
@@ -528,7 +551,9 @@ export class TerrablastGameService {
           const targetX = enemy.x + vx;
           const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
           const angle = this.getTerrainAngleAt(targetX);
-          const canMove = !hasTerrain || (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
+          const canMove =
+            !hasTerrain ||
+            (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
           if (canMove) {
             this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
             enemy.movementFuel! -= 0.5; // Deplete fuel at same rate as player
@@ -554,6 +579,30 @@ export class TerrablastGameService {
             enemy.turnTimer = 0;
           }
         }
+
+        // Check for stuck
+        const moved = Math.hypot(enemy.x - enemy.lastX!, enemy.y - enemy.lastY!);
+        if (moved < 1) {
+          enemy.stuckCounter += 16;
+        } else {
+          enemy.stuckCounter = 0;
+        }
+        if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
+          console.log('Enemy stuck, handling recovery');
+          if (enemy.behavior === 'flanking') {
+            // Force flanking maneuver
+            const dx = this.player.x - enemy.x;
+            const dy = this.player.y - enemy.y;
+            const distance = Math.hypot(dx, dy);
+            enemy.moveDirection = Math.abs(dx) > distance * 0.5 ? (dy > 0 ? -1 : 1) : dx > 0 ? 1 : -1;
+          } else {
+            enemy.moveDirection = -enemy.moveDirection!;
+          }
+          enemy.movementTimer = 1000 + Math.random() * 1000;
+          enemy.stuckCounter = 0;
+        }
+        enemy.lastX = enemy.x;
+        enemy.lastY = enemy.y;
         break;
 
       case 'aiming':
@@ -863,6 +912,8 @@ export class TerrablastGameService {
     this.lastUpdateTime = now;
 
     this.handleInput(this.keys);
+
+    this.turnTime = now - this._turnStartTime;
 
     // Update player position from physics body
     if (this.player.body) {

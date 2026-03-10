@@ -124,7 +124,10 @@ class CameraController {
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
           const remainingSteps = projectile.trajectory.length - projectile.trajectoryIndex;
           const stepsAhead = Math.min(remainingSteps * 0.1, 12);
-          const futureIndex = Math.min(projectile.trajectoryIndex + stepsAhead, projectile.trajectory.length - 1);
+          const futureIndex = Math.min(
+            projectile.trajectoryIndex + stepsAhead,
+            projectile.trajectory.length - 1,
+          );
           const futurePos = projectile.trajectory[futureIndex];
           targetX = futurePos.x - this.camera.width / 2;
           targetY = futurePos.y - this.camera.height / 2;
@@ -132,8 +135,10 @@ class CameraController {
           targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else if (projectile.body) {
           const predictionTime = this.PREDICTION_TIME_S;
-          targetX = trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
-          targetY = trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
+          targetX =
+            trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
+          targetY =
+            trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
           targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
           targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else {
@@ -239,7 +244,11 @@ class CameraController {
     }
 
     // Track projectile if needed
-    let projectileTargets: { targetX: number; targetY: number; type: 'projectile' | 'explosion' } | null = null;
+    let projectileTargets: {
+      targetX: number;
+      targetY: number;
+      type: 'projectile' | 'explosion';
+    } | null = null;
 
     // If we're already tracking an explosion and it still exists, continue tracking it
     if (this.trackedExplosion && explodedProjectiles.includes(this.trackedExplosion)) {
@@ -247,7 +256,7 @@ class CameraController {
       projectileTargets = {
         targetX: trackPos.x - this.camera.width / 2,
         targetY: trackPos.y - this.camera.height * (2 / 3),
-        type: 'explosion'
+        type: 'explosion',
       };
     } else if (explodedProjectiles.length > 0) {
       // Start tracking a new explosion
@@ -256,7 +265,7 @@ class CameraController {
       projectileTargets = {
         targetX: trackPos.x - this.camera.width / 2,
         targetY: trackPos.y - this.camera.height * (2 / 3),
-        type: 'explosion'
+        type: 'explosion',
       };
     } else {
       // No explosions, check for projectile

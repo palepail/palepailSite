@@ -100,7 +100,7 @@ export const ENEMY_VEHICLE: Vehicle = {
   fuel: 75,
   health: 80,
   minAimAngle: 20,
-  maxAimAngle: 55,
+  maxAimAngle: 75,
   shotDelay: 100,
   bullet: {
     damage: 40,
@@ -108,7 +108,7 @@ export const ENEMY_VEHICLE: Vehicle = {
     explosionShape: 'circle',
     explosionRadius: 40,
     craterRadius: 30,
-    speed: 15,
+    speed: 20,
   },
 };
 export const DAMAGE_TEXT_LIFETIME = 60; // frames
@@ -167,3 +167,6 @@ export const UI_ANGLE_DECIMALS = 1;
 export const OFFSCREEN_EXPLODE_MARGIN_X = 200;
 export const OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM = 400;
 export const OFFSCREEN_EXPLODE_MARGIN_Y_TOP = 2000;
+
+export const ENEMY_ASSESS_DELAY = 500;
+export const ENEMY_STUCK_THRESHOLD = 1000;
