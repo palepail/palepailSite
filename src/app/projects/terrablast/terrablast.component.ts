@@ -1,4 +1,11 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ElementRef,
+  ViewChild,
+  HostListener,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -113,7 +120,9 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
-  constructor(private gameService: TerrablastGameService) {}
+  constructor(
+    private gameService: TerrablastGameService,
+  ) {}
 
   ngOnInit() {
     this.gameService.setMatterJS(Matter);
@@ -735,8 +744,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     } else {
       // For enemy, calculate true angle
       const baseAngleRad = (entity.angle * Math.PI) / 180;
-      const angleRad =
-        -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+      const angleRad = -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
       angleDeg = Math.round((angleRad * 180) / Math.PI);
     }
     this.ctx.fillText(`${angleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);

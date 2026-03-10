@@ -18,6 +18,7 @@ export interface Player {
   turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'bullet_in_flight' | 'post_bullet';
   turnTimer: number;
   delay: number;
+  targetAngle?: number;
 }
 
 export interface Enemy {

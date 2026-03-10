@@ -361,18 +361,7 @@ export class TerrablastGameService {
   private updateEnemies() {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
-        enemy.x = enemy.body.position.x;
-        enemy.y = enemy.body.position.y;
-        // Clamp horizontal position to terrain bounds
-        enemy.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, enemy.x));
-        this.Body.setPosition(enemy.body, { x: enemy.x, y: enemy.y });
-        // Update terrain angle
-        enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
-        // Smoothly interpolate enemy barrel angle toward target
-        if (enemy.targetAngle !== undefined) {
-          const diff = enemy.targetAngle - enemy.angle;
-          enemy.angle += diff * 0.1; // 10% interpolation per frame
-        }
+        this.updateEntityPhysics(enemy);
       }
     }
 
@@ -445,6 +434,23 @@ export class TerrablastGameService {
         this.enemyShoot(entity as Enemy, entity.power);
       }
       entity.turnState = 'bullet_in_flight';
+    }
+  }
+
+  private updateEntityPhysics(entity: Player | Enemy) {
+    if (entity.body) {
+      entity.x = entity.body.position.x;
+      entity.y = entity.body.position.y;
+      // Clamp horizontal position to terrain bounds
+      entity.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, entity.x));
+      this.Body.setPosition(entity.body, { x: entity.x, y: entity.y });
+      // Update terrain angle
+      entity.terrainAngle = this.getTerrainAngleAt(entity.x);
+      // Smoothly interpolate angle toward target
+      if (entity.targetAngle !== undefined) {
+        const diff = entity.targetAngle - entity.angle;
+        entity.angle += diff * 0.1; // 10% interpolation per frame
+      }
     }
   }
 
@@ -921,14 +927,8 @@ export class TerrablastGameService {
 
     this.turnTime = now - this._turnStartTime;
 
-    // Update player position from physics body
-    if (this.player.body) {
-      this.player.x = this.player.body.position.x;
-      this.player.y = this.player.body.position.y;
-      // Clamp horizontal position to terrain bounds
-      this.player.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, this.player.x));
-      this.Body.setPosition(this.player.body, { x: this.player.x, y: this.player.y });
-    }
+    // Update player physics
+    this.updateEntityPhysics(this.player);
 
     // Update enemies
     this.updateEnemies();
@@ -1036,9 +1036,9 @@ export class TerrablastGameService {
           !this.projectile &&
           this.player.turnState === 'idle'
         ) {
-          this.player.angle = Math.min(
+          this.player.targetAngle = Math.min(
             CONST.MAX_AIM_ANGLE,
-            this.player.angle + CONST.ANGLE_ADJUST_SPEED / 400,
+            (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
         if (
@@ -1047,9 +1047,9 @@ export class TerrablastGameService {
           !this.projectile &&
           this.player.turnState === 'idle'
         ) {
-          this.player.angle = Math.max(
+          this.player.targetAngle = Math.max(
             CONST.MIN_AIM_ANGLE,
-            this.player.angle - CONST.ANGLE_ADJUST_SPEED / 400,
+            (this.player.targetAngle ?? this.player.angle) - CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
 
