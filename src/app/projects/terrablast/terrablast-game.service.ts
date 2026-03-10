@@ -143,6 +143,19 @@ export class TerrablastGameService {
     this.Composite = matter.Composite;
   }
 
+  private createEntity(entity: Player | Enemy, x: number, y: number) {
+    entity.x = x;
+    entity.y = y;
+    entity.terrainAngle = this.getTerrainAngleAt(x);
+    entity.body = this.Bodies.rectangle(x, y, 30, 30, {
+      friction: CONST.PLAYER_FRICTION,
+      frictionAir: CONST.PLAYER_AIR_FRICTION,
+      restitution: CONST.PLAYER_RESTITUTION,
+      density: CONST.PLAYER_DENSITY,
+    });
+    this.World.add(this.world, entity.body);
+  }
+
   private createInitialPlayer(): Player {
     return {
       body: null,
@@ -171,6 +184,7 @@ export class TerrablastGameService {
     this.initPlayer();
     this.spawnEnemies();
     this.initTurnQueue();
+    this.startTurn();
     this.currentState = GameState.SETUP;
   }
 
@@ -239,7 +253,6 @@ export class TerrablastGameService {
   private initPlayer() {
     this.player.vehicle = CONST.PLAYER_VEHICLE;
     this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
-    console;
     this.player.y =
       CONST.CANVAS_HEIGHT -
       CONST.TERRAIN_BASE_Y_OFFSET -
@@ -248,15 +261,8 @@ export class TerrablastGameService {
     this.player.maxPower = this.player.vehicle.power;
     this.player.health = this.player.vehicle.health;
     this.player.movementFuel = this.player.vehicle.fuel;
-    this.player.terrainAngle = this.getTerrainAngleAt(this.player.x);
 
-    this.player.body = this.Bodies.rectangle(this.player.x, this.player.y, 30, 30, {
-      friction: CONST.PLAYER_FRICTION,
-      frictionAir: CONST.PLAYER_AIR_FRICTION,
-      restitution: CONST.PLAYER_RESTITUTION,
-      density: CONST.PLAYER_DENSITY,
-    });
-    this.World.add(this.world, this.player.body);
+    this.createEntity(this.player, this.player.x, this.player.y);
   }
 
   private spawnEnemies() {
@@ -289,7 +295,7 @@ export class TerrablastGameService {
         color: '#FF6B6B',
         active: true,
         facing: Math.random() > 0.5 ? 1 : -1,
-        terrainAngle: this.getTerrainAngleAt(x),
+        terrainAngle: 0, // Will be set in createEntity
         vehicle: CONST.ENEMY_VEHICLE,
         turnState: 'turn_start',
         turnTimer: 0,
@@ -302,13 +308,7 @@ export class TerrablastGameService {
         lastY: y,
         movementFuel: CONST.ENEMY_VEHICLE.fuel,
       };
-      enemy.body = this.Bodies.rectangle(enemy.x, enemy.y, 30, 30, {
-        friction: CONST.PLAYER_FRICTION,
-        frictionAir: CONST.PLAYER_AIR_FRICTION,
-        restitution: CONST.PLAYER_RESTITUTION,
-        density: CONST.PLAYER_DENSITY,
-      });
-      this.World.add(this.world, enemy.body);
+      this.createEntity(enemy, x, y);
       this.enemies.push(enemy);
     }
   }
@@ -616,16 +616,10 @@ export class TerrablastGameService {
         }
         if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
           console.log('Enemy stuck, handling recovery');
-          if (enemy.behavior === 'flanking') {
-            // Force flanking maneuver
-            const dx = this.player.x - enemy.x;
-            const dy = this.player.y - enemy.y;
-            const distance = Math.hypot(dx, dy);
-            enemy.moveDirection = Math.abs(dx) > distance * 0.5 ? (dy > 0 ? -1 : 1) : dx > 0 ? 1 : -1;
-          } else {
-            enemy.moveDirection = -enemy.moveDirection!;
-          }
-          enemy.movementTimer = 1000 + Math.random() * 1000;
+          enemy.turnState = 'aiming';
+          enemy.targetAngle = undefined;
+          enemy.targetPower = undefined;
+          enemy.turnTimer = 0;
           enemy.stuckCounter = 0;
         }
         enemy.lastX = enemy.x;
