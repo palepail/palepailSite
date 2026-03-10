@@ -1,11 +1,4 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  ElementRef,
-  ViewChild,
-  HostListener,
-} from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -120,9 +113,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
-  constructor(
-    private gameService: TerrablastGameService,
-  ) {}
+  constructor(private gameService: TerrablastGameService) {}
 
   ngOnInit() {
     this.gameService.setMatterJS(Matter);
@@ -238,13 +229,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     // Draw terrain
     this.drawTerrain();
 
-    // Draw charge bar (behind tank)
+    // Draw charge bars (behind tanks)
     if (this.gameService.isCharging) {
-      this.drawChargeBar();
+      this.drawChargeBar(this.gameService.player, this.gameService.player.maxPower);
     }
-
-    // Draw enemy charge bars (behind tanks)
-    this.drawEnemyChargeBars();
+    for (const enemy of this.gameService.enemies) {
+      if (enemy.active && enemy.turnState === 'charging') {
+        this.drawChargeBar(enemy, enemy.vehicle.power);
+      }
+    }
 
     // Draw player
     this.drawPlayer();
@@ -268,14 +261,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.drawTurnQueue();
   }
 
-  private drawChargeBar() {
+  private drawChargeBar(entity: any, maxPower: number) {
     const barWidth = this.CHARGE_BAR_WIDTH;
     const barHeight = this.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
     const offsetX =
-      this.gameService.player.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
-    const worldX = this.gameService.player.x + offsetX;
-    const worldY = this.gameService.player.y - barHeight / 2; // Center vertically on tank
+      entity.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const worldX = entity.x + offsetX;
+    const worldY = entity.y - barHeight / 2; // Center vertically on tank
     const screenPos = this.cameraController.worldToScreen(worldX, worldY);
     const barX = screenPos.x;
     const barY = screenPos.y;
@@ -285,55 +278,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
 
     // Charge level (bottom to top)
-    const chargeRatio = this.gameService.player.power / this.gameService.player.maxPower;
-    this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
-    this.ctx.fillRect(
-      barX,
-      barY + barHeight * (1 - chargeRatio),
-      barWidth,
-      barHeight * chargeRatio,
-    );
-
-    // Border
-    this.ctx.strokeStyle = this.CHARGE_BAR_BORDER_COLOR;
-    this.ctx.lineWidth = this.CHARGE_BAR_BORDER_WIDTH;
-    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-    // Power percentage text
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = this.CHARGE_BAR_FONT;
-    this.ctx.textAlign = 'center';
-    const textX = barX + barWidth / 2;
-    const textY = barY - this.CHARGE_BAR_TEXT_OFFSET_Y;
-    this.ctx.fillText(`${Math.round(chargeRatio * 100)}%`, textX, textY);
-    this.ctx.textAlign = 'left'; // Reset text alignment
-  }
-
-  private drawEnemyChargeBars() {
-    for (const enemy of this.gameService.enemies) {
-      if (enemy.active && enemy.turnState === 'charging') {
-        this.drawEnemyChargeBar(enemy);
-      }
-    }
-  }
-
-  private drawEnemyChargeBar(enemy: any) {
-    const barWidth = this.CHARGE_BAR_WIDTH;
-    const barHeight = this.CHARGE_BAR_HEIGHT;
-    // Position further behind tank based on facing direction
-    const offsetX = enemy.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
-    const worldX = enemy.x + offsetX;
-    const worldY = enemy.y - barHeight / 2; // Center vertically on tank
-    const screenPos = this.cameraController.worldToScreen(worldX, worldY);
-    const barX = screenPos.x;
-    const barY = screenPos.y;
-
-    // Background
-    this.ctx.fillStyle = this.CHARGE_BAR_BACKGROUND_COLOR;
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-
-    // Charge level (bottom to top)
-    const chargeRatio = enemy.power / enemy.targetPower;
+    const chargeRatio = entity.power / maxPower;
     this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
     this.ctx.fillRect(
       barX,

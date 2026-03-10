@@ -314,10 +314,6 @@ export class TerrablastGameService {
   }
 
   startTurn() {
-    console.log(
-      'Enemy positions at turn start:',
-      this.enemies.map((e, i) => `Enemy ${i}: x=${e.x.toFixed(1)}, y=${e.y.toFixed(1)}`),
-    );
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
       this._turnQueue.forEach((te) => (te.entity.delay -= waited));
@@ -408,8 +404,7 @@ export class TerrablastGameService {
     const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
     const angle = this.getTerrainAngleAt(targetX);
     const canMove =
-      !hasTerrain ||
-      (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
+      !hasTerrain || (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
     if (canMove) {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
       entity.movementFuel! -= 0.5; // Deplete fuel at same rate
@@ -420,7 +415,9 @@ export class TerrablastGameService {
   }
 
   private performCharging(entity: Player | Enemy) {
-    const chargeTime = Date.now() - (entity === this.player ? this.chargeStartTime : (entity as Enemy).chargeStartTime!);
+    const chargeTime =
+      Date.now() -
+      (entity === this.player ? this.chargeStartTime : (entity as Enemy).chargeStartTime!);
     const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
     if (entity === this.player) {
       entity.power = CONST.MIN_POWER + (entity.maxPower - CONST.MIN_POWER) * chargeRatio;
@@ -451,9 +448,6 @@ export class TerrablastGameService {
         const diff = entity.targetAngle - entity.angle;
         const oldAngle = entity.angle;
         entity.angle += diff * 0.1; // 10% interpolation per frame
-        if (entity === this.player) {
-          console.log(`Player angle update: from ${oldAngle} to ${entity.angle}, target ${entity.targetAngle}`);
-        }
       }
     }
   }
@@ -1041,7 +1035,9 @@ export class TerrablastGameService {
             CONST.MAX_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
           );
-          console.log(`Player ArrowUp: targetAngle from ${oldTarget} to ${this.player.targetAngle}`);
+          console.log(
+            `Player ArrowUp: targetAngle from ${oldTarget} to ${this.player.targetAngle}`,
+          );
         }
         if (
           keys['ArrowDown'] &&
@@ -1054,7 +1050,9 @@ export class TerrablastGameService {
             CONST.MIN_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) - CONST.ANGLE_ADJUST_SPEED / 400,
           );
-          console.log(`Player ArrowDown: targetAngle from ${oldTarget} to ${this.player.targetAngle}`);
+          console.log(
+            `Player ArrowDown: targetAngle from ${oldTarget} to ${this.player.targetAngle}`,
+          );
         }
 
         if (
@@ -1419,12 +1417,12 @@ export class TerrablastGameService {
 
   getEntityDisplayedAngle(entity: Player | Enemy): number {
     const baseAngleRad = (entity.angle * Math.PI) / 180;
-    const trueAngleRad = -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
-    let trueAngleDeg = trueAngleRad * 180 / Math.PI;
+    const trueAngleRad =
+      -entity.terrainAngle + (entity.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
+    let trueAngleDeg = (trueAngleRad * 180) / Math.PI;
     if (entity.facing === -1) {
       trueAngleDeg = 180 - trueAngleDeg;
     }
-    console.log(`Entity ${entity === this.player ? 'Player' : 'Enemy'}: angle=${entity.angle}, terrainAngle=${entity.terrainAngle}, facing=${entity.facing}, baseAngleRad=${baseAngleRad}, trueAngleRad=${trueAngleRad}, trueAngleDeg=${trueAngleDeg}`);
     return Math.round(trueAngleDeg);
   }
 
