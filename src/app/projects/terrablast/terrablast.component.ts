@@ -5,7 +5,6 @@ import {
   ElementRef,
   ViewChild,
   HostListener,
-  ChangeDetectorRef,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -111,17 +110,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly PROJECTILE_RADIUS = CONST.PROJECTILE_RADIUS;
   private readonly PROJECTILE_COLOR = CONST.PROJECTILE_COLOR;
   private readonly UI_TEXT_COLOR = CONST.UI_TEXT_COLOR;
-  private readonly UI_FONT = CONST.UI_FONT;
-  private readonly UI_TEXT_X = CONST.UI_TEXT_X;
-  private readonly UI_ANGLE_Y = CONST.UI_ANGLE_Y;
-  private readonly UI_POWER_Y = CONST.UI_POWER_Y;
-  private readonly UI_HEALTH_Y = CONST.UI_HEALTH_Y;
-  private readonly UI_TERRAIN_ANGLE_Y = CONST.UI_TERRAIN_ANGLE_Y;
-  private readonly UI_ANGLE_DECIMALS = CONST.UI_ANGLE_DECIMALS;
-  private readonly TERRAIN_DETAIL_SIZE_MAX = CONST.TERRAIN_DETAIL_SIZE_MAX;
-  private readonly TERRAIN_DETAIL_SIZE_MIN = CONST.TERRAIN_DETAIL_SIZE_MIN;
-  private readonly TERRAIN_DETAIL_COUNT = CONST.TERRAIN_DETAIL_COUNT;
-  private readonly TERRAIN_DETAIL_COLOR = CONST.TERRAIN_DETAIL_COLOR;
   private readonly TERRAIN_STRIP_HEIGHT = CONST.TERRAIN_STRIP_HEIGHT;
   private readonly DAMAGE_TEXT_LIFETIME = CONST.DAMAGE_TEXT_LIFETIME;
   private readonly DAMAGE_TEXT_FONT = CONST.DAMAGE_TEXT_FONT;
@@ -133,7 +121,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
   constructor(
-    private cdr: ChangeDetectorRef,
     private gameService: TerrablastGameService,
   ) {}
 
@@ -407,35 +394,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
         const screenX = Math.floor(endX - this.cameraController.camera.x);
         const prevScreenX = Math.floor(segmentStart - this.cameraController.camera.x);
         this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
-      }
-    }
-  }
-
-  private drawTerrainDetails() {
-    // Add some subtle details to make terrain look more natural
-    this.ctx.fillStyle = this.TERRAIN_DETAIL_COLOR; // Semi-transparent brown for details
-    const terrainY = this.CANVAS_HEIGHT - this.TERRAIN_BASE_Y_OFFSET; // Terrain starts at y=500
-
-    const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
-    const endX = Math.min(
-      CONST.TERRAIN_WIDTH,
-      Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
-    );
-
-    for (let i = 0; i < this.TERRAIN_DETAIL_COUNT; i++) {
-      const x = startX + Math.random() * (endX - startX);
-      const terrainLocalY = Math.floor(Math.random() * this.TERRAIN_STRIP_HEIGHT); // Random within terrain height
-
-      if (
-        this.gameService.terrain[Math.floor(x)] &&
-        this.gameService.terrain[Math.floor(x)][terrainLocalY] === 1
-      ) {
-        // Draw small irregular shapes for texture
-        const size =
-          Math.random() * (this.TERRAIN_DETAIL_SIZE_MAX - this.TERRAIN_DETAIL_SIZE_MIN) +
-          this.TERRAIN_DETAIL_SIZE_MIN;
-        const screenX = x - this.cameraController.camera.x;
-        this.ctx.fillRect(screenX - size / 2, terrainY + terrainLocalY - size / 2, size, size);
       }
     }
   }
@@ -1031,7 +989,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.gameService.keys[event.key] = false;
   }
 
-  @HostListener('window:mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
     // Handle camera dragging
     if (this.isDragging) {

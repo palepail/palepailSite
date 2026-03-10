@@ -234,37 +234,6 @@ export class TerrablastGameService {
 
     this.runner = this.Runner.create();
     this.Runner.run(this.runner, this.engine);
-
-    // Add collision event for projectile vs player and enemies
-    this.Events.on(this.engine, 'collisionStart', (event: any) => {
-      const pairs = event.pairs;
-      for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        // Check projectile vs player
-        if (
-          this.projectile &&
-          this.projectile.body &&
-          ((pair.bodyA === this.projectile.body && pair.bodyB === this.player.body) ||
-            (pair.bodyB === this.projectile.body && pair.bodyA === this.player.body))
-        ) {
-          this.destroyProjectileAt(this.projectile.body.position);
-        }
-        // Check projectile vs enemies
-        for (const enemy of this.enemies) {
-          if (
-            this.projectile &&
-            this.projectile.body &&
-            enemy.active &&
-            enemy.body &&
-            ((pair.bodyA === this.projectile.body && pair.bodyB === enemy.body) ||
-              (pair.bodyB === this.projectile.body && pair.bodyA === enemy.body))
-          ) {
-            this.destroyProjectileAt(this.projectile.body.position);
-            break;
-          }
-        }
-      }
-    });
   }
 
   private initPlayer() {
@@ -556,9 +525,20 @@ export class TerrablastGameService {
           // Apply movement
           const moveSpeed = CONST.PLAYER_MOVE_SPEED;
           const vx = enemy.moveDirection! * moveSpeed;
-          this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
+          const targetX = enemy.x + vx;
+          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
+          const angle = this.getTerrainAngleAt(targetX);
+          const canMove = !hasTerrain || (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
+          if (canMove) {
+            this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
+            enemy.movementFuel! -= 0.5; // Deplete fuel at same rate as player
+          } else {
+            // Can't move, stop
+            this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
+            enemy.moveDirection = 0;
+            enemy.movementTimer = 0;
+          }
           enemy.movementTimer! -= 16;
-          enemy.movementFuel! -= Math.abs(vx) * 0.1; // Deplete fuel
         } else {
           // Stop moving and assess again or aim
           this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
@@ -776,11 +756,7 @@ export class TerrablastGameService {
     const prevEntity = this._turnQueue[this._turnQueue.length - 1]; // Since resorted, last is previous
     if (prevEntity) {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
-        if (this.projectile.body) {
-          this.destroyProjectileAt(this.projectile.body.position);
-        } else {
-          this.destroyTrajectoryProjectile();
-        }
+        this.destroyTrajectoryProjectile();
       }
       this.explodedProjectiles = this.explodedProjectiles.filter(
         (ep) => ep.owner !== prevEntity.entity,
@@ -912,13 +888,7 @@ export class TerrablastGameService {
 
     // Update projectile if exists
     if (this.projectile) {
-      if (this.projectile.body) {
-        // Legacy physics projectile
-        this.checkProjectileCollision();
-      } else {
-        // Trajectory-based projectile
-        this.updateTrajectoryProjectile();
-      }
+      this.updateTrajectoryProjectile();
     }
 
     // Check player collision with terrain
@@ -1252,67 +1222,6 @@ export class TerrablastGameService {
     this.chargeStartTime = Date.now();
   }
 
-  private checkProjectileCollision() {
-    const px = Math.floor(this.projectile!.body.position.x);
-    const py = Math.floor(this.projectile!.body.position.y);
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    const terrainLocalY = py - terrainY;
-
-    if (
-      px >= 0 &&
-      px < CONST.TERRAIN_WIDTH &&
-      terrainLocalY >= 0 &&
-      terrainLocalY < this.terrain[px]?.length
-    ) {
-      if (this.terrain[px] && this.terrain[px][terrainLocalY] === 1) {
-        this.createCrater(px, py, CONST.CRATER_RADIUS, this.projectile!.bullet);
-        this.destroyProjectileAt({ x: px, y: py });
-        return;
-      }
-    }
-
-    const checkOffsets = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-    ];
-    for (const [offsetX, offsetY] of checkOffsets) {
-      const checkX = px + offsetX;
-      const checkY = py + offsetY;
-      const terrainCheckY = checkY - terrainY;
-
-      if (
-        checkX >= 0 &&
-        checkX < CONST.TERRAIN_WIDTH &&
-        terrainCheckY >= 0 &&
-        terrainCheckY < this.terrain[checkX]?.length
-      ) {
-        if (this.terrain[checkX] && this.terrain[checkX][terrainCheckY] === 1) {
-          this.createCrater(checkX, checkY, CONST.CRATER_RADIUS, this.projectile!.bullet);
-          this.destroyProjectileAt({ x: checkX, y: checkY });
-          return;
-        }
-      }
-    }
-
-    // Check collision with enemies
-    for (const enemy of this.enemies) {
-      if (enemy.active) {
-        const dist = Math.hypot(px - enemy.x, py - enemy.y);
-        if (dist < 40) {
-          // Threshold for collision
-          this.destroyProjectileAt({ x: px, y: py });
-          return;
-        }
-      }
-    }
-
-    if (px < 0 || px > CONST.TERRAIN_WIDTH || py > CONST.TERRAIN_HEIGHT) {
-      this.destroyProjectileAt(this.projectile!.body.position);
-    }
-  }
-
   private createCrater(centerX: number, centerY: number, radius: number, bullet: any): void {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     let craterRadiusX = radius;
@@ -1338,37 +1247,6 @@ export class TerrablastGameService {
           }
         }
       }
-    }
-  }
-
-  private destroyProjectileAt(position: any) {
-    if (!isFinite(position.x) || !isFinite(position.y)) return;
-
-    if (this.projectile) {
-      this.explosions.push({
-        x: position.x,
-        y: position.y,
-        radius: CONST.EXPLOSION_INITIAL_RADIUS,
-        maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-        life: CONST.EXPLOSION_LIFETIME_FRAMES,
-        shape: this.projectile.bullet.explosionShape,
-      });
-
-      // Apply universal explosion damage
-      this.calculateExplosionDamage(position.x, position.y, this.projectile);
-
-      // Create crater
-      this.createCrater(position.x, position.y, CONST.CRATER_RADIUS, this.projectile.bullet);
-
-      this.explodedProjectiles.push({
-        position: { x: position.x, y: position.y },
-        bullet: this.projectile.bullet,
-        removalTime: Date.now() + 2000,
-        owner: this.projectile.owner,
-      });
-
-      this.World.remove(this.world, this.projectile);
-      this.projectile = null;
     }
   }
 

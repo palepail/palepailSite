@@ -94,10 +94,10 @@ export const PLAYER_VEHICLE: Vehicle = {
 
 export const ENEMY_VEHICLE: Vehicle = {
   speed: 95.0,
-  power: 100,
+  power: 200,
   shape: 'enemy_tank',
-  climbAngle: 30,
-  fuel: 40,
+  climbAngle: 45,
+  fuel: 75,
   health: 80,
   minAimAngle: 20,
   maxAimAngle: 55,
