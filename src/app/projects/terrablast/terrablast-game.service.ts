@@ -270,6 +270,7 @@ export class TerrablastGameService {
   private initPlayer() {
     this.player.vehicle = CONST.PLAYER_VEHICLE;
     this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
+    console;
     this.player.y =
       CONST.CANVAS_HEIGHT -
       CONST.TERRAIN_BASE_Y_OFFSET -
@@ -299,8 +300,8 @@ export class TerrablastGameService {
         x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
         attempts++;
         if (attempts > 100) break; // Prevent infinite loop
-      } while (Math.abs(x - this.player.x) < 200);
-
+      } while ([this.player, ...this.enemies].some(entity => Math.abs(entity.x - x) < 200));
+      console.log(`Spawning enemy ${i + 1} at x=${x.toFixed(1)}`);
       const terrainHeight = this.getTerrainHeightAt(x);
       const y =
         terrainHeight !== -1
@@ -340,6 +341,7 @@ export class TerrablastGameService {
   }
 
   startTurn() {
+    console.log('Enemy positions at turn start:', this.enemies.map((e, i) => `Enemy ${i}: x=${e.x.toFixed(1)}, y=${e.y.toFixed(1)}`));
     if (this._turnQueue.length > 0) {
       const waited = this._turnQueue[0].entity.delay;
       this._turnQueue.forEach((te) => (te.entity.delay -= waited));
@@ -385,8 +387,8 @@ export class TerrablastGameService {
       if (enemy.body && enemy.active) {
         enemy.x = enemy.body.position.x;
         enemy.y = enemy.body.position.y;
-        // Clamp horizontal position to screen bounds
-        enemy.x = Math.max(0, Math.min(CONST.CANVAS_WIDTH, enemy.x));
+        // Clamp horizontal position to terrain bounds
+        enemy.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, enemy.x));
         this.Body.setPosition(enemy.body, { x: enemy.x, y: enemy.y });
         // Update terrain angle
         enemy.terrainAngle = this.getTerrainAngleAt(enemy.x);
@@ -890,8 +892,8 @@ export class TerrablastGameService {
     if (this.player.body) {
       this.player.x = this.player.body.position.x;
       this.player.y = this.player.body.position.y;
-      // Clamp horizontal position to screen bounds
-      this.player.x = Math.max(0, Math.min(CONST.CANVAS_WIDTH, this.player.x));
+      // Clamp horizontal position to terrain bounds
+      this.player.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, this.player.x));
       this.Body.setPosition(this.player.body, { x: this.player.x, y: this.player.y });
     }
 
@@ -1174,19 +1176,10 @@ export class TerrablastGameService {
       return;
     }
 
-    // Check collision with enemies
-    for (const enemy of this.enemies) {
-      if (enemy.active) {
-        const dx = enemy.x - this.projectile.x;
-        const dy = enemy.y - this.projectile.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < CONST.PROJECTILE_RADIUS + 15) {
-          // Approximate enemy radius
-          console.log('Collided with enemy, exploding');
-          this.destroyTrajectoryProjectile();
-          return;
-        }
-      }
+    // Check collision with entities
+    if (this.checkEntityCollisions(this.projectile)) {
+      this.destroyTrajectoryProjectile();
+      return;
     }
 
     // Advance to next position
@@ -1224,6 +1217,34 @@ export class TerrablastGameService {
     });
 
     this.projectile = null;
+  }
+
+  private checkEntityCollisions(projectile: Projectile): boolean {
+    // Check collision with player
+    if (this.player.active) {
+      const dx = this.player.x - projectile.x;
+      const dy = this.player.y - projectile.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < CONST.PROJECTILE_RADIUS + 15) {
+        console.log('Collided with player, exploding');
+        return true;
+      }
+    }
+
+    // Check collision with enemies
+    for (const enemy of this.enemies) {
+      if (enemy.active) {
+        const dx = enemy.x - projectile.x;
+        const dy = enemy.y - projectile.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < CONST.PROJECTILE_RADIUS + 15) {
+          console.log('Collided with enemy, exploding');
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private startCharging() {
