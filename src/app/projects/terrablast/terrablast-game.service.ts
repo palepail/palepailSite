@@ -410,6 +410,26 @@ export class TerrablastGameService {
     this.performPlayerAction(player);
   }
 
+  private moveEntity(entity: Player | Enemy, direction: number) {
+    if (entity.movementFuel! <= 0) return;
+
+    const moveSpeed = CONST.PLAYER_MOVE_SPEED;
+    const vx = direction * moveSpeed;
+    const targetX = entity.x + vx;
+    const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
+    const angle = this.getTerrainAngleAt(targetX);
+    const canMove =
+      !hasTerrain ||
+      (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
+    if (canMove) {
+      this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
+      entity.movementFuel! -= 0.5; // Deplete fuel at same rate
+      entity.facing = direction;
+    } else {
+      this.Body.setVelocity(entity.body, { x: 0, y: entity.body.velocity.y });
+    }
+  }
+
   private performPlayerAction(player: Player) {
     // Check for skip
     if (
@@ -544,25 +564,8 @@ export class TerrablastGameService {
           enemy.lastX = enemy.x;
           enemy.lastY = enemy.y;
         }
-        if (enemy.movementTimer! > 0 && enemy.movementFuel! > 0) {
-          // Apply movement
-          const moveSpeed = CONST.PLAYER_MOVE_SPEED;
-          const vx = enemy.moveDirection! * moveSpeed;
-          const targetX = enemy.x + vx;
-          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
-          const angle = this.getTerrainAngleAt(targetX);
-          const canMove =
-            !hasTerrain ||
-            (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
-          if (canMove) {
-            this.Body.setVelocity(enemy.body, { x: vx, y: enemy.body.velocity.y });
-            enemy.movementFuel! -= 0.5; // Deplete fuel at same rate as player
-          } else {
-            // Can't move, stop
-            this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
-            enemy.moveDirection = 0;
-            enemy.movementTimer = 0;
-          }
+        if (enemy.movementTimer! > 0) {
+          this.moveEntity(enemy, enemy.moveDirection!);
           enemy.movementTimer! -= 16;
         } else {
           // Stop moving and assess again or aim
@@ -945,11 +948,6 @@ export class TerrablastGameService {
     // Check player collision with terrain
     this.checkPlayerTerrainCollision();
 
-    // Deplete movement fuel if moving (only on player's turn)
-    if (this.isPlayerTurn() && this.player.body && Math.abs(this.player.body.velocity.x) > 0.1) {
-      this.player.movementFuel = Math.max(0, this.player.movementFuel - 0.5);
-    }
-
     // Check if entities fell off the screen
     this.checkEntitiesFall();
 
@@ -1012,10 +1010,7 @@ export class TerrablastGameService {
             (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) &&
             this.isPlayerTurn()
           ) {
-            this.Body.setVelocity(this.player.body, {
-              x: -CONST.PLAYER_MOVE_SPEED,
-              y: this.player.body.velocity.y,
-            });
+            this.moveEntity(this.player, -1);
           }
         }
         if (
@@ -1035,10 +1030,7 @@ export class TerrablastGameService {
               isTurningAround) &&
             this.isPlayerTurn()
           ) {
-            this.Body.setVelocity(this.player.body, {
-              x: CONST.PLAYER_MOVE_SPEED,
-              y: this.player.body.velocity.y,
-            });
+            this.moveEntity(this.player, 1);
           }
         }
 
