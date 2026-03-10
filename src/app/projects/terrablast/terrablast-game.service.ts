@@ -68,6 +68,10 @@ export class TerrablastGameService {
   // Input
   keys: { [key: string]: boolean } = {};
 
+  // Game over delay
+  private gameOverPending: boolean = false;
+  private gameOverTimer: number = 0;
+
   constructor() {
     this.player = this.createInitialPlayer();
   }
@@ -178,6 +182,8 @@ export class TerrablastGameService {
   }
 
   initGame() {
+    this.gameOverPending = false;
+    this.gameOverTimer = 0;
     this.trajectoryCache.clear();
     this.generateTerrain();
     this.initPhysics();
@@ -276,7 +282,6 @@ export class TerrablastGameService {
         attempts++;
         if (attempts > 100) break; // Prevent infinite loop
       } while ([this.player, ...this.enemies].some((entity) => Math.abs(entity.x - x) < 200));
-      console.log(`Spawning enemy ${i + 1} at x=${x.toFixed(1)}`);
       const terrainHeight = this.getTerrainHeightAt(x);
       const y =
         terrainHeight !== -1
@@ -368,6 +373,8 @@ export class TerrablastGameService {
   }
 
   private handleEnemyTurns() {
+    if (this.currentState !== GameState.PLAYING) return;
+
     const currentTurn = this.getCurrentTurnEntity();
     if (!currentTurn || currentTurn.type !== 'enemy') return;
 
@@ -385,6 +392,8 @@ export class TerrablastGameService {
   }
 
   private handlePlayerTurns() {
+    if (this.currentState !== GameState.PLAYING) return;
+
     const currentTurn = this.getCurrentTurnEntity();
     if (!currentTurn || currentTurn.type !== 'player') return;
 
@@ -465,15 +474,10 @@ export class TerrablastGameService {
 
     switch (player.turnState) {
       case 'turn_start':
+        console.log('Player turn_start: setting to idle');
         // Reset fuel at turn start
         player.movementFuel = player.vehicle.fuel;
-        // Wait for turn start (camera panning, etc.)
-        player.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (player.turnTimer >= 500) {
-          // Wait 0.5 seconds for turn start
-          player.turnState = 'idle';
-          player.turnTimer = 0;
-        }
+        player.turnState = 'idle';
         break;
 
       case 'idle':
@@ -507,15 +511,9 @@ export class TerrablastGameService {
         // Reset fuel at turn start
         enemy.movementFuel = enemy.vehicle.fuel;
         enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
-        // Wait for turn start (camera panning, etc.)
-        enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        if (enemy.turnTimer >= 500) {
-          // Wait 0.5 seconds for turn start
-          enemy.turnState = 'assess';
-          enemy.turnTimer = 0;
-          enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
-          enemy.stuckCounter = 0;
-        }
+        enemy.turnState = 'assess';
+        enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
+        enemy.stuckCounter = 0;
         break;
 
       case 'assess':
@@ -875,6 +873,7 @@ export class TerrablastGameService {
         const damage = Math.round(maxDamage * (1 - normalizedDist));
         const actualDamage = projectile.owner === this.player ? damage * 0.5 : damage;
         this.player.health -= actualDamage;
+        this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
         this.damageTexts.push({
           x: this.player.x,
           y: this.player.y - 30,
@@ -893,6 +892,7 @@ export class TerrablastGameService {
         if (normalizedDist <= 1) {
           const damage = Math.round(maxDamage * (1 - normalizedDist));
           enemy.health -= damage;
+          enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
           this.damageTexts.push({
             x: enemy.x,
             y: enemy.y - 30,
@@ -914,6 +914,27 @@ export class TerrablastGameService {
     const now = Date.now();
     const deltaTime = (now - this.lastUpdateTime) / 1000;
     this.lastUpdateTime = now;
+
+    // Check for game over early
+    if (this.player.health <= 0 && !this.gameOverPending) {
+      console.log('Game over pending: player.health =', this.player.health, '/', this.player.vehicle.health, 'starting 2s timer');
+      this.gameOverPending = true;
+      this.gameOverTimer = 2.0;
+    }
+
+    if (this.gameOverPending) {
+      this.gameOverTimer -= deltaTime;
+      if (this.gameOverTimer <= 0) {
+        console.log('Game over timer expired, setting to GAME_OVER');
+        this.currentState = GameState.GAME_OVER;
+        this.gameOverPending = false;
+      }
+    }
+
+    // Freeze on game over or pause
+    if (this.currentState === GameState.GAME_OVER || this.currentState === GameState.PAUSED) {
+      return;
+    }
 
     this.handleInput(this.keys);
 
@@ -960,26 +981,18 @@ export class TerrablastGameService {
     ) {
       this.endTurn(150);
     }
-
-    // Check for game over
-    if (this.player.health <= 0) {
-      this.currentState = GameState.GAME_OVER;
-    }
   }
 
   handleInput(keys: { [key: string]: boolean }) {
     if (this.currentState === GameState.PLAYING) {
       const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
-
       const oldFacing = this.player.facing;
 
       // Handle facing changes (allowed anytime)
       if (keys['ArrowLeft'] && this.player.facing !== -1) {
-        console.log(`Player facing change: from ${this.player.facing} to -1`);
         this.player.facing = -1;
       }
       if (keys['ArrowRight'] && this.player.facing !== 1) {
-        console.log(`Player facing change: from ${this.player.facing} to 1`);
         this.player.facing = 1;
       }
 
@@ -1001,6 +1014,17 @@ export class TerrablastGameService {
             this.isPlayerTurn()
           ) {
             this.moveEntity(this.player, -1);
+          } else {
+            console.log(
+              'Left movement blocked, fuel:',
+              this.player.movementFuel,
+              'terrain:',
+              hasTerrain,
+              'angle:',
+              angle,
+              'isPlayerTurn:',
+              this.isPlayerTurn(),
+            );
           }
         }
         if (
@@ -1021,6 +1045,17 @@ export class TerrablastGameService {
             this.isPlayerTurn()
           ) {
             this.moveEntity(this.player, 1);
+          } else {
+            console.log(
+              'Right movement blocked, fuel:',
+              this.player.movementFuel,
+              'terrain:',
+              hasTerrain,
+              'angle:',
+              this.getTerrainAngleAt(targetX),
+              'isPlayerTurn:',
+              this.isPlayerTurn(),
+            );
           }
         }
 
@@ -1034,9 +1069,6 @@ export class TerrablastGameService {
           this.player.targetAngle = Math.min(
             CONST.MAX_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
-          );
-          console.log(
-            `Player ArrowUp: targetAngle from ${oldTarget} to ${this.player.targetAngle}`,
           );
         }
         if (
@@ -1428,6 +1460,18 @@ export class TerrablastGameService {
 
   get turnQueue(): TurnEntity[] {
     return this._turnQueue;
+  }
+
+  pausePhysics() {
+    if (this.runner) {
+      this.Runner.stop(this.runner);
+    }
+  }
+
+  resumePhysics() {
+    if (this.runner) {
+      this.Runner.run(this.runner, this.engine);
+    }
   }
 
   destroy() {

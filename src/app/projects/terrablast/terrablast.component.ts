@@ -41,6 +41,11 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   // Prediction path toggle
   private showPrediction: boolean = true;
 
+  // Turn message
+  private turnMessage: string = '';
+  private messageTimer: number = 0;
+  private previousTurnId: string = '';
+
   // Game state
   get currentState(): GameState {
     return this.gameService.currentState;
@@ -222,6 +227,21 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.cameraController.panToEntity(this.gameService.player);
     }
 
+    // Update turn message
+    const currentTurn = this.gameService.getCurrentTurnEntity();
+    if (currentTurn && currentTurn.id !== this.previousTurnId) {
+      this.turnMessage = currentTurn.type === 'player' ? "Player's Turn" : "Enemy's Turn";
+      this.messageTimer = 500;
+      this.previousTurnId = currentTurn.id;
+      console.log('Turn changed to:', this.turnMessage);
+    }
+    if (this.messageTimer > 0) {
+      this.messageTimer -= 16;
+      if (this.messageTimer <= 0) {
+        this.turnMessage = '';
+      }
+    }
+
     // Draw sky (entire background)
     this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
@@ -265,8 +285,7 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     const barWidth = this.CHARGE_BAR_WIDTH;
     const barHeight = this.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
-    const offsetX =
-      entity.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const offsetX = entity.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
     const worldX = entity.x + offsetX;
     const worldY = entity.y - barHeight / 2; // Center vertically on tank
     const screenPos = this.cameraController.worldToScreen(worldX, worldY);
@@ -861,6 +880,30 @@ export class TerrablastComponent implements OnInit, OnDestroy {
       this.ctx.fillText(`Time: ${remaining}s`, this.CANVAS_WIDTH - 20, 30);
       this.ctx.textAlign = 'left'; // Reset
     }
+
+    // Draw turn message
+    if (this.turnMessage) {
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '24px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(this.turnMessage, this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+      this.ctx.textAlign = 'left';
+    }
+
+    // Draw pause/game over message
+    if (this.gameService.currentState === GameState.PAUSED) {
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '32px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Paused', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+      this.ctx.textAlign = 'left';
+    } else if (this.gameService.currentState === GameState.GAME_OVER) {
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '32px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Game Over', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+      this.ctx.textAlign = 'left';
+    }
   }
 
   private drawTurnQueue() {
@@ -910,6 +953,22 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     }
     if (event.key === 'p' || event.key === 'P') {
       this.showPrediction = !this.showPrediction;
+      event.preventDefault();
+    }
+    if (event.key === 'Escape') {
+      if (this.gameService.currentState === GameState.PLAYING) {
+        this.gameService.currentState = GameState.PAUSED;
+        this.gameService.pausePhysics();
+      } else if (this.gameService.currentState === GameState.PAUSED) {
+        this.gameService.currentState = GameState.PLAYING;
+        this.gameService.resumePhysics();
+      }
+      event.preventDefault();
+    }
+    if (event.key === 'r' || event.key === 'R') {
+      if (this.gameService.currentState === GameState.GAME_OVER) {
+        this.gameService.currentState = GameState.MENU;
+      }
       event.preventDefault();
     }
     this.gameService.keys[event.key] = true;

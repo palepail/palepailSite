@@ -61,6 +61,7 @@ export enum GameState {
   MENU = 'menu',
   SETUP = 'setup',
   PLAYING = 'playing',
+  PAUSED = 'paused',
   AIMING = 'aiming',
   BULLET_IN_FLIGHT = 'bullet_in_flight',
   GAME_OVER = 'game_over',
