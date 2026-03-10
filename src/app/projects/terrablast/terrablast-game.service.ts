@@ -430,6 +430,24 @@ export class TerrablastGameService {
     }
   }
 
+  private performCharging(entity: Player | Enemy) {
+    const chargeTime = Date.now() - (entity === this.player ? this.chargeStartTime : (entity as Enemy).chargeStartTime!);
+    const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
+    if (entity === this.player) {
+      entity.power = CONST.MIN_POWER + (entity.maxPower - CONST.MIN_POWER) * chargeRatio;
+    } else {
+      entity.power = chargeRatio * ((entity as Enemy).targetPower || 0);
+    }
+    if (chargeTime >= CONST.MAX_CHARGE_TIME) {
+      if (entity === this.player) {
+        this.shoot();
+      } else {
+        this.enemyShoot(entity as Enemy, entity.power);
+      }
+      entity.turnState = 'bullet_in_flight';
+    }
+  }
+
   private performPlayerAction(player: Player) {
     // Check for skip
     if (
@@ -463,7 +481,7 @@ export class TerrablastGameService {
         break;
 
       case 'charging':
-        // Player is charging - handled in update
+        this.performCharging(player);
         break;
 
       case 'bullet_in_flight':
@@ -703,28 +721,13 @@ export class TerrablastGameService {
           }
 
           enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
-        }
-
-        enemy.turnTimer += 16;
-        // Angle interpolation is now handled in updateEnemies
-
-        if (enemy.turnTimer >= 2500) {
-          // Extended to 2.5s for better aiming
-          enemy.angle = enemy.targetAngle;
+          enemy.chargeStartTime = Date.now();
           enemy.turnState = 'charging';
-          enemy.turnTimer = 0;
         }
         break;
 
       case 'charging':
-        // Ramp up power over time for visual feedback
-        enemy.turnTimer += 16; // Assuming 60fps, ~16ms per frame
-        const chargeRatio = Math.min(enemy.turnTimer / 1500, 1); // Extended to 1.5s
-        enemy.power = chargeRatio * (enemy.targetPower || 0);
-        if (enemy.turnTimer >= 1500) {
-          this.enemyShoot(enemy, enemy.power);
-          enemy.turnState = 'bullet_in_flight';
-        }
+        this.performCharging(enemy);
         break;
 
       case 'bullet_in_flight':
@@ -932,13 +935,6 @@ export class TerrablastGameService {
 
     // Handle player turns
     this.handlePlayerTurns();
-
-    // Update charging (only if it's player's turn)
-    if (this.isPlayerTurn() && this.isCharging) {
-      const chargeTime = Date.now() - this.chargeStartTime;
-      const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
-      this.player.power = CONST.MIN_POWER + (this.player.maxPower - CONST.MIN_POWER) * chargeRatio;
-    }
 
     // Update projectile if exists
     if (this.projectile) {

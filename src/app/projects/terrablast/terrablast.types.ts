@@ -45,6 +45,7 @@ export interface Enemy {
   delay: number;
   stuckCounter: number;
   assessCounter: number;
+  chargeStartTime?: number;
   lastX?: number;
   lastY?: number;
   targetAngle?: number;
