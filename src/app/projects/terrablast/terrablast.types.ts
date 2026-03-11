@@ -59,6 +59,7 @@ export interface Enemy {
 export enum GameState {
   LOADING = 'loading',
   MENU = 'menu',
+  OPTIONS = 'options',
   SETUP = 'setup',
   PLAYING = 'playing',
   PAUSED = 'paused',

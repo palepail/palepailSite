@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -20,7 +20,7 @@ import { CameraController } from './camera-controller';
   templateUrl: './terrablast.component.html',
   styleUrl: './terrablast.component.css',
 })
-export class TerrablastComponent implements OnInit, OnDestroy {
+export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
 
@@ -118,11 +118,29 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
+  // Menu button constants
+  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 200, width: 200, height: 50 };
+  private readonly MENU_OPTIONS_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 280, width: 200, height: 50 };
+  private readonly OPTIONS_BACK_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 300, width: 200, height: 50 };
+
   constructor(private gameService: TerrablastGameService) {}
 
   ngOnInit() {
-    this.gameService.setMatterJS(Matter);
+    this.gameService.currentState = GameState.MENU;
+  }
+
+  ngAfterViewInit() {
     this.initCanvas();
+    this.canvas.nativeElement.addEventListener('click', (event) => this.onCanvasClick(event));
+    this.renderLoop();
+  }
+
+  ngOnDestroy() {
+    this.gameService.destroy();
+  }
+
+  startGame() {
+    this.gameService.setMatterJS(Matter);
     this.canvas.nativeElement.focus();
     this.gameService.initGame();
     this.cameraController.reset();
@@ -130,7 +148,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
-    this.gameLoop();
 
     // Add key listeners
     window.addEventListener('keydown', (event) => {
@@ -143,10 +160,6 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     this.canvas.nativeElement.addEventListener('mousemove', (event) => this.onMouseMove(event));
     this.canvas.nativeElement.addEventListener('mouseup', () => this.onMouseUp());
     this.canvas.nativeElement.addEventListener('mouseleave', () => this.onMouseUp());
-  }
-
-  ngOnDestroy() {
-    this.gameService.destroy();
   }
 
   private initCanvas() {
@@ -172,6 +185,15 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   }
 
   private render() {
+    if (this.gameService.currentState === GameState.MENU) {
+      this.drawMenu();
+      return;
+    }
+    if (this.gameService.currentState === GameState.OPTIONS) {
+      this.drawOptions();
+      return;
+    }
+
     // Check if setup is complete (3 seconds)
     if (
       this.gameService.currentState === GameState.SETUP &&
@@ -946,6 +968,14 @@ export class TerrablastComponent implements OnInit, OnDestroy {
     requestAnimationFrame(() => this.gameLoop());
   }
 
+  private renderLoop() {
+    if (this.gameService.currentState !== GameState.MENU && this.gameService.currentState !== GameState.OPTIONS) {
+      this.gameService.update();
+    }
+    this.render();
+    requestAnimationFrame(() => this.renderLoop());
+  }
+
   onKeyDown(event: KeyboardEvent) {
     // Prevent default browser behavior for game controls
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
@@ -1023,5 +1053,108 @@ export class TerrablastComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onResize() {
     this.updateCanvasScale();
+  }
+
+  private drawMenu() {
+    // Background
+    this.ctx.fillStyle = this.SKY_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    // Title
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 48px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Terrablast', this.CANVAS_WIDTH / 2, 120);
+
+    // Subtitle
+    this.ctx.font = '24px Arial';
+    this.ctx.fillText('A physics-based tank battle game', this.CANVAS_WIDTH / 2, 160);
+
+    // Draw buttons
+    this.drawButton('Start Game', this.MENU_START_BUTTON.x, this.MENU_START_BUTTON.y, this.MENU_START_BUTTON.width, this.MENU_START_BUTTON.height, '#4CAF50', '#45a049');
+    this.drawButton('Options', this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height, '#2196F3', '#1976D2');
+  }
+
+  private drawOptions() {
+    // Background
+    this.ctx.fillStyle = this.SKY_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    // Title
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 48px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Options', this.CANVAS_WIDTH / 2, 120);
+
+    // Placeholder for options
+    this.ctx.font = '24px Arial';
+    this.ctx.fillText('Options menu - coming soon!', this.CANVAS_WIDTH / 2, 200);
+
+    // Back button
+    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height, '#FF9800', '#F57C00');
+  }
+
+  private drawButton(text: string, x: number, y: number, width: number, height: number, color: string, hoverColor: string) {
+    // Button background
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
+
+    // Button border
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(x - width / 2, y - height / 2, width, height);
+
+    // Button text
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(text, x, y + 6);
+  }
+
+  private onCanvasClick(event: MouseEvent) {
+    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / this.canvasScale;
+    const y = (event.clientY - rect.top) / this.canvasScale;
+
+    if (this.gameService.currentState === GameState.MENU) {
+      this.handleMenuClick(x, y);
+    } else if (this.gameService.currentState === GameState.OPTIONS) {
+      this.handleOptionsClick(x, y);
+    }
+  }
+
+  private handleMenuClick(x: number, y: number) {
+    // Check Start Game button
+    if (
+      x >= this.MENU_START_BUTTON.x - this.MENU_START_BUTTON.width / 2 &&
+      x <= this.MENU_START_BUTTON.x + this.MENU_START_BUTTON.width / 2 &&
+      y >= this.MENU_START_BUTTON.y - this.MENU_START_BUTTON.height / 2 &&
+      y <= this.MENU_START_BUTTON.y + this.MENU_START_BUTTON.height / 2
+    ) {
+      this.gameService.currentState = GameState.SETUP;
+      this.startGame();
+    }
+
+    // Check Options button
+    if (
+      x >= this.MENU_OPTIONS_BUTTON.x - this.MENU_OPTIONS_BUTTON.width / 2 &&
+      x <= this.MENU_OPTIONS_BUTTON.x + this.MENU_OPTIONS_BUTTON.width / 2 &&
+      y >= this.MENU_OPTIONS_BUTTON.y - this.MENU_OPTIONS_BUTTON.height / 2 &&
+      y <= this.MENU_OPTIONS_BUTTON.y + this.MENU_OPTIONS_BUTTON.height / 2
+    ) {
+      this.gameService.currentState = GameState.OPTIONS;
+    }
+  }
+
+  private handleOptionsClick(x: number, y: number) {
+    // Check Back button
+    if (
+      x >= this.OPTIONS_BACK_BUTTON.x - this.OPTIONS_BACK_BUTTON.width / 2 &&
+      x <= this.OPTIONS_BACK_BUTTON.x + this.OPTIONS_BACK_BUTTON.width / 2 &&
+      y >= this.OPTIONS_BACK_BUTTON.y - this.OPTIONS_BACK_BUTTON.height / 2 &&
+      y <= this.OPTIONS_BACK_BUTTON.y + this.OPTIONS_BACK_BUTTON.height / 2
+    ) {
+      this.gameService.currentState = GameState.MENU;
+    }
   }
 }

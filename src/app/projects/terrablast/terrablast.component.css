@@ -93,6 +93,10 @@
   font-size: 0.9em;
 }
 
+.hidden {
+  display: none;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .game-area {
