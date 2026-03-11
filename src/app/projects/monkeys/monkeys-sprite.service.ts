@@ -25,10 +25,23 @@ export class MonkeysSpriteService {
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
 
-  // Only load the idle monkey frame for now.
   private spriteDefinitions: SpriteDefinition[] = [
-    // Row 2 (0-indexed) => y = 2 * 64 = 128, one 64x64 frame at x = 0.
+    // Idle: row 2 (0-indexed) => y = 2 * 64 = 128, one 64x64 frame at x = 0.
     { name: 'monkey_idle', spritesheet: 'Lupin.png', x: 0, y: 128, width: 64, height: 64 },
+
+    // Move animation: row 0, 4 frames, each 64x64.
+    { name: 'monkey_move_0', spritesheet: 'Lupin.png', x: 0,   y: 0, width: 64, height: 64 },
+    { name: 'monkey_move_1', spritesheet: 'Lupin.png', x: 64,  y: 0, width: 64, height: 64 },
+    { name: 'monkey_move_2', spritesheet: 'Lupin.png', x: 128, y: 0, width: 64, height: 64 },
+    { name: 'monkey_move_3', spritesheet: 'Lupin.png', x: 192, y: 0, width: 64, height: 64 },
+
+    // Cursors: row 0, 6 frames, each 32x32.
+    { name: 'cursor_0', spritesheet: 'Cursors.png', x: 0,   y: 0, width: 32, height: 32 },
+    { name: 'cursor_1', spritesheet: 'Cursors.png', x: 32,  y: 0, width: 32, height: 32 },
+    { name: 'cursor_2', spritesheet: 'Cursors.png', x: 64,  y: 0, width: 32, height: 32 },
+    { name: 'cursor_3', spritesheet: 'Cursors.png', x: 96,  y: 0, width: 32, height: 32 },
+    { name: 'cursor_4', spritesheet: 'Cursors.png', x: 128, y: 0, width: 32, height: 32 },
+    { name: 'cursor_5', spritesheet: 'Cursors.png', x: 160, y: 0, width: 32, height: 32 },
   ];
 
   constructor() {}

@@ -128,10 +128,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
   // Menu button constants
-  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 200, width: 200, height: 50 };
+  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 420, width: 200, height: 50 };
   private readonly MENU_OPTIONS_BUTTON = {
     x: this.CANVAS_WIDTH / 2,
-    y: 280,
+    y: 500,
     width: 200,
     height: 50,
   };
@@ -1110,7 +1110,24 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.CANVAS_WIDTH / 2 - 32, // Center horizontally (64/2 = 32)
         200, // Position below subtitle
         64,
-        64
+        64,
+      );
+    }
+
+    // Draw move animation below idle sprite
+    const moveFrameIndex = Math.floor(Date.now() / 120) % 4;
+    const moveSprite = this.spriteService.getSprite(`monkey_move_${moveFrameIndex}`);
+    if (moveSprite) {
+      this.ctx.drawImage(
+        moveSprite.image,
+        moveSprite.x,
+        moveSprite.y,
+        moveSprite.width,
+        moveSprite.height,
+        this.CANVAS_WIDTH / 2 - 32,
+        280,
+        64,
+        64,
       );
     }
 
