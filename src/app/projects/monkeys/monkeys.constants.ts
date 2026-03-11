@@ -1,7 +1,7 @@
-// terrablast.constants.ts
-// Constants for the Terrablast game component
+// monkeys.constants.ts
+// Constants for the Monkeys game component
 
-import { Vehicle } from './terrablast.types';
+import { Vehicle } from './monkeys.types';
 
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 720;

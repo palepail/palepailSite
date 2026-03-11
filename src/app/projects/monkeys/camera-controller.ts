@@ -1,6 +1,6 @@
 // camera-controller.ts
-import * as CONST from './terrablast.constants';
-import { GameState } from './terrablast.types';
+import * as CONST from './monkeys.constants';
+import { GameState } from './monkeys.types';
 
 interface Camera {
   x: number;

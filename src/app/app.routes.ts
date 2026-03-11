@@ -5,7 +5,7 @@ import { Hobbies } from './hobbies/hobbies';
 import { Contact } from './contact/contact';
 import { NumberCrunch } from './projects/number-crunch/number-crunch';
 import { PotionDropComponent } from './projects/potion-drop/potion-drop.component';
-import { TerrablastComponent } from './projects/terrablast/terrablast.component';
+import { MonkeysComponent } from './projects/monkeys/monkeys.component';
 import { navigationResolver } from './navigation-resolver';
 
 export const routes: Routes = [
@@ -25,16 +25,12 @@ export const routes: Routes = [
     component: NumberCrunch,
   },
   {
-    path: 'projects/terrablast',
-    redirectTo: '/projects/interactable/terrablast',
-  },
-  {
     path: 'projects/interactable/potion-drop',
     component: PotionDropComponent,
   },
   {
-    path: 'projects/interactable/terrablast',
-    component: TerrablastComponent,
+    path: 'projects/interactable/monkeys',
+    component: MonkeysComponent,
   },
   {
     path: 'hobbies',

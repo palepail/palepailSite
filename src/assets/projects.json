@@ -22,11 +22,11 @@
           "status": [{ "name": "In Development" }]
         },
         {
-          "title": "Terrablast",
-          "description": "Physics-based artillery game inspired by classic turn-based shooters",
+          "title": "Monkeys",
+          "description": "Physics-based artillery game inspired by classic turn-based shooter Gorillas and Gunbound",
           "technologies": ["JavaScript", "HTML5", "CSS3", "Matter.js"],
           "image": "/resources/images/projects/potionDrop/potionDrop.png",
-          "link": "/projects/terrablast",
+          "link": "/projects/interactable/monkeys",
           "status": [{ "name": "In Development" }]
         }
       ]

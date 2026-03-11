@@ -1,4 +1,12 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, HostListener } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  ElementRef,
+  ViewChild,
+  HostListener,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -7,20 +15,20 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import { Player, GameState, Explosion, DamageText } from './terrablast.types';
-import * as CONST from './terrablast.constants';
-import { TerrablastGameService } from './terrablast-game.service';
+import { Player, GameState, Explosion, DamageText } from './monkeys.types';
+import * as CONST from './monkeys.constants';
+import { MonkeysGameService } from './monkeys-game.service';
 import { CameraController } from './camera-controller';
 
 // Camera system
 
 @Component({
-  selector: 'app-terrablast',
+  selector: 'app-tmonkeys',
   imports: [RouterLink, CommonModule],
-  templateUrl: './terrablast.component.html',
-  styleUrl: './terrablast.component.css',
+  templateUrl: './monkeys.component.html',
+  styleUrl: './monkeys.component.css',
 })
-export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
+export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
 
@@ -120,10 +128,20 @@ export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Menu button constants
   private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 200, width: 200, height: 50 };
-  private readonly MENU_OPTIONS_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 280, width: 200, height: 50 };
-  private readonly OPTIONS_BACK_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 300, width: 200, height: 50 };
+  private readonly MENU_OPTIONS_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 280,
+    width: 200,
+    height: 50,
+  };
+  private readonly OPTIONS_BACK_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 300,
+    width: 200,
+    height: 50,
+  };
 
-  constructor(private gameService: TerrablastGameService) {}
+  constructor(private gameService: MonkeysGameService) {}
 
   ngOnInit() {
     this.gameService.currentState = GameState.MENU;
@@ -969,7 +987,10 @@ export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private renderLoop() {
-    if (this.gameService.currentState !== GameState.MENU && this.gameService.currentState !== GameState.OPTIONS) {
+    if (
+      this.gameService.currentState !== GameState.MENU &&
+      this.gameService.currentState !== GameState.OPTIONS
+    ) {
       this.gameService.update();
     }
     this.render();
@@ -1064,15 +1085,31 @@ export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 48px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Terrablast', this.CANVAS_WIDTH / 2, 120);
+    this.ctx.fillText('Monkeys', this.CANVAS_WIDTH / 2, 120);
 
     // Subtitle
     this.ctx.font = '24px Arial';
     this.ctx.fillText('A physics-based tank battle game', this.CANVAS_WIDTH / 2, 160);
 
     // Draw buttons
-    this.drawButton('Start Game', this.MENU_START_BUTTON.x, this.MENU_START_BUTTON.y, this.MENU_START_BUTTON.width, this.MENU_START_BUTTON.height, '#4CAF50', '#45a049');
-    this.drawButton('Options', this.MENU_OPTIONS_BUTTON.x, this.MENU_OPTIONS_BUTTON.y, this.MENU_OPTIONS_BUTTON.width, this.MENU_OPTIONS_BUTTON.height, '#2196F3', '#1976D2');
+    this.drawButton(
+      'Start Game',
+      this.MENU_START_BUTTON.x,
+      this.MENU_START_BUTTON.y,
+      this.MENU_START_BUTTON.width,
+      this.MENU_START_BUTTON.height,
+      '#4CAF50',
+      '#45a049',
+    );
+    this.drawButton(
+      'Options',
+      this.MENU_OPTIONS_BUTTON.x,
+      this.MENU_OPTIONS_BUTTON.y,
+      this.MENU_OPTIONS_BUTTON.width,
+      this.MENU_OPTIONS_BUTTON.height,
+      '#2196F3',
+      '#1976D2',
+    );
   }
 
   private drawOptions() {
@@ -1091,10 +1128,26 @@ export class TerrablastComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText('Options menu - coming soon!', this.CANVAS_WIDTH / 2, 200);
 
     // Back button
-    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON.x, this.OPTIONS_BACK_BUTTON.y, this.OPTIONS_BACK_BUTTON.width, this.OPTIONS_BACK_BUTTON.height, '#FF9800', '#F57C00');
+    this.drawButton(
+      'Back to Menu',
+      this.OPTIONS_BACK_BUTTON.x,
+      this.OPTIONS_BACK_BUTTON.y,
+      this.OPTIONS_BACK_BUTTON.width,
+      this.OPTIONS_BACK_BUTTON.height,
+      '#FF9800',
+      '#F57C00',
+    );
   }
 
-  private drawButton(text: string, x: number, y: number, width: number, height: number, color: string, hoverColor: string) {
+  private drawButton(
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    hoverColor: string,
+  ) {
     // Button background
     this.ctx.fillStyle = color;
     this.ctx.fillRect(x - width / 2, y - height / 2, width, height);

@@ -1,5 +1,5 @@
-// terrablast.types.ts
-// Types and interfaces for the Terrablast game component
+// monkeys.types.ts
+// Types and interfaces for the Monkeys game component
 
 export interface Player {
   body: any; // Matter.js body

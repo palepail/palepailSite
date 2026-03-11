@@ -1,5 +1,5 @@
-// terrablast-game.service.ts
-// Service handling core game logic for Terrablast
+// monkeys-game.service.ts
+// Service handling core game logic for Monkeys
 
 import { Injectable } from '@angular/core';
 import {
@@ -11,13 +11,13 @@ import {
   TurnEntity,
   ExplodedProjectile,
   Projectile,
-} from './terrablast.types';
-import * as CONST from './terrablast.constants';
+} from './monkeys.types';
+import * as CONST from './monkeys.constants';
 
 @Injectable({
   providedIn: 'root',
 })
-export class TerrablastGameService {
+export class MonkeysGameService {
   // Matter.js functions (passed from component)
   public Engine: any;
   public Render: any;
@@ -917,7 +917,13 @@ export class TerrablastGameService {
 
     // Check for game over early
     if (this.player.health <= 0 && !this.gameOverPending) {
-      console.log('Game over pending: player.health =', this.player.health, '/', this.player.vehicle.health, 'starting 2s timer');
+      console.log(
+        'Game over pending: player.health =',
+        this.player.health,
+        '/',
+        this.player.vehicle.health,
+        'starting 2s timer',
+      );
       this.gameOverPending = true;
       this.gameOverTimer = 2.0;
     }
