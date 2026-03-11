@@ -462,7 +462,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw tank body sprite (or fallback shape) in front of barrel and aiming line
-    const drewPlayerSprite = this.drawTankBody(this.gameService.player, centerX, centerY, bodyRadius);
+    const drewPlayerSprite = this.drawTankBody(
+      this.gameService.player,
+      centerX,
+      centerY,
+      bodyRadius,
+    );
 
     // Keep track overlay only when using fallback shape.
     if (!drewPlayerSprite) {
@@ -560,27 +565,70 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
+    const angleRad = (this.gameService.player.angle * Math.PI) / 180;
+    if (!this.gameService.isPlayerTurn()) {
+      return;
+    }
+
+    this.drawCursorBarrel(centerX, centerY, angleRad);
+  }
+
+  private getCursorFrameIndex(now: number = Date.now()): number {
+    const frameDuration = 90;
+    return Math.floor(now / frameDuration) % 6;
+  }
+
+  private drawCursorBarrel(centerX: number, centerY: number, angleRad: number) {
+    const cursorFrameIndex = this.getCursorFrameIndex();
+    const cursorSprite = this.spriteService.getSprite(`cursor_${cursorFrameIndex}`);
+
+    // Fallback to original barrel shape if cursor sprite isn't loaded yet.
+    if (!cursorSprite) {
+      this.drawClassicBarrel(centerX, centerY, angleRad);
+      return;
+    }
+
+    const pivotOffset = this.BARREL_LENGTH + 14;
+    const scale = 0.84;
+    const drawWidth = cursorSprite.width * scale;
+    const drawHeight = cursorSprite.height * scale;
+    const xNudge = -4;
+    const yNudge = 0;
+
+    this.ctx.save();
+    this.ctx.translate(centerX, centerY);
+    this.ctx.rotate(-angleRad);
+    this.ctx.translate(pivotOffset + xNudge, yNudge);
+    this.ctx.rotate(Math.PI / 2 + (20 * Math.PI) / 180);
+    this.ctx.drawImage(
+      cursorSprite.image,
+      cursorSprite.x,
+      cursorSprite.y,
+      cursorSprite.width,
+      cursorSprite.height,
+      -drawWidth / 2,
+      -drawHeight / 2,
+      drawWidth,
+      drawHeight,
+    );
+    this.ctx.restore();
+  }
+
+  private drawClassicBarrel(centerX: number, centerY: number, angleRad: number) {
     const barrelLength = this.BARREL_LENGTH;
     const barrelWidth = this.BARREL_WIDTH;
-    const angleRad = (this.gameService.player.angle * Math.PI) / 180;
 
-    // Save context for rotation
     this.ctx.save();
-
-    // Move to tank center and rotate
     this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(-angleRad); // Negative to match aiming line direction
+    this.ctx.rotate(-angleRad);
 
-    // Draw barrel
     this.ctx.fillStyle = this.BARREL_COLOR;
     this.ctx.strokeStyle = this.BARREL_STROKE_COLOR;
     this.ctx.lineWidth = this.BARREL_STROKE_WIDTH;
 
-    // Main barrel rectangle
     this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
     this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
 
-    // Barrel tip accent
     this.ctx.fillStyle = this.BARREL_TIP_COLOR;
     this.ctx.fillRect(
       barrelLength - this.BARREL_TIP_LENGTH,
@@ -589,7 +637,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       barrelWidth + this.BARREL_TIP_EXTRA_HEIGHT,
     );
 
-    // Restore context
     this.ctx.restore();
   }
 
@@ -703,7 +750,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return 0;
   }
 
-  private drawEntitySprite(entity: any, centerX: number, centerY: number, bodyRadius: number): boolean {
+  private drawEntitySprite(
+    entity: any,
+    centerX: number,
+    centerY: number,
+    bodyRadius: number,
+  ): boolean {
     const velocityX = entity?.body?.velocity?.x ?? 0;
     const velocityY = entity?.body?.velocity?.y ?? 0;
     const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
@@ -823,38 +875,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
-    const barrelLength = this.BARREL_LENGTH;
-    const barrelWidth = this.BARREL_WIDTH;
     // Use enemy angle for aiming animation
     const angleRad = (enemy.angle * Math.PI) / 180;
+    const currentTurn = this.gameService.getCurrentTurnEntity();
+    const isActiveEnemyTurn = currentTurn?.type === 'enemy' && currentTurn.entity === enemy;
 
-    // Save context for rotation
-    this.ctx.save();
+    if (!isActiveEnemyTurn) {
+      return;
+    }
 
-    // Move to tank center and rotate
-    this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(-angleRad);
-
-    // Draw barrel
-    this.ctx.fillStyle = this.BARREL_COLOR;
-    this.ctx.strokeStyle = this.BARREL_STROKE_COLOR;
-    this.ctx.lineWidth = this.BARREL_STROKE_WIDTH;
-
-    // Main barrel rectangle
-    this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-    this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-
-    // Barrel tip accent
-    this.ctx.fillStyle = this.BARREL_TIP_COLOR;
-    this.ctx.fillRect(
-      barrelLength - this.BARREL_TIP_LENGTH,
-      -barrelWidth / 2 - 1,
-      this.BARREL_TIP_LENGTH,
-      barrelWidth + this.BARREL_TIP_EXTRA_HEIGHT,
-    );
-
-    // Restore context
-    this.ctx.restore();
+    this.drawCursorBarrel(centerX, centerY, angleRad);
   }
 
   private drawEnemyBody(enemy: any, centerX: number, centerY: number, bodyRadius: number): boolean {
