@@ -25,29 +25,10 @@ export class MonkeysSpriteService {
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
 
-  // Sprite definitions - these would be updated based on actual spritesheet layout
+  // Only load the idle monkey frame for now.
   private spriteDefinitions: SpriteDefinition[] = [
-    // Tank sprites
-    { name: 'tank_body', spritesheet: 'tanks.png', x: 0, y: 0, width: 64, height: 32 },
-    { name: 'tank_barrel', spritesheet: 'tanks.png', x: 64, y: 0, width: 32, height: 8 },
-    { name: 'tank_track_left', spritesheet: 'tanks.png', x: 0, y: 32, width: 64, height: 8 },
-    { name: 'tank_track_right', spritesheet: 'tanks.png', x: 0, y: 40, width: 64, height: 8 },
-
-    // Terrain sprites
-    { name: 'terrain_dirt', spritesheet: 'terrain.png', x: 0, y: 0, width: 32, height: 32 },
-    { name: 'terrain_grass', spritesheet: 'terrain.png', x: 32, y: 0, width: 32, height: 32 },
-
-    // Projectile sprites
-    { name: 'projectile', spritesheet: 'effects.png', x: 0, y: 0, width: 8, height: 8 },
-
-    // Explosion sprites (could be animated frames)
-    { name: 'explosion_1', spritesheet: 'effects.png', x: 8, y: 0, width: 32, height: 32 },
-    { name: 'explosion_2', spritesheet: 'effects.png', x: 40, y: 0, width: 32, height: 32 },
-    { name: 'explosion_3', spritesheet: 'effects.png', x: 72, y: 0, width: 32, height: 32 },
-
-    // UI sprites
-    { name: 'health_bar', spritesheet: 'ui.png', x: 0, y: 0, width: 100, height: 10 },
-    { name: 'power_bar', spritesheet: 'ui.png', x: 0, y: 10, width: 100, height: 10 },
+    // Row 2 (0-indexed) => y = 2 * 64 = 128, one 64x64 frame at x = 0.
+    { name: 'monkey_idle', spritesheet: 'Lupin.png', x: 0, y: 128, width: 64, height: 64 },
   ];
 
   constructor() {}
@@ -79,7 +60,7 @@ export class MonkeysSpriteService {
         this.loadedAssets.set(path, false);
         reject(new Error(`Failed to load ${path}`));
       };
-      img.src = `assets/images/projects/monkeys/${path}`;
+      img.src = `resources/images/projects/monkeys/${path}`;
     });
   }
 

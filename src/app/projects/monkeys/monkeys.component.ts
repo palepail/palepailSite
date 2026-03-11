@@ -18,6 +18,7 @@ import * as Matter from 'matter-js';
 import { Player, GameState, Explosion, DamageText } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
+import { MonkeysSpriteService } from './monkeys-sprite.service';
 import { CameraController } from './camera-controller';
 
 // Camera system
@@ -141,10 +142,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     height: 50,
   };
 
-  constructor(private gameService: MonkeysGameService) {}
+  constructor(
+    private gameService: MonkeysGameService,
+    private spriteService: MonkeysSpriteService,
+  ) {}
 
   ngOnInit() {
     this.gameService.currentState = GameState.MENU;
+    this.spriteService.loadSprites().catch((error) => {
+      console.error('Failed to load sprites:', error);
+    });
   }
 
   ngAfterViewInit() {
@@ -1090,6 +1097,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Subtitle
     this.ctx.font = '24px Arial';
     this.ctx.fillText('A physics-based tank battle game', this.CANVAS_WIDTH / 2, 160);
+
+    // Draw idle sprite
+    const idleSprite = this.spriteService.getSprite('monkey_idle');
+    if (idleSprite) {
+      this.ctx.drawImage(
+        idleSprite.image,
+        idleSprite.x,
+        idleSprite.y,
+        idleSprite.width,
+        idleSprite.height,
+        this.CANVAS_WIDTH / 2 - 32, // Center horizontally (64/2 = 32)
+        200, // Position below subtitle
+        64,
+        64
+      );
+    }
 
     // Draw buttons
     this.drawButton(
