@@ -138,4 +138,5 @@ export interface Vehicle {
   maxAimAngle: number;
   bullet: Bullet;
   shotDelay: number;
+  spritesheet: string;
 }
