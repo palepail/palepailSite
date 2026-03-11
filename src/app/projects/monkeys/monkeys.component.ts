@@ -461,11 +461,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.setLineDash([]);
     }
 
-    // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
-    this.drawTankBody(centerX, centerY, bodyRadius);
+    // Draw tank body sprite (or fallback shape) in front of barrel and aiming line
+    const drewPlayerSprite = this.drawTankBody(this.gameService.player, centerX, centerY, bodyRadius);
 
-    // Draw tank tracks/details - on top
-    this.drawTankTracks(centerX, centerY, bodyRadius);
+    // Keep track overlay only when using fallback shape.
+    if (!drewPlayerSprite) {
+      this.drawTankTracks(centerX, centerY, bodyRadius);
+    }
 
     // Restore context
     this.ctx.restore();
@@ -523,11 +525,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw barrel (fixed angle for enemies) - behind body
     this.drawEnemyBarrel(centerX, centerY, bodyRadius, enemy);
 
-    // Draw tank body (semicircle on bottom) - in front of barrel
-    this.drawEnemyBody(centerX, centerY, bodyRadius);
+    // Draw tank body sprite (or fallback shape) in front of barrel.
+    const drewEnemySprite = this.drawEnemyBody(enemy, centerX, centerY, bodyRadius);
 
-    // Draw tank tracks/details - on top
-    this.drawTankTracks(centerX, centerY, bodyRadius);
+    // Keep track overlay only when using fallback shape.
+    if (!drewEnemySprite) {
+      this.drawTankTracks(centerX, centerY, bodyRadius);
+    }
 
     // Restore context
     this.ctx.restore();
@@ -684,18 +688,71 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fill();
   }
 
-  private drawTankBody(centerX: number, centerY: number, bodyRadius: number) {
-    // Draw tank body (semicircle on bottom) - in front of barrel and aiming line
+  private getMoveFrameIndex(now: number = Date.now()): number {
+    const frameDurations = [150, 150, 150, 80];
+    const cycleDuration = frameDurations.reduce((a, b) => a + b, 0);
+    let t = now % cycleDuration;
+
+    for (let i = 0; i < frameDurations.length; i++) {
+      if (t < frameDurations[i]) {
+        return i;
+      }
+      t -= frameDurations[i];
+    }
+
+    return 0;
+  }
+
+  private drawEntitySprite(entity: any, centerX: number, centerY: number, bodyRadius: number): boolean {
+    const velocityX = entity?.body?.velocity?.x ?? 0;
+    const velocityY = entity?.body?.velocity?.y ?? 0;
+    const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
+    const spriteName = isMoving ? `monkey_move_${this.getMoveFrameIndex()}` : 'monkey_idle';
+    const sprite = this.spriteService.getSprite(spriteName);
+
+    if (!sprite) {
+      return false;
+    }
+
+    const spriteSize = bodyRadius * 2 * 1.5;
+    const spriteYOffset = -15;
+
+    // Mirror over the y-axis so sprite facing matches gameplay orientation.
+    this.ctx.save();
+    this.ctx.translate(centerX, centerY);
+    this.ctx.scale(-1, 1);
+    this.ctx.drawImage(
+      sprite.image,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      -spriteSize / 2,
+      -spriteSize / 2 + spriteYOffset,
+      spriteSize,
+      spriteSize,
+    );
+    this.ctx.restore();
+
+    return true;
+  }
+
+  private drawTankBody(player: any, centerX: number, centerY: number, bodyRadius: number): boolean {
+    if (this.drawEntitySprite(player, centerX, centerY, bodyRadius)) {
+      return true;
+    }
+
+    // Fallback body if sprites are not loaded.
     this.ctx.fillStyle = this.gameService.player.color;
     this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
     this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
 
-    // Draw semicircle body
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false); // Lower semicircle
+    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
     this.ctx.closePath();
     this.ctx.fill();
     this.ctx.stroke();
+    return false;
   }
 
   private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
@@ -800,18 +857,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.restore();
   }
 
-  private drawEnemyBody(centerX: number, centerY: number, bodyRadius: number) {
-    // Draw tank body (semicircle on bottom) - in front of barrel
-    this.ctx.fillStyle = '#FF6B6B'; // Enemy color
+  private drawEnemyBody(enemy: any, centerX: number, centerY: number, bodyRadius: number): boolean {
+    if (this.drawEntitySprite(enemy, centerX, centerY, bodyRadius)) {
+      return true;
+    }
+
+    // Fallback body if sprites are not loaded.
+    this.ctx.fillStyle = '#FF6B6B';
     this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
     this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
 
-    // Draw semicircle body
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false); // Lower semicircle
+    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
     this.ctx.closePath();
     this.ctx.fill();
     this.ctx.stroke();
+    return false;
   }
 
   private drawProjectile() {
