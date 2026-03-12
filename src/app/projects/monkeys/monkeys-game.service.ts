@@ -639,7 +639,8 @@ export class MonkeysGameService {
               enemy.facing = dx > 0 ? -1 : 1; // Aim away from player for nearby cover crater.
               enemy.targetAngle = Math.min(
                 enemy.vehicle.maxAimAngle,
-                enemy.vehicle.minAimAngle + (enemy.vehicle.maxAimAngle - enemy.vehicle.minAimAngle) * 0.8,
+                enemy.vehicle.minAimAngle +
+                  (enemy.vehicle.maxAimAngle - enemy.vehicle.minAimAngle) * 0.8,
               );
               enemy.targetPower = maxPower * (0.1 + Math.random() * 0.1);
             } else {
@@ -648,7 +649,8 @@ export class MonkeysGameService {
               enemy.targetPower = maxPower * (0.45 + Math.random() * 0.4);
             }
 
-            enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
+            enemy.angle =
+              enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
             enemy.turnState = 'charging';
             return;
@@ -900,7 +902,14 @@ export class MonkeysGameService {
           damage: actualDamage,
           life: CONST.DAMAGE_TEXT_LIFETIME,
         });
-        this.applyExplosionKnockback(this.player, explosionX, explosionY, projectile, radiusX, radiusY);
+        this.applyExplosionKnockback(
+          this.player,
+          explosionX,
+          explosionY,
+          projectile,
+          radiusX,
+          radiusY,
+        );
       }
     }
 
@@ -1092,22 +1101,14 @@ export class MonkeysGameService {
           }
         }
 
-        if (
-          keys['ArrowUp'] &&
-          !this.isCharging &&
-          !this.projectile
-        ) {
+        if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
           const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.min(
             CONST.MAX_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
-        if (
-          keys['ArrowDown'] &&
-          !this.isCharging &&
-          !this.projectile
-        ) {
+        if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
           const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.max(
             CONST.MIN_AIM_ANGLE,
@@ -1329,15 +1330,14 @@ export class MonkeysGameService {
     explosionY: number,
     projectile: any,
     radiusX: number,
-    radiusY: number
+    radiusY: number,
   ) {
     if (!target.body) return;
     const dx = target.x - explosionX;
     const dy = target.y - explosionY;
     const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
     if (normalizedDist > 1) return;
-    const maxPushDistance =
-      (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
+    const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
     const pushDistance = maxPushDistance * (1 - normalizedDist);
     if (pushDistance <= 0) return;
     const distance = Math.hypot(dx, dy);

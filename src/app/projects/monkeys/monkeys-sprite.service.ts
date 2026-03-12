@@ -35,6 +35,11 @@ export class MonkeysSpriteService {
     { name: 'monkey_move_2', spritesheet: 'Lupin.png', x: 128, y: 0, width: 64, height: 64 },
     { name: 'monkey_move_3', spritesheet: 'Lupin.png', x: 192, y: 0, width: 64, height: 64 },
 
+    // Death: row 3, 3 frames, each 64x64.
+    { name: 'monkey_death_0', spritesheet: 'Lupin.png', x: 0, y: 192, width: 64, height: 64 },
+    { name: 'monkey_death_1', spritesheet: 'Lupin.png', x: 64, y: 192, width: 64, height: 64 },
+    { name: 'monkey_death_2', spritesheet: 'Lupin.png', x: 128, y: 192, width: 64, height: 64 },
+
     // Hurt: row 4, one 64x64 frame.
     { name: 'monkey_hurt', spritesheet: 'Lupin.png', x: 0, y: 256, width: 64, height: 64 },
 

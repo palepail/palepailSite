@@ -133,10 +133,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
+  private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
+  private readonly DEATH_SPRITE_FRAME_COUNT = 3;
+  private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
 
   // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
   private previousHealthByEntity = new WeakMap<object, number>();
   private hurtSpriteUntilByEntity = new WeakMap<object, number>();
+  private deathAnimationStartByEntity = new WeakMap<object, number>();
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -190,6 +194,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.setupStartTime = Date.now();
     this.previousHealthByEntity = new WeakMap<object, number>();
     this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
+    this.deathAnimationStartByEntity = new WeakMap<object, number>();
 
     // Add key listeners
     window.addEventListener('keydown', (event) => {
@@ -272,7 +277,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (currentTurn) {
       const stateNow = (currentTurn.entity as any).turnState as string;
-      const isStateTransition = this.previousTurnId === currentTurn.id && this.previousTurnState !== stateNow;
+      const isStateTransition =
+        this.previousTurnId === currentTurn.id && this.previousTurnState !== stateNow;
       const shouldRefocusForAction = stateNow === 'moving' || stateNow === 'charging';
       if (isStateTransition && shouldRefocusForAction) {
         this.gameService.panToEntity = currentTurn;
@@ -459,6 +465,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawPlayer() {
+    if (this.gameService.player.health <= 0 && !this.isEntityDeathAnimationActive(this.gameService.player)) {
+      return;
+    }
+
     const screenPos = this.cameraController.worldToScreen(
       this.gameService.player.x,
       this.gameService.player.y,
@@ -547,7 +557,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawEnemies() {
     for (const enemy of this.gameService.enemies) {
-      if (enemy.active) {
+      if (enemy.active || this.isEntityDeathAnimationActive(enemy)) {
         this.drawEnemy(enemy);
       }
     }
@@ -805,22 +815,65 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return 0;
   }
 
+  private usesLupinSprites(entity: any): boolean {
+    return entity?.vehicle?.spritesheet === 'Lupin.png';
+  }
+
+  private getDeathAnimationState(entity: any, now: number = Date.now()) {
+    if (!this.usesLupinSprites(entity)) {
+      return null;
+    }
+
+    const deathStartTime = this.deathAnimationStartByEntity.get(entity as object);
+    if (deathStartTime === undefined) {
+      return null;
+    }
+
+    const deathAnimationDuration =
+      this.DEATH_SPRITE_FRAME_COUNT * this.DEATH_SPRITE_FRAME_DURATION_MS;
+    const elapsed = now - deathStartTime;
+    const clampedElapsed = Math.max(0, elapsed);
+    const fadeElapsed = Math.max(0, clampedElapsed - deathAnimationDuration);
+    const fadeProgress = Math.min(1, fadeElapsed / this.DEATH_SPRITE_FADE_DURATION_MS);
+    const frameIndex = Math.min(
+      this.DEATH_SPRITE_FRAME_COUNT - 1,
+      Math.floor(clampedElapsed / this.DEATH_SPRITE_FRAME_DURATION_MS),
+    );
+
+    return {
+      frameIndex,
+      alpha: 1 - fadeProgress,
+      isActive: clampedElapsed < deathAnimationDuration + this.DEATH_SPRITE_FADE_DURATION_MS,
+    };
+  }
+
+  private isEntityDeathAnimationActive(entity: any, now: number = Date.now()): boolean {
+    return this.getDeathAnimationState(entity, now)?.isActive ?? false;
+  }
+
   private drawEntitySprite(
     entity: any,
     centerX: number,
     centerY: number,
     bodyRadius: number,
   ): boolean {
+    if (!this.usesLupinSprites(entity)) {
+      return false;
+    }
+
     const now = Date.now();
+    const deathAnimationState = this.getDeathAnimationState(entity, now);
     const isHurt = (this.hurtSpriteUntilByEntity.get(entity as object) ?? 0) > now;
     const velocityX = entity?.body?.velocity?.x ?? 0;
     const velocityY = entity?.body?.velocity?.y ?? 0;
     const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
-    const spriteName = isHurt
-      ? 'monkey_hurt'
-      : isMoving
-        ? `monkey_move_${this.getMoveFrameIndex(now)}`
-        : 'monkey_idle';
+    const spriteName = deathAnimationState?.isActive
+      ? `monkey_death_${deathAnimationState.frameIndex}`
+      : isHurt
+        ? 'monkey_hurt'
+        : isMoving
+          ? `monkey_move_${this.getMoveFrameIndex(now)}`
+          : 'monkey_idle';
     const sprite = this.spriteService.getSprite(spriteName);
 
     if (!sprite) {
@@ -834,6 +887,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
     this.ctx.scale(-1, 1);
+    if (deathAnimationState?.isActive) {
+      this.ctx.globalAlpha = deathAnimationState.alpha;
+    }
     this.ctx.drawImage(
       sprite.image,
       sprite.x,
@@ -854,20 +910,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const now = Date.now();
     this.trackEntityDamage(this.gameService.player, now);
     for (const enemy of this.gameService.enemies) {
-      if (!enemy.active) {
-        continue;
-      }
       this.trackEntityDamage(enemy, now);
     }
   }
 
   private trackEntityDamage(entity: any, now: number) {
+    if (!this.usesLupinSprites(entity)) {
+      return;
+    }
+
     const key = entity as object;
     const currentHealth = Number(entity?.health ?? 0);
     const previousHealth = this.previousHealthByEntity.get(key);
 
     if (previousHealth !== undefined && currentHealth < previousHealth) {
-      this.hurtSpriteUntilByEntity.set(key, now + this.HURT_SPRITE_DURATION_MS);
+      if (currentHealth <= 0) {
+        if (!this.deathAnimationStartByEntity.has(key)) {
+          this.deathAnimationStartByEntity.set(key, now);
+        }
+      } else {
+        this.hurtSpriteUntilByEntity.set(key, now + this.HURT_SPRITE_DURATION_MS);
+      }
     }
 
     this.previousHealthByEntity.set(key, currentHealth);
@@ -925,6 +988,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     bodyRadius: number,
     isPlayer: boolean = false,
   ) {
+    if (entity.health <= 0) {
+      return;
+    }
+
     // Draw health bar under the tank
     const healthRatio = entity.health / entity.vehicle.health;
     const barWidth = 60;
