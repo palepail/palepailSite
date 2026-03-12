@@ -1068,8 +1068,7 @@ export class MonkeysGameService {
         if (
           keys['ArrowUp'] &&
           !this.isCharging &&
-          !this.projectile &&
-          this.player.turnState === 'idle'
+          !this.projectile
         ) {
           const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.min(
@@ -1080,8 +1079,7 @@ export class MonkeysGameService {
         if (
           keys['ArrowDown'] &&
           !this.isCharging &&
-          !this.projectile &&
-          this.player.turnState === 'idle'
+          !this.projectile
         ) {
           const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.max(

@@ -572,10 +572,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
     const angleRad = (this.gameService.player.angle * Math.PI) / 180;
-    if (!this.gameService.isPlayerTurn()) {
-      return;
-    }
-
     this.drawCursorBarrel(centerX, centerY, angleRad);
   }
 
@@ -883,13 +879,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
     // Use enemy angle for aiming animation
     const angleRad = (enemy.angle * Math.PI) / 180;
-    const currentTurn = this.gameService.getCurrentTurnEntity();
-    const isActiveEnemyTurn = currentTurn?.type === 'enemy' && currentTurn.entity === enemy;
-
-    if (!isActiveEnemyTurn) {
-      return;
-    }
-
     this.drawCursorBarrel(centerX, centerY, angleRad);
   }
 
