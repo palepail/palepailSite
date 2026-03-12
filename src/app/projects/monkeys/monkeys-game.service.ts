@@ -404,8 +404,8 @@ export class MonkeysGameService {
     this.performPlayerAction(player);
   }
 
-  private moveEntity(entity: Player | Enemy, direction: number) {
-    if (entity.movementFuel! <= 0) return;
+  private moveEntity(entity: Player | Enemy, direction: number): boolean {
+    if (entity.movementFuel! <= 0) return false;
 
     const moveSpeed = CONST.PLAYER_MOVE_SPEED;
     const vx = direction * moveSpeed;
@@ -418,9 +418,22 @@ export class MonkeysGameService {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
       entity.movementFuel! -= 0.5; // Deplete fuel at same rate
       entity.facing = direction;
+      return true;
     } else {
       this.Body.setVelocity(entity.body, { x: 0, y: entity.body.velocity.y });
+      return false;
     }
+  }
+
+  private prepareAggressiveTerrainClearingShot(enemy: Enemy) {
+    enemy.moveDirection = 0;
+    enemy.movementTimer = 0;
+    enemy.targetAngle = undefined;
+    enemy.targetPower = undefined;
+    enemy.forceTerrainClearingShot = true;
+    enemy.turnState = 'aiming';
+    enemy.turnTimer = 0;
+    enemy.stuckCounter = 0;
   }
 
   private performCharging(entity: Player | Enemy) {
@@ -511,6 +524,7 @@ export class MonkeysGameService {
         // Reset fuel at turn start
         enemy.movementFuel = enemy.vehicle.fuel;
         enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
+        enemy.forceTerrainClearingShot = false;
         enemy.turnState = 'assess';
         enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
         enemy.stuckCounter = 0;
@@ -585,7 +599,12 @@ export class MonkeysGameService {
           enemy.lastY = enemy.y;
         }
         if (enemy.movementTimer! > 0) {
-          this.moveEntity(enemy, enemy.moveDirection!);
+          const movedThisFrame = this.moveEntity(enemy, enemy.moveDirection!);
+          if (!movedThisFrame && enemy.behavior === 'aggressive') {
+            console.log('Aggressive enemy movement blocked, switching to terrain-clearing shot');
+            this.prepareAggressiveTerrainClearingShot(enemy);
+            return;
+          }
           enemy.movementTimer! -= 16;
         } else {
           // Stop moving and assess again or aim
@@ -612,6 +631,11 @@ export class MonkeysGameService {
         }
         if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
           console.log('Enemy stuck, handling recovery');
+          if (enemy.behavior === 'aggressive') {
+            console.log('Aggressive enemy stuck, switching to terrain-clearing shot');
+            this.prepareAggressiveTerrainClearingShot(enemy);
+            return;
+          }
           enemy.turnState = 'aiming';
           enemy.targetAngle = undefined;
           enemy.targetPower = undefined;
@@ -628,6 +652,41 @@ export class MonkeysGameService {
           const dx = this.player.x - enemy.x;
           const dy = this.player.y - enemy.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (enemy.forceTerrainClearingShot) {
+            let directAngleDeg = (Math.atan2(-dy, dx) * 180) / Math.PI;
+            directAngleDeg -= (enemy.terrainAngle * 180) / Math.PI;
+            directAngleDeg = ((directAngleDeg % 360) + 360) % 360;
+
+            enemy.facing = dx > 0 ? 1 : -1;
+
+            let relativeAngleDeg =
+              enemy.facing === 1 ? directAngleDeg : 180 - directAngleDeg;
+            relativeAngleDeg = Math.max(
+              enemy.vehicle.minAimAngle,
+              Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
+            );
+
+            const maxFallbackPower = Math.max(20, enemy.vehicle.power);
+            enemy.targetAngle = relativeAngleDeg;
+            if (distance < 200) {
+              enemy.targetPower = maxFallbackPower * (0.3 + Math.random() * 0.25);
+            } else if (distance < 400) {
+              enemy.targetPower = maxFallbackPower * (0.55 + Math.random() * 0.25);
+            } else {
+              enemy.targetPower = maxFallbackPower * (0.8 + Math.random() * 0.2);
+            }
+
+            enemy.forceTerrainClearingShot = false;
+            enemy.angle =
+              enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
+            enemy.chargeStartTime = Date.now();
+            enemy.turnState = 'charging';
+            console.log(
+              `Aggressive terrain-clearing shot: angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
+            );
+            return;
+          }
 
           if (distance <= 50) {
             // Too close: fire a tactical shot instead of skipping turn.

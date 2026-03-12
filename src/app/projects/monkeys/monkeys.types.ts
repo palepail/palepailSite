@@ -54,6 +54,7 @@ export interface Enemy {
   movementTimer?: number;
   moveDirection?: number;
   behavior?: 'aggressive' | 'defensive' | 'flanking';
+  forceTerrainClearingShot?: boolean;
 }
 
 export enum GameState {
