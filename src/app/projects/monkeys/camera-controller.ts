@@ -102,7 +102,7 @@ class CameraController {
       0,
       Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.panTargetX),
     );
-    // Note: panTargetY is NOT clamped here - we clamp only the final camera.y position
+    this.panTargetY = this.clampCameraY(this.panTargetY);
     if (
       Math.abs(this.panTargetX - this.camera.x) > 5 ||
       Math.abs(this.panTargetY - this.camera.y) > 5
