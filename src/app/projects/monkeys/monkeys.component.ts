@@ -132,6 +132,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
+  private readonly HURT_SPRITE_DURATION_MS = 300;
+
+  // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
+  private previousHealthByEntity = new WeakMap<object, number>();
+  private hurtSpriteUntilByEntity = new WeakMap<object, number>();
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -183,6 +188,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
+    this.previousHealthByEntity = new WeakMap<object, number>();
+    this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
 
     // Add key listeners
     window.addEventListener('keydown', (event) => {
@@ -228,6 +235,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.drawOptions();
       return;
     }
+
+    this.updateHurtSpriteState();
 
     // Check if setup is complete (3 seconds)
     if (
@@ -802,10 +811,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     centerY: number,
     bodyRadius: number,
   ): boolean {
+    const now = Date.now();
+    const isHurt = (this.hurtSpriteUntilByEntity.get(entity as object) ?? 0) > now;
     const velocityX = entity?.body?.velocity?.x ?? 0;
     const velocityY = entity?.body?.velocity?.y ?? 0;
     const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
-    const spriteName = isMoving ? `monkey_move_${this.getMoveFrameIndex()}` : 'monkey_idle';
+    const spriteName = isHurt
+      ? 'monkey_hurt'
+      : isMoving
+        ? `monkey_move_${this.getMoveFrameIndex(now)}`
+        : 'monkey_idle';
     const sprite = this.spriteService.getSprite(spriteName);
 
     if (!sprite) {
@@ -833,6 +848,29 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.restore();
 
     return true;
+  }
+
+  private updateHurtSpriteState() {
+    const now = Date.now();
+    this.trackEntityDamage(this.gameService.player, now);
+    for (const enemy of this.gameService.enemies) {
+      if (!enemy.active) {
+        continue;
+      }
+      this.trackEntityDamage(enemy, now);
+    }
+  }
+
+  private trackEntityDamage(entity: any, now: number) {
+    const key = entity as object;
+    const currentHealth = Number(entity?.health ?? 0);
+    const previousHealth = this.previousHealthByEntity.get(key);
+
+    if (previousHealth !== undefined && currentHealth < previousHealth) {
+      this.hurtSpriteUntilByEntity.set(key, now + this.HURT_SPRITE_DURATION_MS);
+    }
+
+    this.previousHealthByEntity.set(key, currentHealth);
   }
 
   private drawTankBody(player: any, centerX: number, centerY: number, bodyRadius: number): boolean {
