@@ -126,6 +126,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly EXPLOSION_OUTLINE_COLOR = CONST.EXPLOSION_OUTLINE_COLOR;
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
+  private readonly EFFECT_SPRITE_FRAME_COUNT = 3;
+  private readonly BULLET_SPRITE_FRAME_DURATION_MS = 90;
+  private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
+  private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
+  private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -580,6 +585,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return Math.floor(now / frameDuration) % 6;
   }
 
+  private getBulletFrameIndex(now: number = Date.now()): number {
+    return Math.floor(now / this.BULLET_SPRITE_FRAME_DURATION_MS) % this.EFFECT_SPRITE_FRAME_COUNT;
+  }
+
+  private getExplosionFrameIndex(now: number = Date.now()): number {
+    return (
+      Math.floor(now / this.EXPLOSION_SPRITE_FRAME_DURATION_MS) % this.EFFECT_SPRITE_FRAME_COUNT
+    );
+  }
+
   private drawCursorBarrel(centerX: number, centerY: number, angleRad: number) {
     const cursorFrameIndex = this.getCursorFrameIndex();
     const cursorSprite = this.spriteService.getSprite(`cursor_${cursorFrameIndex}`);
@@ -901,6 +916,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawProjectile() {
+    const bulletFrameIndex = this.getBulletFrameIndex();
+    const bulletSprite = this.spriteService.getSprite(`bullet_${bulletFrameIndex}`);
+
     if (this.gameService.projectile) {
       let pos: { x: number; y: number };
       if (this.gameService.projectile.body) {
@@ -911,21 +929,54 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
       }
       const screenPos = this.cameraController.worldToScreen(pos.x, pos.y);
-      this.ctx.fillStyle = this.PROJECTILE_COLOR;
-      this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
-      this.ctx.fill();
+      if (bulletSprite) {
+        const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
+        this.ctx.drawImage(
+          bulletSprite.image,
+          bulletSprite.x,
+          bulletSprite.y,
+          bulletSprite.width,
+          bulletSprite.height,
+          screenPos.x - drawSize / 2,
+          screenPos.y - drawSize / 2,
+          drawSize,
+          drawSize,
+        );
+      } else {
+        this.ctx.fillStyle = this.PROJECTILE_COLOR;
+        this.ctx.beginPath();
+        this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
     } else if (this.gameService.explodedProjectiles.length > 0) {
       const ep = this.gameService.explodedProjectiles[0];
       const screenPos = this.cameraController.worldToScreen(ep.position.x, ep.position.y);
-      this.ctx.fillStyle = this.PROJECTILE_COLOR;
-      this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
-      this.ctx.fill();
+      if (bulletSprite) {
+        const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
+        this.ctx.drawImage(
+          bulletSprite.image,
+          bulletSprite.x,
+          bulletSprite.y,
+          bulletSprite.width,
+          bulletSprite.height,
+          screenPos.x - drawSize / 2,
+          screenPos.y - drawSize / 2,
+          drawSize,
+          drawSize,
+        );
+      } else {
+        this.ctx.fillStyle = this.PROJECTILE_COLOR;
+        this.ctx.beginPath();
+        this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
     }
   }
 
   private drawExplosions() {
+    const explosionFrameIndex = this.getExplosionFrameIndex();
+    const explosionSprite = this.spriteService.getSprite(`explosion_${explosionFrameIndex}`);
+
     for (let i = this.gameService.explosions.length - 1; i >= 0; i--) {
       const explosion = this.gameService.explosions[i];
       if (
@@ -983,6 +1034,29 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.strokeStyle = this.EXPLOSION_OUTLINE_COLOR;
       this.ctx.lineWidth = this.EXPLOSION_OUTLINE_WIDTH;
       this.ctx.stroke();
+
+      if (explosionSprite) {
+        let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
+        let spriteHeight = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
+
+        if (explosion.shape === 'horizontal_oval') {
+          spriteWidth *= 1.5;
+        } else if (explosion.shape === 'vertical_oval') {
+          spriteHeight *= 1.5;
+        }
+
+        this.ctx.drawImage(
+          explosionSprite.image,
+          explosionSprite.x,
+          explosionSprite.y,
+          explosionSprite.width,
+          explosionSprite.height,
+          screenPos.x - spriteWidth / 2,
+          screenPos.y - spriteHeight / 2,
+          spriteWidth,
+          spriteHeight,
+        );
+      }
     }
   }
 
@@ -1151,9 +1225,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         Math.min(CONST.TERRAIN_WIDTH - CONST.CANVAS_WIDTH, this.cameraController.camera.x),
       );
       // Clamp vertical for manual drag (limited range)
-      this.cameraController.camera.y = this.clampCameraY(
-        this.cameraController.camera.y,
-      );
+      this.cameraController.camera.y = this.clampCameraY(this.cameraController.camera.y);
       this.lastMouseX = event.clientX;
       this.lastMouseY = event.clientY;
     }

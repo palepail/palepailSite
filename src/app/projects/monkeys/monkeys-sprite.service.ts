@@ -35,6 +35,16 @@ export class MonkeysSpriteService {
     { name: 'monkey_move_2', spritesheet: 'Lupin.png', x: 128, y: 0, width: 64, height: 64 },
     { name: 'monkey_move_3', spritesheet: 'Lupin.png', x: 192, y: 0, width: 64, height: 64 },
 
+    // Explosion animation: row 6, 3 frames, each 64x64.
+    { name: 'explosion_0', spritesheet: 'Lupin.png', x: 0,   y: 384, width: 64, height: 64 },
+    { name: 'explosion_1', spritesheet: 'Lupin.png', x: 64,  y: 384, width: 64, height: 64 },
+    { name: 'explosion_2', spritesheet: 'Lupin.png', x: 128, y: 384, width: 64, height: 64 },
+
+    // Bullet animation: row 7, 3 frames, each 64x64.
+    { name: 'bullet_0', spritesheet: 'Lupin.png', x: 0,   y: 448, width: 64, height: 64 },
+    { name: 'bullet_1', spritesheet: 'Lupin.png', x: 64,  y: 448, width: 64, height: 64 },
+    { name: 'bullet_2', spritesheet: 'Lupin.png', x: 128, y: 448, width: 64, height: 64 },
+
     // Cursors: row 0, 6 frames, each 32x32.
     { name: 'cursor_0', spritesheet: 'Cursors.png', x: 0,   y: 0, width: 32, height: 32 },
     { name: 'cursor_1', spritesheet: 'Cursors.png', x: 32,  y: 0, width: 32, height: 32 },
