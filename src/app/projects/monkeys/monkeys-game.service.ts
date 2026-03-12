@@ -51,6 +51,7 @@ export class MonkeysGameService {
   private _turnStartTime: number = 0;
   private lastUpdateTime = Date.now();
   private readonly TIMEOUT_MS = 45000;
+  private readonly VEHICLE_NO_COLLISION_GROUP = -1;
 
   get turnStartTime(): number {
     return this._turnStartTime;
@@ -155,6 +156,7 @@ export class MonkeysGameService {
       frictionAir: CONST.PLAYER_AIR_FRICTION,
       restitution: CONST.PLAYER_RESTITUTION,
       density: CONST.PLAYER_DENSITY,
+      collisionFilter: { group: this.VEHICLE_NO_COLLISION_GROUP },
     });
     this.World.add(this.world, entity.body);
   }
