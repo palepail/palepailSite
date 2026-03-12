@@ -33,6 +33,8 @@ import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
+  private terrainSpriteCanvas: HTMLCanvasElement | null = null;
+  private terrainSpriteCtx: CanvasRenderingContext2D | null = null;
   private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
 
   // Camera system
@@ -493,19 +495,88 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const terrainY = Math.floor(
       this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
     );
-
     const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
     const endX = Math.min(
       CONST.TERRAIN_WIDTH,
       Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
     );
 
-    // Fill destroyed/uncovered terrain pixels with the solid colour as a base
+    // Ensure offscreen canvas exists at viewport size
+    if (
+      !this.terrainSpriteCanvas ||
+      this.terrainSpriteCanvas.width !== this.CANVAS_WIDTH ||
+      this.terrainSpriteCanvas.height !== this.CANVAS_HEIGHT
+    ) {
+      this.terrainSpriteCanvas = document.createElement('canvas');
+      this.terrainSpriteCanvas.width = this.CANVAS_WIDTH;
+      this.terrainSpriteCanvas.height = this.CANVAS_HEIGHT;
+      this.terrainSpriteCtx = this.terrainSpriteCanvas.getContext('2d');
+    }
+
+    const offCtx = this.terrainSpriteCtx!;
+    offCtx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    const terrainSheet = this.spriteService.getSpritesheet(
+      this.spriteService.TERRAIN_TOOL_SPRITESHEET,
+    );
+    if (terrainSheet) {
+      // Interior fill first (behind surface pieces)
+      for (const placement of this.gameService.terrainInteriorPlacements) {
+        const { region, x: worldX, topWorldY } = placement;
+        const screenX = Math.floor(worldX - this.cameraController.camera.x);
+        const screenY = Math.floor(terrainY + topWorldY);
+        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
+        offCtx.drawImage(
+          terrainSheet,
+          region.x, region.y, region.width, region.height,
+          screenX, screenY, region.width, region.height,
+        );
+      }
+      // Surface shell on top
+      for (const placement of this.gameService.terrainChunkPlacements) {
+        const { region, x: worldX, topWorldY } = placement;
+        const screenX = Math.floor(worldX - this.cameraController.camera.x);
+        const screenY = Math.floor(terrainY + topWorldY);
+        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
+        offCtx.drawImage(
+          terrainSheet,
+          region.x, region.y, region.width, region.height,
+          screenX, screenY, region.width, region.height,
+        );
+      }
+    }
+
+    // Mask by removing air cells only, so sprite overhang above the collision top remains visible.
+    offCtx.globalCompositeOperation = 'destination-out';
+    offCtx.fillStyle = 'rgba(0,0,0,1)';
+    for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
+      let segmentStart = -1;
+      for (let x = startX; x < endX; x++) {
+        if (this.gameService.terrain[x]?.[y] !== 1) {
+          if (segmentStart === -1) segmentStart = x;
+        } else {
+          if (segmentStart !== -1) {
+            const sx = Math.floor(segmentStart - this.cameraController.camera.x);
+            const ex = Math.floor(x - this.cameraController.camera.x);
+            offCtx.fillRect(sx, terrainY + y, ex - sx, 1);
+            segmentStart = -1;
+          }
+        }
+      }
+      if (segmentStart !== -1) {
+        const sx = Math.floor(segmentStart - this.cameraController.camera.x);
+        const ex = Math.floor(endX - this.cameraController.camera.x);
+        offCtx.fillRect(sx, terrainY + y, ex - sx, 1);
+      }
+    }
+    offCtx.globalCompositeOperation = 'source-over';
+
+    // Brown fallback fill — visible through carved holes where sprites were erased
     this.ctx.fillStyle = CONST.TERRAIN_COLOR;
     for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
       let segmentStart = -1;
       for (let x = startX; x < endX; x++) {
-        if (this.gameService.terrain[x] && this.gameService.terrain[x][y] === 1) {
+        if (this.gameService.terrain[x]?.[y] === 1) {
           if (segmentStart === -1) segmentStart = x;
         } else {
           if (segmentStart !== -1) {
@@ -523,36 +594,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // Draw terrain chunk sprites on top of the filled base
-    const terrainSheet = this.spriteService.getSpritesheet(
-      this.spriteService.TERRAIN_TOOL_SPRITESHEET,
-    );
-    if (terrainSheet) {
-      // Interior fill first (behind surface pieces)
-      for (const placement of this.gameService.terrainInteriorPlacements) {
-        const { region, x: worldX, topWorldY } = placement;
-        const screenX = Math.floor(worldX - this.cameraController.camera.x);
-        const screenY = Math.floor(terrainY + topWorldY);
-        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
-        this.ctx.drawImage(
-          terrainSheet,
-          region.x, region.y, region.width, region.height,
-          screenX, screenY, region.width, region.height,
-        );
-      }
-      // Surface shell on top
-      for (const placement of this.gameService.terrainChunkPlacements) {
-        const { region, x: worldX, topWorldY } = placement;
-        const screenX = Math.floor(worldX - this.cameraController.camera.x);
-        const screenY = Math.floor(terrainY + topWorldY);
-        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
-        this.ctx.drawImage(
-          terrainSheet,
-          region.x, region.y, region.width, region.height,
-          screenX, screenY, region.width, region.height,
-        );
-      }
-    }
+    // Composite masked sprites over the colour fill
+    this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
   }
 
   private drawPlayer() {
