@@ -232,10 +232,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.destroy();
   }
 
-  startGame() {
+  async startGame() {
     this.gameService.setMatterJS(Matter);
     this.canvas.nativeElement.focus();
-    this.gameService.initGame();
+    this.gameService.currentState = GameState.LOADING;
+    try {
+      await Promise.all([
+        this.gameService.initGame(),
+        this.spriteService.loadTerrainSpritesheet(),
+      ]);
+    } catch (error) {
+      console.error('Failed to start game:', error);
+      this.gameService.currentState = GameState.MENU;
+      return;
+    }
     this.cameraController.reset();
     // Set up camera follow for player during setup
     this.cameraController.setFollowTarget(this.gameService.player);
@@ -480,42 +490,67 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawTerrain() {
-    // Draw destructible terrain more efficiently by finding solid segments
-    this.ctx.fillStyle = '#8B4513'; // Brown color for terrain
     const terrainY = Math.floor(
       this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
-    ); // Terrain starts at y=500, adjusted for camera
+    );
 
-    // Only draw visible terrain segments
     const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
     const endX = Math.min(
       CONST.TERRAIN_WIDTH,
       Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
     );
 
-    // Draw terrain in horizontal segments for better performance
+    // Fill destroyed/uncovered terrain pixels with the solid colour as a base
+    this.ctx.fillStyle = CONST.TERRAIN_COLOR;
     for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
       let segmentStart = -1;
       for (let x = startX; x < endX; x++) {
         if (this.gameService.terrain[x] && this.gameService.terrain[x][y] === 1) {
-          if (segmentStart === -1) {
-            segmentStart = x; // Start of solid segment
-          }
+          if (segmentStart === -1) segmentStart = x;
         } else {
           if (segmentStart !== -1) {
-            // End of solid segment, draw it at screen position
-            const screenX = Math.floor(x - this.cameraController.camera.x);
-            const prevScreenX = Math.floor(segmentStart - this.cameraController.camera.x);
-            this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
+            const sx = Math.floor(segmentStart - this.cameraController.camera.x);
+            const ex = Math.floor(x - this.cameraController.camera.x);
+            this.ctx.fillRect(sx, terrainY + y, ex - sx, 1);
             segmentStart = -1;
           }
         }
       }
-      // Draw remaining segment if it goes to the end
       if (segmentStart !== -1) {
-        const screenX = Math.floor(endX - this.cameraController.camera.x);
-        const prevScreenX = Math.floor(segmentStart - this.cameraController.camera.x);
-        this.ctx.fillRect(prevScreenX, terrainY + y, screenX - prevScreenX, 1);
+        const sx = Math.floor(segmentStart - this.cameraController.camera.x);
+        const ex = Math.floor(endX - this.cameraController.camera.x);
+        this.ctx.fillRect(sx, terrainY + y, ex - sx, 1);
+      }
+    }
+
+    // Draw terrain chunk sprites on top of the filled base
+    const terrainSheet = this.spriteService.getSpritesheet(
+      this.spriteService.TERRAIN_TOOL_SPRITESHEET,
+    );
+    if (terrainSheet) {
+      // Interior fill first (behind surface pieces)
+      for (const placement of this.gameService.terrainInteriorPlacements) {
+        const { region, x: worldX, topWorldY } = placement;
+        const screenX = Math.floor(worldX - this.cameraController.camera.x);
+        const screenY = Math.floor(terrainY + topWorldY);
+        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
+        this.ctx.drawImage(
+          terrainSheet,
+          region.x, region.y, region.width, region.height,
+          screenX, screenY, region.width, region.height,
+        );
+      }
+      // Surface shell on top
+      for (const placement of this.gameService.terrainChunkPlacements) {
+        const { region, x: worldX, topWorldY } = placement;
+        const screenX = Math.floor(worldX - this.cameraController.camera.x);
+        const screenY = Math.floor(terrainY + topWorldY);
+        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
+        this.ctx.drawImage(
+          terrainSheet,
+          region.x, region.y, region.width, region.height,
+          screenX, screenY, region.width, region.height,
+        );
       }
     }
   }
@@ -1118,6 +1153,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     bodyRadius: number,
     isPlayer: boolean = false,
   ) {
+    if (!entity || !entity.vehicle || typeof entity.health !== 'number') {
+      return;
+    }
+
     if (entity.health <= 0) {
       return;
     }
@@ -2108,8 +2147,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private handleMenuClick(x: number, y: number) {
     // Check Start Game button
     if (this.isPointInsideButton(x, y, this.MENU_START_BUTTON)) {
-      this.gameService.currentState = GameState.SETUP;
-      this.startGame();
+      void this.startGame();
       return;
     }
 

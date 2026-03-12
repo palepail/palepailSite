@@ -26,7 +26,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 0,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_1",
@@ -53,7 +58,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 1,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_2",
@@ -80,7 +90,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 2,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_3",
@@ -107,7 +122,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 3,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_4",
@@ -134,7 +154,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 4,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_5",
@@ -161,7 +186,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 5,
+      "pieceType": "interior",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_6",
@@ -532,6 +562,20 @@
           "x": 20,
           "y": 1
         }
+      ],
+      "id": 6,
+      "pieceType": "top_cap_left",
+      "topEntryY": 7,
+      "topExitY": 8,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -719,6 +763,20 @@
           "x": 65,
           "y": 1
         }
+      ],
+      "id": 7,
+      "pieceType": "top_flat",
+      "topEntryY": 3,
+      "topExitY": 3,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -954,7 +1012,12 @@
           "x": 5,
           "y": 1
         }
-      ]
+      ],
+      "id": 8,
+      "pieceType": "bottom_flat",
+      "topEntryY": 2,
+      "topExitY": 3,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_9",
@@ -1141,7 +1204,12 @@
           "x": 3,
           "y": 2
         }
-      ]
+      ],
+      "id": 9,
+      "pieceType": "bottom_flat",
+      "topEntryY": 2,
+      "topExitY": 2,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_10",
@@ -1512,7 +1580,13 @@
           "x": 5,
           "y": 1
         }
-      ]
+      ],
+      "id": 10,
+      "pieceType": "top_cap_right",
+      "topEntryY": 7,
+      "topExitY": 7,
+      "fillToBottom": true,
+      "allowedNextIds": []
     },
     {
       "name": "terrain_region_11",
@@ -1667,6 +1741,20 @@
           "x": 52,
           "y": 1
         }
+      ],
+      "id": 11,
+      "pieceType": "top_flat",
+      "topEntryY": 2,
+      "topExitY": 2,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -1838,6 +1926,20 @@
           "x": 19,
           "y": 1
         }
+      ],
+      "id": 12,
+      "pieceType": "top_flat",
+      "topEntryY": 2,
+      "topExitY": 2,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -2185,7 +2287,12 @@
           "x": 0,
           "y": 21
         }
-      ]
+      ],
+      "id": 13,
+      "pieceType": "bottom_flat",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_14",
@@ -2548,7 +2655,12 @@
           "x": 0,
           "y": 21
         }
-      ]
+      ],
+      "id": 14,
+      "pieceType": "bottom_flat",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_15",
@@ -2903,7 +3015,12 @@
           "x": 0,
           "y": 21
         }
-      ]
+      ],
+      "id": 15,
+      "pieceType": "bottom_flat",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_16",
@@ -3178,7 +3295,12 @@
           "x": 11,
           "y": 1
         }
-      ]
+      ],
+      "id": 16,
+      "pieceType": "side_left",
+      "topEntryY": 34,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_17",
@@ -3405,7 +3527,12 @@
           "x": 12,
           "y": 1
         }
-      ]
+      ],
+      "id": 17,
+      "pieceType": "side_left",
+      "topEntryY": 22,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_18",
@@ -3680,7 +3807,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 18,
+      "pieceType": "side_right",
+      "topEntryY": 0,
+      "topExitY": 12,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_19",
@@ -3939,7 +4071,12 @@
           "x": 0,
           "y": 60
         }
-      ]
+      ],
+      "id": 19,
+      "pieceType": "side_right",
+      "topEntryY": 0,
+      "topExitY": 14,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_20",
@@ -4094,6 +4231,20 @@
           "x": 52,
           "y": 1
         }
+      ],
+      "id": 20,
+      "pieceType": "top_flat",
+      "topEntryY": 2,
+      "topExitY": 2,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -4497,7 +4648,12 @@
           "x": 0,
           "y": 21
         }
-      ]
+      ],
+      "id": 21,
+      "pieceType": "bottom_slope_up",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_22",
@@ -4932,6 +5088,20 @@
           "x": 84,
           "y": 1
         }
+      ],
+      "id": 22,
+      "pieceType": "top_slope_up",
+      "topEntryY": 60,
+      "topExitY": 0,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     },
     {
@@ -5375,7 +5545,12 @@
           "x": 0,
           "y": 81
         }
-      ]
+      ],
+      "id": 23,
+      "pieceType": "bottom_slope_down",
+      "topEntryY": 0,
+      "topExitY": 0,
+      "fillToBottom": true
     },
     {
       "name": "terrain_region_24",
@@ -5810,6 +5985,20 @@
           "x": 0,
           "y": 95
         }
+      ],
+      "id": 24,
+      "pieceType": "top_slope_down",
+      "topEntryY": 0,
+      "topExitY": 61,
+      "fillToBottom": true,
+      "allowedNextIds": [
+        7,
+        11,
+        12,
+        20,
+        22,
+        24,
+        10
       ]
     }
   ],

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { TerrainMetadataFile, TerrainSpriteMetadata } from './monkeys.types';
 
 export interface SpriteDefinition {
   name: string;
@@ -37,12 +38,15 @@ interface SpriteMetadataFile {
 export class MonkeysSpriteService {
   private readonly ASSET_BASE_PATH = 'resources/images/projects/monkeys/';
   private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
+  private readonly TERRAIN_METADATA_PATH = 'assets/monkeys/terrain-metadata.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   private spritesheets: Map<string, HTMLImageElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
   private spriteDefinitions: SpriteDefinition[] = [];
   private metadataLoadPromise: Promise<void> | null = null;
+  private terrainMetadataPromise: Promise<TerrainMetadataFile> | null = null;
+  private terrainMetadataCache: TerrainMetadataFile | null = null;
 
   constructor() {}
 
@@ -63,6 +67,28 @@ export class MonkeysSpriteService {
 
   async loadTerrainSpritesheet(): Promise<HTMLImageElement> {
     return this.loadRawSpritesheet(this.TERRAIN_TOOL_SPRITESHEET);
+  }
+
+  async loadTerrainMetadata(): Promise<TerrainMetadataFile> {
+    if (this.terrainMetadataCache) {
+      return this.terrainMetadataCache;
+    }
+
+    if (!this.terrainMetadataPromise) {
+      this.terrainMetadataPromise = this.fetchTerrainMetadata().catch((error) => {
+        this.terrainMetadataPromise = null;
+        throw error;
+      });
+    }
+
+    const metadata = await this.terrainMetadataPromise;
+    this.terrainMetadataCache = metadata;
+    return metadata;
+  }
+
+  async getTerrainSpritesByType(type: TerrainSpriteMetadata['pieceType']): Promise<TerrainSpriteMetadata[]> {
+    const metadata = await this.loadTerrainMetadata();
+    return metadata.sprites.filter((sprite) => sprite.pieceType === type);
   }
 
   private async ensureSpriteMetadataLoaded(): Promise<void> {
@@ -103,6 +129,31 @@ export class MonkeysSpriteService {
     }
 
     return resolvedSpritesheet;
+  }
+
+  private async fetchTerrainMetadata(): Promise<TerrainMetadataFile> {
+    const response = await fetch(this.TERRAIN_METADATA_PATH);
+    if (!response.ok) {
+      throw new Error(`Failed to load terrain metadata from ${this.TERRAIN_METADATA_PATH}`);
+    }
+
+    const metadata = (await response.json()) as TerrainMetadataFile;
+    metadata.sprites = metadata.sprites
+      .map((sprite) => ({
+        ...sprite,
+        id: Number.isFinite(sprite.id) ? sprite.id : this.extractRegionId(sprite.name),
+      }))
+      .sort((a, b) => a.id - b.id);
+
+    return metadata;
+  }
+
+  private extractRegionId(name: string): number {
+    const match = /terrain_region_(\d+)/.exec(name);
+    if (!match) {
+      return -1;
+    }
+    return Number.parseInt(match[1], 10);
   }
 
   async loadRawSpritesheet(path: string): Promise<HTMLImageElement> {

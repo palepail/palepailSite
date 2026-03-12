@@ -103,6 +103,50 @@ export interface TerrainSpriteRegion {
   outline: TerrainSpritePoint[];
 }
 
+export type TerrainPieceType =
+  | 'interior'
+  | 'top_flat'
+  | 'top_slope_up'
+  | 'top_slope_down'
+  | 'top_cap_left'
+  | 'top_cap_right'
+  | 'side_left'
+  | 'side_right'
+  | 'bottom_flat'
+  | 'bottom_slope_up'
+  | 'bottom_slope_down';
+
+export interface TerrainSpriteMetadata {
+  id: number;
+  name: string;
+  spritesheet: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pieceType: TerrainPieceType;
+  topEntryY: number;
+  topExitY: number;
+  fillToBottom?: boolean;
+  allowedNextIds?: number[];
+}
+
+export interface TerrainMetadataFile {
+  spritesheet: string;
+  sprites: TerrainSpriteMetadata[];
+  analysis?: {
+    alphaThreshold: number;
+    minimumPixelCount: number;
+    regionCount: number;
+  };
+}
+
+export interface TerrainChunkPlacement {
+  region: TerrainSpriteMetadata;
+  x: number;
+  topWorldY: number;
+}
+
 export interface Explosion {
   x: number;
   y: number;
