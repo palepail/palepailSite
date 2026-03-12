@@ -900,6 +900,7 @@ export class MonkeysGameService {
           damage: actualDamage,
           life: CONST.DAMAGE_TEXT_LIFETIME,
         });
+        this.applyExplosionKnockback(this.player, explosionX, explosionY, projectile, radiusX, radiusY);
       }
     }
 
@@ -919,6 +920,7 @@ export class MonkeysGameService {
             damage: damage,
             life: CONST.DAMAGE_TEXT_LIFETIME,
           });
+          this.applyExplosionKnockback(enemy, explosionX, explosionY, projectile, radiusX, radiusY);
           if (enemy.health <= 0) {
             enemy.active = false;
             if (enemy.body) {
@@ -1319,6 +1321,39 @@ export class MonkeysGameService {
   private startCharging() {
     this.isCharging = true;
     this.chargeStartTime = Date.now();
+  }
+
+  private applyExplosionKnockback(
+    target: Player | Enemy,
+    explosionX: number,
+    explosionY: number,
+    projectile: any,
+    radiusX: number,
+    radiusY: number
+  ) {
+    if (!target.body) return;
+    const dx = target.x - explosionX;
+    const dy = target.y - explosionY;
+    const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
+    if (normalizedDist > 1) return;
+    const maxPushDistance =
+      (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
+    const pushDistance = maxPushDistance * (1 - normalizedDist);
+    if (pushDistance <= 0) return;
+    const distance = Math.hypot(dx, dy);
+    const dirX = distance > 0.001 ? dx / distance : 0;
+    const dirY = distance > 0.001 ? dy / distance : -1;
+    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + dirX * pushDistance));
+    const targetY = target.y + dirY * pushDistance;
+    this.Body.setPosition(target.body, { x: targetX, y: targetY });
+    if (target.body.velocity) {
+      this.Body.setVelocity(target.body, {
+        x: target.body.velocity.x + dirX * pushDistance * 0.05,
+        y: target.body.velocity.y + dirY * pushDistance * 0.05,
+      });
+    }
+    target.x = targetX;
+    target.y = targetY;
   }
 
   private createCrater(centerX: number, centerY: number, radius: number, bullet: any): void {
