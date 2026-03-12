@@ -1104,7 +1104,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.textAlign = 'center';
       this.ctx.fillText('Paused', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
       this.ctx.textAlign = 'left';
-    } else if (this.gameService.currentState === GameState.GAME_OVER) {
+    } else if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.GAME_OVER
+    ) {
       this.ctx.fillStyle = '#FFFFFF';
       this.ctx.font = '32px Arial';
       this.ctx.textAlign = 'center';
@@ -1169,6 +1172,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
       event.preventDefault();
     }
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+      return;
+    }
     if (event.key === 'p' || event.key === 'P') {
       this.showPrediction = !this.showPrediction;
       event.preventDefault();
@@ -1193,6 +1199,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onKeyUp(event: KeyboardEvent) {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+      this.gameService.keys[event.key] = false;
+      return;
+    }
+
     // Handle spacebar release for shooting
     if (event.key === ' ') {
       if (this.gameService.isCharging && !this.gameService.projectile) {
@@ -1213,6 +1224,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseMove(event: MouseEvent) {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+      this.isDragging = false;
+      return;
+    }
+
     // Handle camera dragging
     if (this.isDragging) {
       const deltaX = (event.clientX - this.lastMouseX) / this.canvasScale;
@@ -1234,12 +1250,21 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseDown(event: MouseEvent) {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+      return;
+    }
+
     this.isDragging = true;
     this.lastMouseX = event.clientX;
     this.lastMouseY = event.clientY;
   }
 
   onMouseUp() {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+      this.isDragging = false;
+      return;
+    }
+
     this.isDragging = false;
     this.cameraController.lastActivityTime = Date.now();
   }

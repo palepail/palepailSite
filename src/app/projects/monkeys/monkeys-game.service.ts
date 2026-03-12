@@ -69,7 +69,6 @@ export class MonkeysGameService {
   keys: { [key: string]: boolean } = {};
 
   // Game over delay
-  private gameOverPending: boolean = false;
   private gameOverTimer: number = 0;
 
   constructor() {
@@ -182,7 +181,6 @@ export class MonkeysGameService {
   }
 
   initGame() {
-    this.gameOverPending = false;
     this.gameOverTimer = 0;
     this.trajectoryCache.clear();
     this.generateTerrain();
@@ -916,7 +914,11 @@ export class MonkeysGameService {
     this.lastUpdateTime = now;
 
     // Check for game over early
-    if (this.player.health <= 0 && !this.gameOverPending) {
+    if (
+      this.player.health <= 0 &&
+      this.currentState !== GameState.GAME_OVER_DELAY &&
+      this.currentState !== GameState.GAME_OVER
+    ) {
       console.log(
         'Game over pending: player.health =',
         this.player.health,
@@ -924,16 +926,17 @@ export class MonkeysGameService {
         this.player.vehicle.health,
         'starting 2s timer',
       );
-      this.gameOverPending = true;
+      this.currentState = GameState.GAME_OVER_DELAY;
       this.gameOverTimer = 2.0;
+      this.keys = {};
+      this.isCharging = false;
     }
 
-    if (this.gameOverPending) {
+    if (this.currentState === GameState.GAME_OVER_DELAY) {
       this.gameOverTimer -= deltaTime;
       if (this.gameOverTimer <= 0) {
         console.log('Game over timer expired, setting to GAME_OVER');
         this.currentState = GameState.GAME_OVER;
-        this.gameOverPending = false;
       }
     }
 
