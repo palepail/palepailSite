@@ -54,6 +54,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private turnMessage: string = '';
   private messageTimer: number = 0;
   private previousTurnId: string = '';
+  private previousTurnState: string = '';
 
   // Game state
   get currentState(): GameState {
@@ -242,8 +243,33 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.panToEntity = this.gameService.getCurrentTurnEntity();
     }
 
-    // Reset player movement flag
-    this.playerMovementStarted = false;
+    const currentTurn = this.gameService.getCurrentTurnEntity();
+    const currentTurnEntity = currentTurn?.entity;
+
+    if (
+      this.gameService.currentState === GameState.PLAYING &&
+      currentTurnEntity &&
+      !this.gameService.projectile &&
+      this.gameService.explodedProjectiles.length === 0
+    ) {
+      this.cameraController.enableIdleMode();
+    } else {
+      this.cameraController.disableIdleMode();
+    }
+
+    if (this.isDragging) {
+      this.cameraController.resetIdleModeActivityTimer();
+    }
+
+    if (currentTurn) {
+      const stateNow = (currentTurn.entity as any).turnState as string;
+      const isStateTransition = this.previousTurnId === currentTurn.id && this.previousTurnState !== stateNow;
+      const shouldRefocusForAction = stateNow === 'moving' || stateNow === 'charging';
+      if (isStateTransition && shouldRefocusForAction) {
+        this.gameService.panToEntity = currentTurn;
+      }
+      this.previousTurnState = stateNow;
+    }
 
     // Update camera
     this.cameraController.update(
@@ -256,7 +282,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.keys['ArrowUp'] || this.gameService.keys['ArrowDown'],
       this.gameService.currentState,
       this.gameService.player.body,
-      this.gameService.getCurrentTurnEntity()?.entity,
+      currentTurnEntity,
       this.gameService.explodedProjectiles,
     );
 
@@ -268,8 +294,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       isFinite(this.gameService.panToEntity.entity.y) &&
       this.gameService.currentState !== GameState.SETUP
     ) {
-      this.cameraController.panToEntity(this.gameService.panToEntity.entity);
-      this.gameService.panToEntity = null;
+      if (!this.isDragging) {
+        this.cameraController.panToEntity(this.gameService.panToEntity.entity);
+        this.gameService.panToEntity = null;
+      }
     } else if (this.gameService.panToEntity) {
       this.gameService.panToEntity = null; // Clear invalid request
     }
@@ -286,11 +314,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Update turn message
-    const currentTurn = this.gameService.getCurrentTurnEntity();
     if (currentTurn && currentTurn.id !== this.previousTurnId) {
       this.turnMessage = currentTurn.type === 'player' ? "Player's Turn" : "Enemy's Turn";
       this.messageTimer = 500;
       this.previousTurnId = currentTurn.id;
+      this.previousTurnState = (currentTurn.entity as any).turnState as string;
+      this.playerMovementStarted = false;
       console.log('Turn changed to:', this.turnMessage);
     }
     if (this.messageTimer > 0) {
@@ -1254,6 +1283,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    this.cameraController.cancelPan();
+    this.cameraController.resetIdleModeActivityTimer();
     this.isDragging = true;
     this.lastMouseX = event.clientX;
     this.lastMouseY = event.clientY;

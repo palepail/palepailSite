@@ -26,6 +26,7 @@ class CameraController {
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private readonly CAMERA_Y_MIN = -500;
   private readonly CAMERA_Y_MAX = 100;
+  private readonly IDLE_MODE_AUTO_FOCUS_MS = 2000;
   private hasLanded = false;
   private landingCounter = 0;
   private panTargetX: number | null = null;
@@ -36,6 +37,8 @@ class CameraController {
   private isTrackingProjectile = false;
   private lastTrackedType: 'projectile' | 'explosion' | null = null;
   private trackedExplosion: any = null;
+  private isIdleMode = false;
+  private idleModeActivityTime = Date.now();
 
   constructor() {
     const initialPlayerY =
@@ -68,6 +71,27 @@ class CameraController {
 
   disableFollow() {
     this.isFollowing = false;
+  }
+
+  enableIdleMode() {
+    if (!this.isIdleMode) {
+      this.idleModeActivityTime = Date.now();
+    }
+    this.isIdleMode = true;
+  }
+
+  disableIdleMode() {
+    this.isIdleMode = false;
+  }
+
+  resetIdleModeActivityTimer() {
+    this.idleModeActivityTime = Date.now();
+  }
+
+  cancelPan() {
+    this.isPanning = false;
+    this.panTargetX = null;
+    this.panTargetY = null;
   }
 
   panToEntity(entity: any) {
@@ -206,8 +230,16 @@ class CameraController {
   ) {
     if (!isDragging && this.previousIsDragging) {
       this.lastActivityTime = Date.now();
+      this.idleModeActivityTime = Date.now();
     }
     this.previousIsDragging = isDragging;
+
+    if (isDragging) {
+      this.idleModeActivityTime = Date.now();
+      // Manual camera drag should always override existing pan targets.
+      this.cancelPan();
+    }
+
     let targetX = this.camera.x;
     let targetY = this.camera.y;
     let isFollowingFall = false;
@@ -323,8 +355,25 @@ class CameraController {
       }
     }
 
+    let shouldAutoFocusInIdleMode = false;
+    if (
+      this.isIdleMode &&
+      !isDragging &&
+      !this.isPanning &&
+      !projectile &&
+      explodedProjectiles.length === 0 &&
+      Date.now() - this.idleModeActivityTime >= this.IDLE_MODE_AUTO_FOCUS_MS
+    ) {
+      const focusEntityX = currentTurnEntity?.x ?? playerX;
+      const focusEntityY = currentTurnEntity?.y ?? playerY;
+      const focusTargets = this.getCenterTargets(focusEntityX, focusEntityY);
+      targetX = focusTargets.targetX;
+      targetY = focusTargets.targetY;
+      shouldAutoFocusInIdleMode = true;
+    }
+
     // Determine if we're currently recentering
-    const isRecentering = false; // Removed automatic recenter
+    const isRecentering = shouldAutoFocusInIdleMode;
 
     // Smooth camera movement with variable lerp
     let lerpFactor = this.DEFAULT_LERP; // Default smooth lerp
