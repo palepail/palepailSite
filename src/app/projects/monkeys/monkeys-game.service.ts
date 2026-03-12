@@ -628,9 +628,27 @@ export class MonkeysGameService {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance <= 50) {
-            // Too close, skip turn
-            this.endTurn(100);
-            enemy.turnState = 'assess';
+            // Too close: fire a tactical shot instead of skipping turn.
+            // Option A: low-power nearby dig shot to create cover.
+            // Option B: high-angle shot to improve spacing/angle next turn.
+            const maxPower = Math.max(20, enemy.vehicle.power);
+            const useDigShot = Math.random() < 0.65;
+            if (useDigShot) {
+              enemy.facing = dx > 0 ? -1 : 1; // Aim away from player for nearby cover crater.
+              enemy.targetAngle = Math.min(
+                enemy.vehicle.maxAimAngle,
+                enemy.vehicle.minAimAngle + (enemy.vehicle.maxAimAngle - enemy.vehicle.minAimAngle) * 0.8,
+              );
+              enemy.targetPower = maxPower * (0.1 + Math.random() * 0.1);
+            } else {
+              enemy.facing = dx > 0 ? 1 : -1; // Keep line to player and lob a high arc.
+              enemy.targetAngle = enemy.vehicle.maxAimAngle;
+              enemy.targetPower = maxPower * (0.45 + Math.random() * 0.4);
+            }
+
+            enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
+            enemy.chargeStartTime = Date.now();
+            enemy.turnState = 'charging';
             return;
           }
 
@@ -655,7 +673,8 @@ export class MonkeysGameService {
           // Trajectory-based aiming
           let bestHit: { angle: number; power: number; dist: number } | null = null;
           const angleStep = 10; // degrees
-          const powerStep = 20; // power units
+          const maxPower = Math.max(20, enemy.vehicle.power);
+          const powerStep = Math.max(10, Math.round(maxPower / 10)); // 10 bands up to max power.
           for (
             let relAng = enemy.vehicle.minAimAngle;
             relAng <= enemy.vehicle.maxAimAngle;
@@ -666,7 +685,7 @@ export class MonkeysGameService {
               -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
             const barrelEndX = enemy.x + Math.cos(simAngleRad) * CONST.BARREL_LENGTH;
             const barrelEndY = enemy.y - Math.sin(simAngleRad) * CONST.BARREL_LENGTH;
-            for (let pow = 20; pow <= 100; pow += powerStep) {
+            for (let pow = 20; pow <= maxPower; pow += powerStep) {
               const { positions } = this.simulateTrajectory(
                 barrelEndX,
                 barrelEndY,
@@ -702,12 +721,13 @@ export class MonkeysGameService {
               Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
             );
             enemy.targetAngle = relativeAngleDeg;
+            const maxFallbackPower = Math.max(20, enemy.vehicle.power);
             if (distance < 200) {
-              enemy.targetPower = 30 + Math.random() * 20;
+              enemy.targetPower = maxFallbackPower * (0.3 + Math.random() * 0.25);
             } else if (distance < 400) {
-              enemy.targetPower = 50 + Math.random() * 30;
+              enemy.targetPower = maxFallbackPower * (0.55 + Math.random() * 0.25);
             } else {
-              enemy.targetPower = 70 + Math.random() * 30;
+              enemy.targetPower = maxFallbackPower * (0.8 + Math.random() * 0.2);
             }
             console.log(
               `Enemy aiming: fallback angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
