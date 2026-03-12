@@ -61,6 +61,7 @@ export enum GameState {
   LOADING = 'loading',
   MENU = 'menu',
   OPTIONS = 'options',
+  TERRAIN_TOOL = 'terrain_tool',
   SETUP = 'setup',
   PLAYING = 'playing',
   PAUSED = 'paused',
@@ -85,6 +86,21 @@ export interface GameSettings {
   sfxVolume: number;
   difficulty: 'easy' | 'normal' | 'hard';
   muted: boolean;
+}
+
+export interface TerrainSpritePoint {
+  x: number;
+  y: number;
+}
+
+export interface TerrainSpriteRegion {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pixelCount: number;
+  outline: TerrainSpritePoint[];
 }
 
 export interface Explosion {

@@ -660,8 +660,7 @@ export class MonkeysGameService {
 
             enemy.facing = dx > 0 ? 1 : -1;
 
-            let relativeAngleDeg =
-              enemy.facing === 1 ? directAngleDeg : 180 - directAngleDeg;
+            let relativeAngleDeg = enemy.facing === 1 ? directAngleDeg : 180 - directAngleDeg;
             relativeAngleDeg = Math.max(
               enemy.vehicle.minAimAngle,
               Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),

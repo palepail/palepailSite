@@ -15,11 +15,12 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import { Player, GameState, Explosion, DamageText } from './monkeys.types';
+import { Player, GameState, Explosion, DamageText, TerrainSpriteRegion } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
 import { CameraController } from './camera-controller';
+import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
 // Camera system
 
@@ -32,6 +33,7 @@ import { CameraController } from './camera-controller';
 export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
+  private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
 
   // Camera system
   private cameraController = new CameraController();
@@ -140,6 +142,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly SHOOT_TOTAL_FRAME_COUNT = 10;
   private readonly SHOOT_CHARGE_FRAME_DURATION_MS = 150;
   private readonly SHOOT_RELEASE_FRAME_DURATION_MS = 150;
+  private readonly TERRAIN_TOOL_ALPHA_THRESHOLD = 96;
+  private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
+  private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
 
   // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
   private previousHealthByEntity = new WeakMap<object, number>();
@@ -147,6 +152,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private deathAnimationStartByEntity = new WeakMap<object, number>();
   private wasChargingByEntity = new WeakMap<object, boolean>();
   private shootReleaseStartByEntity = new WeakMap<object, number>();
+  private terrainToolImage: HTMLImageElement | null = null;
+  private terrainToolRegions: TerrainSpriteRegion[] = [];
+  private terrainToolSelectedRegionId: number | null = null;
+  private terrainToolLoading = false;
+  private terrainToolError = '';
+  private terrainToolViewport: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scale: number;
+  } | null = null;
+  private terrainToolCopyStatus = '';
+  private terrainToolCopyStatusUntil = 0;
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -160,11 +179,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     width: 200,
     height: 50,
   };
+  private readonly MENU_TERRAIN_TOOL_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 580,
+    width: 200,
+    height: 50,
+  };
   private readonly OPTIONS_BACK_BUTTON = {
     x: this.CANVAS_WIDTH / 2,
     y: 300,
     width: 200,
     height: 50,
+  };
+  private readonly TERRAIN_TOOL_BACK_BUTTON = {
+    x: this.CANVAS_WIDTH - 170,
+    y: 48,
+    width: 220,
+    height: 44,
+  };
+  private readonly TERRAIN_TOOL_RESCAN_BUTTON = {
+    x: this.CANVAS_WIDTH - 170,
+    y: 102,
+    width: 220,
+    height: 44,
+  };
+  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = {
+    x: this.CANVAS_WIDTH - 170,
+    y: 156,
+    width: 220,
+    height: 44,
   };
 
   constructor(
@@ -246,6 +289,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.gameService.currentState === GameState.OPTIONS) {
       this.drawOptions();
+      return;
+    }
+    if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
+      this.drawTerrainTool();
       return;
     }
 
@@ -1376,7 +1423,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private renderLoop() {
     if (
       this.gameService.currentState !== GameState.MENU &&
-      this.gameService.currentState !== GameState.OPTIONS
+      this.gameService.currentState !== GameState.OPTIONS &&
+      this.gameService.currentState !== GameState.TERRAIN_TOOL
     ) {
       this.gameService.update();
     }
@@ -1397,6 +1445,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       event.preventDefault();
     }
     if (event.key === 'Escape') {
+      if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
+        this.gameService.currentState = GameState.MENU;
+        event.preventDefault();
+        return;
+      }
       if (this.gameService.currentState === GameState.PLAYING) {
         this.gameService.currentState = GameState.PAUSED;
         this.gameService.pausePhysics();
@@ -1441,7 +1494,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseMove(event: MouseEvent) {
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+    if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.TERRAIN_TOOL
+    ) {
       this.isDragging = false;
       return;
     }
@@ -1467,7 +1523,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseDown(event: MouseEvent) {
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+    if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.TERRAIN_TOOL
+    ) {
       return;
     }
 
@@ -1479,7 +1538,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseUp() {
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+    if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.TERRAIN_TOOL
+    ) {
       this.isDragging = false;
       return;
     }
@@ -1560,6 +1622,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       '#2196F3',
       '#1976D2',
     );
+    this.drawButton(
+      'Terrain Tool',
+      this.MENU_TERRAIN_TOOL_BUTTON.x,
+      this.MENU_TERRAIN_TOOL_BUTTON.y,
+      this.MENU_TERRAIN_TOOL_BUTTON.width,
+      this.MENU_TERRAIN_TOOL_BUTTON.height,
+      '#9C6ADE',
+      '#7C4DCC',
+    );
   }
 
   private drawOptions() {
@@ -1586,6 +1657,412 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.OPTIONS_BACK_BUTTON.height,
       '#FF9800',
       '#F57C00',
+    );
+  }
+
+  private drawTerrainTool() {
+    this.ctx.fillStyle = '#13202B';
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 36px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('Terrain Tool', 24, 48);
+
+    this.ctx.font = '16px Arial';
+    this.ctx.fillStyle = '#C7D5E0';
+    this.ctx.fillText('Connected-component bounds detection for Dragon Road (Tiles).png', 24, 76);
+
+    this.ctx.fillStyle = '#0E1720';
+    this.ctx.fillRect(20, 96, 820, 600);
+    this.ctx.fillStyle = '#101A25';
+    this.ctx.fillRect(860, 96, 320, 600);
+
+    this.drawButton(
+      'Back to Menu',
+      this.TERRAIN_TOOL_BACK_BUTTON.x,
+      this.TERRAIN_TOOL_BACK_BUTTON.y,
+      this.TERRAIN_TOOL_BACK_BUTTON.width,
+      this.TERRAIN_TOOL_BACK_BUTTON.height,
+      '#FF9800',
+      '#F57C00',
+    );
+    this.drawButton(
+      'Rescan Sheet',
+      this.TERRAIN_TOOL_RESCAN_BUTTON.x,
+      this.TERRAIN_TOOL_RESCAN_BUTTON.y,
+      this.TERRAIN_TOOL_RESCAN_BUTTON.width,
+      this.TERRAIN_TOOL_RESCAN_BUTTON.height,
+      '#1565C0',
+      '#0D47A1',
+    );
+    this.drawButton(
+      'Copy All Regions',
+      this.TERRAIN_TOOL_COPY_ALL_BUTTON.x,
+      this.TERRAIN_TOOL_COPY_ALL_BUTTON.y,
+      this.TERRAIN_TOOL_COPY_ALL_BUTTON.width,
+      this.TERRAIN_TOOL_COPY_ALL_BUTTON.height,
+      '#2E7D32',
+      '#1B5E20',
+    );
+
+    if (this.terrainToolCopyStatus && Date.now() < this.terrainToolCopyStatusUntil) {
+      this.ctx.fillStyle = '#D8E2EA';
+      this.ctx.font = '14px Arial';
+      this.ctx.textAlign = 'right';
+      this.ctx.fillText(this.terrainToolCopyStatus, this.CANVAS_WIDTH - 20, 206);
+      this.ctx.textAlign = 'left';
+    }
+
+    if (this.terrainToolLoading) {
+      this.terrainToolViewport = null;
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '24px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Loading terrain spritesheet...', 430, 396);
+      this.ctx.textAlign = 'left';
+      this.drawTerrainToolSidebar();
+      return;
+    }
+
+    if (this.terrainToolError) {
+      this.terrainToolViewport = null;
+      this.ctx.fillStyle = '#FF8A80';
+      this.ctx.font = '20px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(this.terrainToolError, 430, 396);
+      this.ctx.textAlign = 'left';
+      this.drawTerrainToolSidebar();
+      return;
+    }
+
+    if (!this.terrainToolImage) {
+      this.terrainToolViewport = null;
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.font = '20px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('No terrain sheet loaded.', 430, 396);
+      this.ctx.textAlign = 'left';
+      this.drawTerrainToolSidebar();
+      return;
+    }
+
+    const viewport = this.getTerrainToolViewport(this.terrainToolImage);
+    this.terrainToolViewport = viewport;
+
+    this.ctx.drawImage(
+      this.terrainToolImage,
+      viewport.x,
+      viewport.y,
+      viewport.width,
+      viewport.height,
+    );
+
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(viewport.x, viewport.y, viewport.width, viewport.height);
+
+    for (const region of this.terrainToolRegions) {
+      const isSelected = region.id === this.terrainToolSelectedRegionId;
+      const drawX = viewport.x + region.x * viewport.scale;
+      const drawY = viewport.y + region.y * viewport.scale;
+      const drawWidth = Math.max(1, region.width * viewport.scale);
+      const drawHeight = Math.max(1, region.height * viewport.scale);
+
+      if (isSelected) {
+        this.ctx.fillStyle = 'rgba(255, 235, 59, 0.18)';
+        this.ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+      }
+
+      this.ctx.strokeStyle = isSelected ? '#FFEB3B' : '#4DD0E1';
+      this.ctx.lineWidth = isSelected ? 2 : 1;
+      this.ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+
+      this.ctx.fillStyle = isSelected ? '#FFEB3B' : '#4DD0E1';
+      this.ctx.font = '12px Arial';
+      this.ctx.fillText(`${region.id}`, drawX + 2, Math.max(12, drawY - 4));
+    }
+
+    this.drawTerrainToolSidebar();
+  }
+
+  private drawTerrainToolSidebar() {
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 20px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('Sheet Info', 880, 136);
+
+    this.ctx.font = '15px Arial';
+    this.ctx.fillStyle = '#D8E2EA';
+    const spritesheetLabel = this.spriteService.TERRAIN_TOOL_SPRITESHEET;
+    this.ctx.fillText(`File: ${spritesheetLabel}`, 880, 168);
+
+    if (this.terrainToolImage) {
+      this.ctx.fillText(
+        `Sheet size: ${this.terrainToolImage.width} x ${this.terrainToolImage.height}`,
+        880,
+        194,
+      );
+    }
+    this.ctx.fillText(`Detected regions: ${this.terrainToolRegions.length}`, 880, 220);
+    this.ctx.fillText(`Alpha threshold: ${this.TERRAIN_TOOL_ALPHA_THRESHOLD}`, 880, 246);
+    this.ctx.fillText(`Min pixels: ${this.TERRAIN_TOOL_MINIMUM_PIXEL_COUNT}`, 880, 272);
+    this.ctx.fillText('Copy All Regions exports detector output as JSON.', 880, 298);
+
+    const selectedRegion = this.getSelectedTerrainToolRegion();
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 20px Arial';
+    this.ctx.fillText('Selection', 880, 340);
+
+    if (!selectedRegion) {
+      this.ctx.fillStyle = '#D8E2EA';
+      this.ctx.font = '15px Arial';
+      this.ctx.fillText('Click a detected region to inspect it.', 880, 370);
+      return;
+    }
+
+    this.ctx.fillStyle = '#D8E2EA';
+    this.ctx.font = '15px Arial';
+    this.ctx.fillText(`Region: ${selectedRegion.id}`, 880, 370);
+    this.ctx.fillText(`Bounds: (${selectedRegion.x}, ${selectedRegion.y})`, 880, 396);
+    this.ctx.fillText(`Size: ${selectedRegion.width} x ${selectedRegion.height}`, 880, 422);
+    this.ctx.fillText(`Solid pixels: ${selectedRegion.pixelCount}`, 880, 448);
+    this.ctx.fillText(`Outline samples: ${selectedRegion.outline.length}`, 880, 474);
+    this.ctx.fillText('Outline preview', 880, 508);
+
+    this.drawTerrainToolRegionPreview(selectedRegion, 890, 528, 260, 146);
+  }
+
+  private drawTerrainToolRegionPreview(
+    region: TerrainSpriteRegion,
+    x: number,
+    y: number,
+    maxWidth: number,
+    maxHeight: number,
+  ) {
+    if (!this.terrainToolImage) {
+      return;
+    }
+
+    this.ctx.fillStyle = '#071019';
+    this.ctx.fillRect(x, y, maxWidth, maxHeight);
+
+    const scale = Math.min(maxWidth / region.width, maxHeight / region.height);
+    const drawWidth = region.width * scale;
+    const drawHeight = region.height * scale;
+    const drawX = x + (maxWidth - drawWidth) / 2;
+    const drawY = y + (maxHeight - drawHeight) / 2;
+
+    this.ctx.drawImage(
+      this.terrainToolImage,
+      region.x,
+      region.y,
+      region.width,
+      region.height,
+      drawX,
+      drawY,
+      drawWidth,
+      drawHeight,
+    );
+
+    const pointSize = Math.max(1, Math.ceil(scale));
+    this.ctx.fillStyle = '#FF5252';
+    for (const point of region.outline) {
+      this.ctx.fillRect(drawX + point.x * scale, drawY + point.y * scale, pointSize, pointSize);
+    }
+
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+  }
+
+  private getTerrainToolViewport(image: HTMLImageElement) {
+    const left = 32;
+    const top = 112;
+    const maxWidth = 796;
+    const maxHeight = 568;
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+    const width = image.width * scale;
+    const height = image.height * scale;
+
+    return {
+      x: left + (maxWidth - width) / 2,
+      y: top + (maxHeight - height) / 2,
+      width,
+      height,
+      scale,
+    };
+  }
+
+  private getSelectedTerrainToolRegion(): TerrainSpriteRegion | null {
+    if (this.terrainToolSelectedRegionId === null) {
+      return null;
+    }
+
+    return (
+      this.terrainToolRegions.find((region) => region.id === this.terrainToolSelectedRegionId) ??
+      null
+    );
+  }
+
+  private async openTerrainTool(forceRescan: boolean = false) {
+    this.gameService.currentState = GameState.TERRAIN_TOOL;
+    this.terrainToolError = '';
+
+    if (this.terrainToolLoading) {
+      return;
+    }
+
+    if (this.terrainToolImage && this.terrainToolRegions.length > 0 && !forceRescan) {
+      return;
+    }
+
+    this.terrainToolLoading = true;
+    try {
+      this.terrainToolImage = await this.spriteService.loadTerrainSpritesheet();
+      this.terrainToolRegions = this.terrainSpriteAnalyzer.analyze(this.terrainToolImage, {
+        alphaThreshold: this.TERRAIN_TOOL_ALPHA_THRESHOLD,
+        minimumPixelCount: this.TERRAIN_TOOL_MINIMUM_PIXEL_COUNT,
+        outlinePointStride: this.TERRAIN_TOOL_OUTLINE_POINT_STRIDE,
+      });
+      this.terrainToolSelectedRegionId = this.terrainToolRegions[0]?.id ?? null;
+      if (forceRescan) {
+        this.setTerrainToolCopyStatus('Sheet rescanned.');
+      }
+    } catch (error) {
+      console.error('Failed to open terrain tool:', error);
+      this.terrainToolError = 'Failed to load or analyze Dragon Road (Tiles).png';
+    } finally {
+      this.terrainToolLoading = false;
+    }
+  }
+
+  private handleTerrainToolClick(x: number, y: number) {
+    if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_BACK_BUTTON)) {
+      this.gameService.currentState = GameState.MENU;
+      return;
+    }
+
+    if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_RESCAN_BUTTON)) {
+      void this.openTerrainTool(true);
+      return;
+    }
+
+    if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_COPY_ALL_BUTTON)) {
+      void this.copyAllTerrainToolRegions();
+      return;
+    }
+
+    if (!this.terrainToolViewport) {
+      return;
+    }
+
+    const viewport = this.terrainToolViewport;
+    const isInsideSheet =
+      x >= viewport.x &&
+      x <= viewport.x + viewport.width &&
+      y >= viewport.y &&
+      y <= viewport.y + viewport.height;
+    if (!isInsideSheet) {
+      return;
+    }
+
+    const imageX = Math.floor((x - viewport.x) / viewport.scale);
+    const imageY = Math.floor((y - viewport.y) / viewport.scale);
+    const selectedRegion = this.terrainToolRegions
+      .filter(
+        (region) =>
+          imageX >= region.x &&
+          imageX < region.x + region.width &&
+          imageY >= region.y &&
+          imageY < region.y + region.height,
+      )
+      .sort((left, right) => left.width * left.height - right.width * right.height)[0];
+
+    this.terrainToolSelectedRegionId = selectedRegion?.id ?? null;
+  }
+
+  private async copyAllTerrainToolRegions() {
+    if (this.terrainToolRegions.length === 0) {
+      this.setTerrainToolCopyStatus('No regions available to copy.');
+      return;
+    }
+
+    const exportPayload = JSON.stringify(this.buildTerrainToolExportPayload(), null, 2);
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(exportPayload);
+      } else {
+        this.copyTextWithFallback(exportPayload);
+      }
+      this.setTerrainToolCopyStatus(`Copied ${this.terrainToolRegions.length} regions.`);
+    } catch (error) {
+      console.error('Failed to copy terrain tool regions:', error);
+      try {
+        this.copyTextWithFallback(exportPayload);
+        this.setTerrainToolCopyStatus(`Copied ${this.terrainToolRegions.length} regions.`);
+      } catch (fallbackError) {
+        console.error('Fallback copy also failed:', fallbackError);
+        this.setTerrainToolCopyStatus('Copy failed. Clipboard access was blocked.');
+      }
+    }
+  }
+
+  private buildTerrainToolExportPayload() {
+    return {
+      spritesheets: {},
+      sprites: this.terrainToolRegions.map((region) => ({
+        name: `terrain_region_${region.id}`,
+        spritesheet: this.spriteService.TERRAIN_TOOL_SPRITESHEET,
+        x: region.x,
+        y: region.y,
+        width: region.width,
+        height: region.height,
+        pixelCount: region.pixelCount,
+        outline: region.outline,
+      })),
+      analysis: {
+        alphaThreshold: this.TERRAIN_TOOL_ALPHA_THRESHOLD,
+        minimumPixelCount: this.TERRAIN_TOOL_MINIMUM_PIXEL_COUNT,
+        regionCount: this.terrainToolRegions.length,
+      },
+    };
+  }
+
+  private copyTextWithFallback(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    const didCopy = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    if (!didCopy) {
+      throw new Error('document.execCommand(copy) returned false');
+    }
+  }
+
+  private setTerrainToolCopyStatus(message: string) {
+    this.terrainToolCopyStatus = message;
+    this.terrainToolCopyStatusUntil = Date.now() + 3000;
+  }
+
+  private isPointInsideButton(
+    x: number,
+    y: number,
+    button: { x: number; y: number; width: number; height: number },
+  ): boolean {
+    return (
+      x >= button.x - button.width / 2 &&
+      x <= button.x + button.width / 2 &&
+      y >= button.y - button.height / 2 &&
+      y <= button.y + button.height / 2
     );
   }
 
@@ -1623,40 +2100,33 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.handleMenuClick(x, y);
     } else if (this.gameService.currentState === GameState.OPTIONS) {
       this.handleOptionsClick(x, y);
+    } else if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
+      this.handleTerrainToolClick(x, y);
     }
   }
 
   private handleMenuClick(x: number, y: number) {
     // Check Start Game button
-    if (
-      x >= this.MENU_START_BUTTON.x - this.MENU_START_BUTTON.width / 2 &&
-      x <= this.MENU_START_BUTTON.x + this.MENU_START_BUTTON.width / 2 &&
-      y >= this.MENU_START_BUTTON.y - this.MENU_START_BUTTON.height / 2 &&
-      y <= this.MENU_START_BUTTON.y + this.MENU_START_BUTTON.height / 2
-    ) {
+    if (this.isPointInsideButton(x, y, this.MENU_START_BUTTON)) {
       this.gameService.currentState = GameState.SETUP;
       this.startGame();
+      return;
     }
 
     // Check Options button
-    if (
-      x >= this.MENU_OPTIONS_BUTTON.x - this.MENU_OPTIONS_BUTTON.width / 2 &&
-      x <= this.MENU_OPTIONS_BUTTON.x + this.MENU_OPTIONS_BUTTON.width / 2 &&
-      y >= this.MENU_OPTIONS_BUTTON.y - this.MENU_OPTIONS_BUTTON.height / 2 &&
-      y <= this.MENU_OPTIONS_BUTTON.y + this.MENU_OPTIONS_BUTTON.height / 2
-    ) {
+    if (this.isPointInsideButton(x, y, this.MENU_OPTIONS_BUTTON)) {
       this.gameService.currentState = GameState.OPTIONS;
+      return;
+    }
+
+    if (this.isPointInsideButton(x, y, this.MENU_TERRAIN_TOOL_BUTTON)) {
+      void this.openTerrainTool();
     }
   }
 
   private handleOptionsClick(x: number, y: number) {
     // Check Back button
-    if (
-      x >= this.OPTIONS_BACK_BUTTON.x - this.OPTIONS_BACK_BUTTON.width / 2 &&
-      x <= this.OPTIONS_BACK_BUTTON.x + this.OPTIONS_BACK_BUTTON.width / 2 &&
-      y >= this.OPTIONS_BACK_BUTTON.y - this.OPTIONS_BACK_BUTTON.height / 2 &&
-      y <= this.OPTIONS_BACK_BUTTON.y + this.OPTIONS_BACK_BUTTON.height / 2
-    ) {
+    if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
       this.gameService.currentState = GameState.MENU;
     }
   }

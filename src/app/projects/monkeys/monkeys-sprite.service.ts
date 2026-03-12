@@ -17,69 +17,41 @@ export interface SpriteData {
   height: number;
 }
 
+interface SpriteMetadataDefinition {
+  name: string;
+  spritesheet: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface SpriteMetadataFile {
+  spritesheets: Record<string, string>;
+  sprites: SpriteMetadataDefinition[];
+}
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class MonkeysSpriteService {
+  private readonly ASSET_BASE_PATH = 'resources/images/projects/monkeys/';
+  private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
+  readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   private spritesheets: Map<string, HTMLImageElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
-
-  private spriteDefinitions: SpriteDefinition[] = [
-    // Idle: row 2 (0-indexed) => y = 2 * 64 = 128, one 64x64 frame at x = 0.
-    { name: 'monkey_idle', spritesheet: 'Lupin.png', x: 0, y: 128, width: 64, height: 64 },
-
-    // Move animation: row 0, 4 frames, each 64x64.
-    { name: 'monkey_move_0', spritesheet: 'Lupin.png', x: 0,   y: 0, width: 64, height: 64 },
-    { name: 'monkey_move_1', spritesheet: 'Lupin.png', x: 64,  y: 0, width: 64, height: 64 },
-    { name: 'monkey_move_2', spritesheet: 'Lupin.png', x: 128, y: 0, width: 64, height: 64 },
-    { name: 'monkey_move_3', spritesheet: 'Lupin.png', x: 192, y: 0, width: 64, height: 64 },
-
-    // Shoot animation: row 1 (0-indexed), 10 frames, each 64x64.
-    { name: 'monkey_shoot_0', spritesheet: 'Lupin.png', x: 0, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_1', spritesheet: 'Lupin.png', x: 64, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_2', spritesheet: 'Lupin.png', x: 128, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_3', spritesheet: 'Lupin.png', x: 192, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_4', spritesheet: 'Lupin.png', x: 256, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_5', spritesheet: 'Lupin.png', x: 320, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_6', spritesheet: 'Lupin.png', x: 384, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_7', spritesheet: 'Lupin.png', x: 448, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_8', spritesheet: 'Lupin.png', x: 512, y: 64, width: 64, height: 64 },
-    { name: 'monkey_shoot_9', spritesheet: 'Lupin.png', x: 576, y: 64, width: 64, height: 64 },
-
-    // Death: row 3, 3 frames, each 64x64.
-    { name: 'monkey_death_0', spritesheet: 'Lupin.png', x: 0, y: 192, width: 64, height: 64 },
-    { name: 'monkey_death_1', spritesheet: 'Lupin.png', x: 64, y: 192, width: 64, height: 64 },
-    { name: 'monkey_death_2', spritesheet: 'Lupin.png', x: 128, y: 192, width: 64, height: 64 },
-
-    // Hurt: row 4, one 64x64 frame.
-    { name: 'monkey_hurt', spritesheet: 'Lupin.png', x: 0, y: 256, width: 64, height: 64 },
-
-    // Explosion animation: row 6, 3 frames, each 64x64.
-    { name: 'explosion_0', spritesheet: 'Lupin.png', x: 0,   y: 384, width: 64, height: 64 },
-    { name: 'explosion_1', spritesheet: 'Lupin.png', x: 64,  y: 384, width: 64, height: 64 },
-    { name: 'explosion_2', spritesheet: 'Lupin.png', x: 128, y: 384, width: 64, height: 64 },
-
-    // Bullet animation: row 7, 3 frames, each 64x64.
-    { name: 'bullet_0', spritesheet: 'Lupin.png', x: 0,   y: 448, width: 64, height: 64 },
-    { name: 'bullet_1', spritesheet: 'Lupin.png', x: 64,  y: 448, width: 64, height: 64 },
-    { name: 'bullet_2', spritesheet: 'Lupin.png', x: 128, y: 448, width: 64, height: 64 },
-
-    // Cursors: row 0, 6 frames, each 32x32.
-    { name: 'cursor_0', spritesheet: 'Cursors.png', x: 0,   y: 0, width: 32, height: 32 },
-    { name: 'cursor_1', spritesheet: 'Cursors.png', x: 32,  y: 0, width: 32, height: 32 },
-    { name: 'cursor_2', spritesheet: 'Cursors.png', x: 64,  y: 0, width: 32, height: 32 },
-    { name: 'cursor_3', spritesheet: 'Cursors.png', x: 96,  y: 0, width: 32, height: 32 },
-    { name: 'cursor_4', spritesheet: 'Cursors.png', x: 128, y: 0, width: 32, height: 32 },
-    { name: 'cursor_5', spritesheet: 'Cursors.png', x: 160, y: 0, width: 32, height: 32 },
-  ];
+  private spriteDefinitions: SpriteDefinition[] = [];
+  private metadataLoadPromise: Promise<void> | null = null;
 
   constructor() {}
 
   async loadSprites(): Promise<void> {
-    const spritesheetPaths = [...new Set(this.spriteDefinitions.map(def => def.spritesheet))];
+    await this.ensureSpriteMetadataLoaded();
 
-    const loadPromises = spritesheetPaths.map(path => this.loadSpritesheet(path));
+    const spritesheetPaths = [...new Set(this.spriteDefinitions.map((def) => def.spritesheet))];
+
+    const loadPromises = spritesheetPaths.map((path) => this.loadSpritesheet(path));
 
     try {
       await Promise.all(loadPromises);
@@ -87,6 +59,65 @@ export class MonkeysSpriteService {
     } catch (error) {
       console.error('Failed to load some sprites:', error);
     }
+  }
+
+  async loadTerrainSpritesheet(): Promise<HTMLImageElement> {
+    return this.loadRawSpritesheet(this.TERRAIN_TOOL_SPRITESHEET);
+  }
+
+  private async ensureSpriteMetadataLoaded(): Promise<void> {
+    if (this.spriteDefinitions.length > 0) {
+      return;
+    }
+
+    if (!this.metadataLoadPromise) {
+      this.metadataLoadPromise = this.loadSpriteMetadata().catch((error) => {
+        this.metadataLoadPromise = null;
+        throw error;
+      });
+    }
+
+    return this.metadataLoadPromise;
+  }
+
+  private async loadSpriteMetadata(): Promise<void> {
+    const response = await fetch(this.METADATA_PATH);
+    if (!response.ok) {
+      throw new Error(`Failed to load sprite metadata from ${this.METADATA_PATH}`);
+    }
+
+    const metadata = (await response.json()) as SpriteMetadataFile;
+    this.spriteDefinitions = metadata.sprites.map((definition) => ({
+      ...definition,
+      spritesheet: this.resolveSpritesheetPath(definition.spritesheet, metadata.spritesheets),
+    }));
+  }
+
+  private resolveSpritesheetPath(
+    spritesheetKey: string,
+    spritesheets: Record<string, string>,
+  ): string {
+    const resolvedSpritesheet = spritesheets[spritesheetKey] ?? spritesheetKey;
+    if (!resolvedSpritesheet) {
+      throw new Error(`Unknown spritesheet reference: ${spritesheetKey}`);
+    }
+
+    return resolvedSpritesheet;
+  }
+
+  async loadRawSpritesheet(path: string): Promise<HTMLImageElement> {
+    const existingSpritesheet = this.spritesheets.get(path);
+    if (existingSpritesheet) {
+      return existingSpritesheet;
+    }
+
+    await this.loadSpritesheet(path);
+    const loadedSpritesheet = this.spritesheets.get(path);
+    if (!loadedSpritesheet) {
+      throw new Error(`Spritesheet was not available after load: ${path}`);
+    }
+
+    return loadedSpritesheet;
   }
 
   private async loadSpritesheet(path: string): Promise<void> {
@@ -103,7 +134,7 @@ export class MonkeysSpriteService {
         this.loadedAssets.set(path, false);
         reject(new Error(`Failed to load ${path}`));
       };
-      img.src = `resources/images/projects/monkeys/${path}`;
+      img.src = `${this.ASSET_BASE_PATH}${path}`;
     });
   }
 
@@ -111,7 +142,9 @@ export class MonkeysSpriteService {
     const spritesheet = this.spritesheets.get(spritesheetPath);
     if (!spritesheet) return;
 
-    const relevantSprites = this.spriteDefinitions.filter(def => def.spritesheet === spritesheetPath);
+    const relevantSprites = this.spriteDefinitions.filter(
+      (def) => def.spritesheet === spritesheetPath,
+    );
 
     for (const def of relevantSprites) {
       this.sprites.set(def.name, {
@@ -119,7 +152,7 @@ export class MonkeysSpriteService {
         x: def.x,
         y: def.y,
         width: def.width,
-        height: def.height
+        height: def.height,
       });
     }
   }
@@ -128,8 +161,12 @@ export class MonkeysSpriteService {
     return this.sprites.get(name) || null;
   }
 
+  getSpritesheet(path: string): HTMLImageElement | null {
+    return this.spritesheets.get(path) || null;
+  }
+
   isLoaded(): boolean {
-    return Array.from(this.loadedAssets.values()).every(loaded => loaded);
+    return Array.from(this.loadedAssets.values()).every((loaded) => loaded);
   }
 
   getLoadedSpritesheets(): string[] {
