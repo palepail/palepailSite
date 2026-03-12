@@ -1088,9 +1088,6 @@ export class MonkeysGameService {
             CONST.MIN_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) - CONST.ANGLE_ADJUST_SPEED / 400,
           );
-          console.log(
-            `Player ArrowDown: targetAngle from ${oldTarget} to ${this.player.targetAngle}`,
-          );
         }
 
         if (

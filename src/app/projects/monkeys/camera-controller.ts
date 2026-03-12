@@ -24,6 +24,8 @@ class CameraController {
   private readonly INACTIVITY_DELAY_MS = 1000;
   private readonly PREDICTION_TIME_S = 0.2;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
+  private readonly CAMERA_Y_MIN = -500;
+  private readonly CAMERA_Y_MAX = 100;
   private hasLanded = false;
   private landingCounter = 0;
   private panTargetX: number | null = null;
@@ -76,10 +78,7 @@ class CameraController {
       0,
       Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.panTargetX),
     );
-    this.panTargetY = Math.max(
-      -this.camera.height,
-      Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.panTargetY),
-    );
+    // Note: panTargetY is NOT clamped here - we clamp only the final camera.y position
     if (
       Math.abs(this.panTargetX - this.camera.x) > 5 ||
       Math.abs(this.panTargetY - this.camera.y) > 5
@@ -97,6 +96,15 @@ class CameraController {
       Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, playerCenterY),
     );
     return { targetX: clampedX, targetY: clampedY };
+  }
+
+  /**
+   * Clamps camera Y-axis to defined bounds for manual drag and projectile tracking
+   * @param y The Y coordinate to clamp
+   * @returns The clamped Y coordinate
+   */
+  private clampCameraY(y: number): number {
+    return Math.max(this.CAMERA_Y_MIN, Math.min(this.CAMERA_Y_MAX, y));
   }
 
   private trackProjectileIfNeeded(
@@ -118,7 +126,7 @@ class CameraController {
     const margin = this.TRACKING_MARGIN;
     const distFromPlayer = Math.hypot(trackPos.x - playerX, trackPos.y - playerY);
 
-    if (distFromPlayer > this.MIN_TRACK_DISTANCE) {
+    if (distFromPlayer > this.MIN_TRACK_DISTANCE || projectile || explodedProjectiles.length > 0) {
       if (projectile) {
         let targetX, targetY;
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
@@ -131,22 +139,16 @@ class CameraController {
           const futurePos = projectile.trajectory[futureIndex];
           targetX = futurePos.x - this.camera.width / 2;
           targetY = futurePos.y - this.camera.height / 2;
-          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
-          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else if (projectile.body) {
           const predictionTime = this.PREDICTION_TIME_S;
           targetX =
             trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
           targetY =
             trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
-          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
-          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         } else {
           // no prediction available, just center on current position
           targetX = trackPos.x - this.camera.width / 2;
           targetY = trackPos.y - this.camera.height / 2;
-          targetY = Math.max(targetY, this.camera.y - CONST.CANVAS_HEIGHT / 2);
-          targetY = Math.min(targetY, this.camera.y + CONST.CANVAS_HEIGHT / 2);
         }
         return { targetX, targetY, type: 'projectile' };
       } else {
@@ -250,6 +252,13 @@ class CameraController {
       type: 'projectile' | 'explosion';
     } | null = null;
 
+    // Projectile/explosion tracking takes priority over panning.
+    if ((projectile || explodedProjectiles.length > 0) && this.isPanning) {
+      this.isPanning = false;
+      this.panTargetX = null;
+      this.panTargetY = null;
+    }
+
     // If we're already tracking an explosion and it still exists, continue tracking it
     if (this.trackedExplosion && explodedProjectiles.includes(this.trackedExplosion)) {
       const trackPos = this.trackedExplosion.position;
@@ -278,7 +287,7 @@ class CameraController {
       );
     }
 
-    if (projectileTargets && !this.isPanning) {
+    if (projectileTargets) {
       if (!this.isTrackingProjectile || this.lastTrackedType !== projectileTargets.type) {
         this.isTrackingProjectile = true;
         this.lastTrackedType = projectileTargets.type;
@@ -343,17 +352,9 @@ class CameraController {
     this.camera.x += (targetX - this.camera.x) * lerpFactor;
     this.camera.y += (targetY - this.camera.y) * lerpFactor;
 
-    // Clamp to world bounds (allow camera to go above terrain for projectiles)
-    if (this.isTrackingProjectile) {
-      this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
-      this.camera.y = Math.max(-this.camera.height, this.camera.y); // no upper clamp for projectiles
-    } else {
-      this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
-      this.camera.y = Math.max(
-        -this.camera.height,
-        Math.min(CONST.TERRAIN_HEIGHT - this.camera.height, this.camera.y),
-      );
-    }
+    // Clamp to world bounds (standardized clamping for consistent behavior)
+    this.camera.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, this.camera.x));
+    this.camera.y = this.clampCameraY(this.camera.y);
   }
 
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {

@@ -127,6 +127,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
 
+  // Camera y-axis clamping bounds for manual drag
+  private readonly CAMERA_Y_MIN = -200;
+  private readonly CAMERA_Y_MAX = 200;
+
   // Menu button constants
   private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 420, width: 200, height: 50 };
   private readonly MENU_OPTIONS_BUTTON = {
@@ -229,6 +233,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.cameraController.disableFollow();
       // Normalize initial delays
       this.gameService.startTurn();
+      // Force camera pan to the first active turn holder when play begins.
+      this.gameService.panToEntity = this.gameService.getCurrentTurnEntity();
     }
 
     // Reset player movement flag
@@ -1134,6 +1140,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.keys[event.key] = false;
   }
 
+  /**
+   * Clamps camera Y-axis to defined bounds for manual drag
+   * @param y The Y coordinate to clamp
+   * @returns The clamped Y coordinate
+   */
+  private clampCameraY(y: number): number {
+    return Math.max(this.CAMERA_Y_MIN, Math.min(this.CAMERA_Y_MAX, y));
+  }
+
   onMouseMove(event: MouseEvent) {
     // Handle camera dragging
     if (this.isDragging) {
@@ -1147,9 +1162,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         Math.min(CONST.TERRAIN_WIDTH - CONST.CANVAS_WIDTH, this.cameraController.camera.x),
       );
       // Clamp vertical for manual drag (limited range)
-      this.cameraController.camera.y = Math.max(
-        -200,
-        Math.min(200, this.cameraController.camera.y),
+      this.cameraController.camera.y = this.clampCameraY(
+        this.cameraController.camera.y,
       );
       this.lastMouseX = event.clientX;
       this.lastMouseY = event.clientY;
