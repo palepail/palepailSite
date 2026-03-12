@@ -136,11 +136,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
   private readonly DEATH_SPRITE_FRAME_COUNT = 3;
   private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
+  private readonly SHOOT_CHARGE_FRAME_COUNT = 4;
+  private readonly SHOOT_TOTAL_FRAME_COUNT = 10;
+  private readonly SHOOT_CHARGE_FRAME_DURATION_MS = 150;
+  private readonly SHOOT_RELEASE_FRAME_DURATION_MS = 150;
 
   // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
   private previousHealthByEntity = new WeakMap<object, number>();
   private hurtSpriteUntilByEntity = new WeakMap<object, number>();
   private deathAnimationStartByEntity = new WeakMap<object, number>();
+  private wasChargingByEntity = new WeakMap<object, boolean>();
+  private shootReleaseStartByEntity = new WeakMap<object, number>();
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -195,6 +201,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.previousHealthByEntity = new WeakMap<object, number>();
     this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
+    this.wasChargingByEntity = new WeakMap<object, boolean>();
+    this.shootReleaseStartByEntity = new WeakMap<object, number>();
 
     // Add key listeners
     window.addEventListener('keydown', (event) => {
@@ -241,6 +249,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    this.updateShootSpriteState();
     this.updateHurtSpriteState();
 
     // Check if setup is complete (3 seconds)
@@ -465,7 +474,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawPlayer() {
-    if (this.gameService.player.health <= 0 && !this.isEntityDeathAnimationActive(this.gameService.player)) {
+    if (
+      this.gameService.player.health <= 0 &&
+      !this.isEntityDeathAnimationActive(this.gameService.player)
+    ) {
       return;
     }
 
@@ -819,6 +831,71 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return entity?.vehicle?.spritesheet === 'Lupin.png';
   }
 
+  private isEntityCharging(entity: any): boolean {
+    if (entity === this.gameService.player) {
+      return this.gameService.isCharging || entity.turnState === 'charging';
+    }
+    return entity?.turnState === 'charging';
+  }
+
+  private getShootChargeFrameIndex(entity: any, now: number = Date.now()): number | null {
+    if (!this.usesLupinSprites(entity) || !this.isEntityCharging(entity)) {
+      return null;
+    }
+
+    const chargeStartTime =
+      entity === this.gameService.player
+        ? this.gameService.chargeStartTime
+        : (entity.chargeStartTime ?? now);
+    const chargeElapsed = Math.max(0, now - chargeStartTime);
+    const chargeFrameIndex = Math.floor(chargeElapsed / this.SHOOT_CHARGE_FRAME_DURATION_MS);
+    return Math.min(this.SHOOT_CHARGE_FRAME_COUNT - 1, chargeFrameIndex);
+  }
+
+  private getShootReleaseFrameIndex(entity: any, now: number = Date.now()): number | null {
+    if (!this.usesLupinSprites(entity)) {
+      return null;
+    }
+
+    const releaseStartTime = this.shootReleaseStartByEntity.get(entity as object);
+    if (releaseStartTime === undefined) {
+      return null;
+    }
+
+    const releaseFrameCount = this.SHOOT_TOTAL_FRAME_COUNT - this.SHOOT_CHARGE_FRAME_COUNT;
+    const releaseElapsed = Math.max(0, now - releaseStartTime);
+    const releaseFrameIndex = Math.floor(releaseElapsed / this.SHOOT_RELEASE_FRAME_DURATION_MS);
+    if (releaseFrameIndex >= releaseFrameCount) {
+      this.shootReleaseStartByEntity.delete(entity as object);
+      return null;
+    }
+
+    return this.SHOOT_CHARGE_FRAME_COUNT + releaseFrameIndex;
+  }
+
+  private updateShootSpriteState() {
+    const now = Date.now();
+    const trackedEntities = [this.gameService.player, ...this.gameService.enemies];
+
+    for (const entity of trackedEntities) {
+      if (!this.usesLupinSprites(entity)) {
+        continue;
+      }
+
+      const key = entity as object;
+      const isChargingNow = this.isEntityCharging(entity);
+      const wasCharging = this.wasChargingByEntity.get(key) ?? false;
+
+      if (isChargingNow) {
+        this.shootReleaseStartByEntity.delete(key);
+      } else if (wasCharging) {
+        this.shootReleaseStartByEntity.set(key, now);
+      }
+
+      this.wasChargingByEntity.set(key, isChargingNow);
+    }
+  }
+
   private getDeathAnimationState(entity: any, now: number = Date.now()) {
     if (!this.usesLupinSprites(entity)) {
       return null;
@@ -864,6 +941,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const now = Date.now();
     const deathAnimationState = this.getDeathAnimationState(entity, now);
     const isHurt = (this.hurtSpriteUntilByEntity.get(entity as object) ?? 0) > now;
+    const shootReleaseFrameIndex = this.getShootReleaseFrameIndex(entity, now);
+    const shootChargeFrameIndex = this.getShootChargeFrameIndex(entity, now);
     const velocityX = entity?.body?.velocity?.x ?? 0;
     const velocityY = entity?.body?.velocity?.y ?? 0;
     const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
@@ -871,9 +950,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       ? `monkey_death_${deathAnimationState.frameIndex}`
       : isHurt
         ? 'monkey_hurt'
-        : isMoving
-          ? `monkey_move_${this.getMoveFrameIndex(now)}`
-          : 'monkey_idle';
+        : shootReleaseFrameIndex !== null
+          ? `monkey_shoot_${shootReleaseFrameIndex}`
+          : shootChargeFrameIndex !== null
+            ? `monkey_shoot_${shootChargeFrameIndex}`
+            : isMoving
+              ? `monkey_move_${this.getMoveFrameIndex(now)}`
+              : 'monkey_idle';
     const sprite = this.spriteService.getSprite(spriteName);
 
     if (!sprite) {

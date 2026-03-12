@@ -35,6 +35,18 @@ export class MonkeysSpriteService {
     { name: 'monkey_move_2', spritesheet: 'Lupin.png', x: 128, y: 0, width: 64, height: 64 },
     { name: 'monkey_move_3', spritesheet: 'Lupin.png', x: 192, y: 0, width: 64, height: 64 },
 
+    // Shoot animation: row 1 (0-indexed), 10 frames, each 64x64.
+    { name: 'monkey_shoot_0', spritesheet: 'Lupin.png', x: 0, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_1', spritesheet: 'Lupin.png', x: 64, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_2', spritesheet: 'Lupin.png', x: 128, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_3', spritesheet: 'Lupin.png', x: 192, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_4', spritesheet: 'Lupin.png', x: 256, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_5', spritesheet: 'Lupin.png', x: 320, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_6', spritesheet: 'Lupin.png', x: 384, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_7', spritesheet: 'Lupin.png', x: 448, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_8', spritesheet: 'Lupin.png', x: 512, y: 64, width: 64, height: 64 },
+    { name: 'monkey_shoot_9', spritesheet: 'Lupin.png', x: 576, y: 64, width: 64, height: 64 },
+
     // Death: row 3, 3 frames, each 64x64.
     { name: 'monkey_death_0', spritesheet: 'Lupin.png', x: 0, y: 192, width: 64, height: 64 },
     { name: 'monkey_death_1', spritesheet: 'Lupin.png', x: 64, y: 192, width: 64, height: 64 },
