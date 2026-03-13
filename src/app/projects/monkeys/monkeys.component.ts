@@ -48,6 +48,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Camera system
   private cameraController = new CameraController();
 
+  // Parallax background tree instances (generated once per game)
+  private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
+
   // Setup timer
   private setupStartTime: number = 0;
 
@@ -288,6 +291,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
+    this.generateBgTreeInstances();
     this.previousHealthByEntity = new WeakMap<object, number>();
     this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
@@ -459,11 +463,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw sky (entire background)
     this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
-    this.drawBackgroundLayers(
-      ['sky_background', 'montain_background', 'trees_background'],
-      { montain_background: 0.7 },
-      ['trees_background'],
-    );
+    this.drawParallaxBackground(this.cameraController.camera.x);
 
     // Draw terrain
     this.drawTerrain();
@@ -1688,65 +1688,122 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText(`${Math.round(progress * 100)}%`, cx, barY + barH + 20);
   }
 
-  private drawBackgroundLayers(
-    names: string[],
-    scaleOverrides: Record<string, number> = {},
-    tileBottomNames: string[] = [],
-  ) {
-    const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
-    if (!sheet) return;
-    const allSprites = this.spriteService.getBackgroundSprites();
-    const toRender = allSprites
-      .filter((s) => names.includes(s.name))
-      .sort((a, b) => a.z - b.z);
-    for (const sprite of toRender) {
-      if (tileBottomNames.includes(sprite.name)) {
-        this.drawBackgroundSpriteTiledBottom(sheet, sprite, scaleOverrides[sprite.name] ?? 1);
-      } else {
-        this.drawBackgroundSprite(sheet, sprite, scaleOverrides[sprite.name] ?? 1);
+  private generateBgTreeInstances() {
+    this.bgTreeInstances = [];
+    // tree1 and tree3: 6 instances spread across the world width, parallax layer 0.55
+    // world coords span ~0 to TERRAIN_WIDTH; we space them roughly evenly with jitter
+    const midInstances: { name: string; count: number; scaleMin: number; scaleMax: number }[] = [
+      { name: 'tree1_background', count: 4, scaleMin: 0.55, scaleMax: 0.85 },
+      { name: 'tree3_background', count: 3, scaleMin: 0.5, scaleMax: 0.8 },
+    ];
+    // Use a simple deterministic seeded random so layout is stable each game gen
+    let seed = 42;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+      return (seed >>> 0) / 0xffffffff;
+    };
+
+    for (const group of midInstances) {
+      const step = (CONST.TERRAIN_WIDTH - 200) / group.count;
+      for (let i = 0; i < group.count; i++) {
+        const worldX = 100 + i * step + rand() * step * 0.6 - step * 0.3;
+        const scale = group.scaleMin + rand() * (group.scaleMax - group.scaleMin);
+        this.bgTreeInstances.push({ name: group.name, worldX, scale });
       }
+    }
+
+    // tree2: 2 larger foreground instances, parallax 0.80
+    const fgStep = CONST.TERRAIN_WIDTH / 3;
+    for (let i = 0; i < 2; i++) {
+      const worldX = fgStep * (i + 0.6) + rand() * fgStep * 0.5;
+      const scale = 0.6 + rand() * 0.25;
+      this.bgTreeInstances.push({ name: 'tree2_background', worldX, scale });
     }
   }
 
-  private drawBackgroundSprite(
+  private drawParallaxBackground(cameraX: number) {
+    const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
+    if (!sheet) return;
+    const byName = new Map(
+      this.spriteService.getBackgroundSprites().map((s) => [s.name, s]),
+    );
+
+    // z=0: sky — full cover, no parallax
+    const sky = byName.get('sky_background');
+    if (sky) this.drawBgCover(sheet, sky, 1);
+
+    // z=1: mountain — parallax 0.15 (barely moves)
+    const mountain = byName.get('montain_background');
+    if (mountain) this.drawBgCover(sheet, mountain, 0.7, cameraX * 0.15);
+
+    // z=4: tiled trees band — parallax 0.35
+    const trees = byName.get('trees_background');
+    if (trees) this.drawBgTiledBottom(sheet, trees, 1, cameraX * 0.35);
+
+    // z=5: scattered tree1 / tree3 instances — parallax 0.55
+    const instanceSprites = ['tree1_background', 'tree3_background'];
+    for (const inst of this.bgTreeInstances.filter((i) => instanceSprites.includes(i.name))) {
+      const meta = byName.get(inst.name);
+      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.55, inst.scale);
+    }
+
+    // z=8: foreground tree2 instances — parallax 0.80
+    for (const inst of this.bgTreeInstances.filter((i) => i.name === 'tree2_background')) {
+      const meta = byName.get(inst.name);
+      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.80, inst.scale);
+    }
+  }
+
+  private drawBgCover(
     sheet: HTMLImageElement | HTMLCanvasElement,
     sprite: BackgroundSpriteMetadata,
-    scaleMultiplier = 1,
+    scaleMultiplier: number,
+    offsetX = 0,
   ) {
     const scaleX = this.CANVAS_WIDTH / sprite.width;
     const scaleY = this.CANVAS_HEIGHT / sprite.height;
     const scale = Math.max(scaleX, scaleY) * scaleMultiplier;
     const drawW = sprite.width * scale;
     const drawH = sprite.height * scale;
-    const drawX = (this.CANVAS_WIDTH - drawW) / 2;
+    const drawX = (this.CANVAS_WIDTH - drawW) / 2 - offsetX;
     const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
     this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, drawX, drawY, drawW, drawH);
   }
 
-  private drawBackgroundSpriteTiledBottom(
+  private drawBgTiledBottom(
     sheet: HTMLImageElement | HTMLCanvasElement,
     sprite: BackgroundSpriteMetadata,
-    scaleMultiplier = 1,
+    scaleMultiplier: number,
+    offsetX = 0,
   ) {
     const drawH = sprite.height * scaleMultiplier;
     const drawW = sprite.width * scaleMultiplier;
     const drawY = this.CANVAS_HEIGHT - drawH;
-    for (let x = 0; x < this.CANVAS_WIDTH; x += drawW) {
-      const clipW = Math.min(drawW, this.CANVAS_WIDTH - x);
-      const srcClipW = clipW / scaleMultiplier;
-      this.ctx.drawImage(sheet, sprite.x, sprite.y, srcClipW, sprite.height, x, drawY, clipW, drawH);
+    const startX = -((offsetX % drawW) + drawW) % drawW;
+    for (let x = startX; x < this.CANVAS_WIDTH; x += drawW) {
+      this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, x, drawY, drawW, drawH);
     }
+  }
+
+  private drawBgInstance(
+    sheet: HTMLImageElement | HTMLCanvasElement,
+    sprite: BackgroundSpriteMetadata,
+    worldX: number,
+    parallaxOffset: number,
+    scaleMultiplier: number,
+  ) {
+    const drawW = sprite.width * scaleMultiplier;
+    const drawH = sprite.height * scaleMultiplier;
+    const screenX = worldX - parallaxOffset;
+    const drawY = this.CANVAS_HEIGHT - drawH;
+    this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, screenX, drawY, drawW, drawH);
   }
 
   private drawMenu() {
     // Background
     this.ctx.fillStyle = this.SKY_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
-    this.drawBackgroundLayers(
-      ['sky_background', 'montain_background', 'trees_background'],
-      { montain_background: 0.7 },
-      ['trees_background'],
-    );
+    this.drawParallaxBackground(0);
 
     // Title
     this.ctx.fillStyle = '#FFFFFF';
