@@ -323,7 +323,10 @@ export class MonkeysGameService {
   }
 
   private buildBottomChunkPlan(): TerrainChunkPlacement[] {
-    const bottomFlat = this.getTerrainRegionsByType('bottom_flat');
+    // Exclude bottom cap-like tiles 8 and 9 from general bottom generation.
+    const bottomFlat = this.getTerrainRegionsByType('bottom_flat').filter(
+      (item) => ![8, 9].includes(item.id),
+    );
     const bottomSlopeUp = this.getTerrainRegionsByType('bottom_slope_up');
     const bottomSlopeDown = this.getTerrainRegionsByType('bottom_slope_down');
 
@@ -527,20 +530,37 @@ export class MonkeysGameService {
     for (const top of topPlacements) {
       const startX = Math.max(0, Math.floor(top.x));
       const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(top.x + top.region.width));
-      let bottomShellStartY = -1;
+      // Use the earliest bottom-shell start in this chunk span to prevent overlap seams.
+      let bottomShellStartY = Number.POSITIVE_INFINITY;
       for (let x = startX; x < endXExclusive; x++) {
-        bottomShellStartY = Math.max(bottomShellStartY, bottomShellStartProfile[x]);
+        const y = bottomShellStartProfile[x];
+        if (y >= 0) {
+          bottomShellStartY = Math.min(bottomShellStartY, y);
+        }
       }
 
-      if (bottomShellStartY === -1) {
+      if (!Number.isFinite(bottomShellStartY)) {
         bottomShellStartY = CONST.TERRAIN_STRIP_HEIGHT;
       }
 
-      let y = Math.floor(top.topWorldY + top.region.height);
+      const fillStartY = Math.floor(top.topWorldY + top.region.height);
+      let y = fillStartY;
       while (y < bottomShellStartY) {
         const region = interiorRegions[Math.floor(Math.random() * interiorRegions.length)];
-        placements.push({ region, x: top.x, topWorldY: y });
-        y += region.height;
+        const nextY = y + region.height;
+
+        if (nextY <= bottomShellStartY) {
+          placements.push({ region, x: top.x, topWorldY: y });
+          y = nextY;
+          continue;
+        }
+
+        // Final interior tile: anchor flush with bottom shell start to avoid visible horizontal gaps.
+        const anchoredY = Math.floor(bottomShellStartY - region.height);
+        if (anchoredY >= fillStartY) {
+          placements.push({ region, x: top.x, topWorldY: anchoredY });
+        }
+        break;
       }
     }
     return placements;
@@ -557,7 +577,7 @@ export class MonkeysGameService {
   }
 
   private buildFallbackBottomPlan(): TerrainChunkPlacement[] {
-    const fallbackRegion = this.requireTerrainRegion(8);
+    const fallbackRegion = this.requireTerrainRegion(13);
     const placements: TerrainChunkPlacement[] = [];
     const flatBottomY = Math.floor((this.TERRAIN_MIN_BOTTOM_Y + this.TERRAIN_MAX_BOTTOM_Y) / 2);
     for (let x = 0; x < CONST.TERRAIN_WIDTH; x += fallbackRegion.width) {
