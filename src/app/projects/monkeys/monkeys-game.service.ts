@@ -700,14 +700,9 @@ export class MonkeysGameService {
   }
 
   private getTerrainRegionsByType(type: TerrainSpriteMetadata['pieceType']): TerrainSpriteMetadata[] {
-    const regions: TerrainSpriteMetadata[] = [];
-    this.terrainMetadataById.forEach((region) => {
-      if (region.pieceType === type) {
-        regions.push(region);
-      }
-    });
-    regions.sort((a, b) => a.id - b.id);
-    return regions;
+    return Array.from(this.terrainMetadataById.values())
+      .filter((region) => region.pieceType === type)
+      .sort((a, b) => a.id - b.id);
   }
 
   private randomInRange(min: number, max: number): number {
@@ -935,7 +930,6 @@ export class MonkeysGameService {
       // Smoothly interpolate angle toward target
       if (entity.targetAngle !== undefined) {
         const diff = entity.targetAngle - entity.angle;
-        const oldAngle = entity.angle;
         entity.angle += diff * 0.1; // 10% interpolation per frame
       }
     }
@@ -1351,13 +1345,9 @@ export class MonkeysGameService {
     // Set next entity's turn state to turn_start
     const nextEntity = this.getCurrentTurnEntity();
     if (nextEntity) {
-      if (nextEntity.type === 'player') {
-        (nextEntity.entity as Player).turnState = 'turn_start';
-        (nextEntity.entity as Player).turnTimer = 0;
-      } else {
-        (nextEntity.entity as Enemy).turnState = 'turn_start';
-        (nextEntity.entity as Enemy).turnTimer = 0;
-      }
+      const nextEntityObj = nextEntity.entity as any;
+      nextEntityObj.turnState = 'turn_start';
+      nextEntityObj.turnTimer = 0;
     }
 
     // Clean up projectiles owned by previous entity
@@ -1389,21 +1379,11 @@ export class MonkeysGameService {
     }
 
     if (this._turnQueue.length > 0) {
-      if (this._turnQueue[0].type === 'player') {
-        const player = this._turnQueue[0].entity as Player;
-        if (player.turnState === 'post_bullet') {
-          player.turnTimer -= deltaTime;
-          if (player.turnTimer <= 0) {
-            this.endTurn(100);
-          }
-        }
-      } else if (this._turnQueue[0].type === 'enemy') {
-        const enemy = this._turnQueue[0].entity as Enemy;
-        if (enemy.turnState === 'post_bullet') {
-          enemy.turnTimer -= deltaTime;
-          if (enemy.turnTimer <= 0) {
-            this.endTurn(100);
-          }
+      const currentEntity = this._turnQueue[0].entity as any;
+      if (currentEntity.turnState === 'post_bullet') {
+        currentEntity.turnTimer -= deltaTime;
+        if (currentEntity.turnTimer <= 0) {
+          this.endTurn(100);
         }
       }
     }
@@ -1544,7 +1524,6 @@ export class MonkeysGameService {
     this.updateDamageTexts();
 
     // Remove expired exploded projectiles
-    const expired = this.explodedProjectiles.filter((ep) => Date.now() >= ep.removalTime);
     this.explodedProjectiles = this.explodedProjectiles.filter((ep) => Date.now() < ep.removalTime);
 
     // Update turn queue (remove inactive enemies)
@@ -1637,14 +1616,12 @@ export class MonkeysGameService {
         }
 
         if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
-          const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.min(
             CONST.MAX_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
         if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
-          const oldTarget = this.player.targetAngle ?? this.player.angle;
           this.player.targetAngle = Math.max(
             CONST.MIN_AIM_ANGLE,
             (this.player.targetAngle ?? this.player.angle) - CONST.ANGLE_ADJUST_SPEED / 400,

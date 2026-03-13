@@ -18,18 +18,9 @@ export interface SpriteData {
   height: number;
 }
 
-interface SpriteMetadataDefinition {
-  name: string;
-  spritesheet: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 interface SpriteMetadataFile {
   spritesheets: Record<string, string>;
-  sprites: SpriteMetadataDefinition[];
+  sprites: SpriteDefinition[];
 }
 
 @Injectable({
@@ -252,7 +243,7 @@ export class MonkeysSpriteService {
 
   getLoadedSpritesheets(): string[] {
     return Array.from(this.loadedAssets.entries())
-      .filter(([_, loaded]) => loaded)
-      .map(([path, _]) => path);
+      .filter(([, loaded]) => loaded)
+      .map(([path]) => path);
   }
 }

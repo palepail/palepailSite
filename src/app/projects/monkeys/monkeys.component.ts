@@ -15,10 +15,10 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import { Player, GameState, Explosion, DamageText, TerrainSpriteRegion } from './monkeys.types';
+import { Player, GameState, Explosion, DamageText, TerrainSpriteRegion, TerrainChunkPlacement } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
-import { MonkeysSpriteService } from './monkeys-sprite.service';
+import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
 import { CameraController } from './camera-controller';
 import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
@@ -538,112 +538,72 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
     if (terrainSheet) {
       // Interior fill first (behind surface pieces)
-      for (const placement of this.gameService.terrainInteriorPlacements) {
-        const { region, x: worldX, topWorldY } = placement;
-        const screenX = Math.floor(worldX - this.cameraController.camera.x);
-        const screenY = Math.floor(terrainY + topWorldY);
-        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
-        offCtx.drawImage(
-          terrainSheet,
-          region.x,
-          region.y,
-          region.width,
-          region.height,
-          screenX,
-          screenY,
-          region.width,
-          region.height,
-        );
-      }
+      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainInteriorPlacements, terrainSheet, terrainY);
       // Bottom shell over interior so underside silhouette is visible
-      for (const placement of this.gameService.terrainBottomPlacements) {
-        const { region, x: worldX, topWorldY } = placement;
-        const screenX = Math.floor(worldX - this.cameraController.camera.x);
-        const screenY = Math.floor(terrainY + topWorldY);
-        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
-        offCtx.drawImage(
-          terrainSheet,
-          region.x,
-          region.y,
-          region.width,
-          region.height,
-          screenX,
-          screenY,
-          region.width,
-          region.height,
-        );
-      }
+      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainBottomPlacements, terrainSheet, terrainY);
       // Surface shell on top
-      for (const placement of this.gameService.terrainChunkPlacements) {
-        const { region, x: worldX, topWorldY } = placement;
-        const screenX = Math.floor(worldX - this.cameraController.camera.x);
-        const screenY = Math.floor(terrainY + topWorldY);
-        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
-        offCtx.drawImage(
-          terrainSheet,
-          region.x,
-          region.y,
-          region.width,
-          region.height,
-          screenX,
-          screenY,
-          region.width,
-          region.height,
-        );
-      }
+      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainChunkPlacements, terrainSheet, terrainY);
     }
 
     // Mask by removing air cells only, so sprite overhang above the collision top remains visible.
     // terrain=0 is air, terrain=1 is solid, terrain=2 is visual-only (bottom sprite overhang).
     offCtx.globalCompositeOperation = 'destination-out';
     offCtx.fillStyle = 'rgba(0,0,0,1)';
-    for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
-      let segmentStart = -1;
-      for (let x = startX; x < endX; x++) {
-        if (this.gameService.terrain[x]?.[y] === 0) {
-          if (segmentStart === -1) segmentStart = x;
-        } else {
-          if (segmentStart !== -1) {
-            const sx = Math.floor(segmentStart - this.cameraController.camera.x);
-            const ex = Math.floor(x - this.cameraController.camera.x);
-            offCtx.fillRect(sx, terrainY + y, ex - sx, 1);
-            segmentStart = -1;
-          }
-        }
-      }
-      if (segmentStart !== -1) {
-        const sx = Math.floor(segmentStart - this.cameraController.camera.x);
-        const ex = Math.floor(endX - this.cameraController.camera.x);
-        offCtx.fillRect(sx, terrainY + y, ex - sx, 1);
-      }
-    }
+    this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 0);
     offCtx.globalCompositeOperation = 'source-over';
 
     // Brown fallback fill — visible through carved holes where sprites were erased
     this.ctx.fillStyle = CONST.TERRAIN_COLOR;
-    for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
+    this.scanlineTerrainFill(this.ctx, terrainY, startX, endX, 1);
+
+    // Composite masked sprites over the colour fill
+    this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
+  }
+
+  private drawTerrainSpritePlacements(
+    offCtx: CanvasRenderingContext2D,
+    placements: TerrainChunkPlacement[],
+    terrainSheet: HTMLCanvasElement | HTMLImageElement,
+    terrainY: number,
+  ): void {
+    for (const placement of placements) {
+      const { region, x: worldX, topWorldY } = placement;
+      const screenX = Math.floor(worldX - this.cameraController.camera.x);
+      const screenY = Math.floor(terrainY + topWorldY);
+      if (screenX + region.width < 0 || screenX > CONST.CANVAS_WIDTH) continue;
+      offCtx.drawImage(
+        terrainSheet,
+        region.x, region.y, region.width, region.height,
+        screenX, screenY, region.width, region.height,
+      );
+    }
+  }
+
+  private scanlineTerrainFill(
+    ctx: CanvasRenderingContext2D,
+    terrainY: number,
+    startX: number,
+    endX: number,
+    matchValue: number,
+  ): void {
+    for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
       let segmentStart = -1;
       for (let x = startX; x < endX; x++) {
-        if (this.gameService.terrain[x]?.[y] === 1) {
+        if (this.gameService.terrain[x]?.[y] === matchValue) {
           if (segmentStart === -1) segmentStart = x;
-        } else {
-          if (segmentStart !== -1) {
-            const sx = Math.floor(segmentStart - this.cameraController.camera.x);
-            const ex = Math.floor(x - this.cameraController.camera.x);
-            this.ctx.fillRect(sx, terrainY + y, ex - sx, 1);
-            segmentStart = -1;
-          }
+        } else if (segmentStart !== -1) {
+          const sx = Math.floor(segmentStart - this.cameraController.camera.x);
+          const ex = Math.floor(x - this.cameraController.camera.x);
+          ctx.fillRect(sx, terrainY + y, ex - sx, 1);
+          segmentStart = -1;
         }
       }
       if (segmentStart !== -1) {
         const sx = Math.floor(segmentStart - this.cameraController.camera.x);
         const ex = Math.floor(endX - this.cameraController.camera.x);
-        this.ctx.fillRect(sx, terrainY + y, ex - sx, 1);
+        ctx.fillRect(sx, terrainY + y, ex - sx, 1);
       }
     }
-
-    // Composite masked sprites over the colour fill
-    this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
   }
 
   private drawPlayer() {
@@ -685,8 +645,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw tank shadow for depth
     this.drawTankShadow(centerX, centerY, bodyRadius);
 
-    // Draw barrel (rotates with angle) - behind body
-    this.drawTankBarrel(centerX, centerY, bodyRadius);
+    // Draw barrel behind body
+    this.drawCursorBarrel(centerX, centerY, (this.gameService.player.angle * Math.PI) / 180);
 
     // Draw aiming line (behind body)
     if (this.currentState === GameState.PLAYING) {
@@ -706,11 +666,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw tank body sprite (or fallback shape) in front of barrel and aiming line
-    const drewPlayerSprite = this.drawTankBody(
-      this.gameService.player,
-      centerX,
-      centerY,
-      bodyRadius,
+    const drewPlayerSprite = this.drawEntityBody(
+      this.gameService.player, this.gameService.player.color, centerX, centerY, bodyRadius,
     );
 
     // Keep track overlay only when using fallback shape.
@@ -771,11 +728,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw tank shadow for depth
     this.drawTankShadow(centerX, centerY, bodyRadius);
 
-    // Draw barrel (fixed angle for enemies) - behind body
-    this.drawEnemyBarrel(centerX, centerY, bodyRadius, enemy);
+    // Draw barrel behind body
+    this.drawCursorBarrel(centerX, centerY, (enemy.angle * Math.PI) / 180);
 
     // Draw tank body sprite (or fallback shape) in front of barrel.
-    const drewEnemySprite = this.drawEnemyBody(enemy, centerX, centerY, bodyRadius);
+    const drewEnemySprite = this.drawEntityBody(enemy, '#FF6B6B', centerX, centerY, bodyRadius);
 
     // Keep track overlay only when using fallback shape.
     if (!drewEnemySprite) {
@@ -806,11 +763,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         '#FF0000',
       );
     }
-  }
-
-  private drawTankBarrel(centerX: number, centerY: number, bodyRadius: number) {
-    const angleRad = (this.gameService.player.angle * Math.PI) / 180;
-    this.drawCursorBarrel(centerX, centerY, angleRad);
   }
 
   private getCursorFrameIndex(now: number = Date.now()): number {
@@ -1192,16 +1144,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.previousHealthByEntity.set(key, currentHealth);
   }
 
-  private drawTankBody(player: any, centerX: number, centerY: number, bodyRadius: number): boolean {
-    if (this.drawEntitySprite(player, centerX, centerY, bodyRadius)) {
+  private drawEntityBody(
+    entity: any,
+    fallbackColor: string,
+    centerX: number,
+    centerY: number,
+    bodyRadius: number,
+  ): boolean {
+    if (this.drawEntitySprite(entity, centerX, centerY, bodyRadius)) {
       return true;
     }
-
-    // Fallback body if sprites are not loaded.
-    this.ctx.fillStyle = this.gameService.player.color;
+    this.ctx.fillStyle = fallbackColor;
     this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
     this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
-
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
     this.ctx.closePath();
@@ -1285,28 +1240,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawEnemyBarrel(centerX: number, centerY: number, bodyRadius: number, enemy: any) {
-    // Use enemy angle for aiming animation
-    const angleRad = (enemy.angle * Math.PI) / 180;
-    this.drawCursorBarrel(centerX, centerY, angleRad);
-  }
-
-  private drawEnemyBody(enemy: any, centerX: number, centerY: number, bodyRadius: number): boolean {
-    if (this.drawEntitySprite(enemy, centerX, centerY, bodyRadius)) {
-      return true;
+  private drawBulletAt(screenPos: { x: number; y: number }, bulletSprite: SpriteData | null): void {
+    if (bulletSprite) {
+      const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
+      this.ctx.drawImage(
+        bulletSprite.image,
+        bulletSprite.x, bulletSprite.y, bulletSprite.width, bulletSprite.height,
+        screenPos.x - drawSize / 2, screenPos.y - drawSize / 2, drawSize, drawSize,
+      );
+    } else {
+      this.ctx.fillStyle = this.PROJECTILE_COLOR;
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+      this.ctx.fill();
     }
-
-    // Fallback body if sprites are not loaded.
-    this.ctx.fillStyle = '#FF6B6B';
-    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
-    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
-
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.stroke();
-    return false;
   }
 
   private drawProjectile() {
@@ -1316,54 +1263,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.gameService.projectile) {
       let pos: { x: number; y: number };
       if (this.gameService.projectile.body) {
-        // Legacy physics projectile
         pos = this.gameService.projectile.body.position;
       } else {
-        // Trajectory projectile
         pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
       }
-      const screenPos = this.cameraController.worldToScreen(pos.x, pos.y);
-      if (bulletSprite) {
-        const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
-        this.ctx.drawImage(
-          bulletSprite.image,
-          bulletSprite.x,
-          bulletSprite.y,
-          bulletSprite.width,
-          bulletSprite.height,
-          screenPos.x - drawSize / 2,
-          screenPos.y - drawSize / 2,
-          drawSize,
-          drawSize,
-        );
-      } else {
-        this.ctx.fillStyle = this.PROJECTILE_COLOR;
-        this.ctx.beginPath();
-        this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
+      this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite);
     } else if (this.gameService.explodedProjectiles.length > 0) {
       const ep = this.gameService.explodedProjectiles[0];
-      const screenPos = this.cameraController.worldToScreen(ep.position.x, ep.position.y);
-      if (bulletSprite) {
-        const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
-        this.ctx.drawImage(
-          bulletSprite.image,
-          bulletSprite.x,
-          bulletSprite.y,
-          bulletSprite.width,
-          bulletSprite.height,
-          screenPos.x - drawSize / 2,
-          screenPos.y - drawSize / 2,
-          drawSize,
-          drawSize,
-        );
-      } else {
-        this.ctx.fillStyle = this.PROJECTILE_COLOR;
-        this.ctx.beginPath();
-        this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
+      this.drawBulletAt(this.cameraController.worldToScreen(ep.position.x, ep.position.y), bulletSprite);
     }
   }
 
@@ -1544,12 +1451,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
-  private gameLoop() {
-    this.gameService.update();
-    this.render();
-    requestAnimationFrame(() => this.gameLoop());
-  }
-
   private renderLoop() {
     if (
       this.gameService.currentState !== GameState.MENU &&
@@ -1614,23 +1515,23 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.keys[event.key] = false;
   }
 
-  /**
-   * Clamps camera Y-axis to defined bounds for manual drag
-   * @param y The Y coordinate to clamp
-   * @returns The clamped Y coordinate
-   */
   private clampCameraY(y: number): number {
     return Math.max(this.CAMERA_Y_MIN, Math.min(this.CAMERA_Y_MAX, y));
   }
 
+  private isInteractionBlocked(): boolean {
+    const s = this.gameService.currentState;
+    return (
+      s === GameState.GAME_OVER_DELAY ||
+      s === GameState.TERRAIN_TOOL ||
+      s === GameState.LOADING ||
+      s === GameState.MENU ||
+      s === GameState.SETUP
+    );
+  }
+
   onMouseMove(event: MouseEvent) {
-    if (
-      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL ||
-      this.gameService.currentState === GameState.LOADING ||
-      this.gameService.currentState === GameState.MENU ||
-      this.gameService.currentState === GameState.SETUP
-    ) {
+    if (this.isInteractionBlocked()) {
       this.isDragging = false;
       return;
     }
@@ -1656,13 +1557,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseDown(event: MouseEvent) {
-    if (
-      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL ||
-      this.gameService.currentState === GameState.LOADING ||
-      this.gameService.currentState === GameState.MENU ||
-      this.gameService.currentState === GameState.SETUP
-    ) {
+    if (this.isInteractionBlocked()) {
       return;
     }
 
@@ -1674,13 +1569,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onMouseUp() {
-    if (
-      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL ||
-      this.gameService.currentState === GameState.LOADING ||
-      this.gameService.currentState === GameState.MENU ||
-      this.gameService.currentState === GameState.SETUP
-    ) {
+    if (this.isInteractionBlocked()) {
       this.isDragging = false;
       return;
     }
