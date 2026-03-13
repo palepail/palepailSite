@@ -243,10 +243,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.currentState = GameState.LOADING;
     this.isLoading = true;
     try {
-      await Promise.all([
-        this.gameService.initGame(),
-        this.spriteService.loadTerrainSpritesheet(),
-      ]);
+      await Promise.all([this.gameService.initGame(), this.spriteService.loadTerrainSpritesheet()]);
     } catch (error) {
       console.error('Failed to start game:', error);
       this.gameService.currentState = GameState.MENU;
@@ -529,9 +526,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const terrainSheet = this.spriteService.getSpritesheet(
       this.spriteService.TERRAIN_TOOL_SPRITESHEET,
     );
-    console.log(`Rendering terrain: terrainSheet exists: ${!!terrainSheet}, width: ${terrainSheet?.width}, height: ${terrainSheet?.height}`);
     if (terrainSheet) {
-      console.log(`Drawing terrain sprites: interior ${this.gameService.terrainInteriorPlacements.length}, bottom ${this.gameService.terrainBottomPlacements.length}, top ${this.gameService.terrainChunkPlacements.length}`);
       // Interior fill first (behind surface pieces)
       for (const placement of this.gameService.terrainInteriorPlacements) {
         const { region, x: worldX, topWorldY } = placement;
@@ -540,8 +535,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
         offCtx.drawImage(
           terrainSheet,
-          region.x, region.y, region.width, region.height,
-          screenX, screenY, region.width, region.height,
+          region.x,
+          region.y,
+          region.width,
+          region.height,
+          screenX,
+          screenY,
+          region.width,
+          region.height,
         );
       }
       // Bottom shell over interior so underside silhouette is visible
@@ -552,8 +553,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
         offCtx.drawImage(
           terrainSheet,
-          region.x, region.y, region.width, region.height,
-          screenX, screenY, region.width, region.height,
+          region.x,
+          region.y,
+          region.width,
+          region.height,
+          screenX,
+          screenY,
+          region.width,
+          region.height,
         );
       }
       // Surface shell on top
@@ -564,8 +571,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
         offCtx.drawImage(
           terrainSheet,
-          region.x, region.y, region.width, region.height,
-          screenX, screenY, region.width, region.height,
+          region.x,
+          region.y,
+          region.width,
+          region.height,
+          screenX,
+          screenY,
+          region.width,
+          region.height,
         );
       }
     }

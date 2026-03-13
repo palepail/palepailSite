@@ -255,6 +255,7 @@ export class MonkeysGameService {
     let currentTopY = this.randomInRange(topStartMin, topStartMax);
     let xCursor = 0;
     let consecutiveFlats = 0;
+    let lastSlopeDir: 'flat' | 'up' | 'down' = 'flat';
 
     while (xCursor < CONST.TERRAIN_WIDTH) {
       const candidatePool = this.buildTopCandidatePool(
@@ -263,6 +264,7 @@ export class MonkeysGameService {
         topSlopeDown,
         consecutiveFlats,
         currentTopY,
+        lastSlopeDir,
       );
 
       if (candidatePool.length === 0) {
@@ -277,8 +279,10 @@ export class MonkeysGameService {
       xCursor += selected.width;
       if (selected.pieceType === 'top_flat') {
         consecutiveFlats++;
+        lastSlopeDir = 'flat';
       } else {
         consecutiveFlats = 0;
+        lastSlopeDir = selected.pieceType === 'top_slope_up' ? 'up' : 'down';
       }
     }
     return placements;
@@ -290,6 +294,7 @@ export class MonkeysGameService {
     topSlopeDown: TerrainSpriteMetadata[],
     consecutiveFlats: number,
     currentTopY: number,
+    lastSlopeDir: 'flat' | 'up' | 'down',
   ): TerrainSpriteMetadata[] {
     const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
     const pool: TerrainSpriteMetadata[] = [];
@@ -300,10 +305,11 @@ export class MonkeysGameService {
 
     const canGoUp = currentTopY > this.TERRAIN_MIN_TOP_Y + 40;
     const canGoDown = currentTopY < this.TERRAIN_MAX_TOP_Y - 40;
-    if (canGoUp) {
+    // Prevent consecutive same-direction slopes to keep height change within one interior tile.
+    if (canGoUp && lastSlopeDir !== 'up') {
       pool.push(...topSlopeUp, ...topSlopeUp);
     }
-    if (canGoDown) {
+    if (canGoDown && lastSlopeDir !== 'down') {
       pool.push(...topSlopeDown, ...topSlopeDown);
     }
 
@@ -336,6 +342,7 @@ export class MonkeysGameService {
     let currentBottomY = this.randomInRange(200, maxSafeStartY);
     let xCursor = 0;
     let consecutiveFlats = 0;
+    let lastBottomSlopeDir: 'flat' | 'up' | 'down' = 'flat';
 
     while (xCursor < CONST.TERRAIN_WIDTH) {
       // Ensure bottom Y doesn't go above the top surface + interior.
@@ -355,6 +362,7 @@ export class MonkeysGameService {
         minBottomProfile,
         xCursor,
         topSlope,
+        lastBottomSlopeDir,
       );
 
       if (candidatePool.length === 0) {
@@ -373,8 +381,10 @@ export class MonkeysGameService {
 
       if (selected.pieceType === 'bottom_flat') {
         consecutiveFlats++;
+        lastBottomSlopeDir = 'flat';
       } else {
         consecutiveFlats = 0;
+        lastBottomSlopeDir = selected.pieceType === 'bottom_slope_up' ? 'up' : 'down';
       }
     }
 
@@ -434,6 +444,7 @@ export class MonkeysGameService {
     minBottomProfile: number[],
     xCursor: number,
     topSlope: 'flat' | 'up' | 'down',
+    lastSlopeDir: 'flat' | 'up' | 'down',
   ): TerrainSpriteMetadata[] {
     const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
     const pool: TerrainSpriteMetadata[] = [];
@@ -461,12 +472,13 @@ export class MonkeysGameService {
 
     const canGoUp = currentBottomY > this.TERRAIN_MIN_BOTTOM_Y + 30;
     const canGoDown = currentBottomY < this.TERRAIN_MAX_BOTTOM_Y - 30;
-    if (canGoUp) {
+    // Prevent consecutive same-direction slopes to keep height change within one interior tile.
+    if (canGoUp && lastSlopeDir !== 'up') {
       const validUp = bottomSlopeUp.filter(isValid);
       const upWeight = topSlope === 'up' ? 4 : 2;
       for (let i = 0; i < upWeight; i++) pool.push(...validUp);
     }
-    if (canGoDown) {
+    if (canGoDown && lastSlopeDir !== 'down') {
       const validDown = bottomSlopeDown.filter(isValid);
       const downWeight = topSlope === 'down' ? 4 : 2;
       for (let i = 0; i < downWeight; i++) pool.push(...validDown);
@@ -980,6 +992,9 @@ export class MonkeysGameService {
         enemy.movementFuel = enemy.vehicle.fuel;
         enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
         enemy.forceTerrainClearingShot = false;
+        enemy.targetAngle = undefined;
+        enemy.targetPower = undefined;
+        enemy.reassessCount = 0;
         enemy.turnState = 'assess';
         enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
         enemy.stuckCounter = 0;
@@ -1020,7 +1035,10 @@ export class MonkeysGameService {
           moveAwayThreshold = 200;
         }
 
-        if (distance > moveCloserThreshold && enemy.movementFuel! > 10) {
+        enemy.reassessCount = (enemy.reassessCount ?? 0) + 1;
+        const forceShot = enemy.reassessCount >= 3;
+
+        if (!forceShot && distance > moveCloserThreshold && enemy.movementFuel! > 10) {
           // Too far, move closer or flank
           if (enemy.behavior === 'flanking') {
             enemy.moveDirection =
@@ -1031,20 +1049,20 @@ export class MonkeysGameService {
           enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
           enemy.turnState = 'moving';
           console.log(`Enemy moving closer, direction=${enemy.moveDirection}`);
-        } else if (distance < moveAwayThreshold && enemy.movementFuel! > 5) {
+        } else if (!forceShot && distance < moveAwayThreshold && enemy.movementFuel! > 5) {
           // Too close, move away
           enemy.moveDirection = dx > 0 ? -1 : 1; // Away from player
           enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
           enemy.turnState = 'moving';
           console.log(`Enemy moving away, direction=${enemy.moveDirection}`);
         } else {
-          // Good distance, aim and shoot
+          // Good distance (or forced after too many reassessments), aim and shoot
           enemy.facing = dx > 0 ? 1 : -1; // Face toward player
           enemy.targetAngle = undefined;
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.turnTimer = 0;
-          console.log(`Enemy aiming, facing=${enemy.facing}`);
+          console.log(`Enemy aiming, facing=${enemy.facing}${forceShot ? ' (forced)' : ''}`);
         }
         break;
 
@@ -1069,9 +1087,13 @@ export class MonkeysGameService {
           // After moving, reassess or go to aiming
           const newDx = this.player.x - enemy.x;
           const newDistance = Math.abs(newDx);
-          if (newDistance > 500 || newDistance < 100) {
+          const maxReassess = (enemy.reassessCount ?? 0) >= 3;
+          if (!maxReassess && (newDistance > 500 || newDistance < 100)) {
             enemy.turnState = 'assess'; // Reassess if still not ideal
           } else {
+            enemy.facing = newDx > 0 ? 1 : -1;
+            enemy.targetAngle = undefined;
+            enemy.targetPower = undefined;
             enemy.turnState = 'aiming';
             enemy.turnTimer = 0;
           }
@@ -1102,7 +1124,7 @@ export class MonkeysGameService {
         break;
 
       case 'aiming':
-        if (!enemy.targetAngle) {
+        if (enemy.targetAngle === undefined) {
           // Calculate precise angle to player
           const dx = this.player.x - enemy.x;
           const dy = this.player.y - enemy.y;
