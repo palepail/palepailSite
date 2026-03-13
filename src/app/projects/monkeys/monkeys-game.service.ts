@@ -64,7 +64,6 @@ export class MonkeysGameService {
   private readonly TERRAIN_MAX_BOTTOM_Y = CONST.TERRAIN_STRIP_HEIGHT - 6;
   private readonly TERRAIN_MIN_THICKNESS = 90;
   private readonly TERRAIN_MAX_THICKNESS = 170;
-  private readonly TERRAIN_MAX_LEVEL_CHANGES = 4;
   private readonly TERRAIN_MAX_CONSECUTIVE_FLATS = 3;
   private terrainMetadataById: Map<number, TerrainSpriteMetadata> = new Map();
   private terrainMetadataLoaded = false;
@@ -234,7 +233,7 @@ export class MonkeysGameService {
     }
 
     const placements = this.buildTerrainChunkPlan();
-    const bottomPlacements = this.buildBottomChunkPlan();
+    const bottomPlacements = this.buildBottomChunkPlan(placements);
     this.terrainChunkPlacements = placements;
     this.terrainBottomPlacements = bottomPlacements;
     this.rasterizeTerrainPlacements(placements, bottomPlacements);
@@ -255,7 +254,6 @@ export class MonkeysGameService {
     const topStartMax = 140;
     let currentTopY = this.randomInRange(topStartMin, topStartMax);
     let xCursor = 0;
-    let levelChanges = 0;
     let consecutiveFlats = 0;
 
     while (xCursor < CONST.TERRAIN_WIDTH) {
@@ -264,7 +262,6 @@ export class MonkeysGameService {
         topSlopeUp,
         topSlopeDown,
         consecutiveFlats,
-        levelChanges,
         currentTopY,
       );
 
@@ -282,7 +279,6 @@ export class MonkeysGameService {
         consecutiveFlats++;
       } else {
         consecutiveFlats = 0;
-        levelChanges++;
       }
     }
     return placements;
@@ -293,26 +289,22 @@ export class MonkeysGameService {
     topSlopeUp: TerrainSpriteMetadata[],
     topSlopeDown: TerrainSpriteMetadata[],
     consecutiveFlats: number,
-    levelChanges: number,
     currentTopY: number,
   ): TerrainSpriteMetadata[] {
     const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
-    const shouldAvoidSlope = levelChanges >= this.TERRAIN_MAX_LEVEL_CHANGES;
     const pool: TerrainSpriteMetadata[] = [];
 
     if (!shouldForceSlope) {
       pool.push(...topFlat, ...topFlat, ...topFlat);
     }
 
-    if (!shouldAvoidSlope) {
-      const canGoUp = currentTopY > this.TERRAIN_MIN_TOP_Y + 40;
-      const canGoDown = currentTopY < this.TERRAIN_MAX_TOP_Y - 40;
-      if (canGoUp) {
-        pool.push(...topSlopeUp, ...topSlopeUp);
-      }
-      if (canGoDown) {
-        pool.push(...topSlopeDown, ...topSlopeDown);
-      }
+    const canGoUp = currentTopY > this.TERRAIN_MIN_TOP_Y + 40;
+    const canGoDown = currentTopY < this.TERRAIN_MAX_TOP_Y - 40;
+    if (canGoUp) {
+      pool.push(...topSlopeUp, ...topSlopeUp);
+    }
+    if (canGoDown) {
+      pool.push(...topSlopeDown, ...topSlopeDown);
     }
 
     if (pool.length === 0) {
@@ -322,7 +314,11 @@ export class MonkeysGameService {
     return pool;
   }
 
-  private buildBottomChunkPlan(): TerrainChunkPlacement[] {
+  private buildBottomChunkPlan(topPlacements: TerrainChunkPlacement[]): TerrainChunkPlacement[] {
+    // Build a profile of the deepest top surface Y + one interior tile height
+    // as the minimum allowed bottom Y at each x position.
+    const minBottomProfile = this.buildMinBottomProfile(topPlacements);
+
     // Exclude bottom cap-like tiles 8 and 9 from general bottom generation.
     const bottomFlat = this.getTerrainRegionsByType('bottom_flat').filter(
       (item) => ![8, 9].includes(item.id),
@@ -330,24 +326,35 @@ export class MonkeysGameService {
     const bottomSlopeUp = this.getTerrainRegionsByType('bottom_slope_up');
     const bottomSlopeDown = this.getTerrainRegionsByType('bottom_slope_down');
 
-    if (bottomFlat.length === 0 || bottomSlopeUp.length === 0 || bottomSlopeDown.length === 0) {
+    if (bottomSlopeUp.length === 0 || bottomSlopeDown.length === 0) {
       return this.buildFallbackBottomPlan();
     }
 
     const placements: TerrainChunkPlacement[] = [];
-    let currentBottomY = this.randomInRange(220, 265);
+    // Constrain start Y so the tallest bottom sprite fits within the strip.
+    const maxSafeStartY = Math.min(265, CONST.TERRAIN_STRIP_HEIGHT - 75);
+    let currentBottomY = this.randomInRange(200, maxSafeStartY);
     let xCursor = 0;
-    let levelChanges = 0;
     let consecutiveFlats = 0;
 
     while (xCursor < CONST.TERRAIN_WIDTH) {
+      // Ensure bottom Y doesn't go above the top surface + interior.
+      const minY = this.getMinBottomYForRange(minBottomProfile, xCursor, 90);
+      if (currentBottomY < minY) {
+        currentBottomY = minY;
+      }
+
+      const topSlope = this.getTopSlopeDirection(topPlacements, xCursor);
+
       const candidatePool = this.buildBottomCandidatePool(
         bottomFlat,
         bottomSlopeUp,
         bottomSlopeDown,
         consecutiveFlats,
-        levelChanges,
         currentBottomY,
+        minBottomProfile,
+        xCursor,
+        topSlope,
       );
 
       if (candidatePool.length === 0) {
@@ -368,11 +375,54 @@ export class MonkeysGameService {
         consecutiveFlats++;
       } else {
         consecutiveFlats = 0;
-        levelChanges++;
       }
     }
 
     return placements;
+  }
+
+  private buildMinBottomProfile(topPlacements: TerrainChunkPlacement[]): number[] {
+    // For each X, find the deepest top surface Y + one interior tile (60px)
+    // as the minimum Y the bottom path can reach.
+    const interiorHeight = 60;
+    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
+    for (const placement of topPlacements) {
+      const startX = Math.max(0, Math.floor(placement.x));
+      const endX = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
+      for (let x = startX; x < endX; x++) {
+        const localX = x - placement.x;
+        const t = Math.max(0, Math.min(1, localX / Math.max(1, placement.region.width - 1)));
+        const topY = placement.topWorldY + placement.region.topEntryY +
+          (placement.region.topExitY - placement.region.topEntryY) * t;
+        const minBottom = Math.floor(topY + placement.region.height + interiorHeight);
+        profile[x] = Math.max(profile[x], minBottom);
+      }
+    }
+    return profile;
+  }
+
+  private getTopSlopeDirection(
+    topPlacements: TerrainChunkPlacement[],
+    xCursor: number,
+  ): 'flat' | 'up' | 'down' {
+    for (const p of topPlacements) {
+      if (xCursor >= p.x && xCursor < p.x + p.region.width) {
+        if (p.region.pieceType === 'top_slope_up') return 'up';
+        if (p.region.pieceType === 'top_slope_down') return 'down';
+        return 'flat';
+      }
+    }
+    return 'flat';
+  }
+
+  private getMinBottomYForRange(profile: number[], xCursor: number, width: number): number {
+    const startX = Math.max(0, Math.floor(xCursor));
+    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.floor(xCursor + width));
+    let maxMinY = 0;
+    for (let x = startX; x < endX; x++) {
+      maxMinY = Math.max(maxMinY, profile[x]);
+    }
+    return maxMinY;
   }
 
   private buildBottomCandidatePool(
@@ -380,30 +430,55 @@ export class MonkeysGameService {
     bottomSlopeUp: TerrainSpriteMetadata[],
     bottomSlopeDown: TerrainSpriteMetadata[],
     consecutiveFlats: number,
-    levelChanges: number,
     currentBottomY: number,
+    minBottomProfile: number[],
+    xCursor: number,
+    topSlope: 'flat' | 'up' | 'down',
   ): TerrainSpriteMetadata[] {
     const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
-    const shouldAvoidSlope = levelChanges >= this.TERRAIN_MAX_LEVEL_CHANGES + 2;
     const pool: TerrainSpriteMetadata[] = [];
 
+    // Only add sprites whose full visual extent fits within the terrain strip
+    // and whose exit Y stays below the top surface.
+    const isValid = (sprite: TerrainSpriteMetadata) => {
+      const entry = sprite.bottomEntryY ?? 0;
+      if (currentBottomY - entry + sprite.height >= CONST.TERRAIN_STRIP_HEIGHT) {
+        return false;
+      }
+      // Check the exit Y stays below top surface + interior.
+      const exitY = sprite.bottomExitY ?? entry;
+      const exitBottomY = currentBottomY + (exitY - entry);
+      const minY = this.getMinBottomYForRange(minBottomProfile, xCursor, sprite.width);
+      return exitBottomY >= minY;
+    };
+
+    // Reduce flat weight when top is sloping to bias bottom toward matching.
     if (!shouldForceSlope) {
-      pool.push(...bottomFlat, ...bottomFlat, ...bottomFlat);
+      const validFlats = bottomFlat.filter(isValid);
+      const flatWeight = topSlope === 'flat' ? 3 : 1;
+      for (let i = 0; i < flatWeight; i++) pool.push(...validFlats);
     }
 
-    if (!shouldAvoidSlope) {
-      const canGoUp = currentBottomY > this.TERRAIN_MIN_BOTTOM_Y + 30;
-      const canGoDown = currentBottomY < this.TERRAIN_MAX_BOTTOM_Y - 30;
-      if (canGoUp) {
-        pool.push(...bottomSlopeUp, ...bottomSlopeUp);
-      }
-      if (canGoDown) {
-        pool.push(...bottomSlopeDown, ...bottomSlopeDown);
-      }
+    const canGoUp = currentBottomY > this.TERRAIN_MIN_BOTTOM_Y + 30;
+    const canGoDown = currentBottomY < this.TERRAIN_MAX_BOTTOM_Y - 30;
+    if (canGoUp) {
+      const validUp = bottomSlopeUp.filter(isValid);
+      const upWeight = topSlope === 'up' ? 4 : 2;
+      for (let i = 0; i < upWeight; i++) pool.push(...validUp);
+    }
+    if (canGoDown) {
+      const validDown = bottomSlopeDown.filter(isValid);
+      const downWeight = topSlope === 'down' ? 4 : 2;
+      for (let i = 0; i < downWeight; i++) pool.push(...validDown);
     }
 
     if (pool.length === 0) {
-      pool.push(...bottomFlat);
+      const validFallback = [...bottomFlat, ...bottomSlopeDown].filter(isValid);
+      if (validFallback.length > 0) {
+        pool.push(...validFallback);
+      } else {
+        pool.push(...bottomFlat);
+      }
     }
 
     return pool;
@@ -478,6 +553,23 @@ export class MonkeysGameService {
         }
       }
     }
+
+    // Extend terrain grid to cover full visual extent of bottom sprites
+    // using value 2 (visual-only) so the destination-out mask doesn't carve
+    // into their rendered area, but brown fill and physics ignore them.
+    for (const placement of bottomPlacements) {
+      const startX = Math.max(0, Math.floor(placement.x));
+      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
+      const spriteTopY = Math.floor(placement.topWorldY);
+      const spriteBottomY = Math.floor(placement.topWorldY + placement.region.height);
+      for (let x = startX; x < endXExclusive; x++) {
+        for (let y = spriteTopY; y < spriteBottomY; y++) {
+          if (y >= 0 && y < CONST.TERRAIN_STRIP_HEIGHT && this.terrain[x][y] === 0) {
+            this.terrain[x][y] = 2;
+          }
+        }
+      }
+    }
   }
 
   private rasterizeBoundaryProfile(
@@ -530,12 +622,12 @@ export class MonkeysGameService {
     for (const top of topPlacements) {
       const startX = Math.max(0, Math.floor(top.x));
       const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(top.x + top.region.width));
-      // Use the earliest bottom-shell start in this chunk span to prevent overlap seams.
-      let bottomShellStartY = Number.POSITIVE_INFINITY;
+      // Use the deepest bottom-shell start in this chunk span to prevent overlap seams.
+      let bottomShellStartY = Number.NEGATIVE_INFINITY;
       for (let x = startX; x < endXExclusive; x++) {
         const y = bottomShellStartProfile[x];
         if (y >= 0) {
-          bottomShellStartY = Math.min(bottomShellStartY, y);
+          bottomShellStartY = Math.max(bottomShellStartY, y);
         }
       }
 
@@ -557,7 +649,8 @@ export class MonkeysGameService {
 
         // Final interior tile: anchor flush with bottom shell start to avoid visible horizontal gaps.
         const anchoredY = Math.floor(bottomShellStartY - region.height);
-        if (anchoredY >= fillStartY) {
+        // Allow overlap with top shell so short spans still receive an interior tile.
+        if (anchoredY >= top.topWorldY) {
           placements.push({ region, x: top.x, topWorldY: anchoredY });
         }
         break;
@@ -1795,8 +1888,8 @@ export class MonkeysGameService {
           const ix = Math.floor(x);
           const iy = Math.floor(y - terrainY);
           if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
-            if (this.terrain[ix] && this.terrain[ix][iy] === 1) {
-              this.terrain[ix][iy] = 0; // Remove terrain
+            if (this.terrain[ix] && this.terrain[ix][iy] !== 0) {
+              this.terrain[ix][iy] = 0; // Remove terrain (solid and visual-only)
             }
           }
         }

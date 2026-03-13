@@ -11,7 +11,7 @@ export const SKY_COLOR = '#87CEEB';
 // Terrain
 export const TERRAIN_WIDTH = 2400;
 export const TERRAIN_HEIGHT = 800;
-export const TERRAIN_STRIP_HEIGHT = 300;
+export const TERRAIN_STRIP_HEIGHT = 500;
 export const TERRAIN_SMOOTHING_WEIGHT = 2;
 export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 2;

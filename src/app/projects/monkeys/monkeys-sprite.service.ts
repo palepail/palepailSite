@@ -11,7 +11,7 @@ export interface SpriteDefinition {
 }
 
 export interface SpriteData {
-  image: HTMLImageElement;
+  image: HTMLImageElement | HTMLCanvasElement;
   x: number;
   y: number;
   width: number;
@@ -40,7 +40,7 @@ export class MonkeysSpriteService {
   private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
   private readonly TERRAIN_METADATA_PATH = 'assets/monkeys/terrain-metadata.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
-  private spritesheets: Map<string, HTMLImageElement> = new Map();
+  private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
   private spriteDefinitions: SpriteDefinition[] = [];
@@ -65,7 +65,7 @@ export class MonkeysSpriteService {
     }
   }
 
-  async loadTerrainSpritesheet(): Promise<HTMLImageElement> {
+  async loadTerrainSpritesheet(): Promise<HTMLImageElement | HTMLCanvasElement> {
     return this.loadRawSpritesheet(this.TERRAIN_TOOL_SPRITESHEET);
   }
 
@@ -156,7 +156,7 @@ export class MonkeysSpriteService {
     return Number.parseInt(match[1], 10);
   }
 
-  async loadRawSpritesheet(path: string): Promise<HTMLImageElement> {
+  async loadRawSpritesheet(path: string): Promise<HTMLImageElement | HTMLCanvasElement> {
     const existingSpritesheet = this.spritesheets.get(path);
     if (existingSpritesheet) {
       return existingSpritesheet;
@@ -174,8 +174,19 @@ export class MonkeysSpriteService {
   private async loadSpritesheet(path: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.onload = () => {
-        this.spritesheets.set(path, img);
+      img.onload = async () => {
+        console.log(`Spritesheet loaded: ${path}, complete: ${img.complete}, naturalWidth: ${img.naturalWidth}`);
+        if (img.decode) {
+          await img.decode();
+          console.log(`Spritesheet decoded: ${path}`);
+        }
+        // Create a canvas with the fully decoded image to ensure complete drawing
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx!.drawImage(img, 0, 0);
+        this.spritesheets.set(path, canvas);
         this.loadedAssets.set(path, true);
         this.extractSpritesFromSheet(path);
         resolve();
@@ -212,7 +223,7 @@ export class MonkeysSpriteService {
     return this.sprites.get(name) || null;
   }
 
-  getSpritesheet(path: string): HTMLImageElement | null {
+  getSpritesheet(path: string): HTMLImageElement | HTMLCanvasElement | null {
     return this.spritesheets.get(path) || null;
   }
 

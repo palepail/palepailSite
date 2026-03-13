@@ -13,7 +13,7 @@ interface BoundarySegment {
 
 export class TerrainSpriteAnalyzer {
   analyze(
-    image: HTMLImageElement,
+    image: HTMLImageElement | HTMLCanvasElement,
     options: TerrainSpriteAnalyzerOptions = {},
   ): TerrainSpriteRegion[] {
     const alphaThreshold = options.alphaThreshold ?? 96;

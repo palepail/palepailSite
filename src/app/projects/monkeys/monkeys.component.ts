@@ -48,6 +48,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private lastMouseX = 0;
   private lastMouseY = 0;
 
+  // Loading flag
+  private isLoading = false;
+
   // Player movement tracking
   private playerMovementStarted = false;
 
@@ -154,7 +157,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private deathAnimationStartByEntity = new WeakMap<object, number>();
   private wasChargingByEntity = new WeakMap<object, boolean>();
   private shootReleaseStartByEntity = new WeakMap<object, number>();
-  private terrainToolImage: HTMLImageElement | null = null;
+  private terrainToolImage: HTMLImageElement | HTMLCanvasElement | null = null;
   private terrainToolRegions: TerrainSpriteRegion[] = [];
   private terrainToolSelectedRegionId: number | null = null;
   private terrainToolLoading = false;
@@ -238,6 +241,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.setMatterJS(Matter);
     this.canvas.nativeElement.focus();
     this.gameService.currentState = GameState.LOADING;
+    this.isLoading = true;
     try {
       await Promise.all([
         this.gameService.initGame(),
@@ -246,8 +250,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     } catch (error) {
       console.error('Failed to start game:', error);
       this.gameService.currentState = GameState.MENU;
+      this.isLoading = false;
       return;
     }
+    this.isLoading = false;
     this.cameraController.reset();
     // Set up camera follow for player during setup
     this.cameraController.setFollowTarget(this.gameService.player);
@@ -305,6 +311,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
       this.drawTerrainTool();
+      return;
+    }
+
+    if (this.isLoading) {
       return;
     }
 
@@ -519,7 +529,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const terrainSheet = this.spriteService.getSpritesheet(
       this.spriteService.TERRAIN_TOOL_SPRITESHEET,
     );
+    console.log(`Rendering terrain: terrainSheet exists: ${!!terrainSheet}, width: ${terrainSheet?.width}, height: ${terrainSheet?.height}`);
     if (terrainSheet) {
+      console.log(`Drawing terrain sprites: interior ${this.gameService.terrainInteriorPlacements.length}, bottom ${this.gameService.terrainBottomPlacements.length}, top ${this.gameService.terrainChunkPlacements.length}`);
       // Interior fill first (behind surface pieces)
       for (const placement of this.gameService.terrainInteriorPlacements) {
         const { region, x: worldX, topWorldY } = placement;
@@ -559,12 +571,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Mask by removing air cells only, so sprite overhang above the collision top remains visible.
+    // terrain=0 is air, terrain=1 is solid, terrain=2 is visual-only (bottom sprite overhang).
     offCtx.globalCompositeOperation = 'destination-out';
     offCtx.fillStyle = 'rgba(0,0,0,1)';
     for (let y = 0; y < this.TERRAIN_STRIP_HEIGHT; y++) {
       let segmentStart = -1;
       for (let x = startX; x < endX; x++) {
-        if (this.gameService.terrain[x]?.[y] !== 1) {
+        if (this.gameService.terrain[x]?.[y] === 0) {
           if (segmentStart === -1) segmentStart = x;
         } else {
           if (segmentStart !== -1) {
@@ -1970,7 +1983,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
   }
 
-  private getTerrainToolViewport(image: HTMLImageElement) {
+  private getTerrainToolViewport(image: HTMLImageElement | HTMLCanvasElement) {
     const left = 32;
     const top = 112;
     const maxWidth = 796;
