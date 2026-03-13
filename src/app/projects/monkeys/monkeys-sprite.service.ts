@@ -48,17 +48,31 @@ export class MonkeysSpriteService {
   private terrainMetadataPromise: Promise<TerrainMetadataFile> | null = null;
   private terrainMetadataCache: TerrainMetadataFile | null = null;
 
+  loadProgress = 0; // 0–1
+  loadLabel = 'Loading...';
+
   constructor() {}
 
   async loadSprites(): Promise<void> {
+    this.loadProgress = 0;
+    this.loadLabel = 'Loading sprite metadata...';
     await this.ensureSpriteMetadataLoaded();
 
     const spritesheetPaths = [...new Set(this.spriteDefinitions.map((def) => def.spritesheet))];
+    const total = spritesheetPaths.length;
+    let done = 0;
 
-    const loadPromises = spritesheetPaths.map((path) => this.loadSpritesheet(path));
+    const loadPromises = spritesheetPaths.map(async (path) => {
+      await this.loadSpritesheet(path);
+      done++;
+      this.loadProgress = done / total;
+      this.loadLabel = `Loading sprites... (${done}/${total})`;
+    });
 
     try {
       await Promise.all(loadPromises);
+      this.loadProgress = 1;
+      this.loadLabel = 'Done';
       console.log('All sprites loaded successfully');
     } catch (error) {
       console.error('Failed to load some sprites:', error);
@@ -66,7 +80,12 @@ export class MonkeysSpriteService {
   }
 
   async loadTerrainSpritesheet(): Promise<HTMLImageElement | HTMLCanvasElement> {
-    return this.loadRawSpritesheet(this.TERRAIN_TOOL_SPRITESHEET);
+    this.loadProgress = 0;
+    this.loadLabel = 'Loading terrain...';
+    const result = await this.loadRawSpritesheet(this.TERRAIN_TOOL_SPRITESHEET);
+    this.loadProgress = 1;
+    this.loadLabel = 'Done';
+    return result;
   }
 
   async loadTerrainMetadata(): Promise<TerrainMetadataFile> {

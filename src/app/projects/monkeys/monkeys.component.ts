@@ -221,10 +221,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   ) {}
 
   ngOnInit() {
-    this.gameService.currentState = GameState.MENU;
-    this.spriteService.loadSprites().catch((error) => {
-      console.error('Failed to load sprites:', error);
-    });
+    this.gameService.currentState = GameState.LOADING;
+    this.spriteService.loadSprites()
+      .then(() => {
+        this.gameService.currentState = GameState.MENU;
+      })
+      .catch((error) => {
+        console.error('Failed to load sprites:', error);
+        this.gameService.currentState = GameState.MENU;
+      });
   }
 
   ngAfterViewInit() {
@@ -298,6 +303,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private render() {
+    if (this.gameService.currentState === GameState.LOADING) {
+      this.drawLoadingScreen();
+      return;
+    }
     if (this.gameService.currentState === GameState.MENU) {
       this.drawMenu();
       return;
@@ -312,6 +321,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     if (this.isLoading) {
+      this.drawLoadingScreen();
       return;
     }
 
@@ -1616,7 +1626,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   onMouseMove(event: MouseEvent) {
     if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL
+      this.gameService.currentState === GameState.TERRAIN_TOOL ||
+      this.gameService.currentState === GameState.LOADING ||
+      this.gameService.currentState === GameState.MENU ||
+      this.gameService.currentState === GameState.SETUP
     ) {
       this.isDragging = false;
       return;
@@ -1645,7 +1658,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   onMouseDown(event: MouseEvent) {
     if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL
+      this.gameService.currentState === GameState.TERRAIN_TOOL ||
+      this.gameService.currentState === GameState.LOADING ||
+      this.gameService.currentState === GameState.MENU ||
+      this.gameService.currentState === GameState.SETUP
     ) {
       return;
     }
@@ -1660,7 +1676,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   onMouseUp() {
     if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.TERRAIN_TOOL
+      this.gameService.currentState === GameState.TERRAIN_TOOL ||
+      this.gameService.currentState === GameState.LOADING ||
+      this.gameService.currentState === GameState.MENU ||
+      this.gameService.currentState === GameState.SETUP
     ) {
       this.isDragging = false;
       return;
@@ -1673,6 +1692,45 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   @HostListener('window:resize')
   onResize() {
     this.updateCanvasScale();
+  }
+
+  private drawLoadingScreen() {
+    const cx = this.CANVAS_WIDTH / 2;
+    const cy = this.CANVAS_HEIGHT / 2;
+    const barW = 400;
+    const barH = 24;
+    const barX = cx - barW / 2;
+    const barY = cy + 20;
+    const progress = this.spriteService.loadProgress;
+
+    this.ctx.fillStyle = '#1a1a2e';
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 36px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Monkeys', cx, cy - 40);
+
+    this.ctx.font = '18px Arial';
+    this.ctx.fillStyle = '#AAAAAA';
+    this.ctx.fillText(this.spriteService.loadLabel, cx, cy - 10);
+
+    // Bar background
+    this.ctx.fillStyle = '#333355';
+    this.ctx.beginPath();
+    this.ctx.roundRect(barX, barY, barW, barH, barH / 2);
+    this.ctx.fill();
+
+    // Bar fill
+    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.beginPath();
+    this.ctx.roundRect(barX, barY, barW * Math.max(0.02, progress), barH, barH / 2);
+    this.ctx.fill();
+
+    // Percentage
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = '14px Arial';
+    this.ctx.fillText(`${Math.round(progress * 100)}%`, cx, barY + barH + 20);
   }
 
   private drawMenu() {
