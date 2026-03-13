@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { TerrainMetadataFile, TerrainSpriteMetadata } from './monkeys.types';
+import { BackgroundMetadataFile, BackgroundSpriteMetadata, TerrainMetadataFile, TerrainSpriteMetadata } from './monkeys.types';
 
 export interface SpriteDefinition {
   name: string;
@@ -30,7 +30,9 @@ export class MonkeysSpriteService {
   private readonly ASSET_BASE_PATH = 'resources/images/projects/monkeys/';
   private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
   private readonly TERRAIN_METADATA_PATH = 'assets/monkeys/terrain-metadata.json';
+  private readonly BACKGROUND_METADATA_PATH = 'assets/monkeys/background-metadata.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
+  readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
   private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
@@ -38,6 +40,8 @@ export class MonkeysSpriteService {
   private metadataLoadPromise: Promise<void> | null = null;
   private terrainMetadataPromise: Promise<TerrainMetadataFile> | null = null;
   private terrainMetadataCache: TerrainMetadataFile | null = null;
+  private backgroundMetadataPromise: Promise<BackgroundMetadataFile> | null = null;
+  private backgroundMetadataCache: BackgroundMetadataFile | null = null;
 
   loadProgress = 0; // 0–1
   loadLabel = 'Loading...';
@@ -96,9 +100,32 @@ export class MonkeysSpriteService {
     return metadata;
   }
 
-  async getTerrainSpritesByType(type: TerrainSpriteMetadata['pieceType']): Promise<TerrainSpriteMetadata[]> {
+  async getTerrainSpritesByType(
+    type: TerrainSpriteMetadata['pieceType'],
+  ): Promise<TerrainSpriteMetadata[]> {
     const metadata = await this.loadTerrainMetadata();
     return metadata.sprites.filter((sprite) => sprite.pieceType === type);
+  }
+
+  async loadBackgroundMetadata(): Promise<BackgroundMetadataFile> {
+    if (this.backgroundMetadataCache) {
+      return this.backgroundMetadataCache;
+    }
+
+    if (!this.backgroundMetadataPromise) {
+      this.backgroundMetadataPromise = this.fetchBackgroundMetadata().catch((error) => {
+        this.backgroundMetadataPromise = null;
+        throw error;
+      });
+    }
+
+    const metadata = await this.backgroundMetadataPromise;
+    this.backgroundMetadataCache = metadata;
+    return metadata;
+  }
+
+  getBackgroundSprites(): BackgroundSpriteMetadata[] {
+    return this.backgroundMetadataCache?.sprites ?? [];
   }
 
   private async ensureSpriteMetadataLoaded(): Promise<void> {
@@ -158,6 +185,16 @@ export class MonkeysSpriteService {
     return metadata;
   }
 
+  private async fetchBackgroundMetadata(): Promise<BackgroundMetadataFile> {
+    const response = await fetch(this.BACKGROUND_METADATA_PATH);
+    if (!response.ok) {
+      throw new Error(`Failed to load background metadata from ${this.BACKGROUND_METADATA_PATH}`);
+    }
+    const metadata = (await response.json()) as BackgroundMetadataFile;
+    metadata.sprites = [...metadata.sprites].sort((a, b) => a.z - b.z);
+    return metadata;
+  }
+
   private extractRegionId(name: string): number {
     const match = /terrain_region_(\d+)/.exec(name);
     if (!match) {
@@ -185,7 +222,9 @@ export class MonkeysSpriteService {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = async () => {
-        console.log(`Spritesheet loaded: ${path}, complete: ${img.complete}, naturalWidth: ${img.naturalWidth}`);
+        console.log(
+          `Spritesheet loaded: ${path}, complete: ${img.complete}, naturalWidth: ${img.naturalWidth}`,
+        );
         if (img.decode) {
           await img.decode();
           console.log(`Spritesheet decoded: ${path}`);

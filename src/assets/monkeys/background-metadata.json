@@ -1,0 +1,82 @@
+{
+  "spritesheets": { "shring": "Mushroom Shrine (Background).png" },
+  "sprites": [
+    {
+      "name": "montain_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 9,
+      "y": 16,
+      "z": 1,
+      "width": 954,
+      "height": 393
+    },
+    {
+      "name": "shrine_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 694,
+      "y": 448,
+      "z": 3,
+      "width": 184,
+      "height": 349
+    },
+    {
+      "name": "sky_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 21,
+      "y": 540,
+      "z": 0,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "clouds_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 299,
+      "y": 655,
+      "z": 2,
+      "width": 365,
+      "height": 140
+    },
+    {
+      "name": "tree1_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 425,
+      "y": 863,
+      "z": 5,
+      "width": 350,
+      "height": 381
+    },
+    {
+      "name": "trees_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 24,
+      "y": 997,
+      "z": 4,
+      "width": 361,
+      "height": 247
+    },
+    {
+      "name": "tree2_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 22,
+      "y": 1272,
+      "z": 8,
+      "width": 519,
+      "height": 541
+    },
+    {
+      "name": "tree3_background",
+      "spritesheet": "Mushroom Shrine (Background).png",
+      "x": 583,
+      "y": 1460,
+      "z": 5,
+      "width": 347,
+      "height": 349
+    }
+  ],
+  "analysis": {
+    "alphaThreshold": 96,
+    "minimumPixelCount": 24,
+    "regionCount": 9
+  }
+}

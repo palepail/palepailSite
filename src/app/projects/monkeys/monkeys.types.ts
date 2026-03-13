@@ -150,6 +150,21 @@ export interface TerrainChunkPlacement {
   topWorldY: number;
 }
 
+export interface BackgroundSpriteMetadata {
+  name: string;
+  spritesheet: string;
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+}
+
+export interface BackgroundMetadataFile {
+  spritesheets: Record<string, string>;
+  sprites: BackgroundSpriteMetadata[];
+}
+
 export interface Explosion {
   x: number;
   y: number;

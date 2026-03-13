@@ -15,7 +15,15 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import { Player, GameState, Explosion, DamageText, TerrainSpriteRegion, TerrainChunkPlacement } from './monkeys.types';
+import {
+  Player,
+  GameState,
+  Explosion,
+  DamageText,
+  TerrainSpriteRegion,
+  TerrainChunkPlacement,
+  BackgroundSpriteMetadata,
+} from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
@@ -171,6 +179,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   } | null = null;
   private terrainToolCopyStatus = '';
   private terrainToolCopyStatusUntil = 0;
+  private terrainToolActiveSheet: 'terrain' | 'background' = 'terrain';
+  private terrainToolSimpleMode = false;
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -214,6 +224,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     width: 220,
     height: 44,
   };
+  private readonly TERRAIN_TOOL_SWITCH_BUTTON = {
+    x: this.CANVAS_WIDTH - 170,
+    y: 210,
+    width: 220,
+    height: 44,
+  };
+  private readonly TERRAIN_TOOL_MODE_BUTTON = {
+    x: this.CANVAS_WIDTH - 170,
+    y: 264,
+    width: 220,
+    height: 44,
+  };
 
   constructor(
     private gameService: MonkeysGameService,
@@ -222,7 +244,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit() {
     this.gameService.currentState = GameState.LOADING;
-    this.spriteService.loadSprites()
+    Promise.all([
+      this.spriteService.loadSprites(),
+      this.spriteService.loadBackgroundMetadata()
+        .then(() => this.spriteService.loadRawSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET))
+        .catch((err) => console.error('Failed to load background sprites:', err)),
+    ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
       })
@@ -432,6 +459,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw sky (entire background)
     this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.drawBackgroundLayers(
+      ['sky_background', 'montain_background', 'trees_background'],
+      { montain_background: 0.7 },
+      ['trees_background'],
+    );
 
     // Draw terrain
     this.drawTerrain();
@@ -538,11 +570,26 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
     if (terrainSheet) {
       // Interior fill first (behind surface pieces)
-      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainInteriorPlacements, terrainSheet, terrainY);
+      this.drawTerrainSpritePlacements(
+        offCtx,
+        this.gameService.terrainInteriorPlacements,
+        terrainSheet,
+        terrainY,
+      );
       // Bottom shell over interior so underside silhouette is visible
-      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainBottomPlacements, terrainSheet, terrainY);
+      this.drawTerrainSpritePlacements(
+        offCtx,
+        this.gameService.terrainBottomPlacements,
+        terrainSheet,
+        terrainY,
+      );
       // Surface shell on top
-      this.drawTerrainSpritePlacements(offCtx, this.gameService.terrainChunkPlacements, terrainSheet, terrainY);
+      this.drawTerrainSpritePlacements(
+        offCtx,
+        this.gameService.terrainChunkPlacements,
+        terrainSheet,
+        terrainY,
+      );
     }
 
     // Mask by removing air cells only, so sprite overhang above the collision top remains visible.
@@ -573,8 +620,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (screenX + region.width < 0 || screenX > CONST.CANVAS_WIDTH) continue;
       offCtx.drawImage(
         terrainSheet,
-        region.x, region.y, region.width, region.height,
-        screenX, screenY, region.width, region.height,
+        region.x,
+        region.y,
+        region.width,
+        region.height,
+        screenX,
+        screenY,
+        region.width,
+        region.height,
       );
     }
   }
@@ -667,7 +720,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw tank body sprite (or fallback shape) in front of barrel and aiming line
     const drewPlayerSprite = this.drawEntityBody(
-      this.gameService.player, this.gameService.player.color, centerX, centerY, bodyRadius,
+      this.gameService.player,
+      this.gameService.player.color,
+      centerX,
+      centerY,
+      bodyRadius,
     );
 
     // Keep track overlay only when using fallback shape.
@@ -1245,8 +1302,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
       this.ctx.drawImage(
         bulletSprite.image,
-        bulletSprite.x, bulletSprite.y, bulletSprite.width, bulletSprite.height,
-        screenPos.x - drawSize / 2, screenPos.y - drawSize / 2, drawSize, drawSize,
+        bulletSprite.x,
+        bulletSprite.y,
+        bulletSprite.width,
+        bulletSprite.height,
+        screenPos.x - drawSize / 2,
+        screenPos.y - drawSize / 2,
+        drawSize,
+        drawSize,
       );
     } else {
       this.ctx.fillStyle = this.PROJECTILE_COLOR;
@@ -1270,7 +1333,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite);
     } else if (this.gameService.explodedProjectiles.length > 0) {
       const ep = this.gameService.explodedProjectiles[0];
-      this.drawBulletAt(this.cameraController.worldToScreen(ep.position.x, ep.position.y), bulletSprite);
+      this.drawBulletAt(
+        this.cameraController.worldToScreen(ep.position.x, ep.position.y),
+        bulletSprite,
+      );
     }
   }
 
@@ -1622,10 +1688,65 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText(`${Math.round(progress * 100)}%`, cx, barY + barH + 20);
   }
 
+  private drawBackgroundLayers(
+    names: string[],
+    scaleOverrides: Record<string, number> = {},
+    tileBottomNames: string[] = [],
+  ) {
+    const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
+    if (!sheet) return;
+    const allSprites = this.spriteService.getBackgroundSprites();
+    const toRender = allSprites
+      .filter((s) => names.includes(s.name))
+      .sort((a, b) => a.z - b.z);
+    for (const sprite of toRender) {
+      if (tileBottomNames.includes(sprite.name)) {
+        this.drawBackgroundSpriteTiledBottom(sheet, sprite, scaleOverrides[sprite.name] ?? 1);
+      } else {
+        this.drawBackgroundSprite(sheet, sprite, scaleOverrides[sprite.name] ?? 1);
+      }
+    }
+  }
+
+  private drawBackgroundSprite(
+    sheet: HTMLImageElement | HTMLCanvasElement,
+    sprite: BackgroundSpriteMetadata,
+    scaleMultiplier = 1,
+  ) {
+    const scaleX = this.CANVAS_WIDTH / sprite.width;
+    const scaleY = this.CANVAS_HEIGHT / sprite.height;
+    const scale = Math.max(scaleX, scaleY) * scaleMultiplier;
+    const drawW = sprite.width * scale;
+    const drawH = sprite.height * scale;
+    const drawX = (this.CANVAS_WIDTH - drawW) / 2;
+    const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
+    this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, drawX, drawY, drawW, drawH);
+  }
+
+  private drawBackgroundSpriteTiledBottom(
+    sheet: HTMLImageElement | HTMLCanvasElement,
+    sprite: BackgroundSpriteMetadata,
+    scaleMultiplier = 1,
+  ) {
+    const drawH = sprite.height * scaleMultiplier;
+    const drawW = sprite.width * scaleMultiplier;
+    const drawY = this.CANVAS_HEIGHT - drawH;
+    for (let x = 0; x < this.CANVAS_WIDTH; x += drawW) {
+      const clipW = Math.min(drawW, this.CANVAS_WIDTH - x);
+      const srcClipW = clipW / scaleMultiplier;
+      this.ctx.drawImage(sheet, sprite.x, sprite.y, srcClipW, sprite.height, x, drawY, clipW, drawH);
+    }
+  }
+
   private drawMenu() {
     // Background
     this.ctx.fillStyle = this.SKY_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.drawBackgroundLayers(
+      ['sky_background', 'montain_background', 'trees_background'],
+      { montain_background: 0.7 },
+      ['trees_background'],
+    );
 
     // Title
     this.ctx.fillStyle = '#FFFFFF';
@@ -1738,7 +1859,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.ctx.font = '16px Arial';
     this.ctx.fillStyle = '#C7D5E0';
-    this.ctx.fillText('Connected-component bounds detection for Dragon Road (Tiles).png', 24, 76);
+    const activeSheetName = this.terrainToolActiveSheet === 'terrain'
+      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    this.ctx.fillText(`Connected-component bounds detection for ${activeSheetName}`, 24, 76);
 
     this.ctx.fillStyle = '#0E1720';
     this.ctx.fillRect(20, 96, 820, 600);
@@ -1771,6 +1895,26 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.TERRAIN_TOOL_COPY_ALL_BUTTON.height,
       '#2E7D32',
       '#1B5E20',
+    );
+    const switchLabel = this.terrainToolActiveSheet === 'terrain' ? 'Switch to Background' : 'Switch to Terrain';
+    this.drawButton(
+      switchLabel,
+      this.TERRAIN_TOOL_SWITCH_BUTTON.x,
+      this.TERRAIN_TOOL_SWITCH_BUTTON.y,
+      this.TERRAIN_TOOL_SWITCH_BUTTON.width,
+      this.TERRAIN_TOOL_SWITCH_BUTTON.height,
+      '#5C5490',
+      '#3D3563',
+    );
+    const modeLabel = this.terrainToolSimpleMode ? 'Mode: Rectangles' : 'Mode: Detailed';
+    this.drawButton(
+      modeLabel,
+      this.TERRAIN_TOOL_MODE_BUTTON.x,
+      this.TERRAIN_TOOL_MODE_BUTTON.y,
+      this.TERRAIN_TOOL_MODE_BUTTON.width,
+      this.TERRAIN_TOOL_MODE_BUTTON.height,
+      this.terrainToolSimpleMode ? '#37474F' : '#00695C',
+      this.terrainToolSimpleMode ? '#263238' : '#004D40',
     );
 
     if (this.terrainToolCopyStatus && Date.now() < this.terrainToolCopyStatusUntil) {
@@ -1861,7 +2005,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.ctx.font = '15px Arial';
     this.ctx.fillStyle = '#D8E2EA';
-    const spritesheetLabel = this.spriteService.TERRAIN_TOOL_SPRITESHEET;
+    const spritesheetLabel = this.terrainToolActiveSheet === 'terrain'
+      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
     this.ctx.fillText(`File: ${spritesheetLabel}`, 880, 168);
 
     if (this.terrainToolImage) {
@@ -1984,9 +2130,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    const activeSheetPath = this.terrainToolActiveSheet === 'terrain'
+      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+
     this.terrainToolLoading = true;
     try {
-      this.terrainToolImage = await this.spriteService.loadTerrainSpritesheet();
+      this.terrainToolImage = await this.spriteService.loadRawSpritesheet(activeSheetPath);
       this.terrainToolRegions = this.terrainSpriteAnalyzer.analyze(this.terrainToolImage, {
         alphaThreshold: this.TERRAIN_TOOL_ALPHA_THRESHOLD,
         minimumPixelCount: this.TERRAIN_TOOL_MINIMUM_PIXEL_COUNT,
@@ -1998,7 +2148,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     } catch (error) {
       console.error('Failed to open terrain tool:', error);
-      this.terrainToolError = 'Failed to load or analyze Dragon Road (Tiles).png';
+      this.terrainToolError = `Failed to load or analyze ${activeSheetPath}`;
     } finally {
       this.terrainToolLoading = false;
     }
@@ -2017,6 +2167,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_COPY_ALL_BUTTON)) {
       void this.copyAllTerrainToolRegions();
+      return;
+    }
+
+    if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_SWITCH_BUTTON)) {
+      this.terrainToolActiveSheet = this.terrainToolActiveSheet === 'terrain' ? 'background' : 'terrain';
+      this.terrainToolImage = null;
+      this.terrainToolRegions = [];
+      this.terrainToolSelectedRegionId = null;
+      void this.openTerrainTool(false);
+      return;
+    }
+
+    if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_MODE_BUTTON)) {
+      this.terrainToolSimpleMode = !this.terrainToolSimpleMode;
       return;
     }
 
@@ -2046,7 +2210,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       )
       .sort((left, right) => left.width * left.height - right.width * right.height)[0];
 
-    this.terrainToolSelectedRegionId = selectedRegion?.id ?? null;
+    if (selectedRegion && selectedRegion.id === this.terrainToolSelectedRegionId) {
+      this.terrainToolSelectedRegionId = null;
+    } else {
+      this.terrainToolSelectedRegionId = selectedRegion?.id ?? null;
+    }
   }
 
   private async copyAllTerrainToolRegions() {
@@ -2077,18 +2245,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private buildTerrainToolExportPayload() {
+    const activeSheetPath = this.terrainToolActiveSheet === 'terrain'
+      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    const prefix = this.terrainToolActiveSheet === 'background' ? 'background' : 'terrain';
     return {
       spritesheets: {},
-      sprites: this.terrainToolRegions.map((region) => ({
-        name: `terrain_region_${region.id}`,
-        spritesheet: this.spriteService.TERRAIN_TOOL_SPRITESHEET,
-        x: region.x,
-        y: region.y,
-        width: region.width,
-        height: region.height,
-        pixelCount: region.pixelCount,
-        outline: region.outline,
-      })),
+      sprites: this.terrainToolRegions.map((region) => {
+        const base = {
+          name: `${prefix}_region_${region.id}`,
+          spritesheet: activeSheetPath,
+          x: region.x,
+          y: region.y,
+          z: 0,
+          width: region.width,
+          height: region.height,
+        };
+        if (this.terrainToolSimpleMode) {
+          return base;
+        }
+        return { ...base, pixelCount: region.pixelCount, outline: region.outline };
+      }),
       analysis: {
         alphaThreshold: this.TERRAIN_TOOL_ALPHA_THRESHOLD,
         minimumPixelCount: this.TERRAIN_TOOL_MINIMUM_PIXEL_COUNT,

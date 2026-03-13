@@ -402,7 +402,9 @@ export class MonkeysGameService {
       for (let x = startX; x < endX; x++) {
         const localX = x - placement.x;
         const t = Math.max(0, Math.min(1, localX / Math.max(1, placement.region.width - 1)));
-        const topY = placement.topWorldY + placement.region.topEntryY +
+        const topY =
+          placement.topWorldY +
+          placement.region.topEntryY +
           (placement.region.topExitY - placement.region.topEntryY) * t;
         const minBottom = Math.floor(topY + placement.region.height + interiorHeight);
         profile[x] = Math.max(profile[x], minBottom);
@@ -534,7 +536,10 @@ export class MonkeysGameService {
 
     for (const placement of bottomPlacements) {
       const startX = Math.max(0, Math.floor(placement.x));
-      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
+      const endXExclusive = Math.min(
+        CONST.TERRAIN_WIDTH,
+        Math.floor(placement.x + placement.region.width),
+      );
       for (let x = startX; x < endXExclusive; x++) {
         profile[x] = Math.max(profile[x], Math.floor(placement.topWorldY));
       }
@@ -571,7 +576,10 @@ export class MonkeysGameService {
     // into their rendered area, but brown fill and physics ignore them.
     for (const placement of bottomPlacements) {
       const startX = Math.max(0, Math.floor(placement.x));
-      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
+      const endXExclusive = Math.min(
+        CONST.TERRAIN_WIDTH,
+        Math.floor(placement.x + placement.region.width),
+      );
       const spriteTopY = Math.floor(placement.topWorldY);
       const spriteBottomY = Math.floor(placement.topWorldY + placement.region.height);
       for (let x = startX; x < endXExclusive; x++) {
@@ -699,7 +707,9 @@ export class MonkeysGameService {
     return region;
   }
 
-  private getTerrainRegionsByType(type: TerrainSpriteMetadata['pieceType']): TerrainSpriteMetadata[] {
+  private getTerrainRegionsByType(
+    type: TerrainSpriteMetadata['pieceType'],
+  ): TerrainSpriteMetadata[] {
     return Array.from(this.terrainMetadataById.values())
       .filter((region) => region.pieceType === type)
       .sort((a, b) => a.id - b.id);

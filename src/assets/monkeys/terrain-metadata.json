@@ -568,15 +568,7 @@
       "topEntryY": 7,
       "topExitY": 8,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_7",
@@ -769,15 +761,7 @@
       "topEntryY": 3,
       "topExitY": 3,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_8",
@@ -1751,15 +1735,7 @@
       "topEntryY": 2,
       "topExitY": 2,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_12",
@@ -1936,15 +1912,7 @@
       "topEntryY": 2,
       "topExitY": 2,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_13",
@@ -4247,15 +4215,7 @@
       "topEntryY": 2,
       "topExitY": 2,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_21",
@@ -5106,15 +5066,7 @@
       "topEntryY": 60,
       "topExitY": 0,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     },
     {
       "name": "terrain_region_23",
@@ -6005,15 +5957,7 @@
       "topEntryY": 0,
       "topExitY": 61,
       "fillToBottom": true,
-      "allowedNextIds": [
-        7,
-        11,
-        12,
-        20,
-        22,
-        24,
-        10
-      ]
+      "allowedNextIds": [7, 11, 12, 20, 22, 24, 10]
     }
   ],
   "analysis": {
