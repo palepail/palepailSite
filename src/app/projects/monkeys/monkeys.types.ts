@@ -127,6 +127,8 @@ export interface TerrainSpriteMetadata {
   pieceType: TerrainPieceType;
   topEntryY: number;
   topExitY: number;
+  bottomEntryY?: number;
+  bottomExitY?: number;
   fillToBottom?: boolean;
   allowedNextIds?: number[];
 }

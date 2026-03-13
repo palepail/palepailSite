@@ -1017,6 +1017,8 @@
       "pieceType": "bottom_flat",
       "topEntryY": 2,
       "topExitY": 3,
+      "bottomEntryY": 22,
+      "bottomExitY": 22,
       "fillToBottom": true
     },
     {
@@ -1209,6 +1211,8 @@
       "pieceType": "bottom_flat",
       "topEntryY": 2,
       "topExitY": 2,
+      "bottomEntryY": 22,
+      "bottomExitY": 22,
       "fillToBottom": true
     },
     {
@@ -2292,6 +2296,8 @@
       "pieceType": "bottom_flat",
       "topEntryY": 0,
       "topExitY": 0,
+      "bottomEntryY": 21,
+      "bottomExitY": 21,
       "fillToBottom": true
     },
     {
@@ -2660,6 +2666,8 @@
       "pieceType": "bottom_flat",
       "topEntryY": 0,
       "topExitY": 0,
+      "bottomEntryY": 21,
+      "bottomExitY": 21,
       "fillToBottom": true
     },
     {
@@ -3020,6 +3028,8 @@
       "pieceType": "bottom_flat",
       "topEntryY": 0,
       "topExitY": 0,
+      "bottomEntryY": 21,
+      "bottomExitY": 21,
       "fillToBottom": true
     },
     {
@@ -4653,6 +4663,8 @@
       "pieceType": "bottom_slope_up",
       "topEntryY": 0,
       "topExitY": 0,
+      "bottomEntryY": 21,
+      "bottomExitY": 80,
       "fillToBottom": true
     },
     {
@@ -5550,6 +5562,8 @@
       "pieceType": "bottom_slope_down",
       "topEntryY": 0,
       "topExitY": 0,
+      "bottomEntryY": 80,
+      "bottomExitY": 21,
       "fillToBottom": true
     },
     {

@@ -532,6 +532,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           screenX, screenY, region.width, region.height,
         );
       }
+      // Bottom shell over interior so underside silhouette is visible
+      for (const placement of this.gameService.terrainBottomPlacements) {
+        const { region, x: worldX, topWorldY } = placement;
+        const screenX = Math.floor(worldX - this.cameraController.camera.x);
+        const screenY = Math.floor(terrainY + topWorldY);
+        if (screenX + region.width < 0 || screenX > this.CANVAS_WIDTH) continue;
+        offCtx.drawImage(
+          terrainSheet,
+          region.x, region.y, region.width, region.height,
+          screenX, screenY, region.width, region.height,
+        );
+      }
       // Surface shell on top
       for (const placement of this.gameService.terrainChunkPlacements) {
         const { region, x: worldX, topWorldY } = placement;

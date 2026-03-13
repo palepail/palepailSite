@@ -40,6 +40,7 @@ export class MonkeysGameService {
   terrain: number[][] = [];
   terrainChunkPlacements: TerrainChunkPlacement[] = [];
   terrainInteriorPlacements: TerrainChunkPlacement[] = [];
+  terrainBottomPlacements: TerrainChunkPlacement[] = [];
   player: Player;
   enemies: Enemy[] = [];
   projectile: Projectile | null = null;
@@ -59,6 +60,10 @@ export class MonkeysGameService {
   private readonly VEHICLE_NO_COLLISION_GROUP = -1;
   private readonly TERRAIN_MIN_TOP_Y = 40;
   private readonly TERRAIN_MAX_TOP_Y = CONST.TERRAIN_STRIP_HEIGHT - 120;
+  private readonly TERRAIN_MIN_BOTTOM_Y = 180;
+  private readonly TERRAIN_MAX_BOTTOM_Y = CONST.TERRAIN_STRIP_HEIGHT - 6;
+  private readonly TERRAIN_MIN_THICKNESS = 90;
+  private readonly TERRAIN_MAX_THICKNESS = 170;
   private readonly TERRAIN_MAX_LEVEL_CHANGES = 4;
   private readonly TERRAIN_MAX_CONSECUTIVE_FLATS = 3;
   private terrainMetadataById: Map<number, TerrainSpriteMetadata> = new Map();
@@ -229,14 +234,14 @@ export class MonkeysGameService {
     }
 
     const placements = this.buildTerrainChunkPlan();
+    const bottomPlacements = this.buildBottomChunkPlan();
     this.terrainChunkPlacements = placements;
-    this.terrainInteriorPlacements = this.buildInteriorPlacements(placements);
-    this.rasterizeTerrainPlacements(placements);
+    this.terrainBottomPlacements = bottomPlacements;
+    this.rasterizeTerrainPlacements(placements, bottomPlacements);
+    this.terrainInteriorPlacements = this.buildInteriorPlacements(placements, bottomPlacements);
   }
 
   private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
-    const capLeft = this.requireTerrainRegion(6);
-    const capRight = this.requireTerrainRegion(10);
     const topFlat = this.getTerrainRegionsByType('top_flat');
     const topSlopeUp = this.getTerrainRegionsByType('top_slope_up');
     const topSlopeDown = this.getTerrainRegionsByType('top_slope_down');
@@ -253,12 +258,7 @@ export class MonkeysGameService {
     let levelChanges = 0;
     let consecutiveFlats = 0;
 
-    placements.push(this.createPlacement(capLeft, xCursor, currentTopY));
-    currentTopY += capLeft.topExitY - capLeft.topEntryY;
-    xCursor += capLeft.width;
-
-    const middleTargetEndX = Math.max(xCursor + 90, CONST.TERRAIN_WIDTH - capRight.width - 90);
-    while (xCursor < middleTargetEndX) {
+    while (xCursor < CONST.TERRAIN_WIDTH) {
       const candidatePool = this.buildTopCandidatePool(
         topFlat,
         topSlopeUp,
@@ -285,15 +285,6 @@ export class MonkeysGameService {
         levelChanges++;
       }
     }
-
-    const bridgeFlat = this.requireTerrainRegion(11);
-    const rightCapStartX = Math.max(xCursor, CONST.TERRAIN_WIDTH - capRight.width);
-    while (xCursor < rightCapStartX) {
-      placements.push(this.createPlacement(bridgeFlat, xCursor, currentTopY));
-      xCursor += bridgeFlat.width;
-    }
-
-    placements.push(this.createPlacement(capRight, CONST.TERRAIN_WIDTH - capRight.width, currentTopY));
     return placements;
   }
 
@@ -331,6 +322,90 @@ export class MonkeysGameService {
     return pool;
   }
 
+  private buildBottomChunkPlan(): TerrainChunkPlacement[] {
+    const bottomFlat = this.getTerrainRegionsByType('bottom_flat');
+    const bottomSlopeUp = this.getTerrainRegionsByType('bottom_slope_up');
+    const bottomSlopeDown = this.getTerrainRegionsByType('bottom_slope_down');
+
+    if (bottomFlat.length === 0 || bottomSlopeUp.length === 0 || bottomSlopeDown.length === 0) {
+      return this.buildFallbackBottomPlan();
+    }
+
+    const placements: TerrainChunkPlacement[] = [];
+    let currentBottomY = this.randomInRange(220, 265);
+    let xCursor = 0;
+    let levelChanges = 0;
+    let consecutiveFlats = 0;
+
+    while (xCursor < CONST.TERRAIN_WIDTH) {
+      const candidatePool = this.buildBottomCandidatePool(
+        bottomFlat,
+        bottomSlopeUp,
+        bottomSlopeDown,
+        consecutiveFlats,
+        levelChanges,
+        currentBottomY,
+      );
+
+      if (candidatePool.length === 0) {
+        break;
+      }
+
+      const selected = candidatePool[Math.floor(Math.random() * candidatePool.length)];
+      const placement = this.createBottomPlacement(selected, xCursor, currentBottomY);
+      placements.push(placement);
+
+      const bottomEntry = this.getBottomProfileY(selected, 0);
+      const bottomExit = this.getBottomProfileY(selected, 1);
+      const delta = bottomExit - bottomEntry;
+      currentBottomY += delta;
+      xCursor += selected.width;
+
+      if (selected.pieceType === 'bottom_flat') {
+        consecutiveFlats++;
+      } else {
+        consecutiveFlats = 0;
+        levelChanges++;
+      }
+    }
+
+    return placements;
+  }
+
+  private buildBottomCandidatePool(
+    bottomFlat: TerrainSpriteMetadata[],
+    bottomSlopeUp: TerrainSpriteMetadata[],
+    bottomSlopeDown: TerrainSpriteMetadata[],
+    consecutiveFlats: number,
+    levelChanges: number,
+    currentBottomY: number,
+  ): TerrainSpriteMetadata[] {
+    const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
+    const shouldAvoidSlope = levelChanges >= this.TERRAIN_MAX_LEVEL_CHANGES + 2;
+    const pool: TerrainSpriteMetadata[] = [];
+
+    if (!shouldForceSlope) {
+      pool.push(...bottomFlat, ...bottomFlat, ...bottomFlat);
+    }
+
+    if (!shouldAvoidSlope) {
+      const canGoUp = currentBottomY > this.TERRAIN_MIN_BOTTOM_Y + 30;
+      const canGoDown = currentBottomY < this.TERRAIN_MAX_BOTTOM_Y - 30;
+      if (canGoUp) {
+        pool.push(...bottomSlopeUp, ...bottomSlopeUp);
+      }
+      if (canGoDown) {
+        pool.push(...bottomSlopeDown, ...bottomSlopeDown);
+      }
+    }
+
+    if (pool.length === 0) {
+      pool.push(...bottomFlat);
+    }
+
+    return pool;
+  }
+
   private createPlacement(
     region: TerrainSpriteMetadata,
     x: number,
@@ -343,67 +418,126 @@ export class MonkeysGameService {
     };
   }
 
-  private rasterizeTerrainPlacements(placements: TerrainChunkPlacement[]): void {
-    for (const placement of placements) {
-      this.rasterizePlacement(placement);
-    }
-
-    this.ensureSolidFillBelowTop();
+  private createBottomPlacement(
+    region: TerrainSpriteMetadata,
+    x: number,
+    bottomAtLeft: number,
+  ): TerrainChunkPlacement {
+    const localBottomEntry = this.getBottomProfileY(region, 0);
+    return {
+      region,
+      x,
+      topWorldY: bottomAtLeft - localBottomEntry,
+    };
   }
 
-  private rasterizePlacement(placement: TerrainChunkPlacement): void {
-    const { region } = placement;
-    const startX = Math.max(0, Math.floor(placement.x));
-    const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + region.width));
-    if (startX >= endXExclusive) {
-      return;
-    }
+  private getBottomProfileY(region: TerrainSpriteMetadata, t: number): number {
+    const clampedT = Math.max(0, Math.min(1, t));
+    const defaultBottomY = Math.max(0, region.height - 1);
+    const bottomEntryY = region.bottomEntryY ?? defaultBottomY;
+    const bottomExitY = region.bottomExitY ?? defaultBottomY;
+    return Math.round(bottomEntryY + (bottomExitY - bottomEntryY) * clampedT);
+  }
 
-    const widthDenominator = Math.max(1, region.width - 1);
-    for (let x = startX; x < endXExclusive; x++) {
-      const localX = x - placement.x;
-      const t = Math.max(0, Math.min(1, localX / widthDenominator));
-      const topProfileY = region.topEntryY + (region.topExitY - region.topEntryY) * t;
-      const topY = Math.max(0, Math.floor(placement.topWorldY + topProfileY));
+  private buildBottomShellStartProfile(bottomPlacements: TerrainChunkPlacement[]): number[] {
+    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(-1);
 
-      for (let y = topY; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-        this.terrain[x][y] = 1;
+    for (const placement of bottomPlacements) {
+      const startX = Math.max(0, Math.floor(placement.x));
+      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
+      for (let x = startX; x < endXExclusive; x++) {
+        profile[x] = Math.max(profile[x], Math.floor(placement.topWorldY));
       }
     }
+
+    return profile;
   }
 
-  private ensureSolidFillBelowTop(): void {
+  private rasterizeTerrainPlacements(
+    topPlacements: TerrainChunkPlacement[],
+    bottomPlacements: TerrainChunkPlacement[],
+  ): void {
+    const topProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
+    const bottomProfile = this.rasterizeBoundaryProfile(bottomPlacements, 'bottom');
+
     for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
-      let firstSolidY = -1;
-      for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-        if (this.terrain[x][y] === 1) {
-          firstSolidY = y;
-          break;
-        }
-      }
+      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
+      const topY = Number.isFinite(topProfile[x]) ? topProfile[x] : fallbackTop;
+      const hasBottomProfile = Number.isFinite(bottomProfile[x]);
+      const fallbackBottom = Math.min(this.TERRAIN_MAX_BOTTOM_Y, topY + this.TERRAIN_MIN_THICKNESS);
+      const bottomY = hasBottomProfile
+        ? Math.min(this.TERRAIN_MAX_BOTTOM_Y, bottomProfile[x])
+        : fallbackBottom;
 
-      if (firstSolidY === -1) {
-        const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-        for (let y = fallbackTop; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
+      for (let y = topY; y <= bottomY; y++) {
+        if (y >= 0 && y < CONST.TERRAIN_STRIP_HEIGHT) {
           this.terrain[x][y] = 1;
         }
+      }
+    }
+  }
+
+  private rasterizeBoundaryProfile(
+    placements: TerrainChunkPlacement[],
+    boundary: 'top' | 'bottom',
+  ): number[] {
+    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(NaN);
+
+    for (const placement of placements) {
+      const { region } = placement;
+      const startX = Math.max(0, Math.floor(placement.x));
+      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + region.width));
+      if (startX >= endXExclusive) {
         continue;
       }
 
-      for (let y = firstSolidY; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-        this.terrain[x][y] = 1;
+      const widthDenominator = Math.max(1, region.width - 1);
+      for (let x = startX; x < endXExclusive; x++) {
+        const localX = x - placement.x;
+        const t = Math.max(0, Math.min(1, localX / widthDenominator));
+        const localY =
+          boundary === 'top'
+            ? region.topEntryY + (region.topExitY - region.topEntryY) * t
+            : this.getBottomProfileY(region, t);
+        const worldY = Math.max(0, Math.floor(placement.topWorldY + localY));
+
+        if (!Number.isFinite(profile[x])) {
+          profile[x] = worldY;
+        } else if (boundary === 'top') {
+          profile[x] = Math.min(profile[x], worldY);
+        } else {
+          profile[x] = Math.max(profile[x], worldY);
+        }
       }
     }
+
+    return profile;
   }
 
-  private buildInteriorPlacements(topPlacements: TerrainChunkPlacement[]): TerrainChunkPlacement[] {
+  private buildInteriorPlacements(
+    topPlacements: TerrainChunkPlacement[],
+    bottomPlacements: TerrainChunkPlacement[],
+  ): TerrainChunkPlacement[] {
     const interiorRegions = this.getTerrainRegionsByType('interior');
     if (interiorRegions.length === 0) return [];
 
+    const bottomShellStartProfile = this.buildBottomShellStartProfile(bottomPlacements);
+
     const placements: TerrainChunkPlacement[] = [];
     for (const top of topPlacements) {
+      const startX = Math.max(0, Math.floor(top.x));
+      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(top.x + top.region.width));
+      let bottomShellStartY = -1;
+      for (let x = startX; x < endXExclusive; x++) {
+        bottomShellStartY = Math.max(bottomShellStartY, bottomShellStartProfile[x]);
+      }
+
+      if (bottomShellStartY === -1) {
+        bottomShellStartY = CONST.TERRAIN_STRIP_HEIGHT;
+      }
+
       let y = Math.floor(top.topWorldY + top.region.height);
-      while (y < CONST.TERRAIN_STRIP_HEIGHT) {
+      while (y < bottomShellStartY) {
         const region = interiorRegions[Math.floor(Math.random() * interiorRegions.length)];
         placements.push({ region, x: top.x, topWorldY: y });
         y += region.height;
@@ -418,6 +552,16 @@ export class MonkeysGameService {
     const flatTopY = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
     for (let x = 0; x < CONST.TERRAIN_WIDTH; x += fallbackRegion.width) {
       placements.push(this.createPlacement(fallbackRegion, x, flatTopY));
+    }
+    return placements;
+  }
+
+  private buildFallbackBottomPlan(): TerrainChunkPlacement[] {
+    const fallbackRegion = this.requireTerrainRegion(8);
+    const placements: TerrainChunkPlacement[] = [];
+    const flatBottomY = Math.floor((this.TERRAIN_MIN_BOTTOM_Y + this.TERRAIN_MAX_BOTTOM_Y) / 2);
+    for (let x = 0; x < CONST.TERRAIN_WIDTH; x += fallbackRegion.width) {
+      placements.push(this.createBottomPlacement(fallbackRegion, x, flatBottomY));
     }
     return placements;
   }
