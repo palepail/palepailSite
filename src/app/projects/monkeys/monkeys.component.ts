@@ -2514,6 +2514,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawMenuTitleLetters() {
     const size = this.MT_LETTER_SIZE;
     const advance = size * 0.5;
+    const tint = '#FF6622';
     const totalWidth = (this.MT_LETTERS.length - 1) * advance + size;
     const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
     const elapsed = performance.now() - this.menuTitleAnimStart;
@@ -2522,15 +2523,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const sprite = this.spriteService.getSprite(this.MT_LETTERS[i]);
       if (!sprite) continue;
       this.ctx.drawImage(
-        sprite.image,
-        sprite.x,
-        sprite.y,
-        sprite.width,
-        sprite.height,
+        this.tintedGlyph(sprite, size, tint),
         startX + i * advance,
         this.menuTitleLetterY[i],
-        size,
-        size,
       );
     }
   }
