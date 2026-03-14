@@ -183,6 +183,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly DAMAGE_TEXT_FONT = CONST.DAMAGE_TEXT_FONT;
   private readonly EXPLOSION_OUTLINE_WIDTH = CONST.EXPLOSION_OUTLINE_WIDTH;
   private readonly DAMAGE_TEXT_COLOR = CONST.DAMAGE_TEXT_COLOR;
+  private readonly tintCache = new Map<string, HTMLCanvasElement>();
   private readonly EXPLOSION_EDGE_COLOR = CONST.EXPLOSION_EDGE_COLOR;
   private readonly EXPLOSION_OUTLINE_COLOR = CONST.EXPLOSION_OUTLINE_COLOR;
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
@@ -1469,17 +1470,32 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawDamageTexts() {
-    this.ctx.fillStyle = this.DAMAGE_TEXT_COLOR;
-    this.ctx.font = this.DAMAGE_TEXT_FONT;
-    this.ctx.textAlign = 'center';
+    const size = 28;
+    const advance = size * 0.45;
+    const tint = '#FF2222';
     for (const text of this.gameService.damageTexts) {
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
       const alpha = text.life / this.DAMAGE_TEXT_LIFETIME;
       this.ctx.globalAlpha = alpha;
-      this.ctx.fillText(`-${text.damage}`, screenPos.x, screenPos.y);
+      const chars = String(text.damage).split('');
+      const totalWidth = (chars.length - 1) * advance + size;
+      let x = screenPos.x - totalWidth / 2;
+      const charToSprite: Record<string, string> = {
+        '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
+        '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
+      };
+      for (const ch of chars) {
+        const sprite = this.spriteService.getSprite(charToSprite[ch]);
+        if (sprite) {
+          this.ctx.drawImage(
+            this.tintedGlyph(sprite, size, tint),
+            x, screenPos.y - size,
+          );
+        }
+        x += advance;
+      }
     }
-    this.ctx.globalAlpha = 1; // Reset alpha
-    this.ctx.textAlign = 'left'; // Reset text align
+    this.ctx.globalAlpha = 1;
   }
 
   private drawUI() {
@@ -1494,11 +1510,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw turn message
     if (this.turnMessage) {
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = '24px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(this.turnMessage, this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
-      this.ctx.textAlign = 'left';
+      this.drawSpriteTextCentered(this.turnMessage, this.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
     }
 
     // Draw pause/game over message
@@ -2523,18 +2535,46 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  // Tints a sprite glyph with a solid colour, using a cache keyed on spriteName+tint+size.
+  private tintedGlyph(sprite: SpriteData, size: number, tint: string): HTMLCanvasElement {
+    const key = `${sprite.x}_${sprite.y}_${size}_${tint}`;
+    const cached = this.tintCache.get(key);
+    if (cached) return cached;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, 0, 0, size, size);
+    // Multiply each pixel's RGB by the tint ratio: white → tint, black → black, transparent untouched.
+    const tr = parseInt(tint.slice(1, 3), 16);
+    const tg = parseInt(tint.slice(3, 5), 16);
+    const tb = parseInt(tint.slice(5, 7), 16);
+    const imageData = ctx.getImageData(0, 0, size, size);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] === 0) continue;
+      d[i]     = Math.round(d[i]     * tr / 255);
+      d[i + 1] = Math.round(d[i + 1] * tg / 255);
+      d[i + 2] = Math.round(d[i + 2] * tb / 255);
+    }
+    ctx.putImageData(imageData, 0, 0);
+    this.tintCache.set(key, c);
+    return c;
+  }
+
   // Renders a line of text centred horizontally using text_ sprites (uppercase A-Z) and arena_ digits.
-  private drawSpriteTextCentered(text: string, topY: number, size: number) {
-    const advance = size * 0.55;
+  private drawSpriteTextCentered(text: string, topY: number, size: number, advanceRatio = 0.55) {
+    const advance = size * advanceRatio;
     const chars = text.split('');
     const totalWidth = (chars.length - 1) * advance + size;
     let x = this.CANVAS_WIDTH / 2 - totalWidth / 2;
     for (const ch of chars) {
       const code = ch.charCodeAt(0);
       let spriteName: string | null = null;
-      if (code >= 65 && code <= 90) spriteName = `text_${ch}`;           // uppercase A-Z
-      else if (code >= 97 && code <= 122) spriteName = `text_${ch}`;     // lowercase a-z
-      else if (code >= 48 && code <= 57) spriteName = `arena_${ch}`;     // digits 0-9
+      if (code >= 65 && code <= 90)
+        spriteName = `text_${ch}`; // uppercase A-Z
+      else if (code >= 97 && code <= 122)
+        spriteName = `text_${ch}`; // lowercase a-z
+      else if (code >= 48 && code <= 57) spriteName = `arena_${ch}`; // digits 0-9
       const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
       if (sprite) {
         this.ctx.drawImage(
