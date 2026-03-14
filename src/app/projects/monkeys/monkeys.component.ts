@@ -249,8 +249,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.currentState = GameState.LOADING;
     Promise.all([
       this.spriteService.loadSprites(),
-      this.spriteService.loadBackgroundMetadata()
-        .then(() => this.spriteService.loadRawSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET))
+      this.spriteService
+        .loadBackgroundMetadata()
+        .then(() =>
+          this.spriteService.loadRawSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET),
+        )
         .catch((err) => console.error('Failed to load background sprites:', err)),
     ])
       .then(() => {
@@ -1448,11 +1451,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         0,
         Math.floor(45 - (Date.now() - this.gameService.turnStartTime) / 1000),
       );
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = '20px Arial';
-      this.ctx.textAlign = 'right';
-      this.ctx.fillText(`Time: ${remaining}s`, this.CANVAS_WIDTH - 20, 30);
-      this.ctx.textAlign = 'left'; // Reset
+      this.drawArenaNumber(String(remaining), this.CANVAS_WIDTH - 20, 8, 64);
     }
 
     // Draw turn message
@@ -1724,17 +1723,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawParallaxBackground(cameraX: number) {
     const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
     if (!sheet) return;
-    const byName = new Map(
-      this.spriteService.getBackgroundSprites().map((s) => [s.name, s]),
-    );
+    const byName = new Map(this.spriteService.getBackgroundSprites().map((s) => [s.name, s]));
 
     // z=0: sky — full cover, no parallax
     const sky = byName.get('sky_background');
     if (sky) this.drawBgCover(sheet, sky, 1);
 
-    // z=1: mountain — parallax 0.15 (barely moves)
+    // z=1: mountain — parallax 0.15, tiled so right edge never shows
     const mountain = byName.get('montain_background');
-    if (mountain) this.drawBgCover(sheet, mountain, 0.7, cameraX * 0.15);
+    if (mountain) this.drawBgCoverTiled(sheet, mountain, 1, cameraX * 0.15);
 
     // z=4: tiled trees band — parallax 0.35
     const trees = byName.get('trees_background');
@@ -1750,7 +1747,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // z=8: foreground tree2 instances — parallax 0.80
     for (const inst of this.bgTreeInstances.filter((i) => i.name === 'tree2_background')) {
       const meta = byName.get(inst.name);
-      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.80, inst.scale);
+      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.8, inst.scale);
     }
   }
 
@@ -1767,7 +1764,46 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const drawH = sprite.height * scale;
     const drawX = (this.CANVAS_WIDTH - drawW) / 2 - offsetX;
     const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
-    this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, drawX, drawY, drawW, drawH);
+    this.ctx.drawImage(
+      sheet,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      drawX,
+      drawY,
+      drawW,
+      drawH,
+    );
+  }
+
+  // Like drawBgCover but tiles horizontally so edges never show during parallax scrolling.
+  private drawBgCoverTiled(
+    sheet: HTMLImageElement | HTMLCanvasElement,
+    sprite: BackgroundSpriteMetadata,
+    scaleMultiplier: number,
+    offsetX = 0,
+  ) {
+    const scaleX = this.CANVAS_WIDTH / sprite.width;
+    const scaleY = this.CANVAS_HEIGHT / sprite.height;
+    const scale = Math.max(scaleX, scaleY) * scaleMultiplier;
+    const drawW = sprite.width * scale;
+    const drawH = sprite.height * scale;
+    const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
+    const startX = -((offsetX % drawW) + drawW) % drawW;
+    for (let x = startX; x < this.CANVAS_WIDTH; x += drawW) {
+      this.ctx.drawImage(
+        sheet,
+        sprite.x,
+        sprite.y,
+        sprite.width,
+        sprite.height,
+        x,
+        drawY,
+        drawW,
+        drawH,
+      );
+    }
   }
 
   private drawBgTiledBottom(
@@ -1781,7 +1817,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const drawY = this.CANVAS_HEIGHT - drawH;
     const startX = -((offsetX % drawW) + drawW) % drawW;
     for (let x = startX; x < this.CANVAS_WIDTH; x += drawW) {
-      this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, x, drawY, drawW, drawH);
+      this.ctx.drawImage(
+        sheet,
+        sprite.x,
+        sprite.y,
+        sprite.width,
+        sprite.height,
+        x,
+        drawY,
+        drawW,
+        drawH,
+      );
     }
   }
 
@@ -1796,7 +1842,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const drawH = sprite.height * scaleMultiplier;
     const screenX = worldX - parallaxOffset;
     const drawY = this.CANVAS_HEIGHT - drawH;
-    this.ctx.drawImage(sheet, sprite.x, sprite.y, sprite.width, sprite.height, screenX, drawY, drawW, drawH);
+    this.ctx.drawImage(
+      sheet,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      screenX,
+      drawY,
+      drawW,
+      drawH,
+    );
   }
 
   private drawMenu() {
@@ -1916,9 +1972,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.ctx.font = '16px Arial';
     this.ctx.fillStyle = '#C7D5E0';
-    const activeSheetName = this.terrainToolActiveSheet === 'terrain'
-      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
-      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    const activeSheetName =
+      this.terrainToolActiveSheet === 'terrain'
+        ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+        : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
     this.ctx.fillText(`Connected-component bounds detection for ${activeSheetName}`, 24, 76);
 
     this.ctx.fillStyle = '#0E1720';
@@ -1953,7 +2010,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       '#2E7D32',
       '#1B5E20',
     );
-    const switchLabel = this.terrainToolActiveSheet === 'terrain' ? 'Switch to Background' : 'Switch to Terrain';
+    const switchLabel =
+      this.terrainToolActiveSheet === 'terrain' ? 'Switch to Background' : 'Switch to Terrain';
     this.drawButton(
       switchLabel,
       this.TERRAIN_TOOL_SWITCH_BUTTON.x,
@@ -2062,9 +2120,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.ctx.font = '15px Arial';
     this.ctx.fillStyle = '#D8E2EA';
-    const spritesheetLabel = this.terrainToolActiveSheet === 'terrain'
-      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
-      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    const spritesheetLabel =
+      this.terrainToolActiveSheet === 'terrain'
+        ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+        : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
     this.ctx.fillText(`File: ${spritesheetLabel}`, 880, 168);
 
     if (this.terrainToolImage) {
@@ -2187,9 +2246,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const activeSheetPath = this.terrainToolActiveSheet === 'terrain'
-      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
-      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    const activeSheetPath =
+      this.terrainToolActiveSheet === 'terrain'
+        ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+        : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
 
     this.terrainToolLoading = true;
     try {
@@ -2228,7 +2288,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     if (this.isPointInsideButton(x, y, this.TERRAIN_TOOL_SWITCH_BUTTON)) {
-      this.terrainToolActiveSheet = this.terrainToolActiveSheet === 'terrain' ? 'background' : 'terrain';
+      this.terrainToolActiveSheet =
+        this.terrainToolActiveSheet === 'terrain' ? 'background' : 'terrain';
       this.terrainToolImage = null;
       this.terrainToolRegions = [];
       this.terrainToolSelectedRegionId = null;
@@ -2302,9 +2363,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private buildTerrainToolExportPayload() {
-    const activeSheetPath = this.terrainToolActiveSheet === 'terrain'
-      ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
-      : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
+    const activeSheetPath =
+      this.terrainToolActiveSheet === 'terrain'
+        ? this.spriteService.TERRAIN_TOOL_SPRITESHEET
+        : this.spriteService.BACKGROUND_TOOL_SPRITESHEET;
     const prefix = this.terrainToolActiveSheet === 'background' ? 'background' : 'terrain';
     return {
       spritesheets: {},
@@ -2365,6 +2427,50 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       y >= button.y - button.height / 2 &&
       y <= button.y + button.height / 2
     );
+  }
+
+  // Draws a string of digits (and '/') right-aligned using arena number sprites.
+  // Falls back to plain text for any character without a sprite.
+  private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
+    const charToSprite: Record<string, string> = {
+      '0': 'arena_0',
+      '1': 'arena_1',
+      '2': 'arena_2',
+      '3': 'arena_3',
+      '4': 'arena_4',
+      '5': 'arena_5',
+      '6': 'arena_6',
+      '7': 'arena_7',
+      '8': 'arena_8',
+      '9': 'arena_9',
+      '/': 'arena_slash',
+    };
+    const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
+    const chars = text.split('');
+    let x = rightX - chars.length * advance;
+    for (const ch of chars) {
+      const spriteName = charToSprite[ch];
+      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
+      if (sprite) {
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          x,
+          topY,
+          size,
+          size,
+        );
+      } else {
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = `${size}px Arial`;
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(ch, x, topY + size);
+      }
+      x += advance;
+    }
   }
 
   private drawButton(

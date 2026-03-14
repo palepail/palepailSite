@@ -1,9 +1,162 @@
 {
   "spritesheets": {
     "lupin": "Lupin.png",
-    "cursors": "Cursors.png"
+    "cursors": "Cursors.png",
+    "arena_numbers": "Arena Numbers.png"
   },
   "sprites": [
+    {
+      "name": "arena_G",
+      "spritesheet": "arena_numbers",
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_A",
+      "spritesheet": "arena_numbers",
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_M",
+      "spritesheet": "arena_numbers",
+      "x": 128,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_E",
+      "spritesheet": "arena_numbers",
+      "x": 192,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_O",
+      "spritesheet": "arena_numbers",
+      "x": 256,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_V",
+      "spritesheet": "arena_numbers",
+      "x": 320,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_E2",
+      "spritesheet": "arena_numbers",
+      "x": 384,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_R",
+      "spritesheet": "arena_numbers",
+      "x": 448,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_0",
+      "spritesheet": "arena_numbers",
+      "x": 0,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_1",
+      "spritesheet": "arena_numbers",
+      "x": 64,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_2",
+      "spritesheet": "arena_numbers",
+      "x": 128,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_3",
+      "spritesheet": "arena_numbers",
+      "x": 192,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_4",
+      "spritesheet": "arena_numbers",
+      "x": 256,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_5",
+      "spritesheet": "arena_numbers",
+      "x": 320,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_6",
+      "spritesheet": "arena_numbers",
+      "x": 384,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_7",
+      "spritesheet": "arena_numbers",
+      "x": 448,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_8",
+      "spritesheet": "arena_numbers",
+      "x": 512,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_9",
+      "spritesheet": "arena_numbers",
+      "x": 576,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "name": "arena_slash",
+      "spritesheet": "arena_numbers",
+      "x": 640,
+      "y": 64,
+      "width": 64,
+      "height": 64
+    },
     {
       "name": "bullet_0",
       "spritesheet": "lupin",
