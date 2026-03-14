@@ -51,18 +51,45 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Parallax background tree instances (generated once per game)
   private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
 
+  // Menu title animation (MONKEYS letters drop in on first menu visit)
+  private menuTitleLetterY: number[] = [];
+  private menuTitleLetterVY: number[] = [];
+  private menuTitleAnimStart = 0;
+  private menuTitleAnimLastTs = 0;
+  private readonly MT_LETTERS = [
+    'text_M',
+    'text_O',
+    'text_N',
+    'text_K',
+    'text_E',
+    'text_Y',
+    'text_S',
+  ];
+  private readonly MT_LETTER_SIZE = 96;
+  private readonly MT_STAGGER_MS = 130;
+  private readonly MT_GRAVITY = 1800;
+  private readonly MT_BOUNCE = 0.38;
+  private readonly MT_MIN_BOUNCE_VY = 50;
+  private readonly MT_TARGET_Y_OFFSETS = [4, -8, 10, -5, 8, -10, 3];
+
   // Game over letter drop animation
   private gameOverLetterY: number[] = [];
   private gameOverLetterVY: number[] = [];
   private gameOverAnimStart = 0;
   private gameOverAnimLastTs = 0;
   private readonly GO_LETTERS: string[] = [
-    'arena_G', 'arena_A', 'arena_M', 'arena_E',
-    'arena_O', 'arena_V', 'arena_E2', 'arena_R',
+    'arena_G',
+    'arena_A',
+    'arena_M',
+    'arena_E',
+    'arena_O',
+    'arena_V',
+    'arena_E2',
+    'arena_R',
   ];
   private readonly GO_LETTER_SIZE = 96;
   private readonly GO_STAGGER_MS = 110;
-  private readonly GO_GRAVITY = 2400;  // px/s²
+  private readonly GO_GRAVITY = 2400; // px/s²
   private readonly GO_BOUNCE = 0.42;
   private readonly GO_MIN_BOUNCE_VY = 60; // px/s threshold to stop bouncing
 
@@ -176,6 +203,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly TERRAIN_TOOL_ALPHA_THRESHOLD = 96;
   private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
   private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
+  private readonly TERRAIN_TOOL_ENABLED = false; // set true for development only
 
   // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
   private previousHealthByEntity = new WeakMap<object, number>();
@@ -549,13 +577,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.lineWidth = this.CHARGE_BAR_BORDER_WIDTH;
     this.ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-    // Power percentage text
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = this.CHARGE_BAR_FONT;
-    this.ctx.textAlign = 'center';
-    const textX = barX + barWidth / 2;
-    const textY = barY - this.CHARGE_BAR_TEXT_OFFSET_Y;
-    this.ctx.fillText(`${Math.round(chargeRatio * 100)}%`, textX, textY);
+    // Power percentage
+    const pct = Math.round(chargeRatio * 100);
+    const pctSize = 26;
+    this.drawPowerPercent(pct, barX + barWidth / 2, barY - pctSize - 6);
     this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
@@ -1887,15 +1912,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
     this.drawParallaxBackground(0);
 
-    // Title
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 48px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Monkeys', this.CANVAS_WIDTH / 2, 120);
+    // Title — animated MONKEYS sprite letters
+    if (this.menuTitleAnimStart === 0) {
+      this.initMenuTitleAnim();
+    }
+    this.updateMenuTitleLetters();
+    this.drawMenuTitleLetters();
 
-    // Subtitle
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText('A physics-based tank battle game', this.CANVAS_WIDTH / 2, 160);
+    // Subtitle lines
+    this.drawSpriteTextCentered('An artillery game', 165, 32);
+    this.drawSpriteTextCentered('inspired by DOS GORILLAS', 207, 32);
+    this.drawSpriteTextCentered('and Gunbound by SOFTNYX', 249, 32);
 
     // Draw idle sprite
     const idleSprite = this.spriteService.getSprite('monkey_idle');
@@ -1906,25 +1933,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         idleSprite.y,
         idleSprite.width,
         idleSprite.height,
-        this.CANVAS_WIDTH / 2 - 32, // Center horizontally (64/2 = 32)
-        200, // Position below subtitle
-        64,
-        64,
-      );
-    }
-
-    // Draw move animation below idle sprite
-    const moveFrameIndex = Math.floor(Date.now() / 120) % 4;
-    const moveSprite = this.spriteService.getSprite(`monkey_move_${moveFrameIndex}`);
-    if (moveSprite) {
-      this.ctx.drawImage(
-        moveSprite.image,
-        moveSprite.x,
-        moveSprite.y,
-        moveSprite.width,
-        moveSprite.height,
         this.CANVAS_WIDTH / 2 - 32,
-        280,
+        303,
         64,
         64,
       );
@@ -1949,15 +1959,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       '#2196F3',
       '#1976D2',
     );
-    this.drawButton(
-      'Terrain Tool',
-      this.MENU_TERRAIN_TOOL_BUTTON.x,
-      this.MENU_TERRAIN_TOOL_BUTTON.y,
-      this.MENU_TERRAIN_TOOL_BUTTON.width,
-      this.MENU_TERRAIN_TOOL_BUTTON.height,
-      '#9C6ADE',
-      '#7C4DCC',
-    );
+    if (this.TERRAIN_TOOL_ENABLED) {
+      this.drawButton(
+        'Terrain Tool',
+        this.MENU_TERRAIN_TOOL_BUTTON.x,
+        this.MENU_TERRAIN_TOOL_BUTTON.y,
+        this.MENU_TERRAIN_TOOL_BUTTON.width,
+        this.MENU_TERRAIN_TOOL_BUTTON.height,
+        '#9C6ADE',
+        '#7C4DCC',
+      );
+    }
   }
 
   private drawOptions() {
@@ -2455,6 +2467,92 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  // ── Menu title animation (MONKEYS) ──────────────────────────────────────────
+
+  private initMenuTitleAnim() {
+    const count = this.MT_LETTERS.length;
+    this.menuTitleLetterY = Array(count).fill(-this.MT_LETTER_SIZE);
+    this.menuTitleLetterVY = Array(count).fill(0);
+    this.menuTitleAnimStart = performance.now();
+    this.menuTitleAnimLastTs = this.menuTitleAnimStart;
+  }
+
+  private updateMenuTitleLetters() {
+    const now = performance.now();
+    const dt = Math.min((now - this.menuTitleAnimLastTs) / 1000, 0.05);
+    this.menuTitleAnimLastTs = now;
+    const elapsed = now - this.menuTitleAnimStart;
+    const baseY = 55;
+    for (let i = 0; i < this.MT_LETTERS.length; i++) {
+      if (elapsed - i * this.MT_STAGGER_MS <= 0) continue;
+      const targetY = baseY + this.MT_TARGET_Y_OFFSETS[i];
+      this.menuTitleLetterVY[i] += this.MT_GRAVITY * dt;
+      this.menuTitleLetterY[i] += this.menuTitleLetterVY[i] * dt;
+      if (this.menuTitleLetterY[i] >= targetY) {
+        this.menuTitleLetterY[i] = targetY;
+        if (Math.abs(this.menuTitleLetterVY[i]) > this.MT_MIN_BOUNCE_VY) {
+          this.menuTitleLetterVY[i] = -this.menuTitleLetterVY[i] * this.MT_BOUNCE;
+        } else {
+          this.menuTitleLetterVY[i] = 0;
+        }
+      }
+    }
+  }
+
+  private drawMenuTitleLetters() {
+    const size = this.MT_LETTER_SIZE;
+    const advance = size * 0.5;
+    const totalWidth = (this.MT_LETTERS.length - 1) * advance + size;
+    const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
+    const elapsed = performance.now() - this.menuTitleAnimStart;
+    for (let i = 0; i < this.MT_LETTERS.length; i++) {
+      if (elapsed - i * this.MT_STAGGER_MS <= 0) continue;
+      const sprite = this.spriteService.getSprite(this.MT_LETTERS[i]);
+      if (!sprite) continue;
+      this.ctx.drawImage(
+        sprite.image,
+        sprite.x,
+        sprite.y,
+        sprite.width,
+        sprite.height,
+        startX + i * advance,
+        this.menuTitleLetterY[i],
+        size,
+        size,
+      );
+    }
+  }
+
+  // Renders a line of text centred horizontally using text_ sprites (uppercase A-Z) and arena_ digits.
+  private drawSpriteTextCentered(text: string, topY: number, size: number) {
+    const advance = size * 0.55;
+    const chars = text.split('');
+    const totalWidth = (chars.length - 1) * advance + size;
+    let x = this.CANVAS_WIDTH / 2 - totalWidth / 2;
+    for (const ch of chars) {
+      const code = ch.charCodeAt(0);
+      let spriteName: string | null = null;
+      if (code >= 65 && code <= 90) spriteName = `text_${ch}`;           // uppercase A-Z
+      else if (code >= 97 && code <= 122) spriteName = `text_${ch}`;     // lowercase a-z
+      else if (code >= 48 && code <= 57) spriteName = `arena_${ch}`;     // digits 0-9
+      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
+      if (sprite) {
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          x,
+          topY,
+          size,
+          size,
+        );
+      }
+      x += advance;
+    }
+  }
+
   // ── Game Over letter drop animation ────────────────────────────────────────
 
   private initGameOverAnim() {
@@ -2499,17 +2597,72 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const sprite = this.spriteService.getSprite(this.GO_LETTERS[i]);
       if (!sprite) continue;
       this.ctx.drawImage(
-        sprite.image, sprite.x, sprite.y, sprite.width, sprite.height,
-        startX + i * advance, this.gameOverLetterY[i], size, size,
+        sprite.image,
+        sprite.x,
+        sprite.y,
+        sprite.width,
+        sprite.height,
+        startX + i * advance,
+        this.gameOverLetterY[i],
+        size,
+        size,
       );
+    }
+  }
+
+  // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
+  private drawPowerPercent(pct: number, centreX: number, topY: number) {
+    const size = 26;
+    const advance = size * 0.45;
+    const text = `${pct}%`;
+    const chars = text.split('');
+    const totalWidth = (chars.length - 1) * advance + size;
+    let x = centreX - totalWidth / 2;
+    const charToSprite: Record<string, string> = {
+      '0': 'angle_0',
+      '1': 'angle_1',
+      '2': 'angle_2',
+      '3': 'angle_3',
+      '4': 'angle_4',
+      '5': 'angle_5',
+      '6': 'angle_6',
+      '7': 'angle_7',
+      '8': 'angle_8',
+      '9': 'angle_9',
+      '%': 'angle_percent',
+    };
+    for (const ch of chars) {
+      const sprite = this.spriteService.getSprite(charToSprite[ch]);
+      if (sprite) {
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          x,
+          topY,
+          size,
+          size,
+        );
+      }
+      x += advance;
     }
   }
 
   // Draws an angle value (digits + degree symbol) using row-2 arena sprites, left-aligned.
   private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
     const charToSprite: Record<string, string> = {
-      '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
-      '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
+      '0': 'angle_0',
+      '1': 'angle_1',
+      '2': 'angle_2',
+      '3': 'angle_3',
+      '4': 'angle_4',
+      '5': 'angle_5',
+      '6': 'angle_6',
+      '7': 'angle_7',
+      '8': 'angle_8',
+      '9': 'angle_9',
       '°': 'angle_degree',
     };
     const advance = size * 0.45;
@@ -2519,7 +2672,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const ch of text) {
       const sprite = this.spriteService.getSprite(charToSprite[ch]);
       if (sprite) {
-        this.ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, x, topY, size, size);
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          x,
+          topY,
+          size,
+          size,
+        );
       }
       x += advance;
     }
@@ -2621,7 +2784,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (this.isPointInsideButton(x, y, this.MENU_TERRAIN_TOOL_BUTTON)) {
+    if (
+      this.TERRAIN_TOOL_ENABLED &&
+      this.isPointInsideButton(x, y, this.MENU_TERRAIN_TOOL_BUTTON)
+    ) {
       void this.openTerrainTool();
     }
   }

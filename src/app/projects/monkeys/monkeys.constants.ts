@@ -119,14 +119,14 @@ export const DAMAGE_TEXT_FONT = '20px Arial';
 export const DAMAGE_TEXT_COLOR = 'red';
 
 // UI and Rendering Constants
-export const CHARGE_BAR_WIDTH = 12;
-export const CHARGE_BAR_HEIGHT = 45;
-export const CHARGE_BAR_OFFSET_X = 45;
+export const CHARGE_BAR_WIDTH = 18;
+export const CHARGE_BAR_HEIGHT = 68;
+export const CHARGE_BAR_OFFSET_X = 70;
 export const CHARGE_BAR_BACKGROUND_COLOR = '#333333';
 export const CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
 export const CHARGE_BAR_BORDER_WIDTH = 1;
 export const CHARGE_BAR_FONT = '10px Arial';
-export const CHARGE_BAR_TEXT_OFFSET_Y = 5;
+export const CHARGE_BAR_TEXT_OFFSET_Y = 8;
 export const TANK_BODY_RADIUS = 27;
 export const CANNON_ARC_RADIUS = 60;
 export const CANNON_ARC_COLOR = '#2f1cff';
