@@ -157,6 +157,17 @@
       "width": 64,
       "height": 64
     },
+    { "name": "angle_0",      "spritesheet": "arena_numbers", "x": 0,   "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_1",      "spritesheet": "arena_numbers", "x": 64,  "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_2",      "spritesheet": "arena_numbers", "x": 128, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_3",      "spritesheet": "arena_numbers", "x": 192, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_4",      "spritesheet": "arena_numbers", "x": 256, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_5",      "spritesheet": "arena_numbers", "x": 320, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_6",      "spritesheet": "arena_numbers", "x": 384, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_7",      "spritesheet": "arena_numbers", "x": 448, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_8",      "spritesheet": "arena_numbers", "x": 512, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_9",      "spritesheet": "arena_numbers", "x": 576, "y": 128, "width": 64, "height": 64 },
+    { "name": "angle_degree", "spritesheet": "arena_numbers", "x": 640, "y": 128, "width": 64, "height": 64 },
     {
       "name": "bullet_0",
       "spritesheet": "lupin",

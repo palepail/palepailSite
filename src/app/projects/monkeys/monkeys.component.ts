@@ -1297,11 +1297,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
     // Draw angle text to the right of health bar
-    this.ctx.fillStyle = this.UI_TEXT_COLOR;
-    this.ctx.font = '12px Arial'; // Smaller font for angle display
-    this.ctx.textAlign = 'left';
     const angleDeg = this.gameService.getEntityDisplayedAngle(entity);
-    this.ctx.fillText(`${angleDeg}°`, barX + barWidth + 10, barY + barHeight / 2 + 4);
+    this.drawAngleText(angleDeg, barX + barWidth + 6, barY + barHeight / 2, 18);
 
     // Draw movement gauge if moving
     if (Math.abs(entity.body.velocity.x) > 0.1) {
@@ -2505,6 +2502,26 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         sprite.image, sprite.x, sprite.y, sprite.width, sprite.height,
         startX + i * advance, this.gameOverLetterY[i], size, size,
       );
+    }
+  }
+
+  // Draws an angle value (digits + degree symbol) using row-2 arena sprites, left-aligned.
+  private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
+    const charToSprite: Record<string, string> = {
+      '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
+      '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
+      '°': 'angle_degree',
+    };
+    const advance = size * 0.45;
+    const text = `${angleDeg}°`;
+    const topY = centerY - size / 2;
+    let x = leftX;
+    for (const ch of text) {
+      const sprite = this.spriteService.getSprite(charToSprite[ch]);
+      if (sprite) {
+        this.ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, x, topY, size, size);
+      }
+      x += advance;
     }
   }
 
