@@ -798,6 +798,13 @@ export class MonkeysGameService {
     this._turnStartTime = Date.now();
   }
 
+  areAllEntitiesSettled(): boolean {
+    const entities = [this.player, ...this.enemies];
+    return entities.every(
+      (e) => e.body && Math.abs(e.body.velocity.y) <= 0.5
+    );
+  }
+
   private initTurnQueue() {
     this._turnQueue = [];
 

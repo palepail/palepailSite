@@ -407,10 +407,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.updateShootSpriteState();
     this.updateHurtSpriteState();
 
-    // Check if setup is complete (3 seconds)
+    // Check if setup is complete: minimum 1s elapsed AND all vehicles have landed
     if (
       this.gameService.currentState === GameState.SETUP &&
-      Date.now() - this.setupStartTime >= 3000
+      Date.now() - this.setupStartTime >= 1000 &&
+      this.gameService.areAllEntitiesSettled()
     ) {
       this.gameService.currentState = GameState.PLAYING;
       // Disable camera follow when setup is done
