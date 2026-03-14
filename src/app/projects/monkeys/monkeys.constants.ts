@@ -128,13 +128,13 @@ export const CHARGE_BAR_BORDER_WIDTH = 1;
 export const CHARGE_BAR_FONT = '10px Arial';
 export const CHARGE_BAR_TEXT_OFFSET_Y = 8;
 export const TANK_BODY_RADIUS = 27;
-export const CANNON_ARC_RADIUS = 60;
+export const CANNON_ARC_RADIUS = 90;
 export const CANNON_ARC_COLOR = '#2f1cff';
-export const AIM_GUIDE_COLOR = '#808080';
-export const AIM_LINE_COLOR = '#232323';
-export const AIM_LINE_WIDTH = 1;
+export const AIM_GUIDE_COLOR = '#404040';
+export const AIM_LINE_COLOR = '#111111';
+export const AIM_LINE_WIDTH = 2;
 export const AIM_GUIDE_ANGLES = [0, Math.PI / 4, Math.PI / 2];
-export const AIM_LINE_LENGTH = 60;
+export const AIM_LINE_LENGTH = 90;
 export const TANK_SHADOW_COLOR = 'rgba(0, 0, 0, 0.2)';
 export const TANK_SHADOW_HEIGHT_RATIO = 0.3;
 export const AIMING_LINE_COLOR = 'rgba(255, 255, 255, 0.7)';
@@ -172,3 +172,10 @@ export const OFFSCREEN_EXPLODE_MARGIN_Y_TOP = 2000;
 
 export const ENEMY_ASSESS_DELAY = 500;
 export const ENEMY_STUCK_THRESHOLD = 1000;
+
+// Difficulty scatter — angle (degrees) and power (fraction of maxPower) applied as ± random offset
+export const DIFFICULTY_SCATTER: Record<string, { angleDeg: number; powerFrac: number }> = {
+  easy:   { angleDeg: 12, powerFrac: 0.18 },
+  normal: { angleDeg: 6,  powerFrac: 0.10 },
+  hard:   { angleDeg: 2,  powerFrac: 0.04 },
+};

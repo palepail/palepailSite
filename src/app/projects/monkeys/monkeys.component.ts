@@ -253,6 +253,24 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     width: 200,
     height: 50,
   };
+  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 200,
+    width: 160,
+    height: 44,
+  };
+  private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 255,
+    width: 160,
+    height: 44,
+  };
+  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 310,
+    width: 160,
+    height: 44,
+  };
   private readonly TERRAIN_TOOL_BACK_BUTTON = {
     x: this.CANVAS_WIDTH - 170,
     y: 48,
@@ -962,7 +980,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.globalAlpha = 1.0;
 
       // Draw grey aim guide 0° to 90°
-      this.ctx.globalAlpha = 0.2; // Darker grey
+      this.ctx.globalAlpha = 0.45; // Darker grey
       this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
@@ -1006,8 +1024,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       bullet,
     );
     this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([5, 5]);
+    this.ctx.lineWidth = 3;
+    this.ctx.setLineDash([7, 5]);
     this.ctx.beginPath();
     let started = false;
     for (const pos of positions) {
@@ -1989,22 +2007,55 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Background
     this.ctx.fillStyle = this.SKY_COLOR;
     this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.drawParallaxBackground(0);
 
     // Title
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 48px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Options', this.CANVAS_WIDTH / 2, 120);
+    this.drawSpriteTextCentered('Options', 80, 48);
 
-    // Placeholder for options
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText('Options menu - coming soon!', this.CANVAS_WIDTH / 2, 200);
+    // Difficulty label
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 22px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Difficulty', this.CANVAS_WIDTH / 2, 180);
+
+    const diff = this.gameService.difficulty;
+    const easyActive   = diff === 'easy';
+    const normalActive = diff === 'normal';
+    const hardActive   = diff === 'hard';
+
+    this.drawButton(
+      'Easy',
+      this.OPTIONS_DIFFICULTY_EASY_BUTTON.x,
+      this.OPTIONS_DIFFICULTY_EASY_BUTTON.y,
+      this.OPTIONS_DIFFICULTY_EASY_BUTTON.width,
+      this.OPTIONS_DIFFICULTY_EASY_BUTTON.height,
+      easyActive ? '#66BB6A' : '#388E3C',
+      easyActive ? '#81C784' : '#2E7D32',
+    );
+    this.drawButton(
+      'Normal',
+      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.x,
+      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.y,
+      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.width,
+      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.height,
+      normalActive ? '#29B6F6' : '#0288D1',
+      normalActive ? '#4FC3F7' : '#01579B',
+    );
+    this.drawButton(
+      'Hard',
+      this.OPTIONS_DIFFICULTY_HARD_BUTTON.x,
+      this.OPTIONS_DIFFICULTY_HARD_BUTTON.y,
+      this.OPTIONS_DIFFICULTY_HARD_BUTTON.width,
+      this.OPTIONS_DIFFICULTY_HARD_BUTTON.height,
+      hardActive ? '#EF5350' : '#C62828',
+      hardActive ? '#E57373' : '#B71C1C',
+    );
 
     // Back button
     this.drawButton(
       'Back to Menu',
       this.OPTIONS_BACK_BUTTON.x,
-      this.OPTIONS_BACK_BUTTON.y,
+      this.OPTIONS_BACK_BUTTON.y + 85,
       this.OPTIONS_BACK_BUTTON.width,
       this.OPTIONS_BACK_BUTTON.height,
       '#FF9800',
@@ -2829,8 +2880,21 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private handleOptionsClick(x: number, y: number) {
-    // Check Back button
-    if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
+    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_EASY_BUTTON)) {
+      this.gameService.difficulty = 'easy';
+      return;
+    }
+    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_NORMAL_BUTTON)) {
+      this.gameService.difficulty = 'normal';
+      return;
+    }
+    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_HARD_BUTTON)) {
+      this.gameService.difficulty = 'hard';
+      return;
+    }
+    // Back button is drawn at OPTIONS_BACK_BUTTON.y + 85
+    const backBtn = { ...this.OPTIONS_BACK_BUTTON, y: this.OPTIONS_BACK_BUTTON.y + 85 };
+    if (this.isPointInsideButton(x, y, backBtn)) {
       this.gameService.currentState = GameState.MENU;
     }
   }

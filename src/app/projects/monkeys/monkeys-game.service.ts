@@ -49,6 +49,7 @@ export class MonkeysGameService {
   damageTexts: DamageText[] = [];
   public panToEntity: any = null;
   currentState: GameState = GameState.MENU;
+  difficulty: 'easy' | 'normal' | 'hard' = 'normal';
 
   // Turn-based system
   private _turnQueue: TurnEntity[] = [];
@@ -1252,11 +1253,19 @@ export class MonkeysGameService {
             }
           }
 
+          const scatter = CONST.DIFFICULTY_SCATTER[this.difficulty] ?? CONST.DIFFICULTY_SCATTER['normal'];
+          const angleScatter = (Math.random() * 2 - 1) * scatter.angleDeg;
+          const powerScatter = (Math.random() * 2 - 1) * scatter.powerFrac;
+
           if (bestHit) {
-            enemy.targetAngle = bestHit.angle;
-            enemy.targetPower = bestHit.power;
+            const maxPower = Math.max(20, enemy.vehicle.power);
+            enemy.targetAngle = Math.max(
+              enemy.vehicle.minAimAngle,
+              Math.min(enemy.vehicle.maxAimAngle, bestHit.angle + angleScatter),
+            );
+            enemy.targetPower = Math.max(10, Math.min(maxPower, bestHit.power + powerScatter * maxPower));
             console.log(
-              `Enemy aiming: found hit at angle=${bestHit.angle}, power=${bestHit.power}, dist=${bestHit.dist.toFixed(1)}`,
+              `Enemy aiming: found hit at angle=${bestHit.angle}, power=${bestHit.power}, dist=${bestHit.dist.toFixed(1)} (scatter ±${scatter.angleDeg}°/±${(scatter.powerFrac*100).toFixed(0)}%)`,
             );
           } else {
             // Fallback to old logic
@@ -1268,7 +1277,7 @@ export class MonkeysGameService {
             }
             relativeAngleDeg = Math.max(
               enemy.vehicle.minAimAngle,
-              Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg),
+              Math.min(enemy.vehicle.maxAimAngle, relativeAngleDeg + angleScatter),
             );
             enemy.targetAngle = relativeAngleDeg;
             const maxFallbackPower = Math.max(20, enemy.vehicle.power);
@@ -1279,6 +1288,7 @@ export class MonkeysGameService {
             } else {
               enemy.targetPower = maxFallbackPower * (0.8 + Math.random() * 0.2);
             }
+            enemy.targetPower = Math.max(10, Math.min(maxFallbackPower, enemy.targetPower + powerScatter * maxFallbackPower));
             console.log(
               `Enemy aiming: fallback angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
             );
