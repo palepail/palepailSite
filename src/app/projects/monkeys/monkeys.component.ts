@@ -51,6 +51,21 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Parallax background tree instances (generated once per game)
   private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
 
+  // Game over letter drop animation
+  private gameOverLetterY: number[] = [];
+  private gameOverLetterVY: number[] = [];
+  private gameOverAnimStart = 0;
+  private gameOverAnimLastTs = 0;
+  private readonly GO_LETTERS: string[] = [
+    'arena_G', 'arena_A', 'arena_M', 'arena_E',
+    'arena_O', 'arena_V', 'arena_E2', 'arena_R',
+  ];
+  private readonly GO_LETTER_SIZE = 96;
+  private readonly GO_STAGGER_MS = 110;
+  private readonly GO_GRAVITY = 2400;  // px/s²
+  private readonly GO_BOUNCE = 0.42;
+  private readonly GO_MIN_BOUNCE_VY = 60; // px/s threshold to stop bouncing
+
   // Setup timer
   private setupStartTime: number = 0;
 
@@ -295,6 +310,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
     this.generateBgTreeInstances();
+    this.gameOverAnimStart = 0;
     this.previousHealthByEntity = new WeakMap<object, number>();
     this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
@@ -1474,11 +1490,24 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
       this.gameService.currentState === GameState.GAME_OVER
     ) {
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = '32px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText('Game Over', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
-      this.ctx.textAlign = 'left';
+      // Initialise on first frame of game-over
+      if (this.gameOverAnimStart === 0) {
+        this.initGameOverAnim();
+      }
+      this.updateGameOverLetters();
+      this.drawGameOverLetters();
+
+      if (this.gameService.currentState === GameState.GAME_OVER) {
+        this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        this.ctx.font = '22px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(
+          'Press R to return to menu',
+          this.CANVAS_WIDTH / 2,
+          this.CANVAS_HEIGHT / 2 + this.GO_LETTER_SIZE + 16,
+        );
+        this.ctx.textAlign = 'left';
+      }
     }
   }
 
@@ -2427,6 +2456,56 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       y >= button.y - button.height / 2 &&
       y <= button.y + button.height / 2
     );
+  }
+
+  // ── Game Over letter drop animation ────────────────────────────────────────
+
+  private initGameOverAnim() {
+    const count = this.GO_LETTERS.length;
+    this.gameOverLetterY = Array(count).fill(-this.GO_LETTER_SIZE);
+    this.gameOverLetterVY = Array(count).fill(0);
+    this.gameOverAnimStart = performance.now();
+    this.gameOverAnimLastTs = this.gameOverAnimStart;
+  }
+
+  private updateGameOverLetters() {
+    const now = performance.now();
+    const dt = Math.min((now - this.gameOverAnimLastTs) / 1000, 0.05);
+    this.gameOverAnimLastTs = now;
+    const elapsed = now - this.gameOverAnimStart;
+    const targetY = this.CANVAS_HEIGHT / 2 - this.GO_LETTER_SIZE / 2;
+
+    for (let i = 0; i < this.GO_LETTERS.length; i++) {
+      if (elapsed - i * this.GO_STAGGER_MS <= 0) continue; // not launched yet
+      this.gameOverLetterVY[i] += this.GO_GRAVITY * dt;
+      this.gameOverLetterY[i] += this.gameOverLetterVY[i] * dt;
+      if (this.gameOverLetterY[i] >= targetY) {
+        this.gameOverLetterY[i] = targetY;
+        if (Math.abs(this.gameOverLetterVY[i]) > this.GO_MIN_BOUNCE_VY) {
+          this.gameOverLetterVY[i] = -this.gameOverLetterVY[i] * this.GO_BOUNCE;
+        } else {
+          this.gameOverLetterVY[i] = 0;
+        }
+      }
+    }
+  }
+
+  private drawGameOverLetters() {
+    const size = this.GO_LETTER_SIZE;
+    const advance = size * 0.62;
+    const totalWidth = (this.GO_LETTERS.length - 1) * advance + size;
+    const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
+    const elapsed = performance.now() - this.gameOverAnimStart;
+
+    for (let i = 0; i < this.GO_LETTERS.length; i++) {
+      if (elapsed - i * this.GO_STAGGER_MS <= 0) continue;
+      const sprite = this.spriteService.getSprite(this.GO_LETTERS[i]);
+      if (!sprite) continue;
+      this.ctx.drawImage(
+        sprite.image, sprite.x, sprite.y, sprite.width, sprite.height,
+        startX + i * advance, this.gameOverLetterY[i], size, size,
+      );
+    }
   }
 
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
