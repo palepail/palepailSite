@@ -87,6 +87,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     'arena_E2',
     'arena_R',
   ];
+  private readonly WIN_LETTERS: string[] = [
+    'text_Y',
+    'text_O',
+    'text_U',
+    'text_W',
+    'text_I',
+    'text_N',
+  ];
+  private readonly WIN_TEXT_TINT = '#FFE700';
   private readonly GO_LETTER_SIZE = 96;
   private readonly GO_STAGGER_MS = 110;
   private readonly GO_GRAVITY = 2400; // px/s²
@@ -1546,25 +1555,32 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.textAlign = 'left';
     } else if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-      this.gameService.currentState === GameState.GAME_OVER
+      this.gameService.currentState === GameState.GAME_OVER ||
+      this.gameService.currentState === GameState.WIN_DELAY ||
+      this.gameService.currentState === GameState.WIN
     ) {
-      // Initialise on first frame of game-over
+      const isWin =
+        this.gameService.currentState === GameState.WIN_DELAY ||
+        this.gameService.currentState === GameState.WIN;
+      // Initialise on first frame
       if (this.gameOverAnimStart === 0) {
-        this.initGameOverAnim();
+        this.initGameOverAnim(isWin ? this.WIN_LETTERS.length : this.GO_LETTERS.length);
       }
       this.updateGameOverLetters();
-      this.drawGameOverLetters();
+      this.drawBouncingLetters(
+        isWin ? this.WIN_LETTERS : this.GO_LETTERS,
+        isWin ? this.WIN_TEXT_TINT : undefined,
+      );
 
-      if (this.gameService.currentState === GameState.GAME_OVER) {
-        this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        this.ctx.font = '22px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(
-          'Press R to return to menu',
-          this.CANVAS_WIDTH / 2,
-          this.CANVAS_HEIGHT / 2 + this.GO_LETTER_SIZE + 16,
+      if (
+        this.gameService.currentState === GameState.GAME_OVER ||
+        this.gameService.currentState === GameState.WIN
+      ) {
+        this.drawSpriteTextCentered(
+          'Press R to return',
+          this.CANVAS_HEIGHT / 2 + this.GO_LETTER_SIZE / 2 + 16,
+          28,
         );
-        this.ctx.textAlign = 'left';
       }
     }
   }
@@ -1620,7 +1636,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
       event.preventDefault();
     }
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+        this.gameService.currentState === GameState.WIN_DELAY) {
       return;
     }
     if (event.key === 'p' || event.key === 'P') {
@@ -1643,7 +1660,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       event.preventDefault();
     }
     if (event.key === 'r' || event.key === 'R') {
-      if (this.gameService.currentState === GameState.GAME_OVER) {
+      if (
+        this.gameService.currentState === GameState.GAME_OVER ||
+        this.gameService.currentState === GameState.WIN
+      ) {
         this.gameService.currentState = GameState.MENU;
       }
       event.preventDefault();
@@ -1652,7 +1672,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onKeyUp(event: KeyboardEvent) {
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY) {
+    if (this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+        this.gameService.currentState === GameState.WIN_DELAY) {
       this.gameService.keys[event.key] = false;
       return;
     }
@@ -1675,6 +1696,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const s = this.gameService.currentState;
     return (
       s === GameState.GAME_OVER_DELAY ||
+      s === GameState.WIN_DELAY ||
       s === GameState.TERRAIN_TOOL ||
       s === GameState.LOADING ||
       s === GameState.MENU ||
@@ -2647,8 +2669,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ── Game Over letter drop animation ────────────────────────────────────────
 
-  private initGameOverAnim() {
-    const count = this.GO_LETTERS.length;
+  private initGameOverAnim(count: number) {
     this.gameOverLetterY = Array(count).fill(-this.GO_LETTER_SIZE);
     this.gameOverLetterVY = Array(count).fill(0);
     this.gameOverAnimStart = performance.now();
@@ -2662,7 +2683,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const elapsed = now - this.gameOverAnimStart;
     const targetY = this.CANVAS_HEIGHT / 2 - this.GO_LETTER_SIZE / 2;
 
-    for (let i = 0; i < this.GO_LETTERS.length; i++) {
+    for (let i = 0; i < this.gameOverLetterY.length; i++) {
       if (elapsed - i * this.GO_STAGGER_MS <= 0) continue; // not launched yet
       this.gameOverLetterVY[i] += this.GO_GRAVITY * dt;
       this.gameOverLetterY[i] += this.gameOverLetterVY[i] * dt;
@@ -2677,28 +2698,36 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawGameOverLetters() {
+  private drawBouncingLetters(letters: string[], tint?: string) {
     const size = this.GO_LETTER_SIZE;
     const advance = size * 0.62;
-    const totalWidth = (this.GO_LETTERS.length - 1) * advance + size;
+    const totalWidth = (letters.length - 1) * advance + size;
     const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
     const elapsed = performance.now() - this.gameOverAnimStart;
 
-    for (let i = 0; i < this.GO_LETTERS.length; i++) {
+    for (let i = 0; i < letters.length; i++) {
       if (elapsed - i * this.GO_STAGGER_MS <= 0) continue;
-      const sprite = this.spriteService.getSprite(this.GO_LETTERS[i]);
+      const sprite = this.spriteService.getSprite(letters[i]);
       if (!sprite) continue;
-      this.ctx.drawImage(
-        sprite.image,
-        sprite.x,
-        sprite.y,
-        sprite.width,
-        sprite.height,
-        startX + i * advance,
-        this.gameOverLetterY[i],
-        size,
-        size,
-      );
+      if (tint) {
+        this.ctx.drawImage(
+          this.tintedGlyph(sprite, size, tint),
+          startX + i * advance,
+          this.gameOverLetterY[i],
+        );
+      } else {
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          startX + i * advance,
+          this.gameOverLetterY[i],
+          size,
+          size,
+        );
+      }
     }
   }
 

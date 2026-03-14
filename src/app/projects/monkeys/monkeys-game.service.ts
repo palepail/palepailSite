@@ -86,6 +86,7 @@ export class MonkeysGameService {
 
   // Game over delay
   private gameOverTimer: number = 0;
+  private winTimer: number = 0;
 
   constructor(private spriteService: MonkeysSpriteService) {
     this.player = this.createInitialPlayer();
@@ -191,6 +192,7 @@ export class MonkeysGameService {
 
   async initGame() {
     this.gameOverTimer = 0;
+    this.winTimer = 0;
     this.trajectoryCache.clear();
     await this.ensureTerrainMetadataLoaded();
     this.generateTerrain();
@@ -957,6 +959,18 @@ export class MonkeysGameService {
 
     switch (player.turnState) {
       case 'turn_start':
+        // Check for win condition
+        if (
+          this.enemies.every(e => !e.active) &&
+          this.currentState !== GameState.WIN_DELAY &&
+          this.currentState !== GameState.WIN
+        ) {
+          this.currentState = GameState.WIN_DELAY;
+          this.winTimer = 1.5;
+          this.keys = {};
+          this.isCharging = false;
+          break;
+        }
         // Reset fuel at turn start
         player.movementFuel = player.vehicle.fuel;
         player.turnState = 'idle';
@@ -1478,8 +1492,19 @@ export class MonkeysGameService {
       }
     }
 
-    // Freeze on game over or pause
-    if (this.currentState === GameState.GAME_OVER || this.currentState === GameState.PAUSED) {
+    if (this.currentState === GameState.WIN_DELAY) {
+      this.winTimer -= deltaTime;
+      if (this.winTimer <= 0) {
+        this.currentState = GameState.WIN;
+      }
+    }
+
+    // Freeze on game over, win, or pause
+    if (
+      this.currentState === GameState.GAME_OVER ||
+      this.currentState === GameState.WIN ||
+      this.currentState === GameState.PAUSED
+    ) {
       return;
     }
 

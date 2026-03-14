@@ -70,6 +70,8 @@ export enum GameState {
   BULLET_IN_FLIGHT = 'bullet_in_flight',
   GAME_OVER_DELAY = 'game_over_delay',
   GAME_OVER = 'game_over',
+  WIN_DELAY = 'win_delay',
+  WIN = 'win',
   LEADERBOARD = 'leaderboard',
   LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
 }
