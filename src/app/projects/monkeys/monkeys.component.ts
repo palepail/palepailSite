@@ -126,9 +126,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly CANVAS_HEIGHT = CONST.CANVAS_HEIGHT;
   private readonly CANVAS_PADDING = CONST.CANVAS_PADDING;
   private readonly SKY_COLOR = CONST.SKY_COLOR;
-  private readonly TERRAIN_WIDTH = CONST.TERRAIN_WIDTH;
-  private readonly TERRAIN_HEIGHT = CONST.TERRAIN_HEIGHT;
-  private readonly TERRAIN_BASE_Y_OFFSET = CONST.TERRAIN_BASE_Y_OFFSET;
   private canvasScale = 1;
 
   // Input handling
@@ -141,8 +138,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly CHARGE_BAR_BACKGROUND_COLOR = CONST.CHARGE_BAR_BACKGROUND_COLOR;
   private readonly CHARGE_BAR_BORDER_COLOR = CONST.CHARGE_BAR_BORDER_COLOR;
   private readonly CHARGE_BAR_BORDER_WIDTH = CONST.CHARGE_BAR_BORDER_WIDTH;
-  private readonly CHARGE_BAR_FONT = CONST.CHARGE_BAR_FONT;
-  private readonly CHARGE_BAR_TEXT_OFFSET_Y = CONST.CHARGE_BAR_TEXT_OFFSET_Y;
   private readonly MIN_POWER = CONST.MIN_POWER;
   private readonly MAX_POWER = CONST.MAX_POWER;
   private readonly TANK_BODY_RADIUS = CONST.TANK_BODY_RADIUS;
@@ -151,7 +146,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly AIM_GUIDE_COLOR = CONST.AIM_GUIDE_COLOR;
   private readonly AIM_LINE_COLOR = CONST.AIM_LINE_COLOR;
   private readonly AIM_LINE_WIDTH = CONST.AIM_LINE_WIDTH;
-  private readonly AIM_GUIDE_ANGLES = CONST.AIM_GUIDE_ANGLES;
   private readonly AIM_LINE_LENGTH = CONST.AIM_LINE_LENGTH;
   private readonly MIN_AIM_ANGLE = CONST.MIN_AIM_ANGLE;
   private readonly MAX_AIM_ANGLE = CONST.MAX_AIM_ANGLE;
@@ -175,12 +169,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BARREL_TIP_LENGTH = CONST.BARREL_TIP_LENGTH;
   private readonly BARREL_TIP_EXTRA_HEIGHT = CONST.BARREL_TIP_EXTRA_HEIGHT;
   private readonly PROJECTILE_DRAW_RADIUS = CONST.PROJECTILE_DRAW_RADIUS;
-  private readonly PROJECTILE_RADIUS = CONST.PROJECTILE_RADIUS;
   private readonly PROJECTILE_COLOR = CONST.PROJECTILE_COLOR;
-  private readonly UI_TEXT_COLOR = CONST.UI_TEXT_COLOR;
-  private readonly TERRAIN_STRIP_HEIGHT = CONST.TERRAIN_STRIP_HEIGHT;
   private readonly DAMAGE_TEXT_LIFETIME = CONST.DAMAGE_TEXT_LIFETIME;
-  private readonly DAMAGE_TEXT_FONT = CONST.DAMAGE_TEXT_FONT;
   private readonly EXPLOSION_OUTLINE_WIDTH = CONST.EXPLOSION_OUTLINE_WIDTH;
   private readonly DAMAGE_TEXT_COLOR = CONST.DAMAGE_TEXT_COLOR;
   private readonly tintCache = new Map<string, HTMLCanvasElement>();
@@ -188,6 +178,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly EXPLOSION_OUTLINE_COLOR = CONST.EXPLOSION_OUTLINE_COLOR;
   private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
   private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
+  private readonly CHARGE_BAR_LOW_COLOR = CONST.CHARGE_BAR_LOW_COLOR;
+  private readonly CHARGE_BAR_MID_COLOR = CONST.CHARGE_BAR_MID_COLOR;
+  private readonly CHARGE_BAR_HIGH_COLOR = CONST.CHARGE_BAR_HIGH_COLOR;
+  private readonly HEALTH_BAR_BG_COLOR = CONST.HEALTH_BAR_BG_COLOR;
+  private readonly HEALTH_BAR_PLAYER_COLOR = CONST.HEALTH_BAR_PLAYER_COLOR;
+  private readonly HEALTH_BAR_ENEMY_COLOR = CONST.HEALTH_BAR_ENEMY_COLOR;
+  private readonly MOVEMENT_BAR_COLOR = CONST.MOVEMENT_BAR_COLOR;
+  private readonly TURN_QUEUE_BG_COLOR = CONST.TURN_QUEUE_BG_COLOR;
+  private readonly TURN_QUEUE_CURRENT_COLOR = CONST.TURN_QUEUE_CURRENT_COLOR;
+  private readonly TURN_QUEUE_PLAYER_COLOR = CONST.TURN_QUEUE_PLAYER_COLOR;
+  private readonly TURN_QUEUE_ENEMY_COLOR = CONST.TURN_QUEUE_ENEMY_COLOR;
+  private readonly TANK_TRACK_COLOR = CONST.TANK_TRACK_COLOR;
+  private readonly TANK_TRACK_INNER_COLOR = CONST.TANK_TRACK_INNER_COLOR;
+  private readonly PREDICTION_PLAYER_COLOR = CONST.PREDICTION_PLAYER_COLOR;
+  private readonly PREDICTION_ENEMY_COLOR = CONST.PREDICTION_ENEMY_COLOR;
+  private readonly ENEMY_FALLBACK_COLOR = CONST.ENEMY_FALLBACK_COLOR;
   private readonly EFFECT_SPRITE_FRAME_COUNT = 3;
   private readonly BULLET_SPRITE_FRAME_DURATION_MS = 90;
   private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
@@ -518,7 +524,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.previousTurnId = currentTurn.id;
       this.previousTurnState = (currentTurn.entity as any).turnState as string;
       this.playerMovementStarted = false;
-      console.log('Turn changed to:', this.turnMessage);
     }
     if (this.messageTimer > 0) {
       this.messageTimer -= 16;
@@ -584,7 +589,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Charge level (bottom to top)
     const chargeRatio = entity.power / maxPower;
-    this.ctx.fillStyle = chargeRatio < 0.3 ? '#FF4444' : chargeRatio < 0.7 ? '#FFFF44' : '#44FF44';
+    this.ctx.fillStyle = chargeRatio < 0.3 ? this.CHARGE_BAR_LOW_COLOR : chargeRatio < 0.7 ? this.CHARGE_BAR_MID_COLOR : this.CHARGE_BAR_HIGH_COLOR;
     this.ctx.fillRect(
       barX,
       barY + barHeight * (1 - chargeRatio),
@@ -810,7 +815,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         angleRad,
         this.gameService.player.power,
         this.gameService.player.vehicle.bullet,
-        '#0000FF',
+        this.PREDICTION_PLAYER_COLOR,
       );
     }
 
@@ -853,7 +858,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawCursorBarrel(centerX, centerY, (enemy.angle * Math.PI) / 180);
 
     // Draw tank body sprite (or fallback shape) in front of barrel.
-    const drewEnemySprite = this.drawEntityBody(enemy, '#FF6B6B', centerX, centerY, bodyRadius);
+    const drewEnemySprite = this.drawEntityBody(enemy, this.ENEMY_FALLBACK_COLOR, centerX, centerY, bodyRadius);
 
     // Keep track overlay only when using fallback shape.
     if (!drewEnemySprite) {
@@ -881,7 +886,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         angleRad,
         enemy.power,
         enemy.vehicle.bullet,
-        '#FF0000',
+        this.PREDICTION_ENEMY_COLOR,
       );
     }
   }
@@ -980,7 +985,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.globalAlpha = 1.0;
 
       // Draw grey aim guide 0° to 90°
-      this.ctx.globalAlpha = 0.45; // Darker grey
+      this.ctx.globalAlpha = 0.30; // Darker grey
       this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
@@ -1024,8 +1029,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       bullet,
     );
     this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = 3;
-    this.ctx.setLineDash([7, 5]);
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([6, 5]);
     this.ctx.beginPath();
     let started = false;
     for (const pos of positions) {
@@ -1288,7 +1293,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
     // Draw tank tracks/details - on top
-    this.ctx.fillStyle = '#333333';
+    this.ctx.fillStyle = this.TANK_TRACK_COLOR;
     this.ctx.fillRect(
       centerX - bodyRadius + this.TANK_TRACK_OFFSET,
       centerY - 3,
@@ -1303,7 +1308,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
 
     // Draw tank tracks (left and right)
-    this.ctx.fillStyle = '#222222';
+    this.ctx.fillStyle = this.TANK_TRACK_INNER_COLOR;
     this.ctx.fillRect(
       centerX - bodyRadius + 4,
       centerY - 5,
@@ -1335,10 +1340,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const barX = centerX - barWidth / 2;
     const barY = centerY + bodyRadius - 5;
     // Background bar
-    this.ctx.fillStyle = '#666666';
+    this.ctx.fillStyle = this.HEALTH_BAR_BG_COLOR;
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     // Health bar
-    this.ctx.fillStyle = isPlayer ? '#00FF00' : '#FF0000'; // Green for player, red for enemies
+    this.ctx.fillStyle = isPlayer ? this.HEALTH_BAR_PLAYER_COLOR : this.HEALTH_BAR_ENEMY_COLOR; // Green for player, red for enemies
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
     // Draw angle text to the right of health bar
@@ -1350,10 +1355,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const movementRatio = entity.movementFuel / entity.vehicle.fuel;
       const movementBarY = barY + barHeight + 2; // Below health bar
       // Background
-      this.ctx.fillStyle = '#666666';
+      this.ctx.fillStyle = this.HEALTH_BAR_BG_COLOR;
       this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
       // Movement bar
-      this.ctx.fillStyle = '#FFFF00'; // Yellow
+      this.ctx.fillStyle = this.MOVEMENT_BAR_COLOR; // Yellow
       this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
     }
   }
@@ -1491,7 +1496,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawDamageTexts() {
     const size = 28;
     const advance = size * 0.45;
-    const tint = '#FF2222';
+    const tint = this.DAMAGE_TEXT_COLOR;
     for (const text of this.gameService.damageTexts) {
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
       const alpha = text.life / this.DAMAGE_TEXT_LIFETIME;
@@ -1568,7 +1573,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const queue = [...this.gameService.turnQueue].sort((a, b) => a.entity.delay - b.entity.delay);
     if (queue.length === 0) return;
 
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillStyle = this.TURN_QUEUE_BG_COLOR;
     this.ctx.fillRect(10, 10, 200, queue.length * 25 + 10);
 
     this.ctx.fillStyle = '#FFFFFF';
@@ -1582,11 +1587,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const isCurrent = turnEntity.id === currentEntity?.id;
 
       if (isCurrent) {
-        this.ctx.fillStyle = '#FFFF00'; // Yellow for current turn
+        this.ctx.fillStyle = this.TURN_QUEUE_CURRENT_COLOR; // Yellow for current turn
       } else if (turnEntity.type === 'player') {
-        this.ctx.fillStyle = '#00FF00'; // Green for player
+        this.ctx.fillStyle = this.TURN_QUEUE_PLAYER_COLOR; // Green for player
       } else {
-        this.ctx.fillStyle = '#FF0000'; // Red for enemies
+        this.ctx.fillStyle = this.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
       }
 
       const name = turnEntity.type === 'player' ? 'Player' : `Enemy ${turnEntity.id.split('_')[1]}`;

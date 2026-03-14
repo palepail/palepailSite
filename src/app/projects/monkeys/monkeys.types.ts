@@ -82,13 +82,6 @@ export interface TurnEntity {
   baseDelay: number; // Base delay value
 }
 
-export interface GameSettings {
-  bgmVolume: number;
-  sfxVolume: number;
-  difficulty: 'easy' | 'normal' | 'hard';
-  muted: boolean;
-}
-
 export interface TerrainSpritePoint {
   x: number;
   y: number;

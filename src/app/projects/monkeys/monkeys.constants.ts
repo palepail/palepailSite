@@ -12,22 +12,15 @@ export const SKY_COLOR = '#87CEEB';
 export const TERRAIN_WIDTH = 2400;
 export const TERRAIN_HEIGHT = 800;
 export const TERRAIN_STRIP_HEIGHT = 500;
-export const TERRAIN_SMOOTHING_WEIGHT = 2;
-export const TERRAIN_SMOOTHING_DIVISOR = 4;
 export const GRAVITY_STRENGTH = 2;
 export const WIND_STRENGTH = 0;
 export const TERRAIN_BASE_Y_OFFSET = 380;
 export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
 export const CRATER_RADIUS = 40;
-export const TERRAIN_SNAP_TOLERANCE = 20;
 export const SPAWN_HEIGHT_OFFSET = 900;
 export const FALL_THRESHOLD_OFFSET = 500;
 export const TERRAIN_COLOR = '#8B4513';
-export const TERRAIN_DETAIL_COLOR = 'rgba(139, 69, 19, 0.4)';
-export const TERRAIN_DETAIL_COUNT = 30;
-export const TERRAIN_DETAIL_SIZE_MIN = 1;
-export const TERRAIN_DETAIL_SIZE_MAX = 4;
 export const MAX_CLIMB_ANGLE = (45 * Math.PI) / 180; // 45 degrees
 
 // Player
@@ -52,7 +45,6 @@ export const TANK_HALF_HEIGHT = 15;
 export const MAX_CHARGE_TIME = 2500; // 1 second for full charge (faster)
 export const MIN_POWER = 0;
 export const MAX_POWER = 200;
-export const MAX_PROJECTILE_VELOCITY = 20;
 export const BARREL_LENGTH = 53;
 export const PROJECTILE_RADIUS = 5;
 export const PROJECTILE_FRICTION = 0.01;
@@ -68,8 +60,6 @@ export const EXPLOSION_MIDDLE_COLOR = 'rgba(255, 165, 0, 0.6)';
 export const EXPLOSION_EDGE_COLOR = 'rgba(255, 0, 0, 0)';
 export const EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
 export const EXPLOSION_OUTLINE_WIDTH = 2;
-export const EXPLOSION_DAMAGE_MAX = 50;
-export const EXPLOSION_DAMAGE_RANGE = 100;
 
 // Vehicle Configurations
 export const PLAYER_VEHICLE: Vehicle = {
@@ -115,8 +105,7 @@ export const ENEMY_VEHICLE: Vehicle = {
 };
 export const DAMAGE_TEXT_LIFETIME = 60; // frames
 export const DAMAGE_TEXT_RISE_SPEED = 1;
-export const DAMAGE_TEXT_FONT = '20px Arial';
-export const DAMAGE_TEXT_COLOR = 'red';
+export const DAMAGE_TEXT_COLOR = '#FF2222';
 
 // UI and Rendering Constants
 export const CHARGE_BAR_WIDTH = 18;
@@ -125,16 +114,36 @@ export const CHARGE_BAR_OFFSET_X = 70;
 export const CHARGE_BAR_BACKGROUND_COLOR = '#333333';
 export const CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
 export const CHARGE_BAR_BORDER_WIDTH = 1;
-export const CHARGE_BAR_FONT = '10px Arial';
-export const CHARGE_BAR_TEXT_OFFSET_Y = 8;
+// Charge bar level colours
+export const CHARGE_BAR_LOW_COLOR = '#FF4444';
+export const CHARGE_BAR_MID_COLOR = '#FFFF44';
+export const CHARGE_BAR_HIGH_COLOR = '#44FF44';
+// Health / movement bar
+export const HEALTH_BAR_BG_COLOR = '#666666';
+export const HEALTH_BAR_PLAYER_COLOR = '#00FF00';
+export const HEALTH_BAR_ENEMY_COLOR = '#FF0000';
+export const MOVEMENT_BAR_COLOR = '#FFFF00';
+// Turn queue
+export const TURN_QUEUE_BG_COLOR = 'rgba(0, 0, 0, 0.7)';
+export const TURN_QUEUE_CURRENT_COLOR = '#FFFF00';
+export const TURN_QUEUE_PLAYER_COLOR = '#00FF00';
+export const TURN_QUEUE_ENEMY_COLOR = '#FF0000';
+// Tank tracks (fallback)
+export const TANK_TRACK_COLOR = '#333333';
+export const TANK_TRACK_INNER_COLOR = '#222222';
+// Prediction paths
+export const PREDICTION_PLAYER_COLOR = '#0000FF';
+export const PREDICTION_ENEMY_COLOR = '#FF0000';
+// Enemy fallback body colour
+export const ENEMY_FALLBACK_COLOR = '#FF6B6B';
 export const TANK_BODY_RADIUS = 27;
-export const CANNON_ARC_RADIUS = 90;
+export const CANNON_ARC_RADIUS = 72;
 export const CANNON_ARC_COLOR = '#2f1cff';
-export const AIM_GUIDE_COLOR = '#404040';
-export const AIM_LINE_COLOR = '#111111';
-export const AIM_LINE_WIDTH = 2;
+export const AIM_GUIDE_COLOR = '#666666';
+export const AIM_LINE_COLOR = '#424242';
+export const AIM_LINE_WIDTH = 1.5;
 export const AIM_GUIDE_ANGLES = [0, Math.PI / 4, Math.PI / 2];
-export const AIM_LINE_LENGTH = 90;
+export const AIM_LINE_LENGTH = 72;
 export const TANK_SHADOW_COLOR = 'rgba(0, 0, 0, 0.2)';
 export const TANK_SHADOW_HEIGHT_RATIO = 0.3;
 export const AIMING_LINE_COLOR = 'rgba(255, 255, 255, 0.7)';
@@ -155,15 +164,6 @@ export const BARREL_TIP_LENGTH = 5;
 export const BARREL_TIP_EXTRA_HEIGHT = 3;
 export const PROJECTILE_DRAW_RADIUS = 15;
 export const PROJECTILE_COLOR = '#FF0000';
-export const UI_TEXT_COLOR = '#FFFFFF';
-export const UI_FONT = '16px Arial';
-export const UI_TEXT_X = 10;
-export const UI_ANGLE_Y = 30;
-export const UI_POWER_Y = 50;
-export const UI_HEALTH_Y = 70;
-export const UI_MOVEMENT_Y = 90;
-export const UI_TERRAIN_ANGLE_Y = 110;
-export const UI_ANGLE_DECIMALS = 1;
 
 // Off-screen explosion margins
 export const OFFSCREEN_EXPLODE_MARGIN_X = 200;
@@ -175,7 +175,7 @@ export const ENEMY_STUCK_THRESHOLD = 1000;
 
 // Difficulty scatter — angle (degrees) and power (fraction of maxPower) applied as ± random offset
 export const DIFFICULTY_SCATTER: Record<string, { angleDeg: number; powerFrac: number }> = {
-  easy:   { angleDeg: 12, powerFrac: 0.18 },
-  normal: { angleDeg: 6,  powerFrac: 0.10 },
-  hard:   { angleDeg: 2,  powerFrac: 0.04 },
+  easy: { angleDeg: 12, powerFrac: 0.18 },
+  normal: { angleDeg: 6, powerFrac: 0.1 },
+  hard: { angleDeg: 2, powerFrac: 0.04 },
 };

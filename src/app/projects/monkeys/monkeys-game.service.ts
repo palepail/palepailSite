@@ -23,7 +23,6 @@ import { MonkeysSpriteService } from './monkeys-sprite.service';
 export class MonkeysGameService {
   // Matter.js functions (passed from component)
   public Engine: any;
-  public Render: any;
   public Runner: any;
   public Bodies: any;
   public World: any;
@@ -128,13 +127,6 @@ export class MonkeysGameService {
       // Record position
       positions.push({ x: projectile.position.x, y: projectile.position.y });
 
-      // Check for terrain collision or off-screen
-      // if (projectile.position.y > this.getTerrainHeightAt(projectile.position.x) ||
-      //     projectile.position.x < 0 || projectile.position.x > CONST.CANVAS_WIDTH) {
-      //   endReason = projectile.position.y > this.getTerrainHeightAt(projectile.position.x) ? 'terrain' : 'offscreen';
-      //   break;
-      // }
-
       // Apply wind force
       this.Body.applyForce(projectile, projectile.position, { x: CONST.WIND_STRENGTH, y: 0 });
 
@@ -154,7 +146,6 @@ export class MonkeysGameService {
 
   setMatterJS(matter: any) {
     this.Engine = matter.Engine;
-    this.Render = matter.Render;
     this.Runner = matter.Runner;
     this.Bodies = matter.Bodies;
     this.World = matter.World;
@@ -966,7 +957,6 @@ export class MonkeysGameService {
 
     switch (player.turnState) {
       case 'turn_start':
-        console.log('Player turn_start: setting to idle');
         // Reset fuel at turn start
         player.movementFuel = player.vehicle.fuel;
         player.turnState = 'idle';
@@ -1032,10 +1022,6 @@ export class MonkeysGameService {
           }
         }
 
-        console.log(
-          `Enemy assess: distance=${distance.toFixed(1)}, fuel=${enemy.movementFuel}, behavior=${enemy.behavior}`,
-        );
-
         // Decide based on distance, fuel, and behavior
         let moveCloserThreshold = 400;
         let moveAwayThreshold = 150;
@@ -1060,13 +1046,11 @@ export class MonkeysGameService {
           }
           enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
           enemy.turnState = 'moving';
-          console.log(`Enemy moving closer, direction=${enemy.moveDirection}`);
         } else if (!forceShot && distance < moveAwayThreshold && enemy.movementFuel! > 5) {
           // Too close, move away
           enemy.moveDirection = dx > 0 ? -1 : 1; // Away from player
           enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
           enemy.turnState = 'moving';
-          console.log(`Enemy moving away, direction=${enemy.moveDirection}`);
         } else {
           // Good distance (or forced after too many reassessments), aim and shoot
           enemy.facing = dx > 0 ? 1 : -1; // Face toward player
@@ -1074,7 +1058,6 @@ export class MonkeysGameService {
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.turnTimer = 0;
-          console.log(`Enemy aiming, facing=${enemy.facing}${forceShot ? ' (forced)' : ''}`);
         }
         break;
 
@@ -1086,7 +1069,6 @@ export class MonkeysGameService {
         if (enemy.movementTimer! > 0) {
           const movedThisFrame = this.moveEntity(enemy, enemy.moveDirection!);
           if (!movedThisFrame && enemy.behavior === 'aggressive') {
-            console.log('Aggressive enemy movement blocked, switching to terrain-clearing shot');
             this.prepareAggressiveTerrainClearingShot(enemy);
             return;
           }
@@ -1119,9 +1101,7 @@ export class MonkeysGameService {
           enemy.stuckCounter = 0;
         }
         if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
-          console.log('Enemy stuck, handling recovery');
           if (enemy.behavior === 'aggressive') {
-            console.log('Aggressive enemy stuck, switching to terrain-clearing shot');
             this.prepareAggressiveTerrainClearingShot(enemy);
             return;
           }
@@ -1170,9 +1150,6 @@ export class MonkeysGameService {
               enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
             enemy.turnState = 'charging';
-            console.log(
-              `Aggressive terrain-clearing shot: angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
-            );
             return;
           }
 
@@ -1264,9 +1241,6 @@ export class MonkeysGameService {
               Math.min(enemy.vehicle.maxAimAngle, bestHit.angle + angleScatter),
             );
             enemy.targetPower = Math.max(10, Math.min(maxPower, bestHit.power + powerScatter * maxPower));
-            console.log(
-              `Enemy aiming: found hit at angle=${bestHit.angle}, power=${bestHit.power}, dist=${bestHit.dist.toFixed(1)} (scatter ±${scatter.angleDeg}°/±${(scatter.powerFrac*100).toFixed(0)}%)`,
-            );
           } else {
             // Fallback to old logic
             let relativeAngleDeg: number;
@@ -1289,9 +1263,6 @@ export class MonkeysGameService {
               enemy.targetPower = maxFallbackPower * (0.8 + Math.random() * 0.2);
             }
             enemy.targetPower = Math.max(10, Math.min(maxFallbackPower, enemy.targetPower + powerScatter * maxFallbackPower));
-            console.log(
-              `Enemy aiming: fallback angle=${enemy.targetAngle.toFixed(1)}, power=${enemy.targetPower.toFixed(1)}`,
-            );
           }
 
           enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
@@ -1494,13 +1465,6 @@ export class MonkeysGameService {
       this.currentState !== GameState.GAME_OVER_DELAY &&
       this.currentState !== GameState.GAME_OVER
     ) {
-      console.log(
-        'Game over pending: player.health =',
-        this.player.health,
-        '/',
-        this.player.vehicle.health,
-        'starting 2s timer',
-      );
       this.currentState = GameState.GAME_OVER_DELAY;
       this.gameOverTimer = 2.0;
       this.keys = {};
@@ -1510,7 +1474,6 @@ export class MonkeysGameService {
     if (this.currentState === GameState.GAME_OVER_DELAY) {
       this.gameOverTimer -= deltaTime;
       if (this.gameOverTimer <= 0) {
-        console.log('Game over timer expired, setting to GAME_OVER');
         this.currentState = GameState.GAME_OVER;
       }
     }
@@ -1598,16 +1561,6 @@ export class MonkeysGameService {
           ) {
             this.moveEntity(this.player, -1);
           } else {
-            console.log(
-              'Left movement blocked, fuel:',
-              this.player.movementFuel,
-              'terrain:',
-              hasTerrain,
-              'angle:',
-              angle,
-              'isPlayerTurn:',
-              this.isPlayerTurn(),
-            );
           }
         }
         if (
@@ -1629,16 +1582,6 @@ export class MonkeysGameService {
           ) {
             this.moveEntity(this.player, 1);
           } else {
-            console.log(
-              'Right movement blocked, fuel:',
-              this.player.movementFuel,
-              'terrain:',
-              hasTerrain,
-              'angle:',
-              this.getTerrainAngleAt(targetX),
-              'isPlayerTurn:',
-              this.isPlayerTurn(),
-            );
           }
         }
 
@@ -1734,7 +1677,6 @@ export class MonkeysGameService {
       this.projectile.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
       this.projectile.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
     ) {
-      console.log('Projectile went off game area, exploding');
       this.destroyTrajectoryProjectile();
       return;
     }
@@ -1752,7 +1694,6 @@ export class MonkeysGameService {
       terrainLocalY < this.terrain[px]?.length &&
       this.terrain[px][terrainLocalY] === 1
     ) {
-      console.log('Collided with terrain at center, exploding');
       this.destroyTrajectoryProjectile();
       return;
     }
@@ -1778,7 +1719,6 @@ export class MonkeysGameService {
         this.terrain[checkX][terrainCheckY] === 1
       ) {
         collided = true;
-        console.log('Collided with terrain at offset', offsetX, offsetY, ', exploding');
         break;
       }
     }
@@ -1837,7 +1777,6 @@ export class MonkeysGameService {
       const dy = this.player.y - projectile.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       if (distance < CONST.PROJECTILE_RADIUS + 15) {
-        console.log('Collided with player, exploding');
         return true;
       }
     }
@@ -1849,18 +1788,12 @@ export class MonkeysGameService {
         const dy = enemy.y - projectile.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < CONST.PROJECTILE_RADIUS + 15) {
-          console.log('Collided with enemy, exploding');
           return true;
         }
       }
     }
 
     return false;
-  }
-
-  private startCharging() {
-    this.isCharging = true;
-    this.chargeStartTime = Date.now();
   }
 
   private applyExplosionKnockback(
@@ -1978,24 +1911,6 @@ export class MonkeysGameService {
       if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
         enemy.health = 0;
       }
-    }
-  }
-
-  private respawnPlayer() {
-    this.player.health = this.player.vehicle.health;
-    this.player.movementFuel = this.player.vehicle.fuel;
-    this.player.power = CONST.PLAYER_START_POWER;
-    this.player.maxPower = this.player.vehicle.power;
-    this.player.x = CONST.PLAYER_START_X;
-    this.player.y = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - CONST.PLAYER_HOVER_HEIGHT;
-    this.player.angle = (this.player.vehicle.minAimAngle + this.player.vehicle.maxAimAngle) / 2;
-    this.player.power = CONST.PLAYER_START_POWER;
-    this.player.facing = CONST.PLAYER_START_FACING;
-    this.player.terrainAngle = CONST.PLAYER_START_TERRAIN_ANGLE;
-
-    if (this.player.body) {
-      this.Body.setPosition(this.player.body, { x: this.player.x, y: this.player.y });
-      this.Body.setVelocity(this.player.body, { x: 0, y: 0 });
     }
   }
 
