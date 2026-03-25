@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { BackgroundMetadataFile, BackgroundSpriteMetadata, TerrainMetadataFile, TerrainSpriteMetadata } from './monkeys.types';
+import {
+  BackgroundMetadataFile,
+  BackgroundSpriteMetadata,
+  TerrainMetadataFile,
+  TerrainSpriteMetadata,
+} from './monkeys.types';
 
 export interface SpriteDefinition {
   name: string;

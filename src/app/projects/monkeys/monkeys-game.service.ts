@@ -794,9 +794,7 @@ export class MonkeysGameService {
 
   areAllEntitiesSettled(): boolean {
     const entities = [this.player, ...this.enemies];
-    return entities.every(
-      (e) => e.body && Math.abs(e.body.velocity.y) <= 0.5
-    );
+    return entities.every((e) => e.body && Math.abs(e.body.velocity.y) <= 0.5);
   }
 
   private initTurnQueue() {
@@ -961,7 +959,7 @@ export class MonkeysGameService {
       case 'turn_start':
         // Check for win condition
         if (
-          this.enemies.every(e => !e.active) &&
+          this.enemies.every((e) => !e.active) &&
           this.currentState !== GameState.WIN_DELAY &&
           this.currentState !== GameState.WIN
         ) {
@@ -1244,7 +1242,8 @@ export class MonkeysGameService {
             }
           }
 
-          const scatter = CONST.DIFFICULTY_SCATTER[this.difficulty] ?? CONST.DIFFICULTY_SCATTER['normal'];
+          const scatter =
+            CONST.DIFFICULTY_SCATTER[this.difficulty] ?? CONST.DIFFICULTY_SCATTER['normal'];
           const angleScatter = (Math.random() * 2 - 1) * scatter.angleDeg;
           const powerScatter = (Math.random() * 2 - 1) * scatter.powerFrac;
 
@@ -1254,7 +1253,10 @@ export class MonkeysGameService {
               enemy.vehicle.minAimAngle,
               Math.min(enemy.vehicle.maxAimAngle, bestHit.angle + angleScatter),
             );
-            enemy.targetPower = Math.max(10, Math.min(maxPower, bestHit.power + powerScatter * maxPower));
+            enemy.targetPower = Math.max(
+              10,
+              Math.min(maxPower, bestHit.power + powerScatter * maxPower),
+            );
           } else {
             // Fallback to old logic
             let relativeAngleDeg: number;
@@ -1276,7 +1278,10 @@ export class MonkeysGameService {
             } else {
               enemy.targetPower = maxFallbackPower * (0.8 + Math.random() * 0.2);
             }
-            enemy.targetPower = Math.max(10, Math.min(maxFallbackPower, enemy.targetPower + powerScatter * maxFallbackPower));
+            enemy.targetPower = Math.max(
+              10,
+              Math.min(maxFallbackPower, enemy.targetPower + powerScatter * maxFallbackPower),
+            );
           }
 
           enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;

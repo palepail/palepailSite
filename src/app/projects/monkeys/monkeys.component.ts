@@ -598,7 +598,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Charge level (bottom to top)
     const chargeRatio = entity.power / maxPower;
-    this.ctx.fillStyle = chargeRatio < 0.3 ? this.CHARGE_BAR_LOW_COLOR : chargeRatio < 0.7 ? this.CHARGE_BAR_MID_COLOR : this.CHARGE_BAR_HIGH_COLOR;
+    this.ctx.fillStyle =
+      chargeRatio < 0.3
+        ? this.CHARGE_BAR_LOW_COLOR
+        : chargeRatio < 0.7
+          ? this.CHARGE_BAR_MID_COLOR
+          : this.CHARGE_BAR_HIGH_COLOR;
     this.ctx.fillRect(
       barX,
       barY + barHeight * (1 - chargeRatio),
@@ -867,7 +872,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawCursorBarrel(centerX, centerY, (enemy.angle * Math.PI) / 180);
 
     // Draw tank body sprite (or fallback shape) in front of barrel.
-    const drewEnemySprite = this.drawEntityBody(enemy, this.ENEMY_FALLBACK_COLOR, centerX, centerY, bodyRadius);
+    const drewEnemySprite = this.drawEntityBody(
+      enemy,
+      this.ENEMY_FALLBACK_COLOR,
+      centerX,
+      centerY,
+      bodyRadius,
+    );
 
     // Keep track overlay only when using fallback shape.
     if (!drewEnemySprite) {
@@ -994,7 +1005,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.globalAlpha = 1.0;
 
       // Draw grey aim guide 0° to 90°
-      this.ctx.globalAlpha = 0.30; // Darker grey
+      this.ctx.globalAlpha = 0.3; // Darker grey
       this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
@@ -1514,16 +1525,21 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const totalWidth = (chars.length - 1) * advance + size;
       let x = screenPos.x - totalWidth / 2;
       const charToSprite: Record<string, string> = {
-        '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
-        '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
+        '0': 'angle_0',
+        '1': 'angle_1',
+        '2': 'angle_2',
+        '3': 'angle_3',
+        '4': 'angle_4',
+        '5': 'angle_5',
+        '6': 'angle_6',
+        '7': 'angle_7',
+        '8': 'angle_8',
+        '9': 'angle_9',
       };
       for (const ch of chars) {
         const sprite = this.spriteService.getSprite(charToSprite[ch]);
         if (sprite) {
-          this.ctx.drawImage(
-            this.tintedGlyph(sprite, size, tint),
-            x, screenPos.y - size,
-          );
+          this.ctx.drawImage(this.tintedGlyph(sprite, size, tint), x, screenPos.y - size);
         }
         x += advance;
       }
@@ -1636,8 +1652,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
       event.preventDefault();
     }
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-        this.gameService.currentState === GameState.WIN_DELAY) {
+    if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.WIN_DELAY
+    ) {
       return;
     }
     if (event.key === 'p' || event.key === 'P') {
@@ -1672,8 +1690,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onKeyUp(event: KeyboardEvent) {
-    if (this.gameService.currentState === GameState.GAME_OVER_DELAY ||
-        this.gameService.currentState === GameState.WIN_DELAY) {
+    if (
+      this.gameService.currentState === GameState.GAME_OVER_DELAY ||
+      this.gameService.currentState === GameState.WIN_DELAY
+    ) {
       this.gameService.keys[event.key] = false;
       return;
     }
@@ -2046,9 +2066,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText('Difficulty', this.CANVAS_WIDTH / 2, 180);
 
     const diff = this.gameService.difficulty;
-    const easyActive   = diff === 'easy';
+    const easyActive = diff === 'easy';
     const normalActive = diff === 'normal';
-    const hardActive   = diff === 'hard';
+    const hardActive = diff === 'hard';
 
     this.drawButton(
       'Easy',
@@ -2615,7 +2635,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const cached = this.tintCache.get(key);
     if (cached) return cached;
     const c = document.createElement('canvas');
-    c.width = size; c.height = size;
+    c.width = size;
+    c.height = size;
     const ctx = c.getContext('2d')!;
     ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, 0, 0, size, size);
     // Multiply each pixel's RGB by the tint ratio: white → tint, black → black, transparent untouched.
@@ -2626,9 +2647,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const d = imageData.data;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] === 0) continue;
-      d[i]     = Math.round(d[i]     * tr / 255);
-      d[i + 1] = Math.round(d[i + 1] * tg / 255);
-      d[i + 2] = Math.round(d[i + 2] * tb / 255);
+      d[i] = Math.round((d[i] * tr) / 255);
+      d[i + 1] = Math.round((d[i + 1] * tg) / 255);
+      d[i + 2] = Math.round((d[i + 2] * tb) / 255);
     }
     ctx.putImageData(imageData, 0, 0);
     this.tintCache.set(key, c);
