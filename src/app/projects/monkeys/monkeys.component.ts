@@ -276,80 +276,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly CAMERA_Y_MAX = 200;
 
   // Menu button constants
-  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 390, width: 200, height: 50 };
-  private readonly MENU_LOADOUT_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 460,
-    width: 200,
-    height: 50,
-  };
-  private readonly MENU_OPTIONS_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 530,
-    width: 200,
-    height: 50,
-  };
-  private readonly MENU_TERRAIN_TOOL_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 600,
-    width: 200,
-    height: 50,
-  };
-  private readonly EQUIP_BACK_BUTTON = { x: 600, y: 650, width: 140, height: 44 };
-  private readonly OPTIONS_BACK_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 300,
-    width: 200,
-    height: 50,
-  };
-  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 200,
-    width: 160,
-    height: 44,
-  };
-  private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 255,
-    width: 160,
-    height: 44,
-  };
-  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = {
-    x: this.CANVAS_WIDTH / 2,
-    y: 310,
-    width: 160,
-    height: 44,
-  };
-  private readonly TERRAIN_TOOL_BACK_BUTTON = {
-    x: this.CANVAS_WIDTH - 170,
-    y: 48,
-    width: 220,
-    height: 44,
-  };
-  private readonly TERRAIN_TOOL_RESCAN_BUTTON = {
-    x: this.CANVAS_WIDTH - 170,
-    y: 102,
-    width: 220,
-    height: 44,
-  };
-  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = {
-    x: this.CANVAS_WIDTH - 170,
-    y: 156,
-    width: 220,
-    height: 44,
-  };
-  private readonly TERRAIN_TOOL_SWITCH_BUTTON = {
-    x: this.CANVAS_WIDTH - 170,
-    y: 210,
-    width: 220,
-    height: 44,
-  };
-  private readonly TERRAIN_TOOL_MODE_BUTTON = {
-    x: this.CANVAS_WIDTH - 170,
-    y: 264,
-    width: 220,
-    height: 44,
-  };
+  private readonly MENU_START_BUTTON        = this.mkBtn(this.CANVAS_WIDTH / 2, 390, 200, 50);
+  private readonly MENU_LOADOUT_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 460, 200, 50);
+  private readonly MENU_OPTIONS_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 530, 200, 50);
+  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 600, 200, 50);
+  private readonly EQUIP_BACK_BUTTON        = this.mkBtn(600, 650, 140, 44);
+  private readonly OPTIONS_BACK_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 385, 200, 50);
+  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON   = this.mkBtn(this.CANVAS_WIDTH / 2, 200, 160, 44);
+  private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 255, 160, 44);
+  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON   = this.mkBtn(this.CANVAS_WIDTH / 2, 310, 160, 44);
+  private readonly TERRAIN_TOOL_BACK_BUTTON     = this.mkBtn(this.CANVAS_WIDTH - 170,  48, 220, 44);
+  private readonly TERRAIN_TOOL_RESCAN_BUTTON   = this.mkBtn(this.CANVAS_WIDTH - 170, 102, 220, 44);
+  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 156, 220, 44);
+  private readonly TERRAIN_TOOL_SWITCH_BUTTON   = this.mkBtn(this.CANVAS_WIDTH - 170, 210, 220, 44);
+  private readonly TERRAIN_TOOL_MODE_BUTTON     = this.mkBtn(this.CANVAS_WIDTH - 170, 264, 220, 44);
 
   constructor(
     private gameService: MonkeysGameService,
@@ -2211,12 +2151,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Left arrow
       const hasLeft = items.length > 1;
+      const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
       this.drawButton(
         '<',
-        505,
-        rowY + 20,
-        28,
-        28,
+        leftBtn,
         hasLeft ? '#334' : '#222',
         hasLeft ? '#556' : '#222',
       );
@@ -2230,10 +2168,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       // Right arrow
       this.drawButton(
         '>',
-        696,
-        rowY + 20,
-        28,
-        28,
+        rightBtn,
         hasLeft ? '#334' : '#222',
         hasLeft ? '#556' : '#222',
       );
@@ -2305,15 +2240,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // ── Back button ──────────────────────────────────────────────────────
-    this.drawButton(
-      'Back',
-      this.EQUIP_BACK_BUTTON.x,
-      this.EQUIP_BACK_BUTTON.y,
-      this.EQUIP_BACK_BUTTON.width,
-      this.EQUIP_BACK_BUTTON.height,
-      '#445',
-      '#667',
-    );
+    this.drawButton('Back', this.EQUIP_BACK_BUTTON, '#445', '#667');
   }
 
   private handleEquipmentMenuClick(x: number, y: number) {
@@ -2346,7 +2273,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const items = this.gameService.getItemsForSlot(slot);
       if (items.length < 2) continue;
 
-      if (this.isPointInsideButton(x, y, { x: 505, y: rowY + 20, width: 28, height: 28 })) {
+      const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
+      if (this.isPointInsideButton(x, y, leftBtn)) {
         this.loadoutSlotIndices[slot] =
           (this.loadoutSlotIndices[slot] - 1 + items.length) % items.length;
         const selected = items[this.loadoutSlotIndices[slot]];
@@ -2356,7 +2284,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      if (this.isPointInsideButton(x, y, { x: 696, y: rowY + 20, width: 28, height: 28 })) {
+      if (this.isPointInsideButton(x, y, rightBtn)) {
         this.loadoutSlotIndices[slot] = (this.loadoutSlotIndices[slot] + 1) % items.length;
         const selected = items[this.loadoutSlotIndices[slot]];
         this.gameService.equipped[slot] = selected?.id?.startsWith('none_')
@@ -2404,43 +2332,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw buttons
-    this.drawButton(
-      'Start Game',
-      this.MENU_START_BUTTON.x,
-      this.MENU_START_BUTTON.y,
-      this.MENU_START_BUTTON.width,
-      this.MENU_START_BUTTON.height,
-      '#4CAF50',
-      '#45a049',
-    );
-    this.drawButton(
-      'Loadout',
-      this.MENU_LOADOUT_BUTTON.x,
-      this.MENU_LOADOUT_BUTTON.y,
-      this.MENU_LOADOUT_BUTTON.width,
-      this.MENU_LOADOUT_BUTTON.height,
-      '#E67C22',
-      '#D35400',
-    );
-    this.drawButton(
-      'Options',
-      this.MENU_OPTIONS_BUTTON.x,
-      this.MENU_OPTIONS_BUTTON.y,
-      this.MENU_OPTIONS_BUTTON.width,
-      this.MENU_OPTIONS_BUTTON.height,
-      '#2196F3',
-      '#1976D2',
-    );
+    this.drawButton('Start Game',   this.MENU_START_BUTTON,        '#4CAF50', '#45a049');
+    this.drawButton('Loadout',       this.MENU_LOADOUT_BUTTON,      '#E67C22', '#D35400');
+    this.drawButton('Options',       this.MENU_OPTIONS_BUTTON,      '#2196F3', '#1976D2');
     if (this.TERRAIN_TOOL_ENABLED) {
-      this.drawButton(
-        'Terrain Tool',
-        this.MENU_TERRAIN_TOOL_BUTTON.x,
-        this.MENU_TERRAIN_TOOL_BUTTON.y,
-        this.MENU_TERRAIN_TOOL_BUTTON.width,
-        this.MENU_TERRAIN_TOOL_BUTTON.height,
-        '#9C6ADE',
-        '#7C4DCC',
-      );
+      this.drawButton('Terrain Tool', this.MENU_TERRAIN_TOOL_BUTTON, '#9C6ADE', '#7C4DCC');
     }
   }
 
@@ -2464,44 +2360,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const normalActive = diff === 'normal';
     const hardActive = diff === 'hard';
 
-    this.drawButton(
-      'Easy',
-      this.OPTIONS_DIFFICULTY_EASY_BUTTON.x,
-      this.OPTIONS_DIFFICULTY_EASY_BUTTON.y,
-      this.OPTIONS_DIFFICULTY_EASY_BUTTON.width,
-      this.OPTIONS_DIFFICULTY_EASY_BUTTON.height,
-      easyActive ? '#66BB6A' : '#388E3C',
-      easyActive ? '#81C784' : '#2E7D32',
-    );
-    this.drawButton(
-      'Normal',
-      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.x,
-      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.y,
-      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.width,
-      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON.height,
-      normalActive ? '#29B6F6' : '#0288D1',
-      normalActive ? '#4FC3F7' : '#01579B',
-    );
-    this.drawButton(
-      'Hard',
-      this.OPTIONS_DIFFICULTY_HARD_BUTTON.x,
-      this.OPTIONS_DIFFICULTY_HARD_BUTTON.y,
-      this.OPTIONS_DIFFICULTY_HARD_BUTTON.width,
-      this.OPTIONS_DIFFICULTY_HARD_BUTTON.height,
-      hardActive ? '#EF5350' : '#C62828',
-      hardActive ? '#E57373' : '#B71C1C',
-    );
+    this.drawButton('Easy',   this.OPTIONS_DIFFICULTY_EASY_BUTTON,   easyActive   ? '#66BB6A' : '#388E3C', easyActive   ? '#81C784' : '#2E7D32');
+    this.drawButton('Normal', this.OPTIONS_DIFFICULTY_NORMAL_BUTTON, normalActive ? '#29B6F6' : '#0288D1', normalActive ? '#4FC3F7' : '#01579B');
+    this.drawButton('Hard',   this.OPTIONS_DIFFICULTY_HARD_BUTTON,   hardActive   ? '#EF5350' : '#C62828', hardActive   ? '#E57373' : '#B71C1C');
 
     // Back button
-    this.drawButton(
-      'Back to Menu',
-      this.OPTIONS_BACK_BUTTON.x,
-      this.OPTIONS_BACK_BUTTON.y + 85,
-      this.OPTIONS_BACK_BUTTON.width,
-      this.OPTIONS_BACK_BUTTON.height,
-      '#FF9800',
-      '#F57C00',
-    );
+    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON, '#FF9800', '#F57C00');
   }
 
   private drawTerrainTool() {
@@ -2526,51 +2390,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#101A25';
     this.ctx.fillRect(860, 96, 320, 600);
 
-    this.drawButton(
-      'Back to Menu',
-      this.TERRAIN_TOOL_BACK_BUTTON.x,
-      this.TERRAIN_TOOL_BACK_BUTTON.y,
-      this.TERRAIN_TOOL_BACK_BUTTON.width,
-      this.TERRAIN_TOOL_BACK_BUTTON.height,
-      '#FF9800',
-      '#F57C00',
-    );
-    this.drawButton(
-      'Rescan Sheet',
-      this.TERRAIN_TOOL_RESCAN_BUTTON.x,
-      this.TERRAIN_TOOL_RESCAN_BUTTON.y,
-      this.TERRAIN_TOOL_RESCAN_BUTTON.width,
-      this.TERRAIN_TOOL_RESCAN_BUTTON.height,
-      '#1565C0',
-      '#0D47A1',
-    );
-    this.drawButton(
-      'Copy All Regions',
-      this.TERRAIN_TOOL_COPY_ALL_BUTTON.x,
-      this.TERRAIN_TOOL_COPY_ALL_BUTTON.y,
-      this.TERRAIN_TOOL_COPY_ALL_BUTTON.width,
-      this.TERRAIN_TOOL_COPY_ALL_BUTTON.height,
-      '#2E7D32',
-      '#1B5E20',
-    );
+    this.drawButton('Back to Menu',    this.TERRAIN_TOOL_BACK_BUTTON,     '#FF9800', '#F57C00');
+    this.drawButton('Rescan Sheet',     this.TERRAIN_TOOL_RESCAN_BUTTON,   '#1565C0', '#0D47A1');
+    this.drawButton('Copy All Regions', this.TERRAIN_TOOL_COPY_ALL_BUTTON, '#2E7D32', '#1B5E20');
     const switchLabel =
       this.terrainToolActiveSheet === 'terrain' ? 'Switch to Background' : 'Switch to Terrain';
-    this.drawButton(
-      switchLabel,
-      this.TERRAIN_TOOL_SWITCH_BUTTON.x,
-      this.TERRAIN_TOOL_SWITCH_BUTTON.y,
-      this.TERRAIN_TOOL_SWITCH_BUTTON.width,
-      this.TERRAIN_TOOL_SWITCH_BUTTON.height,
-      '#5C5490',
-      '#3D3563',
-    );
+    this.drawButton(switchLabel, this.TERRAIN_TOOL_SWITCH_BUTTON, '#5C5490', '#3D3563');
     const modeLabel = this.terrainToolSimpleMode ? 'Mode: Rectangles' : 'Mode: Detailed';
     this.drawButton(
       modeLabel,
-      this.TERRAIN_TOOL_MODE_BUTTON.x,
-      this.TERRAIN_TOOL_MODE_BUTTON.y,
-      this.TERRAIN_TOOL_MODE_BUTTON.width,
-      this.TERRAIN_TOOL_MODE_BUTTON.height,
+      this.TERRAIN_TOOL_MODE_BUTTON,
       this.terrainToolSimpleMode ? '#37474F' : '#00695C',
       this.terrainToolSimpleMode ? '#263238' : '#004D40',
     );
@@ -2964,12 +2793,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     y: number,
     button: { x: number; y: number; width: number; height: number },
   ): boolean {
-    return (
-      x >= button.x - button.width / 2 &&
-      x <= button.x + button.width / 2 &&
-      y >= button.y - button.height / 2 &&
-      y <= button.y + button.height / 2
-    );
+    const left   = button.x - button.width  / 2;
+    const right  = button.x + button.width  / 2;
+    const top    = button.y - button.height / 2;
+    const bottom = button.y + button.height / 2;
+    const hit = x >= left && x <= right && y >= top && y <= bottom;
+    return hit;
   }
 
   // ── Menu title animation (MONKEYS) ──────────────────────────────────────────
@@ -3268,15 +3097,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  /** Creates a button rect centred at (cx, cy). Use with drawButton and isPointInsideButton. */
+  private mkBtn(cx: number, cy: number, w: number, h: number) {
+    return { x: cx, y: cy, width: w, height: h };
+  }
+
+  /** Returns the left/right arrow button rects for equipment slot index si. */
+  private equipSlotArrowBtns(si: number) {
+    const rowY = 160 + si * 72;
+    return {
+      left:  this.mkBtn(505, rowY + 20, 44, 36),
+      right: this.mkBtn(696, rowY + 20, 44, 36),
+    };
+  }
+
   private drawButton(
     text: string,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
+    btn: { x: number; y: number; width: number; height: number },
     color: string,
     hoverColor: string,
   ) {
+    const { x, y, width, height } = btn;
     // Button background
     this.ctx.fillStyle = color;
     this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
@@ -3295,8 +3136,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private onCanvasClick(event: MouseEvent) {
     const rect = this.canvas.nativeElement.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / this.canvasScale;
-    const y = (event.clientY - rect.top) / this.canvasScale;
+    const cs = getComputedStyle(this.canvas.nativeElement);
+    const borderLeft   = parseFloat(cs.borderLeftWidth)   || 0;
+    const borderTop    = parseFloat(cs.borderTopWidth)    || 0;
+    const borderRight  = parseFloat(cs.borderRightWidth)  || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+    const contentWidth  = rect.width  - borderLeft - borderRight;
+    const contentHeight = rect.height - borderTop  - borderBottom;
+    const x = (event.clientX - rect.left - borderLeft) * (this.CANVAS_WIDTH  / contentWidth);
+    const y = (event.clientY - rect.top  - borderTop)  * (this.CANVAS_HEIGHT / contentHeight);
 
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);
@@ -3350,9 +3198,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.difficulty = 'hard';
       return;
     }
-    // Back button is drawn at OPTIONS_BACK_BUTTON.y + 85
-    const backBtn = { ...this.OPTIONS_BACK_BUTTON, y: this.OPTIONS_BACK_BUTTON.y + 85 };
-    if (this.isPointInsideButton(x, y, backBtn)) {
+    if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
       this.gameService.currentState = GameState.MENU;
     }
   }
