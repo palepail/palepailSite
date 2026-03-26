@@ -13,6 +13,9 @@ import {
   Projectile,
   TerrainChunkPlacement,
   TerrainSpriteMetadata,
+  Vehicle,
+  EquipmentItem,
+  EquipmentSlot,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
@@ -88,8 +91,21 @@ export class MonkeysGameService {
   private gameOverTimer: number = 0;
   private winTimer: number = 0;
 
+  // Loadout / equipment
+  playerName = 'Player';
+  equipped: Record<EquipmentSlot, EquipmentItem | null> = {
+    headgear: null,
+    torso: null,
+    legs: null,
+    footwear: null,
+    accessory: null,
+  };
+  equipmentItems: EquipmentItem[] = [];
+  private equipmentLoadPromise: Promise<void> | null = null;
+
   constructor(private spriteService: MonkeysSpriteService) {
     this.player = this.createInitialPlayer();
+    void this.loadEquipmentData();
   }
 
   simulateTrajectory(
@@ -722,8 +738,93 @@ export class MonkeysGameService {
     this.Runner.run(this.runner, this.engine);
   }
 
+  async loadEquipmentData(): Promise<void> {
+    if (this.equipmentLoadPromise) return this.equipmentLoadPromise;
+    this.equipmentLoadPromise = (async () => {
+      try {
+        const response = await fetch('assets/monkeys/equipment.json');
+        if (!response.ok) return;
+        const data = (await response.json()) as { items: EquipmentItem[] };
+        this.equipmentItems = data.items;
+        this.loadLoadout();
+      } catch {
+        /* ignore load failure */
+      }
+    })();
+    return this.equipmentLoadPromise;
+  }
+
+  getItemsForSlot(slot: EquipmentSlot): EquipmentItem[] {
+    return this.equipmentItems.filter((i) => i.slot === slot);
+  }
+
+  saveLoadout(): void {
+    const savedEquipped: Record<string, string | null> = {};
+    for (const slot of ['headgear', 'torso', 'legs', 'footwear', 'accessory'] as EquipmentSlot[]) {
+      savedEquipped[slot] = this.equipped[slot]?.id ?? null;
+    }
+    localStorage.setItem(
+      'monkeys_loadout',
+      JSON.stringify({ playerName: this.playerName, equipped: savedEquipped }),
+    );
+  }
+
+  private loadLoadout(): void {
+    const raw = localStorage.getItem('monkeys_loadout');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw) as {
+        playerName?: string;
+        equipped?: Record<string, string | null>;
+      };
+      if (typeof data.playerName === 'string' && data.playerName.trim()) {
+        this.playerName = data.playerName.trim().slice(0, 12);
+      }
+      if (data.equipped) {
+        for (const [slot, id] of Object.entries(data.equipped)) {
+          if (!id) continue;
+          const item = this.equipmentItems.find((i) => i.id === id) ?? null;
+          if (item) (this.equipped as Record<string, EquipmentItem | null>)[slot] = item;
+        }
+      }
+    } catch {
+      /* corrupted data, ignore */
+    }
+  }
+
+  private applyEquipmentToVehicle(vehicle: Vehicle): void {
+    for (const item of Object.values(this.equipped)) {
+      if (!item?.stats) continue;
+      if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
+      if (item.stats.defense) vehicle.health += item.stats.defense;
+      if (item.stats.blastRadius) {
+        vehicle.bullet.explosionRadius = Math.max(
+          5,
+          vehicle.bullet.explosionRadius + item.stats.blastRadius,
+        );
+        vehicle.bullet.craterRadius = Math.max(
+          5,
+          vehicle.bullet.craterRadius + Math.round(item.stats.blastRadius * 0.8),
+        );
+      }
+      if (item.stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + item.stats.fuel);
+      if (item.stats.climbAngle)
+        vehicle.climbAngle = Math.max(10, vehicle.climbAngle + item.stats.climbAngle);
+      if (item.stats.minAimAngle)
+        vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + item.stats.minAimAngle);
+      if (item.stats.maxAimAngle)
+        vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
+    }
+    vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
+  }
+
   private initPlayer() {
-    this.player.vehicle = CONST.PLAYER_VEHICLE;
+    const vehicle: Vehicle = {
+      ...CONST.PLAYER_VEHICLE,
+      bullet: { ...CONST.PLAYER_VEHICLE.bullet },
+    };
+    this.applyEquipmentToVehicle(vehicle);
+    this.player.vehicle = vehicle;
     this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
     this.player.y =
       CONST.CANVAS_HEIGHT -

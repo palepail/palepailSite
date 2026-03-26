@@ -23,6 +23,9 @@ import {
   TerrainSpriteRegion,
   TerrainChunkPlacement,
   BackgroundSpriteMetadata,
+  EquipmentSlot,
+  EquipmentItem,
+  EquipmentStats,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
@@ -244,24 +247,55 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private terrainToolActiveSheet: 'terrain' | 'background' = 'terrain';
   private terrainToolSimpleMode = false;
 
+  // Equipment / Loadout screen state
+  private readonly EQUIPMENT_SLOTS: EquipmentSlot[] = [
+    'headgear',
+    'torso',
+    'legs',
+    'footwear',
+    'accessory',
+  ];
+  private readonly SLOT_LABELS: Record<EquipmentSlot, string> = {
+    headgear: 'Headgear',
+    torso: 'Torso',
+    legs: 'Legs',
+    footwear: 'Footwear',
+    accessory: 'Accessory',
+  };
+  private loadoutSlotIndices: Record<EquipmentSlot, number> = {
+    headgear: 0,
+    torso: 0,
+    legs: 0,
+    footwear: 0,
+    accessory: 0,
+  };
+  private isNameEditing = false;
+
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
   private readonly CAMERA_Y_MAX = 200;
 
   // Menu button constants
-  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 420, width: 200, height: 50 };
+  private readonly MENU_START_BUTTON = { x: this.CANVAS_WIDTH / 2, y: 390, width: 200, height: 50 };
+  private readonly MENU_LOADOUT_BUTTON = {
+    x: this.CANVAS_WIDTH / 2,
+    y: 460,
+    width: 200,
+    height: 50,
+  };
   private readonly MENU_OPTIONS_BUTTON = {
     x: this.CANVAS_WIDTH / 2,
-    y: 500,
+    y: 530,
     width: 200,
     height: 50,
   };
   private readonly MENU_TERRAIN_TOOL_BUTTON = {
     x: this.CANVAS_WIDTH / 2,
-    y: 580,
+    y: 600,
     width: 200,
     height: 50,
   };
+  private readonly EQUIP_BACK_BUTTON = { x: 600, y: 650, width: 140, height: 44 };
   private readonly OPTIONS_BACK_BUTTON = {
     x: this.CANVAS_WIDTH / 2,
     y: 300,
@@ -421,6 +455,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.gameService.currentState === GameState.MENU) {
       this.drawMenu();
+      return;
+    }
+    if (this.gameService.currentState === GameState.EQUIPMENT_MENU) {
+      this.drawEquipmentMenu();
       return;
     }
     if (this.gameService.currentState === GameState.OPTIONS) {
@@ -1686,6 +1724,23 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       event.preventDefault();
     }
+
+    // Name editing in equipment menu
+    if (this.isNameEditing && this.gameService.currentState === GameState.EQUIPMENT_MENU) {
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        this.isNameEditing = false;
+      } else if (event.key === 'Backspace') {
+        this.gameService.playerName = this.gameService.playerName.slice(0, -1);
+      } else if (event.key.length === 1 && this.gameService.playerName.length < 12) {
+        const ch = event.key;
+        if (/^[a-zA-Z0-9 _-]$/.test(ch)) {
+          this.gameService.playerName += ch;
+        }
+      }
+      event.preventDefault();
+      return;
+    }
+
     this.gameService.keys[event.key] = true;
   }
 
@@ -1984,6 +2039,320 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  // ─── Equipment / Loadout screen ──────────────────────────────────────────
+
+  /** Initialise loadoutSlotIndices from currently equipped items when entering the screen. */
+  private initLoadoutScreen() {
+    for (const slot of this.EQUIPMENT_SLOTS) {
+      const items = this.gameService.getItemsForSlot(slot);
+      const equippedId = this.gameService.equipped[slot]?.id ?? null;
+      const idx = items.findIndex((i) => i.id === equippedId);
+      this.loadoutSlotIndices[slot] = idx >= 0 ? idx : 0;
+    }
+    this.isNameEditing = false;
+  }
+
+  /** Map from slot to the item currently selected in the loadout UI (not necessarily saved). */
+  private getLoadoutItem(slot: EquipmentSlot): EquipmentItem | null {
+    const items = this.gameService.getItemsForSlot(slot);
+    if (items.length === 0) return null;
+    const idx = this.loadoutSlotIndices[slot];
+    return items[idx] ?? null;
+  }
+
+  /** Sum a numeric stat across all currently selected equipment items. */
+  private getTotalEquipBonus(stat: keyof EquipmentStats): number {
+    let total = 0;
+    for (const slot of this.EQUIPMENT_SLOTS) {
+      const item = this.getLoadoutItem(slot);
+      const val = item?.stats?.[stat];
+      if (typeof val === 'number') total += val;
+    }
+    return total;
+  }
+
+  private drawEquipmentMenu() {
+    // Background
+    this.ctx.fillStyle = this.SKY_COLOR;
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.drawParallaxBackground(0);
+
+    // Dark overlay
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+
+    // Page title (sprite text, auto-centred on canvas)
+    this.drawSpriteTextCentered('Loadout', 18, 34);
+
+    // Panels
+    const panelY = 68;
+    const panelH = 634;
+    this.ctx.fillStyle = 'rgba(12, 12, 30, 0.92)';
+    this.ctx.strokeStyle = 'rgba(80, 100, 150, 0.85)';
+    this.ctx.lineWidth = 1;
+    for (const [px, pw] of [
+      [18, 366],
+      [400, 400],
+      [816, 366],
+    ] as [number, number][]) {
+      this.ctx.fillRect(px, panelY, pw, panelH);
+      this.ctx.strokeRect(px, panelY, pw, panelH);
+    }
+
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'middle';
+
+    // ── Left panel: vehicle preview + name ──────────────────────────────
+    const lCx = 18 + 183; // centre-x of left panel
+
+    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Vehicle', lCx, 102);
+
+    // Monkey idle sprite as player avatar
+    const idleSprite = this.spriteService.getSprite('monkey_idle');
+    if (idleSprite) {
+      this.ctx.drawImage(
+        idleSprite.image,
+        idleSprite.x,
+        idleSprite.y,
+        idleSprite.width,
+        idleSprite.height,
+        lCx - 40,
+        116,
+        80,
+        80,
+      );
+    }
+
+    // Vehicle name
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = '16px Arial';
+    this.ctx.fillText('(Tank)', lCx, 212);
+
+    // Name section header
+    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.fillText('Name', lCx, 244);
+
+    // Name input box
+    const nameBoxX = 28;
+    const nameBoxY = 258;
+    const nameBoxW = 352;
+    const nameBoxH = 34;
+    this.ctx.strokeStyle = this.isNameEditing ? '#7BBAFF' : 'rgba(80,100,150,0.7)';
+    this.ctx.lineWidth = this.isNameEditing ? 2 : 1;
+    this.ctx.fillStyle = 'rgba(30, 30, 60, 0.9)';
+    this.ctx.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+    this.ctx.strokeRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+
+    const displayName = this.gameService.playerName;
+    const cursorVisible = this.isNameEditing && performance.now() % 1000 < 530;
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(
+      displayName + (cursorVisible ? '|' : ''),
+      nameBoxX + 10,
+      nameBoxY + nameBoxH / 2,
+    );
+
+    // Click-to-edit hint
+    if (!this.isNameEditing) {
+      this.ctx.fillStyle = 'rgba(150,170,200,0.6)';
+      this.ctx.font = '13px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Click to edit name', lCx, 308);
+    }
+
+    // ── Middle panel: equipment slots ────────────────────────────────────
+    const mLeft = 400;
+    const mRight = 800;
+    const mCx = (mLeft + mRight) / 2;
+
+    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Equipped', mCx, 102);
+
+    const slotStartY = 160;
+    const slotStepY = 72;
+
+    for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
+      const slot = this.EQUIPMENT_SLOTS[si];
+      const rowY = slotStartY + si * slotStepY;
+      const items = this.gameService.getItemsForSlot(slot);
+      const selItem = this.getLoadoutItem(slot);
+      const isNone =
+        !selItem || selItem.stats === undefined || Object.keys(selItem.stats).length === 0;
+
+      // Slot label
+      this.ctx.fillStyle = '#AABBDD';
+      this.ctx.font = '14px Arial';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText(this.SLOT_LABELS[slot], mLeft + 14, rowY);
+
+      // Left arrow
+      const hasLeft = items.length > 1;
+      this.drawButton(
+        '<',
+        505,
+        rowY + 20,
+        28,
+        28,
+        hasLeft ? '#334' : '#222',
+        hasLeft ? '#556' : '#222',
+      );
+
+      // Item name (center)
+      this.ctx.fillStyle = isNone ? '#778899' : '#FFFFFF';
+      this.ctx.font = selItem ? 'bold 16px Arial' : '16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(selItem?.name ?? 'None', mCx, rowY + 20);
+
+      // Right arrow
+      this.drawButton(
+        '>',
+        696,
+        rowY + 20,
+        28,
+        28,
+        hasLeft ? '#334' : '#222',
+        hasLeft ? '#556' : '#222',
+      );
+
+      // Item description (small, below name)
+      if (selItem?.description && !isNone) {
+        this.ctx.fillStyle = 'rgba(180,190,210,0.7)';
+        this.ctx.font = '12px Arial';
+        this.ctx.fillText(selItem.description, mCx, rowY + 38);
+      }
+    }
+
+    // ── Right panel: stats ───────────────────────────────────────────────
+    const rLeft = 816;
+    const rRight = 1182;
+    const rCx = (rLeft + rRight) / 2;
+    const base = CONST.PLAYER_VEHICLE;
+
+    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Stats', rCx, 102);
+
+    const statDefs: { label: string; base: number; bonus: number }[] = [
+      { label: 'Health', base: base.health, bonus: this.getTotalEquipBonus('defense') },
+      { label: 'Attack', base: base.bullet.damage, bonus: this.getTotalEquipBonus('attack') },
+      {
+        label: 'Blast Rad',
+        base: base.bullet.explosionRadius,
+        bonus: this.getTotalEquipBonus('blastRadius'),
+      },
+      { label: 'Fuel', base: base.fuel, bonus: this.getTotalEquipBonus('fuel') },
+      { label: 'Climb Ang', base: base.climbAngle, bonus: this.getTotalEquipBonus('climbAngle') },
+      { label: 'Min Aim', base: base.minAimAngle, bonus: this.getTotalEquipBonus('minAimAngle') },
+      { label: 'Max Aim', base: base.maxAimAngle, bonus: this.getTotalEquipBonus('maxAimAngle') },
+      { label: 'Speed', base: base.speed, bonus: 0 },
+      { label: 'Power', base: base.power, bonus: 0 },
+    ];
+
+    const statStartY = 138;
+    const statStepY = 50;
+    const statLabelX = rLeft + 16;
+    const statValueX = rRight - 16;
+
+    for (let ri = 0; ri < statDefs.length; ri++) {
+      const { label, base: bv, bonus } = statDefs[ri];
+      const rowY = statStartY + ri * statStepY;
+
+      this.ctx.fillStyle = '#CCDDFF';
+      this.ctx.font = '15px Arial';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText(label, statLabelX, rowY);
+
+      const baseStr = String(bv);
+      const bonusStr = bonus !== 0 ? (bonus > 0 ? `+${bonus}` : String(bonus)) : '';
+
+      this.ctx.textAlign = 'right';
+      if (bonus !== 0) {
+        // Draw bonus in green/red right-aligned, then base value to its left
+        this.ctx.fillStyle = bonus > 0 ? '#55EE77' : '#FF6655';
+        this.ctx.fillText(bonusStr, statValueX, rowY);
+        const bonusWidth = this.ctx.measureText(bonusStr).width + 6;
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillText(baseStr, statValueX - bonusWidth, rowY);
+      } else {
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillText(baseStr, statValueX, rowY);
+      }
+    }
+
+    // ── Back button ──────────────────────────────────────────────────────
+    this.drawButton(
+      'Back',
+      this.EQUIP_BACK_BUTTON.x,
+      this.EQUIP_BACK_BUTTON.y,
+      this.EQUIP_BACK_BUTTON.width,
+      this.EQUIP_BACK_BUTTON.height,
+      '#445',
+      '#667',
+    );
+  }
+
+  private handleEquipmentMenuClick(x: number, y: number) {
+    // Back button
+    if (this.isPointInsideButton(x, y, this.EQUIP_BACK_BUTTON)) {
+      this.gameService.saveLoadout();
+      this.gameService.currentState = GameState.MENU;
+      this.isNameEditing = false;
+      return;
+    }
+
+    // Name box click → start editing
+    const nameBoxX = 28;
+    const nameBoxY = 258;
+    const nameBoxW = 352;
+    const nameBoxH = 34;
+    if (x >= nameBoxX && x <= nameBoxX + nameBoxW && y >= nameBoxY && y <= nameBoxY + nameBoxH) {
+      this.isNameEditing = true;
+      return;
+    }
+    // Click outside name box → stop editing
+    this.isNameEditing = false;
+
+    // Slot arrow clicks
+    const slotStartY = 160;
+    const slotStepY = 72;
+    for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
+      const slot = this.EQUIPMENT_SLOTS[si];
+      const rowY = slotStartY + si * slotStepY;
+      const items = this.gameService.getItemsForSlot(slot);
+      if (items.length < 2) continue;
+
+      if (this.isPointInsideButton(x, y, { x: 505, y: rowY + 20, width: 28, height: 28 })) {
+        this.loadoutSlotIndices[slot] =
+          (this.loadoutSlotIndices[slot] - 1 + items.length) % items.length;
+        const selected = items[this.loadoutSlotIndices[slot]];
+        this.gameService.equipped[slot] = selected?.id?.startsWith('none_')
+          ? null
+          : (selected ?? null);
+        return;
+      }
+
+      if (this.isPointInsideButton(x, y, { x: 696, y: rowY + 20, width: 28, height: 28 })) {
+        this.loadoutSlotIndices[slot] = (this.loadoutSlotIndices[slot] + 1) % items.length;
+        const selected = items[this.loadoutSlotIndices[slot]];
+        this.gameService.equipped[slot] = selected?.id?.startsWith('none_')
+          ? null
+          : (selected ?? null);
+        return;
+      }
+    }
+  }
+
+  // ─── Menu ─────────────────────────────────────────────────────────────
+
   private drawMenu() {
     // Background
     this.ctx.fillStyle = this.SKY_COLOR;
@@ -2027,6 +2396,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.MENU_START_BUTTON.height,
       '#4CAF50',
       '#45a049',
+    );
+    this.drawButton(
+      'Loadout',
+      this.MENU_LOADOUT_BUTTON.x,
+      this.MENU_LOADOUT_BUTTON.y,
+      this.MENU_LOADOUT_BUTTON.width,
+      this.MENU_LOADOUT_BUTTON.height,
+      '#E67C22',
+      '#D35400',
     );
     this.drawButton(
       'Options',
@@ -2906,6 +3284,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);
+    } else if (this.gameService.currentState === GameState.EQUIPMENT_MENU) {
+      this.handleEquipmentMenuClick(x, y);
     } else if (this.gameService.currentState === GameState.OPTIONS) {
       this.handleOptionsClick(x, y);
     } else if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
@@ -2917,6 +3297,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Check Start Game button
     if (this.isPointInsideButton(x, y, this.MENU_START_BUTTON)) {
       void this.startGame();
+      return;
+    }
+
+    // Check Loadout button
+    if (this.isPointInsideButton(x, y, this.MENU_LOADOUT_BUTTON)) {
+      this.initLoadoutScreen();
+      this.gameService.currentState = GameState.EQUIPMENT_MENU;
       return;
     }
 

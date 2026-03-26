@@ -68,6 +68,7 @@ export enum GameState {
   PAUSED = 'paused',
   AIMING = 'aiming',
   BULLET_IN_FLIGHT = 'bullet_in_flight',
+  EQUIPMENT_MENU = 'equipment_menu',
   GAME_OVER_DELAY = 'game_over_delay',
   GAME_OVER = 'game_over',
   WIN_DELAY = 'win_delay',
@@ -214,4 +215,27 @@ export interface Vehicle {
   bullet: Bullet;
   shotDelay: number;
   spritesheet: string;
+}
+
+export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
+
+export interface EquipmentStats {
+  attack?: number; // bonus to bullet.damage
+  defense?: number; // bonus to vehicle.health
+  blastRadius?: number; // bonus to bullet.explosionRadius (craterRadius scales 0.8×)
+  fuel?: number; // bonus to vehicle.fuel
+  climbAngle?: number; // bonus to vehicle.climbAngle (degrees)
+  minAimAngle?: number; // modifier to vehicle.minAimAngle (negative = wider range)
+  maxAimAngle?: number; // modifier to vehicle.maxAimAngle (positive = wider range)
+  // Accessory abilities — stored but not yet implemented
+  aimGuide?: 'extended' | 'full';
+}
+
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  slot: EquipmentSlot;
+  stats: EquipmentStats;
+  setId?: string;
+  description?: string;
 }
