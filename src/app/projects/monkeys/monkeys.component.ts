@@ -1631,7 +1631,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (
       this.gameService.currentState !== GameState.MENU &&
       this.gameService.currentState !== GameState.OPTIONS &&
-      this.gameService.currentState !== GameState.TERRAIN_TOOL
+      this.gameService.currentState !== GameState.TERRAIN_TOOL &&
+      this.gameService.currentState !== GameState.EQUIPMENT_MENU
     ) {
       this.gameService.update();
     }
