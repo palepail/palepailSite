@@ -867,8 +867,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       );
     }
 
-    // Draw UI elements (health and movement bars)
-    this.drawEntityUI(this.gameService.player, centerX, centerY, bodyRadius, true);
+    // Draw UI elements (health bar, name label)
+    this.drawEntityUI(this.gameService.player, centerX, centerY, bodyRadius, true, this.gameService.playerName);
   }
 
   private drawEnemies() {
@@ -922,8 +922,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Restore context
     this.ctx.restore();
 
-    // Draw UI elements (health bar)
-    this.drawEntityUI(enemy, centerX, centerY, bodyRadius, false);
+    // Draw UI elements (health bar, name label)
+    const enemyIndex = this.gameService.enemies.indexOf(enemy);
+    this.drawEntityUI(enemy, centerX, centerY, bodyRadius, false, `Enemy ${enemyIndex + 1}`);
 
     // Draw prediction path if enabled
     if (this.showPrediction && enemy.turnState === 'charging') {
@@ -1378,6 +1379,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     centerY: number,
     bodyRadius: number,
     isPlayer: boolean = false,
+    label?: string,
   ) {
     if (!entity || !entity.vehicle || typeof entity.health !== 'number') {
       return;
@@ -1385,6 +1387,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (entity.health <= 0) {
       return;
+    }
+
+    // Draw name label: show for everyone when not the player's turn, or when the player is idle
+    if (label && (!this.gameService.isPlayerTurn() || this.gameService.player.turnState === 'idle')) {
+      const labelY = centerY - bodyRadius - 25;
+      this.ctx.font = 'bold 13px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'bottom';
+      // Dark outline for legibility
+      this.ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+      this.ctx.lineWidth = 3;
+      this.ctx.lineJoin = 'round';
+      this.ctx.strokeText(label, centerX, labelY);
+      this.ctx.fillStyle = isPlayer ? '#88DDFF' : '#FFAAAA';
+      this.ctx.fillText(label, centerX, labelY);
+      this.ctx.textBaseline = 'middle';
     }
 
     // Draw health bar under the tank
