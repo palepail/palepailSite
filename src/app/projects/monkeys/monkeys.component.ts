@@ -379,6 +379,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit() {
     this.initCanvas();
     this.canvas.nativeElement.addEventListener('click', (event) => this.onCanvasClick(event));
+    window.addEventListener('keydown', (event) => this.onKeyDown(event));
+    window.addEventListener('keyup', (event) => this.onKeyUp(event));
     this.renderLoop();
   }
 
@@ -412,12 +414,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
     this.wasChargingByEntity = new WeakMap<object, boolean>();
     this.shootReleaseStartByEntity = new WeakMap<object, number>();
-
-    // Add key listeners
-    window.addEventListener('keydown', (event) => {
-      this.onKeyDown(event);
-    });
-    window.addEventListener('keyup', (event) => this.onKeyUp(event));
 
     // Add mouse listeners for camera control
     this.canvas.nativeElement.addEventListener('mousedown', (event) => this.onMouseDown(event));
@@ -1664,7 +1660,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.ctx.fillStyle = this.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
       }
 
-      const name = turnEntity.type === 'player' ? 'Player' : `Enemy ${turnEntity.id.split('_')[1]}`;
+      const name = turnEntity.type === 'player' ? this.gameService.playerName : `Enemy ${turnEntity.id.split('_')[1]}`;
       const timeStr = isCurrent ? '0' : Math.round(turnEntity.entity.delay);
 
       this.ctx.fillText(`${name}: ${timeStr}`, 20, y);
@@ -2105,40 +2101,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // ── Left panel: vehicle preview + name ──────────────────────────────
     const lCx = 18 + 183; // centre-x of left panel
 
-    this.ctx.fillStyle = '#BBCCFF';
-    this.ctx.font = 'bold 18px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Vehicle', lCx, 102);
-
-    // Monkey idle sprite as player avatar
-    const idleSprite = this.spriteService.getSprite('monkey_idle');
-    if (idleSprite) {
-      this.ctx.drawImage(
-        idleSprite.image,
-        idleSprite.x,
-        idleSprite.y,
-        idleSprite.width,
-        idleSprite.height,
-        lCx - 40,
-        116,
-        80,
-        80,
-      );
-    }
-
-    // Vehicle name
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '16px Arial';
-    this.ctx.fillText('(Tank)', lCx, 212);
-
     // Name section header
     this.ctx.fillStyle = '#BBCCFF';
     this.ctx.font = 'bold 18px Arial';
-    this.ctx.fillText('Name', lCx, 244);
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Name', lCx, 100);
 
     // Name input box
     const nameBoxX = 28;
-    const nameBoxY = 258;
+    const nameBoxY = 114;
     const nameBoxW = 352;
     const nameBoxH = 34;
     this.ctx.strokeStyle = this.isNameEditing ? '#7BBAFF' : 'rgba(80,100,150,0.7)';
@@ -2163,8 +2134,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillStyle = 'rgba(150,170,200,0.6)';
       this.ctx.font = '13px Arial';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('Click to edit name', lCx, 308);
+      this.ctx.fillText('Click to edit name', lCx, 162);
     }
+
+    // Vehicle section
+    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Vehicle', lCx, 188);
+
+    // Monkey idle sprite as player avatar
+    const idleSprite = this.spriteService.getSprite('monkey_idle');
+    if (idleSprite) {
+      this.ctx.drawImage(
+        idleSprite.image,
+        idleSprite.x,
+        idleSprite.y,
+        idleSprite.width,
+        idleSprite.height,
+        lCx - 40,
+        202,
+        80,
+        80,
+      );
+    }
+
+    // Vehicle name
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = '16px Arial';
+    this.ctx.fillText('(Tank)', lCx, 296);
 
     // ── Middle panel: equipment slots ────────────────────────────────────
     const mLeft = 400;
@@ -2311,7 +2309,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Name box click → start editing
     const nameBoxX = 28;
-    const nameBoxY = 258;
+    const nameBoxY = 114;
     const nameBoxW = 352;
     const nameBoxH = 34;
     if (x >= nameBoxX && x <= nameBoxX + nameBoxW && y >= nameBoxY && y <= nameBoxY + nameBoxH) {
