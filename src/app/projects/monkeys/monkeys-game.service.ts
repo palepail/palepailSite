@@ -242,12 +242,13 @@ export class MonkeysGameService {
       }
     }
 
-    const placements = this.buildTerrainChunkPlan();
-    const bottomPlacements = this.buildBottomChunkPlan(placements);
-    this.terrainChunkPlacements = placements;
+    const topPlacements = this.buildTerrainChunkPlan();
+    const bottomProfile = this.buildBottomProfile(topPlacements);
+    const bottomPlacements = this.buildBottomChunkPlan(bottomProfile);
+    this.terrainChunkPlacements = topPlacements;
     this.terrainBottomPlacements = bottomPlacements;
-    this.rasterizeTerrainPlacements(placements, bottomPlacements);
-    this.terrainInteriorPlacements = this.buildInteriorPlacements(placements, bottomPlacements);
+    this.rasterizeTerrainPlacements(topPlacements, bottomProfile, bottomPlacements);
+    this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomProfile);
   }
 
   private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
@@ -330,11 +331,79 @@ export class MonkeysGameService {
     return pool;
   }
 
-  private buildBottomChunkPlan(topPlacements: TerrainChunkPlacement[]): TerrainChunkPlacement[] {
-    // Build a profile of the deepest top surface Y + one interior tile height
-    // as the minimum allowed bottom Y at each x position.
-    const minBottomProfile = this.buildMinBottomProfile(topPlacements);
+  private buildBottomProfile(topPlacements: TerrainChunkPlacement[]): number[] {
+    const topSurfaceProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
+    const interiorHeight = 60;
+    const baseThickness = this.randomInRange(120, 180);
+    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
 
+    // Seed the profile from the top surface + base thickness, floored to ensure
+    // room for at least one interior tile below each top sprite.
+    for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
+      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
+      const topY = Number.isFinite(topSurfaceProfile[x]) ? topSurfaceProfile[x] : fallbackTop;
+      const desired = topY + baseThickness;
+      // Find the min floor from top placements covering this column
+      let minFloor = topY + interiorHeight;
+      for (const p of topPlacements) {
+        const pStart = Math.floor(p.x);
+        const pEnd = Math.floor(p.x + p.region.width);
+        if (x >= pStart && x < pEnd) {
+          const localX = x - p.x;
+          const t = Math.max(0, Math.min(1, localX / Math.max(1, p.region.width - 1)));
+          const surfaceY =
+            p.topWorldY + p.region.topEntryY + (p.region.topExitY - p.region.topEntryY) * t;
+          minFloor = Math.max(minFloor, Math.floor(surfaceY + p.region.height + interiorHeight));
+        }
+      }
+      profile[x] = Math.max(desired, minFloor);
+      profile[x] = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, profile[x]));
+    }
+
+    // Apply a gentle random walk with ±1 per column constraint.
+    // Walk left-to-right, occasionally nudging the target depth, biased toward the base offset.
+    let drift = 0;
+    for (let x = 1; x < CONST.TERRAIN_WIDTH; x++) {
+      const r = Math.random();
+      if (r < 0.4) drift += 1;
+      else if (r < 0.8) drift -= 1;
+      // Bias drift back toward zero to stay near base thickness.
+      if (drift > 10) drift--;
+      if (drift < -10) drift++;
+
+      // Compute the desired value with drift and clamp within ±1 of the previous column.
+      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
+      const topY = Number.isFinite(topSurfaceProfile[x]) ? topSurfaceProfile[x] : fallbackTop;
+      const desired = topY + baseThickness + drift;
+
+      // Find the min floor for this column
+      let minFloor = topY + interiorHeight;
+      for (const p of topPlacements) {
+        const pStart = Math.floor(p.x);
+        const pEnd = Math.floor(p.x + p.region.width);
+        if (x >= pStart && x < pEnd) {
+          const localX = x - p.x;
+          const t = Math.max(0, Math.min(1, localX / Math.max(1, p.region.width - 1)));
+          const surfaceY =
+            p.topWorldY + p.region.topEntryY + (p.region.topExitY - p.region.topEntryY) * t;
+          minFloor = Math.max(minFloor, Math.floor(surfaceY + p.region.height + interiorHeight));
+        }
+      }
+
+      let value = Math.max(desired, minFloor);
+      value = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, value));
+
+      // Enforce ±1 per column.
+      const prev = profile[x - 1];
+      profile[x] = Math.max(prev - 1, Math.min(prev + 1, Math.floor(value)));
+      // Re-clamp after ±1 constraint.
+      profile[x] = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, profile[x]));
+    }
+
+    return profile;
+  }
+
+  private buildBottomChunkPlan(bottomProfile: number[]): TerrainChunkPlacement[] {
     // Exclude bottom cap-like tiles 8 and 9 from general bottom generation.
     const bottomFlat = this.getTerrainRegionsByType('bottom_flat').filter(
       (item) => ![8, 9].includes(item.id),
@@ -342,170 +411,38 @@ export class MonkeysGameService {
     const bottomSlopeUp = this.getTerrainRegionsByType('bottom_slope_up');
     const bottomSlopeDown = this.getTerrainRegionsByType('bottom_slope_down');
 
-    if (bottomSlopeUp.length === 0 || bottomSlopeDown.length === 0) {
+    if (bottomFlat.length === 0) {
       return this.buildFallbackBottomPlan();
     }
 
+    const tileWidth = 90;
+    const slopeThreshold = 15;
     const placements: TerrainChunkPlacement[] = [];
-    // Constrain start Y so the tallest bottom sprite fits within the strip.
-    const maxSafeStartY = Math.min(265, CONST.TERRAIN_STRIP_HEIGHT - 75);
-    let currentBottomY = this.randomInRange(200, maxSafeStartY);
     let xCursor = 0;
-    let consecutiveFlats = 0;
-    let lastBottomSlopeDir: 'flat' | 'up' | 'down' = 'flat';
 
     while (xCursor < CONST.TERRAIN_WIDTH) {
-      // Ensure bottom Y doesn't go above the top surface + interior.
-      const minY = this.getMinBottomYForRange(minBottomProfile, xCursor, 90);
-      if (currentBottomY < minY) {
-        currentBottomY = minY;
-      }
+      const endX = Math.min(xCursor + tileWidth, CONST.TERRAIN_WIDTH - 1);
+      const startY = bottomProfile[Math.min(xCursor, CONST.TERRAIN_WIDTH - 1)];
+      const endY = bottomProfile[endX];
+      const delta = endY - startY;
 
-      const topSlope = this.getTopSlopeDirection(topPlacements, xCursor);
-
-      const candidatePool = this.buildBottomCandidatePool(
-        bottomFlat,
-        bottomSlopeUp,
-        bottomSlopeDown,
-        consecutiveFlats,
-        currentBottomY,
-        minBottomProfile,
-        xCursor,
-        topSlope,
-        lastBottomSlopeDir,
-      );
-
-      if (candidatePool.length === 0) {
-        break;
-      }
-
-      const selected = candidatePool[Math.floor(Math.random() * candidatePool.length)];
-      const placement = this.createBottomPlacement(selected, xCursor, currentBottomY);
-      placements.push(placement);
-
-      const bottomEntry = this.getBottomProfileY(selected, 0);
-      const bottomExit = this.getBottomProfileY(selected, 1);
-      const delta = bottomExit - bottomEntry;
-      currentBottomY += delta;
-      xCursor += selected.width;
-
-      if (selected.pieceType === 'bottom_flat') {
-        consecutiveFlats++;
-        lastBottomSlopeDir = 'flat';
+      let selected: TerrainSpriteMetadata;
+      if (delta > slopeThreshold && bottomSlopeUp.length > 0) {
+        // Profile deepens → bottom_slope_up (entry shallow, exit deep)
+        selected = bottomSlopeUp[Math.floor(Math.random() * bottomSlopeUp.length)];
+      } else if (delta < -slopeThreshold && bottomSlopeDown.length > 0) {
+        // Profile shallows → bottom_slope_down (entry deep, exit shallow)
+        selected = bottomSlopeDown[Math.floor(Math.random() * bottomSlopeDown.length)];
       } else {
-        consecutiveFlats = 0;
-        lastBottomSlopeDir = selected.pieceType === 'bottom_slope_up' ? 'up' : 'down';
+        selected = bottomFlat[Math.floor(Math.random() * bottomFlat.length)];
       }
+
+      const placement = this.createBottomPlacement(selected, xCursor, startY);
+      placements.push(placement);
+      xCursor += selected.width;
     }
 
     return placements;
-  }
-
-  private buildMinBottomProfile(topPlacements: TerrainChunkPlacement[]): number[] {
-    // For each X, find the deepest top surface Y + one interior tile (60px)
-    // as the minimum Y the bottom path can reach.
-    const interiorHeight = 60;
-    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
-    for (const placement of topPlacements) {
-      const startX = Math.max(0, Math.floor(placement.x));
-      const endX = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + placement.region.width));
-      for (let x = startX; x < endX; x++) {
-        const localX = x - placement.x;
-        const t = Math.max(0, Math.min(1, localX / Math.max(1, placement.region.width - 1)));
-        const topY =
-          placement.topWorldY +
-          placement.region.topEntryY +
-          (placement.region.topExitY - placement.region.topEntryY) * t;
-        const minBottom = Math.floor(topY + placement.region.height + interiorHeight);
-        profile[x] = Math.max(profile[x], minBottom);
-      }
-    }
-    return profile;
-  }
-
-  private getTopSlopeDirection(
-    topPlacements: TerrainChunkPlacement[],
-    xCursor: number,
-  ): 'flat' | 'up' | 'down' {
-    for (const p of topPlacements) {
-      if (xCursor >= p.x && xCursor < p.x + p.region.width) {
-        if (p.region.pieceType === 'top_slope_up') return 'up';
-        if (p.region.pieceType === 'top_slope_down') return 'down';
-        return 'flat';
-      }
-    }
-    return 'flat';
-  }
-
-  private getMinBottomYForRange(profile: number[], xCursor: number, width: number): number {
-    const startX = Math.max(0, Math.floor(xCursor));
-    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.floor(xCursor + width));
-    let maxMinY = 0;
-    for (let x = startX; x < endX; x++) {
-      maxMinY = Math.max(maxMinY, profile[x]);
-    }
-    return maxMinY;
-  }
-
-  private buildBottomCandidatePool(
-    bottomFlat: TerrainSpriteMetadata[],
-    bottomSlopeUp: TerrainSpriteMetadata[],
-    bottomSlopeDown: TerrainSpriteMetadata[],
-    consecutiveFlats: number,
-    currentBottomY: number,
-    minBottomProfile: number[],
-    xCursor: number,
-    topSlope: 'flat' | 'up' | 'down',
-    lastSlopeDir: 'flat' | 'up' | 'down',
-  ): TerrainSpriteMetadata[] {
-    const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
-    const pool: TerrainSpriteMetadata[] = [];
-
-    // Only add sprites whose full visual extent fits within the terrain strip
-    // and whose exit Y stays below the top surface.
-    const isValid = (sprite: TerrainSpriteMetadata) => {
-      const entry = sprite.bottomEntryY ?? 0;
-      if (currentBottomY - entry + sprite.height >= CONST.TERRAIN_STRIP_HEIGHT) {
-        return false;
-      }
-      // Check the exit Y stays below top surface + interior.
-      const exitY = sprite.bottomExitY ?? entry;
-      const exitBottomY = currentBottomY + (exitY - entry);
-      const minY = this.getMinBottomYForRange(minBottomProfile, xCursor, sprite.width);
-      return exitBottomY >= minY;
-    };
-
-    // Reduce flat weight when top is sloping to bias bottom toward matching.
-    if (!shouldForceSlope) {
-      const validFlats = bottomFlat.filter(isValid);
-      const flatWeight = topSlope === 'flat' ? 3 : 1;
-      for (let i = 0; i < flatWeight; i++) pool.push(...validFlats);
-    }
-
-    const canGoUp = currentBottomY > this.TERRAIN_MIN_BOTTOM_Y + 30;
-    const canGoDown = currentBottomY < this.TERRAIN_MAX_BOTTOM_Y - 30;
-    // Prevent consecutive same-direction slopes to keep height change within one interior tile.
-    if (canGoUp && lastSlopeDir !== 'up') {
-      const validUp = bottomSlopeUp.filter(isValid);
-      const upWeight = topSlope === 'up' ? 4 : 2;
-      for (let i = 0; i < upWeight; i++) pool.push(...validUp);
-    }
-    if (canGoDown && lastSlopeDir !== 'down') {
-      const validDown = bottomSlopeDown.filter(isValid);
-      const downWeight = topSlope === 'down' ? 4 : 2;
-      for (let i = 0; i < downWeight; i++) pool.push(...validDown);
-    }
-
-    if (pool.length === 0) {
-      const validFallback = [...bottomFlat, ...bottomSlopeDown].filter(isValid);
-      if (validFallback.length > 0) {
-        pool.push(...validFallback);
-      } else {
-        pool.push(...bottomFlat);
-      }
-    }
-
-    return pool;
   }
 
   private createPlacement(
@@ -541,38 +478,19 @@ export class MonkeysGameService {
     return Math.round(bottomEntryY + (bottomExitY - bottomEntryY) * clampedT);
   }
 
-  private buildBottomShellStartProfile(bottomPlacements: TerrainChunkPlacement[]): number[] {
-    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(-1);
 
-    for (const placement of bottomPlacements) {
-      const startX = Math.max(0, Math.floor(placement.x));
-      const endXExclusive = Math.min(
-        CONST.TERRAIN_WIDTH,
-        Math.floor(placement.x + placement.region.width),
-      );
-      for (let x = startX; x < endXExclusive; x++) {
-        profile[x] = Math.max(profile[x], Math.floor(placement.topWorldY));
-      }
-    }
-
-    return profile;
-  }
 
   private rasterizeTerrainPlacements(
     topPlacements: TerrainChunkPlacement[],
+    bottomProfile: number[],
     bottomPlacements: TerrainChunkPlacement[],
   ): void {
     const topProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
-    const bottomProfile = this.rasterizeBoundaryProfile(bottomPlacements, 'bottom');
 
     for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
       const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
       const topY = Number.isFinite(topProfile[x]) ? topProfile[x] : fallbackTop;
-      const hasBottomProfile = Number.isFinite(bottomProfile[x]);
-      const fallbackBottom = Math.min(this.TERRAIN_MAX_BOTTOM_Y, topY + this.TERRAIN_MIN_THICKNESS);
-      const bottomY = hasBottomProfile
-        ? Math.min(this.TERRAIN_MAX_BOTTOM_Y, bottomProfile[x])
-        : fallbackBottom;
+      const bottomY = Math.min(this.TERRAIN_MAX_BOTTOM_Y, bottomProfile[x]);
 
       for (let y = topY; y <= bottomY; y++) {
         if (y >= 0 && y < CONST.TERRAIN_STRIP_HEIGHT) {
@@ -641,45 +559,40 @@ export class MonkeysGameService {
 
   private buildInteriorPlacements(
     topPlacements: TerrainChunkPlacement[],
-    bottomPlacements: TerrainChunkPlacement[],
+    bottomProfile: number[],
   ): TerrainChunkPlacement[] {
     const interiorRegions = this.getTerrainRegionsByType('interior');
     if (interiorRegions.length === 0) return [];
-
-    const bottomShellStartProfile = this.buildBottomShellStartProfile(bottomPlacements);
 
     const placements: TerrainChunkPlacement[] = [];
     for (const top of topPlacements) {
       const startX = Math.max(0, Math.floor(top.x));
       const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(top.x + top.region.width));
-      // Use the deepest bottom-shell start in this chunk span to prevent overlap seams.
-      let bottomShellStartY = Number.NEGATIVE_INFINITY;
-      for (let x = startX; x < endXExclusive; x++) {
-        const y = bottomShellStartProfile[x];
-        if (y >= 0) {
-          bottomShellStartY = Math.max(bottomShellStartY, y);
-        }
-      }
 
-      if (!Number.isFinite(bottomShellStartY)) {
-        bottomShellStartY = CONST.TERRAIN_STRIP_HEIGHT;
+      // Use the shallowest (min) bottom profile value across this chunk's columns
+      // so no interior tile extends below the bottom profile at any column.
+      let minBottomY = Number.POSITIVE_INFINITY;
+      for (let x = startX; x < endXExclusive; x++) {
+        minBottomY = Math.min(minBottomY, bottomProfile[x]);
+      }
+      if (!Number.isFinite(minBottomY)) {
+        minBottomY = CONST.TERRAIN_STRIP_HEIGHT;
       }
 
       const fillStartY = Math.floor(top.topWorldY + top.region.height);
       let y = fillStartY;
-      while (y < bottomShellStartY) {
+      while (y < minBottomY) {
         const region = interiorRegions[Math.floor(Math.random() * interiorRegions.length)];
         const nextY = y + region.height;
 
-        if (nextY <= bottomShellStartY) {
+        if (nextY <= minBottomY) {
           placements.push({ region, x: top.x, topWorldY: y });
           y = nextY;
           continue;
         }
 
-        // Final interior tile: anchor flush with bottom shell start to avoid visible horizontal gaps.
-        const anchoredY = Math.floor(bottomShellStartY - region.height);
-        // Allow overlap with top shell so short spans still receive an interior tile.
+        // Final interior tile: anchor flush with bottom cutoff to avoid visible horizontal gaps.
+        const anchoredY = Math.floor(minBottomY - region.height);
         if (anchoredY >= top.topWorldY) {
           placements.push({ region, x: top.x, topWorldY: anchoredY });
         }

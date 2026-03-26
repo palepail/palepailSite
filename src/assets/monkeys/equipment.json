@@ -172,7 +172,7 @@
 
     {
       "id": "miner_steel_toes",
-      "name": "Steel Toe Boots",
+      "name": "Mining Boots",
       "slot": "footwear",
       "setId": "miner",
       "stats": { "blastRadius": 13, "health": 5, "attack": -7 },
