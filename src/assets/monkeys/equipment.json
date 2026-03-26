@@ -3,7 +3,8 @@
     { "id": "iron", "name": "Iron" },
     { "id": "berserker", "name": "Berserker" },
     { "id": "fortress", "name": "Fortress" },
-    { "id": "scout", "name": "Scout" }
+    { "id": "scout", "name": "Scout" },
+    { "id": "miner", "name": "Miner" }
   ],
   "items": [
     { "id": "none_headgear", "name": "None", "slot": "headgear", "stats": {} },
@@ -40,6 +41,15 @@
       "description": "Extended targeting optics"
     },
 
+    {
+      "id": "miner_hardhat",
+      "name": "Miner Hardhat",
+      "slot": "headgear",
+      "setId": "miner",
+      "stats": { "blastRadius": 13, "health": 5, "attack": -8 },
+      "description": "Blast-tested headgear from the deep"
+    },
+
     { "id": "none_torso", "name": "None", "slot": "torso", "stats": {} },
     {
       "id": "iron_chestplate",
@@ -72,6 +82,15 @@
       "setId": "scout",
       "stats": { "attack": 10, "fuel": 10 },
       "description": "Light and nimble"
+    },
+
+    {
+      "id": "miner_overalls",
+      "name": "Miner Overalls",
+      "slot": "torso",
+      "setId": "miner",
+      "stats": { "blastRadius": 13, "health": 10, "attack": -8 },
+      "description": "Reinforced canvas, primed for demolition"
     },
 
     { "id": "none_legs", "name": "None", "slot": "legs", "stats": {} },
@@ -108,6 +127,15 @@
       "description": "Supreme terrain agility"
     },
 
+    {
+      "id": "miner_kneepads",
+      "name": "Miner Kneepads",
+      "slot": "legs",
+      "setId": "miner",
+      "stats": { "blastRadius": 13, "health": 5, "attack": -7 },
+      "description": "Crouch-braced for controlled detonations"
+    },
+
     { "id": "none_footwear", "name": "None", "slot": "footwear", "stats": {} },
     {
       "id": "iron_boots",
@@ -142,6 +170,15 @@
       "description": "Maximise movement range"
     },
 
+    {
+      "id": "miner_steel_toes",
+      "name": "Steel Toe Boots",
+      "slot": "footwear",
+      "setId": "miner",
+      "stats": { "blastRadius": 13, "health": 5, "attack": -7 },
+      "description": "Rated for underground blasting"
+    },
+
     { "id": "none_accessory", "name": "None", "slot": "accessory", "stats": {} },
     {
       "id": "iron_badge",
@@ -174,6 +211,14 @@
       "setId": "scout",
       "stats": { "aimGuide": "extended" },
       "description": "Extended aim guide (coming soon)"
+    },
+    {
+      "id": "miner_detonator",
+      "name": "Detonator Fob",
+      "slot": "accessory",
+      "setId": "miner",
+      "stats": { "blastRadius": 23, "attack": -40, "noPushback": true },
+      "description": "Precision detonator — massive blast, minimal firepower"
     }
   ]
 }

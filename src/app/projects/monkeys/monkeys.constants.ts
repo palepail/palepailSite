@@ -19,7 +19,7 @@ export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
 export const CRATER_RADIUS = 40;
 export const SPAWN_HEIGHT_OFFSET = 900;
-export const FALL_THRESHOLD_OFFSET = 500;
+export const FALL_THRESHOLD_OFFSET = 100;
 export const TERRAIN_COLOR = '#8B4513';
 export const MAX_CLIMB_ANGLE = (45 * Math.PI) / 180; // 45 degrees
 

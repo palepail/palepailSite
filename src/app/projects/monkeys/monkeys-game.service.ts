@@ -797,6 +797,8 @@ export class MonkeysGameService {
       if (!item?.stats) continue;
       if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
       if (item.stats.defense) vehicle.health += item.stats.defense;
+      if (item.stats.health) vehicle.health += item.stats.health;
+      if (item.stats.noPushback) vehicle.bullet.noPushback = true;
       if (item.stats.blastRadius) {
         vehicle.bullet.explosionRadius = Math.max(
           5,
@@ -935,6 +937,12 @@ export class MonkeysGameService {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
         this.updateEntityPhysics(enemy);
+        // Kill enemies that have fallen off the map before AI or terrain-snap runs
+        if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
+          enemy.health = 0;
+          enemy.active = false;
+          this.World.remove(this.world, enemy.body);
+        }
       }
     }
 
@@ -1509,7 +1517,7 @@ export class MonkeysGameService {
 
   private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
     const maxDamage = projectile.bullet.damage;
-    const damageRadius = 50;
+    const damageRadius = projectile.bullet.explosionRadius ?? 50;
     let radiusX = damageRadius;
     let radiusY = damageRadius;
     if (projectile.bullet.explosionShape === 'horizontal_oval') {
@@ -1887,7 +1895,7 @@ export class MonkeysGameService {
     this.createCrater(
       this.projectile.x,
       this.projectile.y,
-      CONST.CRATER_RADIUS,
+      this.projectile.bullet.craterRadius,
       this.projectile.bullet,
     );
 
@@ -1936,6 +1944,7 @@ export class MonkeysGameService {
     radiusY: number,
   ) {
     if (!target.body) return;
+    if (projectile.bullet.noPushback) return;
     const dx = target.x - explosionX;
     const dy = target.y - explosionY;
     const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
@@ -2041,6 +2050,10 @@ export class MonkeysGameService {
     for (const enemy of this.enemies) {
       if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
         enemy.health = 0;
+        enemy.active = false;
+        if (enemy.body) {
+          this.World.remove(this.world, enemy.body);
+        }
       }
     }
   }

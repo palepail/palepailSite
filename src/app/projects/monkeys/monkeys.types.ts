@@ -201,6 +201,7 @@ export interface Bullet {
   explosionRadius: number;
   craterRadius: number;
   speed: number;
+  noPushback?: boolean;
 }
 
 export interface Vehicle {
@@ -222,7 +223,9 @@ export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'access
 export interface EquipmentStats {
   attack?: number; // bonus to bullet.damage
   defense?: number; // bonus to vehicle.health
+  health?: number; // direct bonus to vehicle.health
   blastRadius?: number; // bonus to bullet.explosionRadius (craterRadius scales 0.8×)
+  noPushback?: boolean; // if true, explosions from this player's shots apply no knockback
   fuel?: number; // bonus to vehicle.fuel
   climbAngle?: number; // bonus to vehicle.climbAngle (degrees)
   minAimAngle?: number; // modifier to vehicle.minAimAngle (negative = wider range)

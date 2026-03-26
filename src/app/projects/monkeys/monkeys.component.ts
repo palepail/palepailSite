@@ -2193,7 +2193,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText('Stats', rCx, 102);
 
     const statDefs: { label: string; base: number; bonus: number }[] = [
-      { label: 'Health', base: base.health, bonus: this.getTotalEquipBonus('defense') },
+      { label: 'Health', base: base.health, bonus: this.getTotalEquipBonus('defense') + this.getTotalEquipBonus('health') },
       { label: 'Attack', base: base.bullet.damage, bonus: this.getTotalEquipBonus('attack') },
       {
         label: 'Blast Rad',
