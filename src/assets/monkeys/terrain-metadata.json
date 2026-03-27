@@ -4620,7 +4620,7 @@
         }
       ],
       "id": 21,
-      "pieceType": "bottom_slope_up",
+      "pieceType": "bottom_slope_down",
       "topEntryY": 0,
       "topExitY": 0,
       "bottomEntryY": 21,
@@ -5062,7 +5062,7 @@
         }
       ],
       "id": 22,
-      "pieceType": "top_slope_up",
+      "pieceType": "top_slope_down",
       "topEntryY": 60,
       "topExitY": 0,
       "fillToBottom": true,
@@ -5511,7 +5511,7 @@
         }
       ],
       "id": 23,
-      "pieceType": "bottom_slope_down",
+      "pieceType": "bottom_slope_up",
       "topEntryY": 0,
       "topExitY": 0,
       "bottomEntryY": 80,
@@ -5953,7 +5953,7 @@
         }
       ],
       "id": 24,
-      "pieceType": "top_slope_down",
+      "pieceType": "top_slope_up",
       "topEntryY": 0,
       "topExitY": 61,
       "fillToBottom": true,

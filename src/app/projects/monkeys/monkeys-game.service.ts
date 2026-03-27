@@ -243,12 +243,27 @@ export class MonkeysGameService {
     }
 
     const topPlacements = this.buildTerrainChunkPlan();
-    const bottomProfile = this.buildBottomProfile(topPlacements);
-    const bottomPlacements = this.buildBottomChunkPlan(bottomProfile);
+    const { profile: bottomProfile, chunkTypes, chunkBottomY } = this.buildBottomProfile(topPlacements);
+    const bottomPlacements = this.buildBottomChunkPlan(chunkBottomY, chunkTypes);
     this.terrainChunkPlacements = topPlacements;
     this.terrainBottomPlacements = bottomPlacements;
     this.rasterizeTerrainPlacements(topPlacements, bottomProfile, bottomPlacements);
     this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomProfile);
+
+    // DEBUG: log interior tile count per chunk column
+    const tileWidth = 90;
+    const debugCols: { chunk: number; x: number; interiorTiles: number; type: string; bottomTile: string; bottomY: number; depthDelta: number }[] = [];
+    for (let i = 0; i < chunkTypes.length; i++) {
+      const xStart = i * tileWidth;
+      const count = this.terrainInteriorPlacements.filter(
+        (p) => Math.floor(p.x) === xStart,
+      ).length;
+      const bp = bottomPlacements.find((p) => Math.floor(p.x) === xStart);
+      const prevY = i > 0 ? chunkBottomY[i - 1] : chunkBottomY[i];
+      const depthDelta = chunkBottomY[i] - prevY;
+      debugCols.push({ chunk: i, x: xStart, interiorTiles: count, type: chunkTypes[i], bottomTile: bp ? bp.region.pieceType : 'none', bottomY: chunkBottomY[i], depthDelta });
+    }
+    console.table(debugCols);
   }
 
   private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
@@ -293,7 +308,7 @@ export class MonkeysGameService {
         lastSlopeDir = 'flat';
       } else {
         consecutiveFlats = 0;
-        lastSlopeDir = selected.pieceType === 'top_slope_up' ? 'up' : 'down';
+        lastSlopeDir = selected.pieceType === 'top_slope_down' ? 'up' : 'down';
       }
     }
     return placements;
@@ -318,10 +333,10 @@ export class MonkeysGameService {
     const canGoDown = currentTopY < this.TERRAIN_MAX_TOP_Y - 40;
     // Prevent consecutive same-direction slopes to keep height change within one interior tile.
     if (canGoUp && lastSlopeDir !== 'up') {
-      pool.push(...topSlopeUp, ...topSlopeUp);
+      pool.push(...topSlopeDown, ...topSlopeDown);
     }
     if (canGoDown && lastSlopeDir !== 'down') {
-      pool.push(...topSlopeDown, ...topSlopeDown);
+      pool.push(...topSlopeUp, ...topSlopeUp);
     }
 
     if (pool.length === 0) {
@@ -331,80 +346,102 @@ export class MonkeysGameService {
     return pool;
   }
 
-  private buildBottomProfile(topPlacements: TerrainChunkPlacement[]): number[] {
+  private buildBottomProfile(topPlacements: TerrainChunkPlacement[]): {
+    profile: number[];
+    chunkTypes: ('flat' | 'slope_up' | 'slope_down')[];
+    chunkBottomY: number[];
+  } {
     const topSurfaceProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
-    const interiorHeight = 60;
-    const baseThickness = this.randomInRange(120, 180);
+    const interiorHeight = 60; // one interior tile
+    const topTileHeight = 37; // approximate top sprite height
+    const tileWidth = 90;
     const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
 
-    // Seed the profile from the top surface + base thickness, floored to ensure
-    // room for at least one interior tile below each top sprite.
-    for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
-      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-      const topY = Number.isFinite(topSurfaceProfile[x]) ? topSurfaceProfile[x] : fallbackTop;
-      const desired = topY + baseThickness;
-      // Find the min floor from top placements covering this column
-      let minFloor = topY + interiorHeight;
-      for (const p of topPlacements) {
-        const pStart = Math.floor(p.x);
-        const pEnd = Math.floor(p.x + p.region.width);
-        if (x >= pStart && x < pEnd) {
-          const localX = x - p.x;
-          const t = Math.max(0, Math.min(1, localX / Math.max(1, p.region.width - 1)));
-          const surfaceY =
-            p.topWorldY + p.region.topEntryY + (p.region.topExitY - p.region.topEntryY) * t;
-          minFloor = Math.max(minFloor, Math.floor(surfaceY + p.region.height + interiorHeight));
-        }
+    // Use top surface + flat tile height as a consistent base so the
+    // bottom profile doesn't jump by ~60px under top slope tiles.
+    const fallbackSurface = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
+
+    // Plan depth in tile-sized chunks (90px wide), with depth changing
+    // by at most 1 interior tile (60px) per chunk. Direction reversals
+    // require at least one flat chunk between them (no ^ or V shapes).
+    const numChunks = Math.ceil(CONST.TERRAIN_WIDTH / tileWidth);
+    const minTiles = 2;
+    const maxTiles = 5;
+
+    // Generate target depth per segment (in tile units, 3–6 chunks per segment).
+    const targetDepths = new Array<number>(numChunks);
+    let currentTarget = this.randomInRange(minTiles, maxTiles);
+    let segRemaining = this.randomInRange(3, 6);
+    for (let i = 0; i < numChunks; i++) {
+      segRemaining--;
+      if (segRemaining <= 0) {
+        currentTarget = this.randomInRange(minTiles, maxTiles);
+        segRemaining = this.randomInRange(3, 6);
       }
-      profile[x] = Math.max(desired, minFloor);
-      profile[x] = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, profile[x]));
+      targetDepths[i] = currentTarget;
     }
 
-    // Apply a gentle random walk with ±1 per column constraint.
-    // Walk left-to-right, occasionally nudging the target depth, biased toward the base offset.
-    let drift = 0;
-    for (let x = 1; x < CONST.TERRAIN_WIDTH; x++) {
-      const r = Math.random();
-      if (r < 0.4) drift += 1;
-      else if (r < 0.8) drift -= 1;
-      // Bias drift back toward zero to stay near base thickness.
-      if (drift > 10) drift--;
-      if (drift < -10) drift++;
+    // Walk chunks toward their target depth, ±1 tile per chunk.
+    const chunkDepths = new Array<number>(numChunks);
+    const chunkTypes: ('flat' | 'slope_up' | 'slope_down')[] = new Array(numChunks);
+    let depth = targetDepths[0];
+    let lastDirection = 0; // -1=shallower, 0=flat, +1=deeper
 
-      // Compute the desired value with drift and clamp within ±1 of the previous column.
-      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-      const topY = Number.isFinite(topSurfaceProfile[x]) ? topSurfaceProfile[x] : fallbackTop;
-      const desired = topY + baseThickness + drift;
-
-      // Find the min floor for this column
-      let minFloor = topY + interiorHeight;
-      for (const p of topPlacements) {
-        const pStart = Math.floor(p.x);
-        const pEnd = Math.floor(p.x + p.region.width);
-        if (x >= pStart && x < pEnd) {
-          const localX = x - p.x;
-          const t = Math.max(0, Math.min(1, localX / Math.max(1, p.region.width - 1)));
-          const surfaceY =
-            p.topWorldY + p.region.topEntryY + (p.region.topExitY - p.region.topEntryY) * t;
-          minFloor = Math.max(minFloor, Math.floor(surfaceY + p.region.height + interiorHeight));
-        }
+    for (let i = 0; i < numChunks; i++) {
+      const diff = targetDepths[i] - depth;
+      let direction = 0;
+      if (diff > 0 && lastDirection !== -1) {
+        direction = 1;
+      } else if (diff < 0 && lastDirection !== 1) {
+        direction = -1;
       }
-
-      let value = Math.max(desired, minFloor);
-      value = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, value));
-
-      // Enforce ±1 per column.
-      const prev = profile[x - 1];
-      profile[x] = Math.max(prev - 1, Math.min(prev + 1, Math.floor(value)));
-      // Re-clamp after ±1 constraint.
-      profile[x] = Math.max(this.TERRAIN_MIN_BOTTOM_Y, Math.min(this.TERRAIN_MAX_BOTTOM_Y, profile[x]));
+      depth += direction;
+      depth = Math.max(minTiles, depth);
+      chunkDepths[i] = depth;
+      lastDirection = direction;
     }
 
-    return profile;
+    // Fill per-pixel profile using actual top surface at each pixel.
+    for (let i = 0; i < numChunks; i++) {
+      const xStart = i * tileWidth;
+      const xEnd = Math.min(xStart + tileWidth, CONST.TERRAIN_WIDTH);
+      const prevDepth = i > 0 ? chunkDepths[i - 1] : chunkDepths[i];
+      const currDepth = chunkDepths[i];
+
+      for (let x = xStart; x < xEnd; x++) {
+        const surfaceY = Number.isFinite(topSurfaceProfile[x])
+          ? topSurfaceProfile[x]
+          : fallbackSurface;
+        const base = surfaceY + topTileHeight;
+        const t = (x - xStart) / tileWidth;
+        const depthPx = (prevDepth + t * (currDepth - prevDepth)) * interiorHeight;
+        profile[x] = Math.round(base + depthPx);
+      }
+    }
+
+    // Derive chunkBottomY and chunkTypes from the actual profile values
+    // at chunk boundaries. This accounts for both depth changes AND top
+    // surface slope, so tile selection matches what's visually happening.
+    const chunkBottomY = new Array<number>(numChunks);
+    for (let i = 0; i < numChunks; i++) {
+      const x = Math.min(i * tileWidth, CONST.TERRAIN_WIDTH - 1);
+      chunkBottomY[i] = profile[x];
+    }
+    for (let i = 0; i < numChunks; i++) {
+      const nextY = i + 1 < numChunks ? chunkBottomY[i + 1] : chunkBottomY[i];
+      const delta = nextY - chunkBottomY[i];
+      // Round to nearest 60 to ignore ±1 rounding noise
+      const rounded = Math.round(delta / interiorHeight) * interiorHeight;
+      chunkTypes[i] = rounded > 0 ? 'slope_up' : rounded < 0 ? 'slope_down' : 'flat';
+    }
+
+    return { profile, chunkTypes, chunkBottomY };
   }
 
-  private buildBottomChunkPlan(bottomProfile: number[]): TerrainChunkPlacement[] {
-    // Exclude bottom cap-like tiles 8 and 9 from general bottom generation.
+  private buildBottomChunkPlan(
+    chunkBottomY: number[],
+    chunkTypes: ('flat' | 'slope_up' | 'slope_down')[],
+  ): TerrainChunkPlacement[] {
     const bottomFlat = this.getTerrainRegionsByType('bottom_flat').filter(
       (item) => ![8, 9].includes(item.id),
     );
@@ -415,31 +452,24 @@ export class MonkeysGameService {
       return this.buildFallbackBottomPlan();
     }
 
-    const tileWidth = 90;
-    const slopeThreshold = 15;
     const placements: TerrainChunkPlacement[] = [];
-    let xCursor = 0;
 
-    while (xCursor < CONST.TERRAIN_WIDTH) {
-      const endX = Math.min(xCursor + tileWidth, CONST.TERRAIN_WIDTH - 1);
-      const startY = bottomProfile[Math.min(xCursor, CONST.TERRAIN_WIDTH - 1)];
-      const endY = bottomProfile[endX];
-      const delta = endY - startY;
+    for (let i = 0; i < chunkTypes.length; i++) {
+      const xCursor = i * 90;
+      if (xCursor >= CONST.TERRAIN_WIDTH) break;
 
+      const startY = chunkBottomY[i];
       let selected: TerrainSpriteMetadata;
-      if (delta > slopeThreshold && bottomSlopeUp.length > 0) {
-        // Profile deepens → bottom_slope_up (entry shallow, exit deep)
-        selected = bottomSlopeUp[Math.floor(Math.random() * bottomSlopeUp.length)];
-      } else if (delta < -slopeThreshold && bottomSlopeDown.length > 0) {
-        // Profile shallows → bottom_slope_down (entry deep, exit shallow)
+
+      if (chunkTypes[i] === 'slope_up' && bottomSlopeDown.length > 0) {
         selected = bottomSlopeDown[Math.floor(Math.random() * bottomSlopeDown.length)];
+      } else if (chunkTypes[i] === 'slope_down' && bottomSlopeUp.length > 0) {
+        selected = bottomSlopeUp[Math.floor(Math.random() * bottomSlopeUp.length)];
       } else {
         selected = bottomFlat[Math.floor(Math.random() * bottomFlat.length)];
       }
 
-      const placement = this.createBottomPlacement(selected, xCursor, startY);
-      placements.push(placement);
-      xCursor += selected.width;
+      placements.push(this.createBottomPlacement(selected, xCursor, startY));
     }
 
     return placements;
