@@ -35,6 +35,24 @@ import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
 // Camera system
 
+// Physics config + runtime state for a row of letters that drop in with bounce.
+interface BouncingLetterAnimConfig {
+  letterSize: number;
+  staggerMs: number;
+  gravity: number;
+  bounce: number;
+  minBounceVY: number;
+  advanceRatio: number;
+  targetYFn: (i: number) => number;
+}
+interface BouncingLetterAnimState {
+  cfg: BouncingLetterAnimConfig;
+  letterY: number[];
+  letterVY: number[];
+  animStart: number; // 0 = not yet started
+  animLastTs: number;
+}
+
 @Component({
   selector: 'app-tmonkeys',
   imports: [RouterLink, CommonModule],
@@ -55,55 +73,28 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
 
   // Menu title animation (MONKEYS letters drop in on first menu visit)
-  private menuTitleLetterY: number[] = [];
-  private menuTitleLetterVY: number[] = [];
-  private menuTitleAnimStart = 0;
-  private menuTitleAnimLastTs = 0;
-  private readonly MT_LETTERS = [
-    'text_M',
-    'text_O',
-    'text_N',
-    'text_K',
-    'text_E',
-    'text_Y',
-    'text_S',
-  ];
-  private readonly MT_LETTER_SIZE = 96;
-  private readonly MT_STAGGER_MS = 130;
-  private readonly MT_GRAVITY = 1800;
-  private readonly MT_BOUNCE = 0.38;
-  private readonly MT_MIN_BOUNCE_VY = 50;
-  private readonly MT_TARGET_Y_OFFSETS = [4, -8, 10, -5, 8, -10, 3];
+  private readonly MT_LETTERS = ['text_M', 'text_O', 'text_N', 'text_K', 'text_E', 'text_Y', 'text_S'];
+  private menuTitleAnim: BouncingLetterAnimState = {
+    cfg: {
+      letterSize: 96, staggerMs: 130, gravity: 1800, bounce: 0.38, minBounceVY: 50,
+      advanceRatio: 0.5,
+      targetYFn: (i) => 55 + [4, -8, 10, -5, 8, -10, 3][i],
+    },
+    letterY: [], letterVY: [], animStart: 0, animLastTs: 0,
+  };
 
   // Game over letter drop animation
-  private gameOverLetterY: number[] = [];
-  private gameOverLetterVY: number[] = [];
-  private gameOverAnimStart = 0;
-  private gameOverAnimLastTs = 0;
-  private readonly GO_LETTERS: string[] = [
-    'arena_G',
-    'arena_A',
-    'arena_M',
-    'arena_E',
-    'arena_O',
-    'arena_V',
-    'arena_E2',
-    'arena_R',
-  ];
-  private readonly WIN_LETTERS: string[] = [
-    'text_Y',
-    'text_O',
-    'text_U',
-    'text_W',
-    'text_I',
-    'text_N',
-  ];
+  private readonly GO_LETTERS: string[] = ['arena_G', 'arena_A', 'arena_M', 'arena_E', 'arena_O', 'arena_V', 'arena_E2', 'arena_R'];
+  private readonly WIN_LETTERS: string[] = ['text_Y', 'text_O', 'text_U', 'text_W', 'text_I', 'text_N'];
   private readonly WIN_TEXT_TINT = '#FFE700';
-  private readonly GO_LETTER_SIZE = 96;
-  private readonly GO_STAGGER_MS = 110;
-  private readonly GO_GRAVITY = 2400; // px/s²
-  private readonly GO_BOUNCE = 0.42;
-  private readonly GO_MIN_BOUNCE_VY = 60; // px/s threshold to stop bouncing
+  private gameOverAnim: BouncingLetterAnimState = {
+    cfg: {
+      letterSize: 96, staggerMs: 110, gravity: 2400, bounce: 0.42, minBounceVY: 60,
+      advanceRatio: 0.62,
+      targetYFn: () => CONST.CANVAS_HEIGHT / 2 - 48, // CANVAS_HEIGHT/2 - letterSize/2
+    },
+    letterY: [], letterVY: [], animStart: 0, animLastTs: 0,
+  };
 
   // Setup timer
   private setupStartTime: number = 0;
@@ -133,77 +124,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.gameService.currentState;
   }
 
-  // Game constants (imported)
-  private readonly CANVAS_WIDTH = CONST.CANVAS_WIDTH;
-  private readonly CANVAS_HEIGHT = CONST.CANVAS_HEIGHT;
-  private readonly CANVAS_PADDING = CONST.CANVAS_PADDING;
-  private readonly SKY_COLOR = CONST.SKY_COLOR;
   private canvasScale = 1;
-
-  // Input handling
-  // keys moved to service
-
-  // UI and Rendering Constants
-  private readonly CHARGE_BAR_WIDTH = CONST.CHARGE_BAR_WIDTH;
-  private readonly CHARGE_BAR_HEIGHT = CONST.CHARGE_BAR_HEIGHT;
-  private readonly CHARGE_BAR_OFFSET_X = CONST.CHARGE_BAR_OFFSET_X;
-  private readonly CHARGE_BAR_BACKGROUND_COLOR = CONST.CHARGE_BAR_BACKGROUND_COLOR;
-  private readonly CHARGE_BAR_BORDER_COLOR = CONST.CHARGE_BAR_BORDER_COLOR;
-  private readonly CHARGE_BAR_BORDER_WIDTH = CONST.CHARGE_BAR_BORDER_WIDTH;
-  private readonly MIN_POWER = CONST.MIN_POWER;
-  private readonly MAX_POWER = CONST.MAX_POWER;
-  private readonly TANK_BODY_RADIUS = CONST.TANK_BODY_RADIUS;
-  private readonly CANNON_ARC_RADIUS = CONST.CANNON_ARC_RADIUS;
-  private readonly CANNON_ARC_COLOR = CONST.CANNON_ARC_COLOR;
-  private readonly AIM_GUIDE_COLOR = CONST.AIM_GUIDE_COLOR;
-  private readonly AIM_LINE_COLOR = CONST.AIM_LINE_COLOR;
-  private readonly AIM_LINE_WIDTH = CONST.AIM_LINE_WIDTH;
-  private readonly AIM_LINE_LENGTH = CONST.AIM_LINE_LENGTH;
-  private readonly TANK_SHADOW_COLOR = CONST.TANK_SHADOW_COLOR;
-  private readonly TANK_SHADOW_HEIGHT_RATIO = CONST.TANK_SHADOW_HEIGHT_RATIO;
-  private readonly AIMING_LINE_COLOR = CONST.AIMING_LINE_COLOR;
-  private readonly AIMING_LINE_WIDTH = CONST.AIMING_LINE_WIDTH;
-  private readonly AIMING_LINE_DASH = CONST.AIMING_LINE_DASH;
-  private readonly TANK_BODY_STROKE_COLOR = CONST.TANK_BODY_STROKE_COLOR;
-  private readonly TANK_BODY_STROKE_WIDTH = CONST.TANK_BODY_STROKE_WIDTH;
-  private readonly TANK_TRACK_OFFSET = CONST.TANK_TRACK_OFFSET;
-  private readonly TANK_TRACK_HEIGHT = CONST.TANK_TRACK_HEIGHT;
-  private readonly TANK_TRACK_DETAIL_WIDTH = CONST.TANK_TRACK_DETAIL_WIDTH;
-  private readonly TANK_TRACK_DETAIL_HEIGHT = CONST.TANK_TRACK_DETAIL_HEIGHT;
-  private readonly BARREL_WIDTH = CONST.BARREL_WIDTH;
-  private readonly BARREL_LENGTH = CONST.BARREL_LENGTH;
-  private readonly BARREL_COLOR = CONST.BARREL_COLOR;
-  private readonly BARREL_STROKE_COLOR = CONST.BARREL_STROKE_COLOR;
-  private readonly BARREL_STROKE_WIDTH = CONST.BARREL_STROKE_WIDTH;
-  private readonly BARREL_TIP_COLOR = CONST.BARREL_TIP_COLOR;
-  private readonly BARREL_TIP_LENGTH = CONST.BARREL_TIP_LENGTH;
-  private readonly BARREL_TIP_EXTRA_HEIGHT = CONST.BARREL_TIP_EXTRA_HEIGHT;
-  private readonly PROJECTILE_DRAW_RADIUS = CONST.PROJECTILE_DRAW_RADIUS;
-  private readonly PROJECTILE_COLOR = CONST.PROJECTILE_COLOR;
-  private readonly DAMAGE_TEXT_LIFETIME = CONST.DAMAGE_TEXT_LIFETIME;
-  private readonly EXPLOSION_OUTLINE_WIDTH = CONST.EXPLOSION_OUTLINE_WIDTH;
-  private readonly DAMAGE_TEXT_COLOR = CONST.DAMAGE_TEXT_COLOR;
   private readonly tintCache = new Map<string, HTMLCanvasElement>();
-  private readonly EXPLOSION_EDGE_COLOR = CONST.EXPLOSION_EDGE_COLOR;
-  private readonly EXPLOSION_OUTLINE_COLOR = CONST.EXPLOSION_OUTLINE_COLOR;
-  private readonly EXPLOSION_MIDDLE_COLOR = CONST.EXPLOSION_MIDDLE_COLOR;
-  private readonly EXPLOSION_CENTER_COLOR = CONST.EXPLOSION_CENTER_COLOR;
-  private readonly CHARGE_BAR_LOW_COLOR = CONST.CHARGE_BAR_LOW_COLOR;
-  private readonly CHARGE_BAR_MID_COLOR = CONST.CHARGE_BAR_MID_COLOR;
-  private readonly CHARGE_BAR_HIGH_COLOR = CONST.CHARGE_BAR_HIGH_COLOR;
-  private readonly HEALTH_BAR_BG_COLOR = CONST.HEALTH_BAR_BG_COLOR;
-  private readonly HEALTH_BAR_PLAYER_COLOR = CONST.HEALTH_BAR_PLAYER_COLOR;
-  private readonly HEALTH_BAR_ENEMY_COLOR = CONST.HEALTH_BAR_ENEMY_COLOR;
-  private readonly MOVEMENT_BAR_COLOR = CONST.MOVEMENT_BAR_COLOR;
-  private readonly TURN_QUEUE_BG_COLOR = CONST.TURN_QUEUE_BG_COLOR;
-  private readonly TURN_QUEUE_CURRENT_COLOR = CONST.TURN_QUEUE_CURRENT_COLOR;
-  private readonly TURN_QUEUE_PLAYER_COLOR = CONST.TURN_QUEUE_PLAYER_COLOR;
-  private readonly TURN_QUEUE_ENEMY_COLOR = CONST.TURN_QUEUE_ENEMY_COLOR;
-  private readonly TANK_TRACK_COLOR = CONST.TANK_TRACK_COLOR;
-  private readonly TANK_TRACK_INNER_COLOR = CONST.TANK_TRACK_INNER_COLOR;
-  private readonly PREDICTION_PLAYER_COLOR = CONST.PREDICTION_PLAYER_COLOR;
-  private readonly PREDICTION_ENEMY_COLOR = CONST.PREDICTION_ENEMY_COLOR;
-  private readonly ENEMY_FALLBACK_COLOR = CONST.ENEMY_FALLBACK_COLOR;
   private readonly EFFECT_SPRITE_FRAME_COUNT = 3;
   private readonly BULLET_SPRITE_FRAME_DURATION_MS = 90;
   private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
@@ -287,25 +209,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.frozenTime ?? Date.now();
   }
 
-  private readonly MENU_START_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 390, 200, 50);
-  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 460, 200, 50);
-  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 530, 200, 50);
-  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 600, 200, 50);
+  private readonly MENU_START_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 390, 200, 50);
+  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 460, 200, 50);
+  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 530, 200, 50);
+  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 600, 200, 50);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
-  private readonly OPTIONS_BACK_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 385, 200, 50);
-  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 200, 160, 44);
+  private readonly OPTIONS_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 385, 200, 50);
+  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 200, 160, 44);
   private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(
-    this.CANVAS_WIDTH / 2,
+    CONST.CANVAS_WIDTH / 2,
     255,
     160,
     44,
   );
-  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 310, 160, 44);
-  private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 48, 220, 44);
-  private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 102, 220, 44);
-  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 156, 220, 44);
-  private readonly TERRAIN_TOOL_SWITCH_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 210, 220, 44);
-  private readonly TERRAIN_TOOL_MODE_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 264, 220, 44);
+  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 310, 160, 44);
+  private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 48, 220, 44);
+  private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 102, 220, 44);
+  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 156, 220, 44);
+  private readonly TERRAIN_TOOL_SWITCH_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 210, 220, 44);
+  private readonly TERRAIN_TOOL_MODE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 264, 220, 44);
 
   constructor(
     private gameService: MonkeysGameService,
@@ -368,7 +290,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
     this.generateBgTreeInstances();
-    this.gameOverAnimStart = 0;
+    this.gameOverAnim.animStart = 0;
     this.previousHealthByEntity = new WeakMap<object, number>();
     this.hurtSpriteUntilByEntity = new WeakMap<object, number>();
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
@@ -387,8 +309,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx = canvas.getContext('2d')!;
 
     // Set canvas size
-    canvas.width = this.CANVAS_WIDTH;
-    canvas.height = this.CANVAS_HEIGHT;
+    canvas.width = CONST.CANVAS_WIDTH;
+    canvas.height = CONST.CANVAS_HEIGHT;
 
     // Scale for different screen sizes
     this.updateCanvasScale();
@@ -397,10 +319,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private updateCanvasScale() {
     const container = this.canvas.nativeElement.parentElement;
     if (container) {
-      const maxWidth = Math.min(window.innerWidth - this.CANVAS_PADDING, this.CANVAS_WIDTH);
-      this.canvasScale = maxWidth / this.CANVAS_WIDTH;
+      const maxWidth = Math.min(window.innerWidth - CONST.CANVAS_PADDING, CONST.CANVAS_WIDTH);
+      this.canvasScale = maxWidth / CONST.CANVAS_WIDTH;
       this.canvas.nativeElement.style.width = `${maxWidth}px`;
-      this.canvas.nativeElement.style.height = `${this.CANVAS_HEIGHT * this.canvasScale}px`;
+      this.canvas.nativeElement.style.height = `${CONST.CANVAS_HEIGHT * this.canvasScale}px`;
     }
   }
 
@@ -539,8 +461,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw sky (entire background)
-    this.ctx.fillStyle = this.SKY_COLOR; // Sky blue
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillStyle = CONST.SKY_COLOR; // Sky blue
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(this.cameraController.camera.x);
 
     // Draw terrain
@@ -579,10 +501,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawChargeBar(entity: any, maxPower: number) {
-    const barWidth = this.CHARGE_BAR_WIDTH;
-    const barHeight = this.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
+    const barWidth = CONST.CHARGE_BAR_WIDTH;
+    const barHeight = CONST.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
-    const offsetX = entity.facing === 1 ? -this.CHARGE_BAR_OFFSET_X : this.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const offsetX = entity.facing === 1 ? -CONST.CHARGE_BAR_OFFSET_X : CONST.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
     const worldX = entity.x + offsetX;
     const worldY = entity.y - barHeight / 2; // Center vertically on tank
     const screenPos = this.cameraController.worldToScreen(worldX, worldY);
@@ -590,17 +512,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const barY = screenPos.y;
 
     // Background
-    this.ctx.fillStyle = this.CHARGE_BAR_BACKGROUND_COLOR;
+    this.ctx.fillStyle = CONST.CHARGE_BAR_BACKGROUND_COLOR;
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
 
     // Charge level (bottom to top)
     const chargeRatio = entity.power / maxPower;
     this.ctx.fillStyle =
       chargeRatio < 0.3
-        ? this.CHARGE_BAR_LOW_COLOR
+        ? CONST.CHARGE_BAR_LOW_COLOR
         : chargeRatio < 0.7
-          ? this.CHARGE_BAR_MID_COLOR
-          : this.CHARGE_BAR_HIGH_COLOR;
+          ? CONST.CHARGE_BAR_MID_COLOR
+          : CONST.CHARGE_BAR_HIGH_COLOR;
     this.ctx.fillRect(
       barX,
       barY + barHeight * (1 - chargeRatio),
@@ -609,8 +531,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
 
     // Border
-    this.ctx.strokeStyle = this.CHARGE_BAR_BORDER_COLOR;
-    this.ctx.lineWidth = this.CHARGE_BAR_BORDER_WIDTH;
+    this.ctx.strokeStyle = CONST.CHARGE_BAR_BORDER_COLOR;
+    this.ctx.lineWidth = CONST.CHARGE_BAR_BORDER_WIDTH;
     this.ctx.strokeRect(barX, barY, barWidth, barHeight);
 
     // Power percentage
@@ -622,7 +544,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTerrain() {
     const terrainY = Math.floor(
-      this.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
+      CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
     );
     const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
     const endX = Math.min(
@@ -633,17 +555,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Ensure offscreen canvas exists at viewport size
     if (
       !this.terrainSpriteCanvas ||
-      this.terrainSpriteCanvas.width !== this.CANVAS_WIDTH ||
-      this.terrainSpriteCanvas.height !== this.CANVAS_HEIGHT
+      this.terrainSpriteCanvas.width !== CONST.CANVAS_WIDTH ||
+      this.terrainSpriteCanvas.height !== CONST.CANVAS_HEIGHT
     ) {
       this.terrainSpriteCanvas = document.createElement('canvas');
-      this.terrainSpriteCanvas.width = this.CANVAS_WIDTH;
-      this.terrainSpriteCanvas.height = this.CANVAS_HEIGHT;
+      this.terrainSpriteCanvas.width = CONST.CANVAS_WIDTH;
+      this.terrainSpriteCanvas.height = CONST.CANVAS_HEIGHT;
       this.terrainSpriteCtx = this.terrainSpriteCanvas.getContext('2d');
     }
 
     const offCtx = this.terrainSpriteCtx!;
-    offCtx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    offCtx.clearRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
     const terrainSheet = this.spriteService.getSpritesheet(
       this.spriteService.TERRAIN_TOOL_SPRITESHEET,
@@ -747,86 +669,43 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const screenPos = this.cameraController.worldToScreen(
-      this.gameService.player.x,
-      this.gameService.player.y,
-    );
-    const centerX = screenPos.x;
-    const centerY = screenPos.y;
-    const bodyRadius = this.TANK_BODY_RADIUS;
-
-    // Save context for tank flipping and terrain rotation
-    this.ctx.save();
-
-    // Apply terrain rotation first
-    this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(this.gameService.player.terrainAngle);
-    this.ctx.translate(-centerX, -centerY);
-
-    // Flip tank based on facing direction
-    if (this.gameService.player.facing === -1) {
-      this.ctx.scale(-1, 1);
-      this.ctx.translate(-centerX * 2, 0);
-    }
-
-    // Draw cannon range arc (after facing flip, so it flips with tank)
-    this.drawTankAimingArc(centerX, centerY);
-
-    // Draw aim lines (after facing flip, so they flip with tank)
-    this.drawTankAimLines(centerX, centerY);
-
-    // Draw tank shadow for depth
-    this.drawTankShadow(centerX, centerY, bodyRadius);
-
-    // Draw barrel behind body
-    this.drawCursorBarrel(centerX, centerY, (this.gameService.player.angle * Math.PI) / 180);
-
-    // Draw aiming line (behind body)
-    if (this.currentState === GameState.PLAYING || this.currentState === GameState.PAUSED) {
-      const angleRad = (this.gameService.player.angle * Math.PI) / 180;
-      const lineLength = this.AIM_LINE_LENGTH;
-      const endX = centerX + Math.cos(angleRad) * lineLength;
-      const endY = centerY - Math.sin(angleRad) * lineLength;
-
-      this.ctx.strokeStyle = this.AIMING_LINE_COLOR;
-      this.ctx.lineWidth = this.AIMING_LINE_WIDTH;
-      this.ctx.setLineDash(this.AIMING_LINE_DASH);
-      this.ctx.beginPath();
-      this.ctx.moveTo(centerX, centerY);
-      this.ctx.lineTo(endX, endY);
-      this.ctx.stroke();
-      this.ctx.setLineDash([]);
-    }
-
-    // Draw tank body sprite (or fallback shape) in front of barrel and aiming line
-    const drewPlayerSprite = this.drawEntityBody(
+    const { centerX, centerY } = this.drawTankBase(
       this.gameService.player,
       this.gameService.player.color,
-      centerX,
-      centerY,
-      bodyRadius,
+      (cx, cy) => {
+        this.drawTankAimingArc(cx, cy);
+        this.drawTankAimLines(cx, cy);
+      },
+      (cx, cy) => {
+        // Draw aiming line (behind body)
+        if (this.currentState === GameState.PLAYING || this.currentState === GameState.PAUSED) {
+          const angleRad = (this.gameService.player.angle * Math.PI) / 180;
+          const endX = cx + Math.cos(angleRad) * CONST.AIM_LINE_LENGTH;
+          const endY = cy - Math.sin(angleRad) * CONST.AIM_LINE_LENGTH;
+          this.ctx.strokeStyle = CONST.AIMING_LINE_COLOR;
+          this.ctx.lineWidth = CONST.AIMING_LINE_WIDTH;
+          this.ctx.setLineDash(CONST.AIMING_LINE_DASH);
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx, cy);
+          this.ctx.lineTo(endX, endY);
+          this.ctx.stroke();
+          this.ctx.setLineDash([]);
+        }
+      },
     );
-
-    // Keep track overlay only when using fallback shape.
-    if (!drewPlayerSprite) {
-      this.drawTankTracks(centerX, centerY, bodyRadius);
-    }
-
-    // Restore context
-    this.ctx.restore();
 
     // Draw player prediction path when charging
     if (this.showPrediction && this.gameService.isCharging && this.gameService.hasAimGuide) {
       const angleRad = this.gameService.getBarrelAngle();
-      const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * this.BARREL_LENGTH;
-      const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * this.BARREL_LENGTH;
+      const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * CONST.BARREL_LENGTH;
+      const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * CONST.BARREL_LENGTH;
       this.drawPredictionPath(
         barrelEndX,
         barrelEndY,
         angleRad,
         this.gameService.player.power,
         this.gameService.player.vehicle.bullet,
-        this.PREDICTION_PLAYER_COLOR,
+        CONST.PREDICTION_PLAYER_COLOR,
       );
     }
 
@@ -835,7 +714,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.player,
       centerX,
       centerY,
-      bodyRadius,
+      CONST.TANK_BODY_RADIUS,
       true,
       this.gameService.playerName,
     );
@@ -850,58 +729,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawEnemy(enemy: any) {
-    const screenPos = this.cameraController.worldToScreen(enemy.x, enemy.y);
-    const centerX = screenPos.x;
-    const centerY = screenPos.y;
-    const bodyRadius = this.TANK_BODY_RADIUS;
-
-    // Save context for tank flipping and terrain rotation
-    this.ctx.save();
-
-    // Apply terrain rotation first
-    this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(enemy.terrainAngle);
-    this.ctx.translate(-centerX, -centerY);
-
-    // Flip tank based on facing direction
-    if (enemy.facing === -1) {
-      this.ctx.scale(-1, 1);
-      this.ctx.translate(-centerX * 2, 0);
-    }
-
-    // Draw tank shadow for depth
-    this.drawTankShadow(centerX, centerY, bodyRadius);
-
-    // Draw barrel behind body
-    this.drawCursorBarrel(centerX, centerY, (enemy.angle * Math.PI) / 180);
-
-    // Draw tank body sprite (or fallback shape) in front of barrel.
-    const drewEnemySprite = this.drawEntityBody(
-      enemy,
-      this.ENEMY_FALLBACK_COLOR,
-      centerX,
-      centerY,
-      bodyRadius,
-    );
-
-    // Keep track overlay only when using fallback shape.
-    if (!drewEnemySprite) {
-      this.drawTankTracks(centerX, centerY, bodyRadius);
-    }
-
-    // Restore context
-    this.ctx.restore();
+    const { centerX, centerY } = this.drawTankBase(enemy, CONST.ENEMY_FALLBACK_COLOR);
 
     // Draw UI elements (health bar, name label)
     const enemyIndex = this.gameService.enemies.indexOf(enemy);
-    this.drawEntityUI(enemy, centerX, centerY, bodyRadius, false, `Enemy ${enemyIndex + 1}`);
+    this.drawEntityUI(enemy, centerX, centerY, CONST.TANK_BODY_RADIUS, false, `Enemy ${enemyIndex + 1}`);
 
     // Draw prediction path if enabled
     if (this.showPrediction && enemy.turnState === 'charging') {
       const baseAngleRad = (enemy.angle * Math.PI) / 180;
       const angleRad =
         -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);
-      const barrelLength = this.BARREL_LENGTH;
+      const barrelLength = CONST.BARREL_LENGTH;
       const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
       const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
@@ -911,9 +750,50 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         angleRad,
         enemy.power,
         enemy.vehicle.bullet,
-        this.PREDICTION_ENEMY_COLOR,
+        CONST.PREDICTION_ENEMY_COLOR,
       );
     }
+  }
+
+  // Shared tank rendering core: transform, shadow, barrel, body, restore.
+  // afterFacingFlip: called inside ctx.save() after the facing transform (for aim arc/lines).
+  // beforeBody: called inside ctx.save() after the barrel but before the body sprite (for dotted aim line).
+  // Returns screen-space centre so callers can draw UI/predictions after the restore.
+  private drawTankBase(
+    entity: any,
+    fallbackColor: string,
+    afterFacingFlip?: (cx: number, cy: number) => void,
+    beforeBody?: (cx: number, cy: number) => void,
+  ): { centerX: number; centerY: number } {
+    const screenPos = this.cameraController.worldToScreen(entity.x, entity.y);
+    const centerX = screenPos.x;
+    const centerY = screenPos.y;
+    const bodyRadius = CONST.TANK_BODY_RADIUS;
+
+    this.ctx.save();
+
+    this.ctx.translate(centerX, centerY);
+    this.ctx.rotate(entity.terrainAngle);
+    this.ctx.translate(-centerX, -centerY);
+
+    if (entity.facing === -1) {
+      this.ctx.scale(-1, 1);
+      this.ctx.translate(-centerX * 2, 0);
+    }
+
+    afterFacingFlip?.(centerX, centerY);
+
+    this.drawTankShadow(centerX, centerY, bodyRadius);
+    this.drawCursorBarrel(centerX, centerY, (entity.angle * Math.PI) / 180);
+
+    beforeBody?.(centerX, centerY);
+
+    if (!this.drawEntityBody(entity, fallbackColor, centerX, centerY, bodyRadius)) {
+      this.drawTankTracks(centerX, centerY, bodyRadius);
+    }
+
+    this.ctx.restore();
+    return { centerX, centerY };
   }
 
   private getCursorFrameIndex(now: number = Date.now()): number {
@@ -941,7 +821,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const pivotOffset = this.BARREL_LENGTH + 14;
+    const pivotOffset = CONST.BARREL_LENGTH + 14;
     const scale = 0.84;
     const drawWidth = cursorSprite.width * scale;
     const drawHeight = cursorSprite.height * scale;
@@ -968,26 +848,26 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawClassicBarrel(centerX: number, centerY: number, angleRad: number) {
-    const barrelLength = this.BARREL_LENGTH;
-    const barrelWidth = this.BARREL_WIDTH;
+    const barrelLength = CONST.BARREL_LENGTH;
+    const barrelWidth = CONST.BARREL_WIDTH;
 
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
     this.ctx.rotate(-angleRad);
 
-    this.ctx.fillStyle = this.BARREL_COLOR;
-    this.ctx.strokeStyle = this.BARREL_STROKE_COLOR;
-    this.ctx.lineWidth = this.BARREL_STROKE_WIDTH;
+    this.ctx.fillStyle = CONST.BARREL_COLOR;
+    this.ctx.strokeStyle = CONST.BARREL_STROKE_COLOR;
+    this.ctx.lineWidth = CONST.BARREL_STROKE_WIDTH;
 
     this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
     this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
 
-    this.ctx.fillStyle = this.BARREL_TIP_COLOR;
+    this.ctx.fillStyle = CONST.BARREL_TIP_COLOR;
     this.ctx.fillRect(
-      barrelLength - this.BARREL_TIP_LENGTH,
+      barrelLength - CONST.BARREL_TIP_LENGTH,
       -barrelWidth / 2 - 1,
-      this.BARREL_TIP_LENGTH,
-      barrelWidth + this.BARREL_TIP_EXTRA_HEIGHT,
+      CONST.BARREL_TIP_LENGTH,
+      barrelWidth + CONST.BARREL_TIP_EXTRA_HEIGHT,
     );
 
     this.ctx.restore();
@@ -1001,20 +881,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const maxAngle = (this.gameService.player.vehicle.maxAimAngle * Math.PI) / 180;
 
       this.ctx.globalAlpha = 0.2;
-      this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
+      this.ctx.fillStyle = CONST.CANNON_ARC_COLOR; // Yellow transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
-      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
+      this.ctx.arc(centerX, centerY, CONST.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
       this.ctx.closePath();
       this.ctx.fill();
       this.ctx.globalAlpha = 1.0;
 
       // Draw grey aim guide 0° to 90°
       this.ctx.globalAlpha = 0.3; // Darker grey
-      this.ctx.fillStyle = this.AIM_GUIDE_COLOR; // Grey transparent
+      this.ctx.fillStyle = CONST.AIM_GUIDE_COLOR; // Grey transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);
-      this.ctx.arc(centerX, centerY, this.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
+      this.ctx.arc(centerX, centerY, CONST.CANNON_ARC_RADIUS, -Math.PI / 2, 0); // -90° to 0°
       this.ctx.closePath();
       this.ctx.fill();
     }
@@ -1024,12 +904,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
     if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
       this.ctx.globalAlpha = 1.0;
-      this.ctx.strokeStyle = this.AIM_LINE_COLOR;
-      this.ctx.lineWidth = this.AIM_LINE_WIDTH;
+      this.ctx.strokeStyle = CONST.AIM_LINE_COLOR;
+      this.ctx.lineWidth = CONST.AIM_LINE_WIDTH;
       const angles = [0, -Math.PI / 4, -Math.PI / 2];
       angles.forEach((angle) => {
-        const endX = centerX + Math.cos(-angle) * this.AIM_LINE_LENGTH;
-        const endY = centerY - Math.sin(-angle) * this.AIM_LINE_LENGTH;
+        const endX = centerX + Math.cos(-angle) * CONST.AIM_LINE_LENGTH;
+        const endY = centerY - Math.sin(-angle) * CONST.AIM_LINE_LENGTH;
         this.ctx.beginPath();
         this.ctx.moveTo(centerX, centerY);
         this.ctx.lineTo(endX, endY);
@@ -1073,13 +953,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankShadow(centerX: number, centerY: number, bodyRadius: number) {
     // Draw tank shadow for depth
-    this.ctx.fillStyle = this.TANK_SHADOW_COLOR;
+    this.ctx.fillStyle = CONST.TANK_SHADOW_COLOR;
     this.ctx.beginPath();
     this.ctx.ellipse(
       centerX,
       centerY + 2,
       bodyRadius,
-      bodyRadius * this.TANK_SHADOW_HEIGHT_RATIO,
+      bodyRadius * CONST.TANK_SHADOW_HEIGHT_RATIO,
       0,
       0,
       Math.PI,
@@ -1150,7 +1030,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateShootSpriteState() {
-    const now = this.frozenTime ?? Date.now();
+    const now = this.renderTime;
     const trackedEntities = [this.gameService.player, ...this.gameService.enemies];
 
     for (const entity of trackedEntities) {
@@ -1214,7 +1094,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return false;
     }
 
-    const now = this.frozenTime ?? Date.now();
+    const now = this.renderTime;
     const deathAnimationState = this.getDeathAnimationState(entity, now);
     const isHurt = (this.hurtSpriteUntilByEntity.get(entity as object) ?? 0) > now;
     const shootReleaseFrameIndex = this.getShootReleaseFrameIndex(entity, now);
@@ -1269,7 +1149,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateHurtSpriteState() {
-    const now = this.frozenTime ?? Date.now();
+    const now = this.renderTime;
     this.trackEntityDamage(this.gameService.player, now);
     for (const enemy of this.gameService.enemies) {
       this.trackEntityDamage(enemy, now);
@@ -1309,8 +1189,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return true;
     }
     this.ctx.fillStyle = fallbackColor;
-    this.ctx.strokeStyle = this.TANK_BODY_STROKE_COLOR;
-    this.ctx.lineWidth = this.TANK_BODY_STROKE_WIDTH;
+    this.ctx.strokeStyle = CONST.TANK_BODY_STROKE_COLOR;
+    this.ctx.lineWidth = CONST.TANK_BODY_STROKE_WIDTH;
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
     this.ctx.closePath();
@@ -1321,27 +1201,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
     // Draw tank tracks/details - on top
-    this.ctx.fillStyle = this.TANK_TRACK_COLOR;
+    this.ctx.fillStyle = CONST.TANK_TRACK_COLOR;
     this.ctx.fillRect(
-      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
+      centerX - bodyRadius + CONST.TANK_TRACK_OFFSET,
       centerY - 3,
       bodyRadius * 2 - 4,
-      this.TANK_TRACK_HEIGHT,
+      CONST.TANK_TRACK_HEIGHT,
     );
     this.ctx.strokeRect(
-      centerX - bodyRadius + this.TANK_TRACK_OFFSET,
+      centerX - bodyRadius + CONST.TANK_TRACK_OFFSET,
       centerY - 3,
       bodyRadius * 2 - 4,
-      this.TANK_TRACK_HEIGHT,
+      CONST.TANK_TRACK_HEIGHT,
     );
 
     // Draw tank tracks (left and right)
-    this.ctx.fillStyle = this.TANK_TRACK_INNER_COLOR;
+    this.ctx.fillStyle = CONST.TANK_TRACK_INNER_COLOR;
     this.ctx.fillRect(
       centerX - bodyRadius + 4,
       centerY - 5,
-      this.TANK_TRACK_DETAIL_WIDTH,
-      this.TANK_TRACK_DETAIL_HEIGHT,
+      CONST.TANK_TRACK_DETAIL_WIDTH,
+      CONST.TANK_TRACK_DETAIL_HEIGHT,
     );
     this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
   }
@@ -1388,10 +1268,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const barX = centerX - barWidth / 2;
     const barY = centerY + bodyRadius - 5;
     // Background bar
-    this.ctx.fillStyle = this.HEALTH_BAR_BG_COLOR;
+    this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
     this.ctx.fillRect(barX, barY, barWidth, barHeight);
     // Health bar
-    this.ctx.fillStyle = isPlayer ? this.HEALTH_BAR_PLAYER_COLOR : this.HEALTH_BAR_ENEMY_COLOR; // Green for player, red for enemies
+    this.ctx.fillStyle = isPlayer ? CONST.HEALTH_BAR_PLAYER_COLOR : CONST.HEALTH_BAR_ENEMY_COLOR; // Green for player, red for enemies
     this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
 
     // Draw angle text to the right of health bar
@@ -1403,17 +1283,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const movementRatio = entity.movementFuel / entity.vehicle.fuel;
       const movementBarY = barY + barHeight + 2; // Below health bar
       // Background
-      this.ctx.fillStyle = this.HEALTH_BAR_BG_COLOR;
+      this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
       this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
       // Movement bar
-      this.ctx.fillStyle = this.MOVEMENT_BAR_COLOR; // Yellow
+      this.ctx.fillStyle = CONST.MOVEMENT_BAR_COLOR; // Yellow
       this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
     }
   }
 
   private drawBulletAt(screenPos: { x: number; y: number }, bulletSprite: SpriteData | null): void {
     if (bulletSprite) {
-      const drawSize = this.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
+      const drawSize = CONST.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
       this.ctx.drawImage(
         bulletSprite.image,
         bulletSprite.x,
@@ -1426,9 +1306,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         drawSize,
       );
     } else {
-      this.ctx.fillStyle = this.PROJECTILE_COLOR;
+      this.ctx.fillStyle = CONST.PROJECTILE_COLOR;
       this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, this.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
+      this.ctx.arc(screenPos.x, screenPos.y, CONST.PROJECTILE_DRAW_RADIUS, 0, Math.PI * 2);
       this.ctx.fill();
     }
   }
@@ -1479,9 +1359,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         screenPos.y,
         explosion.radius,
       );
-      gradient.addColorStop(0, this.EXPLOSION_CENTER_COLOR); // Yellow center
-      gradient.addColorStop(0.5, this.EXPLOSION_MIDDLE_COLOR); // Orange middle
-      gradient.addColorStop(1, this.EXPLOSION_EDGE_COLOR); // Red edge fading to transparent
+      gradient.addColorStop(0, CONST.EXPLOSION_CENTER_COLOR); // Yellow center
+      gradient.addColorStop(0.5, CONST.EXPLOSION_MIDDLE_COLOR); // Orange middle
+      gradient.addColorStop(1, CONST.EXPLOSION_EDGE_COLOR); // Red edge fading to transparent
 
       this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
@@ -1512,8 +1392,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fill();
 
       // Add explosion outline
-      this.ctx.strokeStyle = this.EXPLOSION_OUTLINE_COLOR;
-      this.ctx.lineWidth = this.EXPLOSION_OUTLINE_WIDTH;
+      this.ctx.strokeStyle = CONST.EXPLOSION_OUTLINE_COLOR;
+      this.ctx.lineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
       this.ctx.stroke();
 
       if (explosionSprite) {
@@ -1541,24 +1421,46 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private drawSpriteChars(
+    chars: string[],
+    map: Record<string, string>,
+    startX: number,
+    topY: number,
+    size: number,
+    advance: number,
+    tint?: string,
+    plainFallback = false,
+  ): void {
+    let x = startX;
+    for (const ch of chars) {
+      const spriteName = map[ch];
+      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
+      if (sprite) {
+        if (tint) {
+          this.ctx.drawImage(this.tintedGlyph(sprite, size, tint), x, topY);
+        } else {
+          this.ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, x, topY, size, size);
+        }
+      } else if (plainFallback) {
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = `${size}px Arial`;
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(ch, x, topY + size);
+      }
+      x += advance;
+    }
+  }
+
   private drawDamageTexts() {
     const size = 28;
     const advance = size * 0.45;
-    const tint = this.DAMAGE_TEXT_COLOR;
+    const tint = CONST.DAMAGE_TEXT_COLOR;
     for (const text of this.gameService.damageTexts) {
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
-      const alpha = text.life / this.DAMAGE_TEXT_LIFETIME;
-      this.ctx.globalAlpha = alpha;
+      this.ctx.globalAlpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
       const chars = String(text.damage).split('');
       const totalWidth = (chars.length - 1) * advance + size;
-      let x = screenPos.x - totalWidth / 2;
-      for (const ch of chars) {
-        const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
-        if (sprite) {
-          this.ctx.drawImage(this.tintedGlyph(sprite, size, tint), x, screenPos.y - size);
-        }
-        x += advance;
-      }
+      this.drawSpriteChars(chars, this.ANGLE_CHAR_TO_SPRITE, screenPos.x - totalWidth / 2, screenPos.y - size, size, advance, tint);
     }
     this.ctx.globalAlpha = 1;
   }
@@ -1566,17 +1468,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawUI() {
     // Draw countdown timer in top right
     if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
-      const now = this.frozenTime ?? Date.now();
+      const now = this.renderTime;
       const remaining = Math.max(
         0,
         Math.floor(45 - (now - this.gameService.turnStartTime) / 1000),
       );
-      this.drawArenaNumber(String(remaining), this.CANVAS_WIDTH - 20, 8, 64);
+      this.drawArenaNumber(String(remaining), CONST.CANVAS_WIDTH - 20, 8, 64);
     }
 
     // Draw turn message
     if (this.turnMessage) {
-      this.drawSpriteTextCentered(this.turnMessage, this.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
+      this.drawSpriteTextCentered(this.turnMessage, CONST.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
     }
 
     // Draw pause/game over message
@@ -1584,7 +1486,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillStyle = '#FFFFFF';
       this.ctx.font = '32px Arial';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText('Paused', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+      this.ctx.fillText('Paused', CONST.CANVAS_WIDTH / 2, CONST.CANVAS_HEIGHT / 2);
       this.ctx.textAlign = 'left';
     } else if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
@@ -1596,11 +1498,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.gameService.currentState === GameState.WIN_DELAY ||
         this.gameService.currentState === GameState.WIN;
       // Initialise on first frame
-      if (this.gameOverAnimStart === 0) {
-        this.initGameOverAnim(isWin ? this.WIN_LETTERS.length : this.GO_LETTERS.length);
+      if (this.gameOverAnim.animStart === 0) {
+        this.initBouncingLetterAnim(this.gameOverAnim, isWin ? this.WIN_LETTERS.length : this.GO_LETTERS.length);
       }
-      this.updateGameOverLetters();
-      this.drawBouncingLetters(
+      this.updateBouncingLetterAnim(this.gameOverAnim);
+      this.drawBouncingLetterAnim(
+        this.gameOverAnim,
         isWin ? this.WIN_LETTERS : this.GO_LETTERS,
         isWin ? this.WIN_TEXT_TINT : undefined,
       );
@@ -1611,7 +1514,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       ) {
         this.drawSpriteTextCentered(
           'Press R to return',
-          this.CANVAS_HEIGHT / 2 + this.GO_LETTER_SIZE / 2 + 16,
+          CONST.CANVAS_HEIGHT / 2 + this.gameOverAnim.cfg.letterSize / 2 + 16,
           28,
         );
       }
@@ -1622,7 +1525,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const queue = [...this.gameService.turnQueue].sort((a, b) => a.entity.delay - b.entity.delay);
     if (queue.length === 0) return;
 
-    this.ctx.fillStyle = this.TURN_QUEUE_BG_COLOR;
+    this.ctx.fillStyle = CONST.TURN_QUEUE_BG_COLOR;
     this.ctx.fillRect(10, 10, 200, queue.length * 25 + 10);
 
     this.ctx.fillStyle = '#FFFFFF';
@@ -1636,11 +1539,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const isCurrent = turnEntity.id === currentEntity?.id;
 
       if (isCurrent) {
-        this.ctx.fillStyle = this.TURN_QUEUE_CURRENT_COLOR; // Yellow for current turn
+        this.ctx.fillStyle = CONST.TURN_QUEUE_CURRENT_COLOR; // Yellow for current turn
       } else if (turnEntity.type === 'player') {
-        this.ctx.fillStyle = this.TURN_QUEUE_PLAYER_COLOR; // Green for player
+        this.ctx.fillStyle = CONST.TURN_QUEUE_PLAYER_COLOR; // Green for player
       } else {
-        this.ctx.fillStyle = this.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
+        this.ctx.fillStyle = CONST.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
       }
 
       const name =
@@ -1824,8 +1727,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawLoadingScreen() {
-    const cx = this.CANVAS_WIDTH / 2;
-    const cy = this.CANVAS_HEIGHT / 2;
+    const cx = CONST.CANVAS_WIDTH / 2;
+    const cy = CONST.CANVAS_HEIGHT / 2;
     const barW = 400;
     const barH = 24;
     const barX = cx - barW / 2;
@@ -1833,7 +1736,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const progress = this.spriteService.loadProgress;
 
     this.ctx.fillStyle = '#1a1a2e';
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 36px Arial';
@@ -1932,13 +1835,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     scaleMultiplier: number,
     offsetX = 0,
   ) {
-    const scaleX = this.CANVAS_WIDTH / sprite.width;
-    const scaleY = this.CANVAS_HEIGHT / sprite.height;
+    const scaleX = CONST.CANVAS_WIDTH / sprite.width;
+    const scaleY = CONST.CANVAS_HEIGHT / sprite.height;
     const scale = Math.max(scaleX, scaleY) * scaleMultiplier;
     const drawW = sprite.width * scale;
     const drawH = sprite.height * scale;
-    const drawX = (this.CANVAS_WIDTH - drawW) / 2 - offsetX;
-    const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
+    const drawX = (CONST.CANVAS_WIDTH - drawW) / 2 - offsetX;
+    const drawY = (CONST.CANVAS_HEIGHT - drawH) / 2;
     this.ctx.drawImage(
       sheet,
       sprite.x,
@@ -1959,14 +1862,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     scaleMultiplier: number,
     offsetX = 0,
   ) {
-    const scaleX = this.CANVAS_WIDTH / sprite.width;
-    const scaleY = this.CANVAS_HEIGHT / sprite.height;
+    const scaleX = CONST.CANVAS_WIDTH / sprite.width;
+    const scaleY = CONST.CANVAS_HEIGHT / sprite.height;
     const scale = Math.max(scaleX, scaleY) * scaleMultiplier;
     const drawW = sprite.width * scale;
     const drawH = sprite.height * scale;
-    const drawY = (this.CANVAS_HEIGHT - drawH) / 2;
+    const drawY = (CONST.CANVAS_HEIGHT - drawH) / 2;
     const startX = -((offsetX % drawW) + drawW) % drawW;
-    for (let x = startX; x < this.CANVAS_WIDTH; x += drawW) {
+    for (let x = startX; x < CONST.CANVAS_WIDTH; x += drawW) {
       this.ctx.drawImage(
         sheet,
         sprite.x,
@@ -1989,9 +1892,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   ) {
     const drawH = sprite.height * scaleMultiplier;
     const drawW = sprite.width * scaleMultiplier;
-    const drawY = this.CANVAS_HEIGHT - drawH;
+    const drawY = CONST.CANVAS_HEIGHT - drawH;
     const startX = -((offsetX % drawW) + drawW) % drawW;
-    for (let x = startX; x < this.CANVAS_WIDTH; x += drawW) {
+    for (let x = startX; x < CONST.CANVAS_WIDTH; x += drawW) {
       this.ctx.drawImage(
         sheet,
         sprite.x,
@@ -2016,7 +1919,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const drawW = sprite.width * scaleMultiplier;
     const drawH = sprite.height * scaleMultiplier;
     const screenX = worldX - parallaxOffset;
-    const drawY = this.CANVAS_HEIGHT - drawH;
+    const drawY = CONST.CANVAS_HEIGHT - drawH;
     this.ctx.drawImage(
       sheet,
       sprite.x,
@@ -2064,13 +1967,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawEquipmentMenu() {
     // Background
-    this.ctx.fillStyle = this.SKY_COLOR;
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillStyle = CONST.SKY_COLOR;
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(0);
 
     // Dark overlay
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
     // Page title (sprite text, auto-centred on canvas)
     this.drawSpriteTextCentered('Loadout', 18, 34);
@@ -2460,6 +2363,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private cycleSlot(slot: EquipmentSlot, delta: 1 | -1): void {
+    const items = this.gameService.getItemsForSlot(slot);
+    this.loadoutSlotIndices[slot] = (this.loadoutSlotIndices[slot] + delta + items.length) % items.length;
+    const selected = items[this.loadoutSlotIndices[slot]];
+    this.gameService.equipped[slot] = selected?.id?.startsWith('none_') ? null : (selected ?? null);
+  }
+
   private handleEquipmentMenuClick(x: number, y: number) {
     // Back button
     if (this.isPointInsideButton(x, y, this.EQUIP_BACK_BUTTON)) {
@@ -2519,21 +2429,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
       if (this.isPointInsideButton(x, y, leftBtn)) {
-        this.loadoutSlotIndices[slot] =
-          (this.loadoutSlotIndices[slot] - 1 + items.length) % items.length;
-        const selected = items[this.loadoutSlotIndices[slot]];
-        this.gameService.equipped[slot] = selected?.id?.startsWith('none_')
-          ? null
-          : (selected ?? null);
+        this.cycleSlot(slot, -1);
         return;
       }
 
       if (this.isPointInsideButton(x, y, rightBtn)) {
-        this.loadoutSlotIndices[slot] = (this.loadoutSlotIndices[slot] + 1) % items.length;
-        const selected = items[this.loadoutSlotIndices[slot]];
-        this.gameService.equipped[slot] = selected?.id?.startsWith('none_')
-          ? null
-          : (selected ?? null);
+        this.cycleSlot(slot, 1);
         return;
       }
     }
@@ -2543,16 +2444,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawMenu() {
     // Background
-    this.ctx.fillStyle = this.SKY_COLOR;
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillStyle = CONST.SKY_COLOR;
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(0);
 
     // Title — animated MONKEYS sprite letters
-    if (this.menuTitleAnimStart === 0) {
-      this.initMenuTitleAnim();
+    if (this.menuTitleAnim.animStart === 0) {
+      this.initBouncingLetterAnim(this.menuTitleAnim, this.MT_LETTERS.length);
     }
-    this.updateMenuTitleLetters();
-    this.drawMenuTitleLetters();
+    this.updateBouncingLetterAnim(this.menuTitleAnim);
+    this.drawBouncingLetterAnim(this.menuTitleAnim, this.MT_LETTERS, '#FF6622');
 
     // Subtitle lines
     this.drawSpriteTextCentered('An artillery game', 165, 32);
@@ -2568,7 +2469,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         idleSprite.y,
         idleSprite.width,
         idleSprite.height,
-        this.CANVAS_WIDTH / 2 - 32,
+        CONST.CANVAS_WIDTH / 2 - 32,
         303,
         64,
         64,
@@ -2586,8 +2487,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawOptions() {
     // Background
-    this.ctx.fillStyle = this.SKY_COLOR;
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillStyle = CONST.SKY_COLOR;
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(0);
 
     // Title
@@ -2597,7 +2498,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 22px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Difficulty', this.CANVAS_WIDTH / 2, 180);
+    this.ctx.fillText('Difficulty', CONST.CANVAS_WIDTH / 2, 180);
 
     const diff = this.gameService.difficulty;
     const easyActive = diff === 'easy';
@@ -2629,7 +2530,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTerrainTool() {
     this.ctx.fillStyle = '#13202B';
-    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+    this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 36px Arial';
@@ -2667,7 +2568,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillStyle = '#D8E2EA';
       this.ctx.font = '14px Arial';
       this.ctx.textAlign = 'right';
-      this.ctx.fillText(this.terrainToolCopyStatus, this.CANVAS_WIDTH - 20, 206);
+      this.ctx.fillText(this.terrainToolCopyStatus, CONST.CANVAS_WIDTH - 20, 206);
       this.ctx.textAlign = 'left';
     }
 
@@ -3060,54 +2961,60 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return hit;
   }
 
-  // ── Menu title animation (MONKEYS) ──────────────────────────────────────────
+  // ── Bouncing letter animation (shared by menu title and game over) ───────────
 
-  private initMenuTitleAnim() {
-    const count = this.MT_LETTERS.length;
-    this.menuTitleLetterY = Array(count).fill(-this.MT_LETTER_SIZE);
-    this.menuTitleLetterVY = Array(count).fill(0);
-    this.menuTitleAnimStart = performance.now();
-    this.menuTitleAnimLastTs = this.menuTitleAnimStart;
+  private initBouncingLetterAnim(anim: BouncingLetterAnimState, count: number): void {
+    anim.letterY = Array(count).fill(-anim.cfg.letterSize);
+    anim.letterVY = Array(count).fill(0);
+    anim.animStart = performance.now();
+    anim.animLastTs = anim.animStart;
   }
 
-  private updateMenuTitleLetters() {
+  private updateBouncingLetterAnim(anim: BouncingLetterAnimState): void {
+    const { cfg } = anim;
     const now = performance.now();
-    const dt = Math.min((now - this.menuTitleAnimLastTs) / 1000, 0.05);
-    this.menuTitleAnimLastTs = now;
-    const elapsed = now - this.menuTitleAnimStart;
-    const baseY = 55;
-    for (let i = 0; i < this.MT_LETTERS.length; i++) {
-      if (elapsed - i * this.MT_STAGGER_MS <= 0) continue;
-      const targetY = baseY + this.MT_TARGET_Y_OFFSETS[i];
-      this.menuTitleLetterVY[i] += this.MT_GRAVITY * dt;
-      this.menuTitleLetterY[i] += this.menuTitleLetterVY[i] * dt;
-      if (this.menuTitleLetterY[i] >= targetY) {
-        this.menuTitleLetterY[i] = targetY;
-        if (Math.abs(this.menuTitleLetterVY[i]) > this.MT_MIN_BOUNCE_VY) {
-          this.menuTitleLetterVY[i] = -this.menuTitleLetterVY[i] * this.MT_BOUNCE;
+    const dt = Math.min((now - anim.animLastTs) / 1000, 0.05);
+    anim.animLastTs = now;
+    const elapsed = now - anim.animStart;
+    for (let i = 0; i < anim.letterY.length; i++) {
+      if (elapsed - i * cfg.staggerMs <= 0) continue;
+      const targetY = cfg.targetYFn(i);
+      anim.letterVY[i] += cfg.gravity * dt;
+      anim.letterY[i] += anim.letterVY[i] * dt;
+      if (anim.letterY[i] >= targetY) {
+        anim.letterY[i] = targetY;
+        if (Math.abs(anim.letterVY[i]) > cfg.minBounceVY) {
+          anim.letterVY[i] = -anim.letterVY[i] * cfg.bounce;
         } else {
-          this.menuTitleLetterVY[i] = 0;
+          anim.letterVY[i] = 0;
         }
       }
     }
   }
 
-  private drawMenuTitleLetters() {
-    const size = this.MT_LETTER_SIZE;
-    const advance = size * 0.5;
-    const tint = '#FF6622';
-    const totalWidth = (this.MT_LETTERS.length - 1) * advance + size;
-    const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
-    const elapsed = performance.now() - this.menuTitleAnimStart;
-    for (let i = 0; i < this.MT_LETTERS.length; i++) {
-      if (elapsed - i * this.MT_STAGGER_MS <= 0) continue;
-      const sprite = this.spriteService.getSprite(this.MT_LETTERS[i]);
+  private drawBouncingLetterAnim(anim: BouncingLetterAnimState, letters: string[], tint?: string): void {
+    const { cfg } = anim;
+    const size = cfg.letterSize;
+    const advance = size * cfg.advanceRatio;
+    const totalWidth = (letters.length - 1) * advance + size;
+    const startX = CONST.CANVAS_WIDTH / 2 - totalWidth / 2;
+    const elapsed = performance.now() - anim.animStart;
+    for (let i = 0; i < letters.length; i++) {
+      if (elapsed - i * cfg.staggerMs <= 0) continue;
+      const sprite = this.spriteService.getSprite(letters[i]);
       if (!sprite) continue;
-      this.ctx.drawImage(
-        this.tintedGlyph(sprite, size, tint),
-        startX + i * advance,
-        this.menuTitleLetterY[i],
-      );
+      if (tint) {
+        this.ctx.drawImage(
+          this.tintedGlyph(sprite, size, tint),
+          startX + i * advance,
+          anim.letterY[i],
+        );
+      } else {
+        this.ctx.drawImage(
+          sprite.image, sprite.x, sprite.y, sprite.width, sprite.height,
+          startX + i * advance, anim.letterY[i], size, size,
+        );
+      }
     }
   }
 
@@ -3143,7 +3050,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const advance = size * advanceRatio;
     const chars = text.split('');
     const totalWidth = (chars.length - 1) * advance + size;
-    let x = this.CANVAS_WIDTH / 2 - totalWidth / 2;
+    let x = CONST.CANVAS_WIDTH / 2 - totalWidth / 2;
     for (const ch of chars) {
       const code = ch.charCodeAt(0);
       let spriteName: string | null = null;
@@ -3170,120 +3077,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  // ── Game Over letter drop animation ────────────────────────────────────────
-
-  private initGameOverAnim(count: number) {
-    this.gameOverLetterY = Array(count).fill(-this.GO_LETTER_SIZE);
-    this.gameOverLetterVY = Array(count).fill(0);
-    this.gameOverAnimStart = performance.now();
-    this.gameOverAnimLastTs = this.gameOverAnimStart;
-  }
-
-  private updateGameOverLetters() {
-    const now = performance.now();
-    const dt = Math.min((now - this.gameOverAnimLastTs) / 1000, 0.05);
-    this.gameOverAnimLastTs = now;
-    const elapsed = now - this.gameOverAnimStart;
-    const targetY = this.CANVAS_HEIGHT / 2 - this.GO_LETTER_SIZE / 2;
-
-    for (let i = 0; i < this.gameOverLetterY.length; i++) {
-      if (elapsed - i * this.GO_STAGGER_MS <= 0) continue; // not launched yet
-      this.gameOverLetterVY[i] += this.GO_GRAVITY * dt;
-      this.gameOverLetterY[i] += this.gameOverLetterVY[i] * dt;
-      if (this.gameOverLetterY[i] >= targetY) {
-        this.gameOverLetterY[i] = targetY;
-        if (Math.abs(this.gameOverLetterVY[i]) > this.GO_MIN_BOUNCE_VY) {
-          this.gameOverLetterVY[i] = -this.gameOverLetterVY[i] * this.GO_BOUNCE;
-        } else {
-          this.gameOverLetterVY[i] = 0;
-        }
-      }
-    }
-  }
-
-  private drawBouncingLetters(letters: string[], tint?: string) {
-    const size = this.GO_LETTER_SIZE;
-    const advance = size * 0.62;
-    const totalWidth = (letters.length - 1) * advance + size;
-    const startX = this.CANVAS_WIDTH / 2 - totalWidth / 2;
-    const elapsed = performance.now() - this.gameOverAnimStart;
-
-    for (let i = 0; i < letters.length; i++) {
-      if (elapsed - i * this.GO_STAGGER_MS <= 0) continue;
-      const sprite = this.spriteService.getSprite(letters[i]);
-      if (!sprite) continue;
-      if (tint) {
-        this.ctx.drawImage(
-          this.tintedGlyph(sprite, size, tint),
-          startX + i * advance,
-          this.gameOverLetterY[i],
-        );
-      } else {
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          startX + i * advance,
-          this.gameOverLetterY[i],
-          size,
-          size,
-        );
-      }
-    }
-  }
-
   // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
   private drawPowerPercent(pct: number, centreX: number, topY: number) {
     const size = 26;
     const advance = size * 0.45;
-    const text = `${pct}%`;
-    const chars = text.split('');
+    const chars = `${pct}%`.split('');
     const totalWidth = (chars.length - 1) * advance + size;
-    let x = centreX - totalWidth / 2;
-    for (const ch of chars) {
-      const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
-      if (sprite) {
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          x,
-          topY,
-          size,
-          size,
-        );
-      }
-      x += advance;
-    }
+    this.drawSpriteChars(chars, this.ANGLE_CHAR_TO_SPRITE, centreX - totalWidth / 2, topY, size, advance);
   }
 
   // Draws an angle value (digits + degree symbol) using row-2 arena sprites, left-aligned.
   private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
     const advance = size * 0.45;
-    const text = `${angleDeg}°`;
-    const topY = centerY - size / 2;
-    let x = leftX;
-    for (const ch of text) {
-      const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
-      if (sprite) {
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          x,
-          topY,
-          size,
-          size,
-        );
-      }
-      x += advance;
-    }
+    this.drawSpriteChars(`${angleDeg}°`.split(''), this.ANGLE_CHAR_TO_SPRITE, leftX, centerY - size / 2, size, advance);
   }
 
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
@@ -3291,30 +3097,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
     const chars = text.split('');
-    let x = rightX - chars.length * advance;
-    for (const ch of chars) {
-      const spriteName = this.ARENA_CHAR_TO_SPRITE[ch];
-      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
-      if (sprite) {
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          x,
-          topY,
-          size,
-          size,
-        );
-      } else {
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = `${size}px Arial`;
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText(ch, x, topY + size);
-      }
-      x += advance;
-    }
+    this.drawSpriteChars(chars, this.ARENA_CHAR_TO_SPRITE, rightX - chars.length * advance, topY, size, advance, undefined, true);
   }
 
   /** Creates a button rect centred at (cx, cy). Use with drawButton and isPointInsideButton. */
@@ -3363,8 +3146,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
     const contentWidth = rect.width - borderLeft - borderRight;
     const contentHeight = rect.height - borderTop - borderBottom;
-    const x = (event.clientX - rect.left - borderLeft) * (this.CANVAS_WIDTH / contentWidth);
-    const y = (event.clientY - rect.top - borderTop) * (this.CANVAS_HEIGHT / contentHeight);
+    const x = (event.clientX - rect.left - borderLeft) * (CONST.CANVAS_WIDTH / contentWidth);
+    const y = (event.clientY - rect.top - borderTop) * (CONST.CANVAS_HEIGHT / contentHeight);
 
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);
