@@ -270,6 +270,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     accessory: 0,
   };
   private isNameEditing = false;
+  private frozenTime: number | null = null; // set when paused to freeze sprite animations
+
+  private get renderTime(): number {
+    return this.frozenTime ?? Date.now();
+  }
 
   // Camera y-axis clamping bounds for manual drag
   private readonly CAMERA_Y_MIN = -200;
@@ -770,7 +775,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawCursorBarrel(centerX, centerY, (this.gameService.player.angle * Math.PI) / 180);
 
     // Draw aiming line (behind body)
-    if (this.currentState === GameState.PLAYING) {
+    if (this.currentState === GameState.PLAYING || this.currentState === GameState.PAUSED) {
       const angleRad = (this.gameService.player.angle * Math.PI) / 180;
       const lineLength = this.AIM_LINE_LENGTH;
       const endX = centerX + Math.cos(angleRad) * lineLength;
@@ -920,7 +925,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawCursorBarrel(centerX: number, centerY: number, angleRad: number) {
-    const cursorFrameIndex = this.getCursorFrameIndex();
+    const cursorFrameIndex = this.getCursorFrameIndex(this.renderTime);
     const cursorSprite = this.spriteService.getSprite(`cursor_${cursorFrameIndex}`);
 
     // Fallback to original barrel shape if cursor sprite isn't loaded yet.
@@ -984,7 +989,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawTankAimingArc(centerX: number, centerY: number) {
     // Draw cannon range arc (before facing flip)
     // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
-    if (this.gameService.currentState === GameState.PLAYING) {
+    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
       const minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
       const maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
 
@@ -1010,7 +1015,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankAimLines(centerX: number, centerY: number) {
     // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
-    if (this.gameService.currentState === GameState.PLAYING) {
+    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
       this.ctx.globalAlpha = 1.0;
       this.ctx.strokeStyle = this.AIM_LINE_COLOR;
       this.ctx.lineWidth = this.AIM_LINE_WIDTH;
@@ -1138,7 +1143,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateShootSpriteState() {
-    const now = Date.now();
+    const now = this.frozenTime ?? Date.now();
     const trackedEntities = [this.gameService.player, ...this.gameService.enemies];
 
     for (const entity of trackedEntities) {
@@ -1202,14 +1207,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return false;
     }
 
-    const now = Date.now();
+    const now = this.frozenTime ?? Date.now();
     const deathAnimationState = this.getDeathAnimationState(entity, now);
     const isHurt = (this.hurtSpriteUntilByEntity.get(entity as object) ?? 0) > now;
     const shootReleaseFrameIndex = this.getShootReleaseFrameIndex(entity, now);
     const shootChargeFrameIndex = this.getShootChargeFrameIndex(entity, now);
     const velocityX = entity?.body?.velocity?.x ?? 0;
     const velocityY = entity?.body?.velocity?.y ?? 0;
-    const isMoving = Math.hypot(velocityX, velocityY) > 0.1;
+    const physicsActive =
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.SETUP;
+    const isMoving = physicsActive && Math.hypot(velocityX, velocityY) > 0.1;
     const spriteName = deathAnimationState?.isActive
       ? `monkey_death_${deathAnimationState.frameIndex}`
       : isHurt
@@ -1254,7 +1262,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateHurtSpriteState() {
-    const now = Date.now();
+    const now = this.frozenTime ?? Date.now();
     this.trackEntityDamage(this.gameService.player, now);
     for (const enemy of this.gameService.enemies) {
       this.trackEntityDamage(enemy, now);
@@ -1419,7 +1427,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawProjectile() {
-    const bulletFrameIndex = this.getBulletFrameIndex();
+    const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
     const bulletSprite = this.spriteService.getSprite(`bullet_${bulletFrameIndex}`);
 
     if (this.gameService.projectile) {
@@ -1440,7 +1448,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawExplosions() {
-    const explosionFrameIndex = this.getExplosionFrameIndex();
+    const explosionFrameIndex = this.getExplosionFrameIndex(this.renderTime);
     const explosionSprite = this.spriteService.getSprite(`explosion_${explosionFrameIndex}`);
 
     for (let i = this.gameService.explosions.length - 1; i >= 0; i--) {
@@ -1562,10 +1570,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawUI() {
     // Draw countdown timer in top right
-    if (this.gameService.currentState === GameState.PLAYING) {
+    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
+      const now = this.frozenTime ?? Date.now();
       const remaining = Math.max(
         0,
-        Math.floor(45 - (Date.now() - this.gameService.turnStartTime) / 1000),
+        Math.floor(45 - (now - this.gameService.turnStartTime) / 1000),
       );
       this.drawArenaNumber(String(remaining), this.CANVAS_WIDTH - 20, 8, 64);
     }
@@ -1688,12 +1697,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (this.gameService.currentState === GameState.PLAYING) {
         this.gameService.currentState = GameState.PAUSED;
         this.gameService.pausePhysics();
+        this.frozenTime = Date.now();
         this.cameraController.cancelPan();
         this.cameraController.lock();
         this.gameService.panToEntity = null;
       } else if (this.gameService.currentState === GameState.PAUSED) {
         this.gameService.currentState = GameState.PLAYING;
         this.gameService.resumePhysics();
+        this.frozenTime = null;
         this.cameraController.unlock();
       }
       event.preventDefault();
@@ -1738,16 +1749,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Handle spacebar release for shooting
     if (event.key === ' ') {
-      if (this.gameService.isCharging && !this.gameService.projectile) {
-        this.gameService.shoot();
+      if (this.gameService.currentState !== GameState.PAUSED) {
+        if (this.gameService.isCharging && !this.gameService.projectile) {
+          this.gameService.shoot();
+        }
+        this.gameService.isCharging = false;
       }
-      this.gameService.isCharging = false;
     }
     this.gameService.keys[event.key] = false;
   }
 
   private clampCameraY(y: number): number {
-    return Math.max(this.CAMERA_Y_MIN, Math.min(this.CAMERA_Y_MAX, y));
+    return this.cameraController.clampCameraY(y);
   }
 
   private isInteractionBlocked(): boolean {

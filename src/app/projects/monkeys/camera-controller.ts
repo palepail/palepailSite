@@ -139,7 +139,7 @@ class CameraController {
    * @param y The Y coordinate to clamp
    * @returns The clamped Y coordinate
    */
-  private clampCameraY(y: number): number {
+  clampCameraY(y: number): number {
     return Math.max(this.CAMERA_Y_MIN, Math.min(this.CAMERA_Y_MAX, y));
   }
 
