@@ -364,7 +364,8 @@ export class MonkeysGameService {
     // Plan depth in tile-sized chunks (90px wide), with depth changing
     // by at most 1 interior tile (60px) per chunk. Direction reversals
     // require at least one flat chunk between them (no ^ or V shapes).
-    const numChunks = Math.ceil(CONST.TERRAIN_WIDTH / tileWidth);
+    // +1 extra chunk so the visible last chunk has a real look-ahead for slope detection.
+    const numChunks = Math.ceil(CONST.TERRAIN_WIDTH / tileWidth) + 1;
     const minTiles = 2;
     const maxTiles = 5;
 
