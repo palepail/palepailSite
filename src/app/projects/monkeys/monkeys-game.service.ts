@@ -249,21 +249,6 @@ export class MonkeysGameService {
     this.terrainBottomPlacements = bottomPlacements;
     this.rasterizeTerrainPlacements(topPlacements, bottomProfile, bottomPlacements);
     this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomProfile);
-
-    // DEBUG: log interior tile count per chunk column
-    const tileWidth = 90;
-    const debugCols: { chunk: number; x: number; interiorTiles: number; type: string; bottomTile: string; bottomY: number; depthDelta: number }[] = [];
-    for (let i = 0; i < chunkTypes.length; i++) {
-      const xStart = i * tileWidth;
-      const count = this.terrainInteriorPlacements.filter(
-        (p) => Math.floor(p.x) === xStart,
-      ).length;
-      const bp = bottomPlacements.find((p) => Math.floor(p.x) === xStart);
-      const prevY = i > 0 ? chunkBottomY[i - 1] : chunkBottomY[i];
-      const depthDelta = chunkBottomY[i] - prevY;
-      debugCols.push({ chunk: i, x: xStart, interiorTiles: count, type: chunkTypes[i], bottomTile: bp ? bp.region.pieceType : 'none', bottomY: chunkBottomY[i], depthDelta });
-    }
-    console.table(debugCols);
   }
 
   private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
@@ -636,9 +621,12 @@ export class MonkeysGameService {
           continue;
         }
 
-        // Final interior tile: anchor flush with bottom cutoff to avoid visible horizontal gaps.
+        // Final interior tile: anchor flush with bottom cutoff so there's
+        // no visible gap above the bottom tile. Allow overlap with the
+        // previous interior tile (they're solid fill), but don't go above
+        // the top tile's lower edge.
         const anchoredY = Math.floor(minBottomY - region.height);
-        if (anchoredY >= top.topWorldY) {
+        if (anchoredY >= fillStartY) {
           placements.push({ region, x: top.x, topWorldY: anchoredY });
         }
         break;
