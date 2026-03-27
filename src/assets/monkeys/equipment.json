@@ -13,7 +13,8 @@
       "name": "Iron Helm",
       "slot": "headgear",
       "setId": "iron",
-      "spriteCol": 0, "spriteRow": 4,
+      "spriteCol": 0,
+      "spriteRow": 4,
       "stats": { "defense": 10, "blastRadius": -5 },
       "description": "Reduces incoming blast damage"
     },
@@ -22,7 +23,8 @@
       "name": "Berserker Mask",
       "slot": "headgear",
       "setId": "berserker",
-      "spriteCol": 0, "spriteRow": 1,
+      "spriteCol": 0,
+      "spriteRow": 1,
       "stats": { "attack": 15, "defense": -10 },
       "description": "Push through the pain"
     },
@@ -31,7 +33,8 @@
       "name": "Fortress Plating",
       "slot": "headgear",
       "setId": "fortress",
-      "spriteCol": 0, "spriteRow": 0,
+      "spriteCol": 0,
+      "spriteRow": 0,
       "stats": { "defense": 20 },
       "description": "Heavy plating for maximum protection"
     },
@@ -40,8 +43,9 @@
       "name": "Scout Visor",
       "slot": "headgear",
       "setId": "scout",
-      "spriteCol": 0, "spriteRow": 2,
-      "stats": { "maxAimAngle": 10, "minAimAngle": -5, "blastRadius": -9 },
+      "spriteCol": 0,
+      "spriteRow": 2,
+      "stats": { "maxAimAngle": 10, "minAimAngle": -5, "blastRadius": -6 },
       "description": "Extended targeting optics — precision over power"
     },
 
@@ -50,7 +54,8 @@
       "name": "Miner Hardhat",
       "slot": "headgear",
       "setId": "miner",
-      "spriteCol": 0, "spriteRow": 3,
+      "spriteCol": 0,
+      "spriteRow": 3,
       "stats": { "blastRadius": 13, "health": 5, "attack": -8 },
       "description": "Blast-tested headgear from the deep"
     },
@@ -61,7 +66,8 @@
       "name": "Iron Chestplate",
       "slot": "torso",
       "setId": "iron",
-      "spriteCol": 1, "spriteRow": 4,
+      "spriteCol": 1,
+      "spriteRow": 4,
       "stats": { "defense": 15, "attack": 5 },
       "description": "Sturdy balanced armour"
     },
@@ -70,7 +76,8 @@
       "name": "Berserker Armor",
       "slot": "torso",
       "setId": "berserker",
-      "spriteCol": 1, "spriteRow": 1,
+      "spriteCol": 1,
+      "spriteRow": 1,
       "stats": { "attack": 20, "defense": -10 },
       "description": "Lightweight rage-fuelled plating"
     },
@@ -79,7 +86,8 @@
       "name": "Fortress Shell",
       "slot": "torso",
       "setId": "fortress",
-      "spriteCol": 1, "spriteRow": 0,
+      "spriteCol": 1,
+      "spriteRow": 0,
       "stats": { "defense": 30 },
       "description": "Near-impenetrable hull"
     },
@@ -88,7 +96,8 @@
       "name": "Scout Vest",
       "slot": "torso",
       "setId": "scout",
-      "spriteCol": 1, "spriteRow": 2,
+      "spriteCol": 1,
+      "spriteRow": 2,
       "stats": { "attack": 15, "fuel": 20, "blastRadius": -10, "health": -5 },
       "description": "Light and nimble — trades impact for speed"
     },
@@ -98,7 +107,8 @@
       "name": "Miner Overalls",
       "slot": "torso",
       "setId": "miner",
-      "spriteCol": 1, "spriteRow": 3,
+      "spriteCol": 1,
+      "spriteRow": 3,
       "stats": { "blastRadius": 13, "health": 10, "attack": -8 },
       "description": "Reinforced canvas, primed for demolition"
     },
@@ -109,7 +119,8 @@
       "name": "Iron Greaves",
       "slot": "legs",
       "setId": "iron",
-      "spriteCol": 2, "spriteRow": 4,
+      "spriteCol": 2,
+      "spriteRow": 4,
       "stats": { "defense": 10, "climbAngle": 5 },
       "description": "Stable footing on rough terrain"
     },
@@ -118,7 +129,8 @@
       "name": "Berserker Striders",
       "slot": "legs",
       "setId": "berserker",
-      "spriteCol": 2, "spriteRow": 1,
+      "spriteCol": 2,
+      "spriteRow": 1,
       "stats": { "attack": 10, "climbAngle": 10 },
       "description": "Charge up any slope"
     },
@@ -127,7 +139,8 @@
       "name": "Fortress Guards",
       "slot": "legs",
       "setId": "fortress",
-      "spriteCol": 2, "spriteRow": 0,
+      "spriteCol": 2,
+      "spriteRow": 0,
       "stats": { "defense": 15, "climbAngle": 5 },
       "description": "Reinforced leg armour"
     },
@@ -136,7 +149,8 @@
       "name": "Scout Leggings",
       "slot": "legs",
       "setId": "scout",
-      "spriteCol": 2, "spriteRow": 2,
+      "spriteCol": 2,
+      "spriteRow": 2,
       "stats": { "climbAngle": 20, "fuel": 15, "blastRadius": -9, "health": -5 },
       "description": "Supreme terrain agility — built to cover ground"
     },
@@ -146,7 +160,8 @@
       "name": "Miner Kneepads",
       "slot": "legs",
       "setId": "miner",
-      "spriteCol": 2, "spriteRow": 3,
+      "spriteCol": 2,
+      "spriteRow": 3,
       "stats": { "blastRadius": 13, "health": 5, "attack": -7 },
       "description": "Crouch-braced for controlled detonations"
     },
@@ -157,7 +172,8 @@
       "name": "Iron Boots",
       "slot": "footwear",
       "setId": "iron",
-      "spriteCol": 3, "spriteRow": 4,
+      "spriteCol": 3,
+      "spriteRow": 4,
       "stats": { "defense": 10, "fuel": 10 },
       "description": "Steady boots with extra range"
     },
@@ -166,7 +182,8 @@
       "name": "Berserker Treads",
       "slot": "footwear",
       "setId": "berserker",
-      "spriteCol": 3, "spriteRow": 1,
+      "spriteCol": 3,
+      "spriteRow": 1,
       "stats": { "attack": 10, "fuel": 10 },
       "description": "Fast and aggressive"
     },
@@ -175,7 +192,8 @@
       "name": "Fortress Stompers",
       "slot": "footwear",
       "setId": "fortress",
-      "spriteCol": 3, "spriteRow": 0,
+      "spriteCol": 3,
+      "spriteRow": 0,
       "stats": { "defense": 20, "fuel": 5 },
       "description": "Heavy plated boots"
     },
@@ -184,8 +202,9 @@
       "name": "Scout Sprinters",
       "slot": "footwear",
       "setId": "scout",
-      "spriteCol": 3, "spriteRow": 2,
-      "stats": { "fuel": 40, "blastRadius": -7 },
+      "spriteCol": 3,
+      "spriteRow": 2,
+      "stats": { "fuel": 40, "blastRadius": -3 },
       "description": "Maximise movement range"
     },
 
@@ -194,7 +213,8 @@
       "name": "Mining Boots",
       "slot": "footwear",
       "setId": "miner",
-      "spriteCol": 3, "spriteRow": 3,
+      "spriteCol": 3,
+      "spriteRow": 3,
       "stats": { "blastRadius": 13, "health": 5, "attack": -7 },
       "description": "Rated for underground blasting"
     },
@@ -205,7 +225,8 @@
       "name": "Iron Badge",
       "slot": "accessory",
       "setId": "iron",
-      "spriteCol": 4, "spriteRow": 4,
+      "spriteCol": 4,
+      "spriteRow": 4,
       "stats": { "defense": 5, "attack": 5 },
       "description": "Symbol of balance"
     },
@@ -214,7 +235,8 @@
       "name": "Berserker Charm",
       "slot": "accessory",
       "setId": "berserker",
-      "spriteCol": 4, "spriteRow": 1,
+      "spriteCol": 4,
+      "spriteRow": 1,
       "stats": { "attack": 10 },
       "description": "Feel the rage"
     },
@@ -223,7 +245,8 @@
       "name": "Fortress Emblem",
       "slot": "accessory",
       "setId": "fortress",
-      "spriteCol": 4, "spriteRow": 0,
+      "spriteCol": 4,
+      "spriteRow": 0,
       "stats": { "defense": 10 },
       "description": "Honour the walls"
     },
@@ -232,7 +255,8 @@
       "name": "Scout Beacon",
       "slot": "accessory",
       "setId": "scout",
-      "spriteCol": 4, "spriteRow": 2,
+      "spriteCol": 4,
+      "spriteRow": 2,
       "stats": { "aimGuide": "extended" },
       "description": "Shows trajectory arc up to the apex of the shot"
     },
@@ -241,7 +265,8 @@
       "name": "Detonator Fob",
       "slot": "accessory",
       "setId": "miner",
-      "spriteCol": 4, "spriteRow": 3,
+      "spriteCol": 4,
+      "spriteRow": 3,
       "stats": { "blastRadius": 23, "attack": -40, "noPushback": true },
       "description": "Precision detonator — massive blast, minimal firepower"
     }
