@@ -143,6 +143,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
   private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
   private readonly TERRAIN_TOOL_ENABLED = false; // set true for development only
+  private readonly POWER_PERCENT_SPRITE_SIZE = 26;
+  private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
+  private readonly CURSOR_BLINK_PERIOD_MS = 1000;
+  private readonly CURSOR_ON_DURATION_MS = 530;
 
   // Sprite name maps for digit/symbol rendering — defined once here rather than per render frame.
   private readonly ANGLE_CHAR_TO_SPRITE: Record<string, string> = {
@@ -518,9 +522,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Charge level (bottom to top)
     const chargeRatio = entity.power / maxPower;
     this.ctx.fillStyle =
-      chargeRatio < 0.3
+      chargeRatio < CONST.CHARGE_BAR_LOW_THRESHOLD
         ? CONST.CHARGE_BAR_LOW_COLOR
-        : chargeRatio < 0.7
+        : chargeRatio < CONST.CHARGE_BAR_HIGH_THRESHOLD
           ? CONST.CHARGE_BAR_MID_COLOR
           : CONST.CHARGE_BAR_HIGH_COLOR;
     this.ctx.fillRect(
@@ -537,8 +541,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Power percentage
     const pct = Math.round(chargeRatio * 100);
-    const pctSize = 26;
-    this.drawPowerPercent(pct, barX + barWidth / 2, barY - pctSize - 6);
+    this.drawPowerPercent(pct, barX + barWidth / 2, barY - this.POWER_PERCENT_SPRITE_SIZE - 6);
     this.ctx.textAlign = 'left'; // Reset text alignment
   }
 
@@ -969,7 +972,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private getMoveFrameIndex(now: number = Date.now()): number {
-    const frameDurations = [150, 150, 150, 80];
+    const frameDurations = this.MOVE_FRAME_DURATIONS;
     const cycleDuration = frameDurations.reduce((a, b) => a + b, 0);
     let t = now % cycleDuration;
 
@@ -2017,7 +2020,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.strokeRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
 
     const displayName = this.gameService.playerName;
-    const cursorVisible = this.isNameEditing && performance.now() % 1000 < 530;
+    const cursorVisible = this.isNameEditing && performance.now() % this.CURSOR_BLINK_PERIOD_MS < this.CURSOR_ON_DURATION_MS;
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'left';
@@ -3079,7 +3082,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
   private drawPowerPercent(pct: number, centreX: number, topY: number) {
-    const size = 26;
+    const size = this.POWER_PERCENT_SPRITE_SIZE;
     const advance = size * 0.45;
     const chars = `${pct}%`.split('');
     const totalWidth = (chars.length - 1) * advance + size;

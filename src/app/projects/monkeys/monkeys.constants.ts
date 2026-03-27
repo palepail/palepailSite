@@ -138,7 +138,9 @@ export const CHARGE_BAR_OFFSET_X = 70;
 export const CHARGE_BAR_BACKGROUND_COLOR = '#333333';
 export const CHARGE_BAR_BORDER_COLOR = '#FFFFFF';
 export const CHARGE_BAR_BORDER_WIDTH = 1;
-// Charge bar level colours
+// Charge bar level thresholds and colours
+export const CHARGE_BAR_LOW_THRESHOLD = 0.3;
+export const CHARGE_BAR_HIGH_THRESHOLD = 0.7;
 export const CHARGE_BAR_LOW_COLOR = '#FF4444';
 export const CHARGE_BAR_MID_COLOR = '#FFFF44';
 export const CHARGE_BAR_HIGH_COLOR = '#44FF44';
