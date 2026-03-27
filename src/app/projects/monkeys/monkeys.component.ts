@@ -796,7 +796,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.restore();
 
     // Draw player prediction path when charging
-    if (this.showPrediction && this.gameService.isCharging) {
+    if (this.showPrediction && this.gameService.isCharging && this.gameService.hasAimGuide) {
       const angleRad = this.gameService.getBarrelAngle();
       const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * this.BARREL_LENGTH;
       const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * this.BARREL_LENGTH;
@@ -2134,7 +2134,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#BBCCFF';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Equipped', mCx, 102);
+    this.ctx.fillText('Equipment', mCx, 102);
 
     const slotStartY = 160;
     const slotStepY = 72;
@@ -2150,8 +2150,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       // Slot label
       this.ctx.fillStyle = '#AABBDD';
       this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'left';
-      this.ctx.fillText(this.SLOT_LABELS[slot], mLeft + 14, rowY);
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(this.SLOT_LABELS[slot], mCx, rowY);
 
       // Left arrow
       const hasLeft = items.length > 1;
@@ -2181,7 +2181,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (selItem?.description && !isNone) {
         this.ctx.fillStyle = 'rgba(180,190,210,0.7)';
         this.ctx.font = '12px Arial';
-        this.ctx.fillText(selItem.description, mCx, rowY + 38);
+        this.ctx.fillText(selItem.description, mCx, rowY + 48);
       }
     }
 
