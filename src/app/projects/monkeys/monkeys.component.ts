@@ -459,7 +459,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const stateNow = (currentTurn.entity as any).turnState as string;
       const isStateTransition =
         this.previousTurnId === currentTurn.id && this.previousTurnState !== stateNow;
-      const shouldRefocusForAction = stateNow === 'moving' || stateNow === 'charging';
+      const isPlayerTurn = currentTurn.type === 'player';
+      const shouldRefocusForAction =
+        stateNow === 'moving' || (stateNow === 'charging' && !isPlayerTurn);
       if (isStateTransition && shouldRefocusForAction) {
         this.gameService.panToEntity = currentTurn;
       }
@@ -487,7 +489,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.panToEntity.entity &&
       isFinite(this.gameService.panToEntity.entity.x) &&
       isFinite(this.gameService.panToEntity.entity.y) &&
-      this.gameService.currentState !== GameState.SETUP
+      this.gameService.currentState !== GameState.SETUP &&
+      this.gameService.currentState !== GameState.PAUSED
     ) {
       if (!this.isDragging) {
         this.cameraController.panToEntity(this.gameService.panToEntity.entity);
@@ -1685,9 +1688,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (this.gameService.currentState === GameState.PLAYING) {
         this.gameService.currentState = GameState.PAUSED;
         this.gameService.pausePhysics();
+        this.cameraController.cancelPan();
+        this.cameraController.lock();
+        this.gameService.panToEntity = null;
       } else if (this.gameService.currentState === GameState.PAUSED) {
         this.gameService.currentState = GameState.PLAYING;
         this.gameService.resumePhysics();
+        this.cameraController.unlock();
       }
       event.preventDefault();
     }

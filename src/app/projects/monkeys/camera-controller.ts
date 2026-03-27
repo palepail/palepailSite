@@ -39,6 +39,18 @@ class CameraController {
   private trackedExplosion: any = null;
   private isIdleMode = false;
   private idleModeActivityTime = Date.now();
+  private isLocked = false;
+
+  lock() {
+    this.isLocked = true;
+  }
+
+  unlock() {
+    this.isLocked = false;
+    // Treat unlock like a drag-release so timers reset and nothing snaps back.
+    this.lastActivityTime = Date.now();
+    this.idleModeActivityTime = Date.now();
+  }
 
   constructor() {
     const initialPlayerY =
@@ -228,6 +240,9 @@ class CameraController {
     currentTurnEntity: any,
     explodedProjectiles: any[],
   ) {
+    // When locked only drag is allowed (drag is handled directly in the component).
+    if (this.isLocked) return;
+
     if (!isDragging && this.previousIsDragging) {
       this.lastActivityTime = Date.now();
       this.idleModeActivityTime = Date.now();

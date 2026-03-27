@@ -764,6 +764,8 @@ export class MonkeysGameService {
       if (item.stats.defense) vehicle.health += item.stats.defense;
       if (item.stats.health) vehicle.health += item.stats.health;
       if (item.stats.noPushback) vehicle.bullet.noPushback = true;
+      if (item.stats.pushbackMultiplier)
+        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) + item.stats.pushbackMultiplier;
       if (item.stats.blastRadius) {
         vehicle.bullet.explosionRadius = Math.max(
           5,
@@ -1916,7 +1918,8 @@ export class MonkeysGameService {
     const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
     if (normalizedDist > 1) return;
     const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
-    const pushDistance = maxPushDistance * (1 - normalizedDist);
+    const pushMultiplier = projectile.bullet.pushbackMultiplier ?? 1;
+    const pushDistance = maxPushDistance * (1 - normalizedDist) * pushMultiplier;
     if (pushDistance <= 0) return;
     const distance = Math.hypot(dx, dy);
     const dirX = distance > 0.001 ? dx / distance : 0;

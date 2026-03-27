@@ -15,8 +15,8 @@
       "setId": "iron",
       "spriteCol": 0,
       "spriteRow": 4,
-      "stats": { "defense": 10, "blastRadius": -5 },
-      "description": "Reduces incoming blast damage"
+      "stats": { "health": 15, "attack": 5 },
+      "description": "Solid protection with a hint of menace"
     },
     {
       "id": "berserker_mask",
@@ -68,8 +68,8 @@
       "setId": "iron",
       "spriteCol": 1,
       "spriteRow": 4,
-      "stats": { "defense": 15, "attack": 5 },
-      "description": "Sturdy balanced armour"
+      "stats": { "health": 20, "attack": 10, "blastRadius": 5 },
+      "description": "Reliable all-round armour that means business"
     },
     {
       "id": "berserker_armor",
@@ -121,8 +121,8 @@
       "setId": "iron",
       "spriteCol": 2,
       "spriteRow": 4,
-      "stats": { "defense": 10, "climbAngle": 5 },
-      "description": "Stable footing on rough terrain"
+      "stats": { "health": 10, "blastRadius": 6, "climbAngle": 5 },
+      "description": "Stable footing with reinforced stopping power"
     },
     {
       "id": "berserker_striders",
@@ -174,8 +174,8 @@
       "setId": "iron",
       "spriteCol": 3,
       "spriteRow": 4,
-      "stats": { "defense": 10, "fuel": 10 },
-      "description": "Steady boots with extra range"
+      "stats": { "health": 10, "attack": 8, "fuel": 5 },
+      "description": "Heavy boots that hit harder with every step"
     },
     {
       "id": "berserker_treads",
@@ -227,8 +227,8 @@
       "setId": "iron",
       "spriteCol": 4,
       "spriteRow": 4,
-      "stats": { "defense": 5, "attack": 5 },
-      "description": "Symbol of balance"
+      "stats": { "pushbackMultiplier": 0.8 },
+      "description": "Forged from shrapnel — blasts send foes flying further"
     },
     {
       "id": "berserker_charm",
