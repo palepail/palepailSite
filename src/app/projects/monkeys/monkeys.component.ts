@@ -159,8 +159,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly AIM_LINE_COLOR = CONST.AIM_LINE_COLOR;
   private readonly AIM_LINE_WIDTH = CONST.AIM_LINE_WIDTH;
   private readonly AIM_LINE_LENGTH = CONST.AIM_LINE_LENGTH;
-  private readonly MIN_AIM_ANGLE = CONST.MIN_AIM_ANGLE;
-  private readonly MAX_AIM_ANGLE = CONST.MAX_AIM_ANGLE;
   private readonly TANK_SHADOW_COLOR = CONST.TANK_SHADOW_COLOR;
   private readonly TANK_SHADOW_HEIGHT_RATIO = CONST.TANK_SHADOW_HEIGHT_RATIO;
   private readonly AIMING_LINE_COLOR = CONST.AIMING_LINE_COLOR;
@@ -224,6 +222,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
   private readonly TERRAIN_TOOL_ENABLED = false; // set true for development only
 
+  // Sprite name maps for digit/symbol rendering — defined once here rather than per render frame.
+  private readonly ANGLE_CHAR_TO_SPRITE: Record<string, string> = {
+    '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
+    '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
+    '%': 'angle_percent', '°': 'angle_degree',
+  };
+  private readonly ARENA_CHAR_TO_SPRITE: Record<string, string> = {
+    '0': 'arena_0', '1': 'arena_1', '2': 'arena_2', '3': 'arena_3', '4': 'arena_4',
+    '5': 'arena_5', '6': 'arena_6', '7': 'arena_7', '8': 'arena_8', '9': 'arena_9',
+    '/': 'arena_slash',
+  };
+
   // Tracks health deltas so we can trigger the hurt sprite when damage is applied.
   private previousHealthByEntity = new WeakMap<object, number>();
   private hurtSpriteUntilByEntity = new WeakMap<object, number>();
@@ -271,16 +281,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   };
   private isNameEditing = false;
   private frozenTime: number | null = null; // set when paused to freeze sprite animations
+  private animationFrameId = 0;
 
   private get renderTime(): number {
     return this.frozenTime ?? Date.now();
   }
 
-  // Camera y-axis clamping bounds for manual drag
-  private readonly CAMERA_Y_MIN = -200;
-  private readonly CAMERA_Y_MAX = 200;
-
-  // Menu button constants
   private readonly MENU_START_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 390, 200, 50);
   private readonly MENU_LOADOUT_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 460, 200, 50);
   private readonly MENU_OPTIONS_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 530, 200, 50);
@@ -338,6 +344,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
+    cancelAnimationFrame(this.animationFrameId);
     this.gameService.destroy();
   }
 
@@ -990,8 +997,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw cannon range arc (before facing flip)
     // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
     if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
-      const minAngle = (this.MIN_AIM_ANGLE * Math.PI) / 180;
-      const maxAngle = (this.MAX_AIM_ANGLE * Math.PI) / 180;
+      const minAngle = (this.gameService.player.vehicle.minAimAngle * Math.PI) / 180;
+      const maxAngle = (this.gameService.player.vehicle.maxAimAngle * Math.PI) / 180;
 
       this.ctx.globalAlpha = 0.2;
       this.ctx.fillStyle = this.CANNON_ARC_COLOR; // Yellow transparent
@@ -1545,20 +1552,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const chars = String(text.damage).split('');
       const totalWidth = (chars.length - 1) * advance + size;
       let x = screenPos.x - totalWidth / 2;
-      const charToSprite: Record<string, string> = {
-        '0': 'angle_0',
-        '1': 'angle_1',
-        '2': 'angle_2',
-        '3': 'angle_3',
-        '4': 'angle_4',
-        '5': 'angle_5',
-        '6': 'angle_6',
-        '7': 'angle_7',
-        '8': 'angle_8',
-        '9': 'angle_9',
-      };
       for (const ch of chars) {
-        const sprite = this.spriteService.getSprite(charToSprite[ch]);
+        const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
         if (sprite) {
           this.ctx.drawImage(this.tintedGlyph(sprite, size, tint), x, screenPos.y - size);
         }
@@ -1670,7 +1665,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.update();
     }
     this.render();
-    requestAnimationFrame(() => this.renderLoop());
+    this.animationFrameId = requestAnimationFrame(() => this.renderLoop());
   }
 
   onKeyDown(event: KeyboardEvent) {
@@ -2496,7 +2491,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const totalW = 4 * cellBoxW + 3 * gapX;
       const lCx = 18 + 183;
       const startX = Math.round(lCx - totalW / 2);
-      const gridStartY = 204;
+      const gridStartY = 390;
       const rowStride = cellBoxH + nameH + rowGap;
 
       for (let i = 0; i < CONST.SELECTABLE_VEHICLES.length; i++) {
@@ -3247,21 +3242,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const chars = text.split('');
     const totalWidth = (chars.length - 1) * advance + size;
     let x = centreX - totalWidth / 2;
-    const charToSprite: Record<string, string> = {
-      '0': 'angle_0',
-      '1': 'angle_1',
-      '2': 'angle_2',
-      '3': 'angle_3',
-      '4': 'angle_4',
-      '5': 'angle_5',
-      '6': 'angle_6',
-      '7': 'angle_7',
-      '8': 'angle_8',
-      '9': 'angle_9',
-      '%': 'angle_percent',
-    };
     for (const ch of chars) {
-      const sprite = this.spriteService.getSprite(charToSprite[ch]);
+      const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
       if (sprite) {
         this.ctx.drawImage(
           sprite.image,
@@ -3281,25 +3263,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Draws an angle value (digits + degree symbol) using row-2 arena sprites, left-aligned.
   private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
-    const charToSprite: Record<string, string> = {
-      '0': 'angle_0',
-      '1': 'angle_1',
-      '2': 'angle_2',
-      '3': 'angle_3',
-      '4': 'angle_4',
-      '5': 'angle_5',
-      '6': 'angle_6',
-      '7': 'angle_7',
-      '8': 'angle_8',
-      '9': 'angle_9',
-      '°': 'angle_degree',
-    };
     const advance = size * 0.45;
     const text = `${angleDeg}°`;
     const topY = centerY - size / 2;
     let x = leftX;
     for (const ch of text) {
-      const sprite = this.spriteService.getSprite(charToSprite[ch]);
+      const sprite = this.spriteService.getSprite(this.ANGLE_CHAR_TO_SPRITE[ch]);
       if (sprite) {
         this.ctx.drawImage(
           sprite.image,
@@ -3320,24 +3289,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
   // Falls back to plain text for any character without a sprite.
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
-    const charToSprite: Record<string, string> = {
-      '0': 'arena_0',
-      '1': 'arena_1',
-      '2': 'arena_2',
-      '3': 'arena_3',
-      '4': 'arena_4',
-      '5': 'arena_5',
-      '6': 'arena_6',
-      '7': 'arena_7',
-      '8': 'arena_8',
-      '9': 'arena_9',
-      '/': 'arena_slash',
-    };
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
     const chars = text.split('');
     let x = rightX - chars.length * advance;
     for (const ch of chars) {
-      const spriteName = charToSprite[ch];
+      const spriteName = this.ARENA_CHAR_TO_SPRITE[ch];
       const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
       if (sprite) {
         this.ctx.drawImage(

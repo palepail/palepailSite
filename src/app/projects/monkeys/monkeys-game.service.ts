@@ -1667,7 +1667,6 @@ export class MonkeysGameService {
             this.isPlayerTurn()
           ) {
             this.moveEntity(this.player, -1);
-          } else {
           }
         }
         if (
@@ -1688,7 +1687,6 @@ export class MonkeysGameService {
             this.isPlayerTurn()
           ) {
             this.moveEntity(this.player, 1);
-          } else {
           }
         }
 

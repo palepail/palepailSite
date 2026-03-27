@@ -97,13 +97,13 @@ export const SELECTABLE_VEHICLES: SelectableVehicle[] = [
     locked: false,
     description: 'A balanced fighter with good all-round stats and a reliable blast.',
   },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },    locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },    locked: true },
-  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },     locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' }, locked: true },
 ];
 
 export const ENEMY_VEHICLE: Vehicle = {
