@@ -63,6 +63,7 @@ export const EXPLOSION_OUTLINE_WIDTH = 2;
 
 // Vehicle Configurations
 export const PLAYER_VEHICLE: Vehicle = {
+  name: 'Monkey',
   speed: 100.0,
   power: 200,
   shape: 'tank',
@@ -83,7 +84,30 @@ export const PLAYER_VEHICLE: Vehicle = {
   },
 };
 
+export interface SelectableVehicle {
+  vehicle: Vehicle;
+  locked: boolean;
+  description?: string;
+}
+
+// All player-selectable vehicles. Only index 0 (Monkey) is currently unlocked.
+export const SELECTABLE_VEHICLES: SelectableVehicle[] = [
+  {
+    vehicle: PLAYER_VEHICLE,
+    locked: false,
+    description: 'A balanced fighter with good all-round stats and a reliable blast.',
+  },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },    locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },  locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },    locked: true },
+  { vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },     locked: true },
+];
+
 export const ENEMY_VEHICLE: Vehicle = {
+  name: 'Enemy',
   speed: 95.0,
   power: 200,
   shape: 'enemy_tank',

@@ -205,6 +205,7 @@ export interface Bullet {
 }
 
 export interface Vehicle {
+  name: string;
   speed: number;
   power: number;
   shape: string;

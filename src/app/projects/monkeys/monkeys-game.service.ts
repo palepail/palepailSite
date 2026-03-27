@@ -98,6 +98,7 @@ export class MonkeysGameService {
 
   // Loadout / equipment
   playerName = 'Player';
+  selectedVehicleIndex = 0; // index into CONST.SELECTABLE_VEHICLES
   equipped: Record<EquipmentSlot, EquipmentItem | null> = {
     headgear: null,
     torso: null,
@@ -716,7 +717,11 @@ export class MonkeysGameService {
     }
     localStorage.setItem(
       'monkeys_loadout',
-      JSON.stringify({ playerName: this.playerName, equipped: savedEquipped }),
+      JSON.stringify({
+        playerName: this.playerName,
+        equipped: savedEquipped,
+        selectedVehicleIndex: this.selectedVehicleIndex,
+      }),
     );
   }
 
@@ -727,9 +732,18 @@ export class MonkeysGameService {
       const data = JSON.parse(raw) as {
         playerName?: string;
         equipped?: Record<string, string | null>;
+        selectedVehicleIndex?: number;
       };
       if (typeof data.playerName === 'string' && data.playerName.trim()) {
         this.playerName = data.playerName.trim().slice(0, 12);
+      }
+      if (
+        typeof data.selectedVehicleIndex === 'number' &&
+        data.selectedVehicleIndex >= 0 &&
+        data.selectedVehicleIndex < CONST.SELECTABLE_VEHICLES.length &&
+        !CONST.SELECTABLE_VEHICLES[data.selectedVehicleIndex].locked
+      ) {
+        this.selectedVehicleIndex = data.selectedVehicleIndex;
       }
       if (data.equipped) {
         for (const [slot, id] of Object.entries(data.equipped)) {
@@ -772,9 +786,10 @@ export class MonkeysGameService {
   }
 
   private initPlayer() {
+    const baseVehicle = CONST.SELECTABLE_VEHICLES[this.selectedVehicleIndex]?.vehicle ?? CONST.PLAYER_VEHICLE;
     const vehicle: Vehicle = {
-      ...CONST.PLAYER_VEHICLE,
-      bullet: { ...CONST.PLAYER_VEHICLE.bullet },
+      ...baseVehicle,
+      bullet: { ...baseVehicle.bullet },
     };
     this.applyEquipmentToVehicle(vehicle);
     this.player.vehicle = vehicle;

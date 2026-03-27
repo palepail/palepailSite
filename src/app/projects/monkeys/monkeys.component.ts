@@ -276,20 +276,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly CAMERA_Y_MAX = 200;
 
   // Menu button constants
-  private readonly MENU_START_BUTTON        = this.mkBtn(this.CANVAS_WIDTH / 2, 390, 200, 50);
-  private readonly MENU_LOADOUT_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 460, 200, 50);
-  private readonly MENU_OPTIONS_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 530, 200, 50);
+  private readonly MENU_START_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 390, 200, 50);
+  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 460, 200, 50);
+  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 530, 200, 50);
   private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 600, 200, 50);
-  private readonly EQUIP_BACK_BUTTON        = this.mkBtn(600, 650, 140, 44);
-  private readonly OPTIONS_BACK_BUTTON      = this.mkBtn(this.CANVAS_WIDTH / 2, 385, 200, 50);
-  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON   = this.mkBtn(this.CANVAS_WIDTH / 2, 200, 160, 44);
-  private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 255, 160, 44);
-  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON   = this.mkBtn(this.CANVAS_WIDTH / 2, 310, 160, 44);
-  private readonly TERRAIN_TOOL_BACK_BUTTON     = this.mkBtn(this.CANVAS_WIDTH - 170,  48, 220, 44);
-  private readonly TERRAIN_TOOL_RESCAN_BUTTON   = this.mkBtn(this.CANVAS_WIDTH - 170, 102, 220, 44);
+  private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
+  private readonly OPTIONS_BACK_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 385, 200, 50);
+  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 200, 160, 44);
+  private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(
+    this.CANVAS_WIDTH / 2,
+    255,
+    160,
+    44,
+  );
+  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(this.CANVAS_WIDTH / 2, 310, 160, 44);
+  private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 48, 220, 44);
+  private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 102, 220, 44);
   private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 156, 220, 44);
-  private readonly TERRAIN_TOOL_SWITCH_BUTTON   = this.mkBtn(this.CANVAS_WIDTH - 170, 210, 220, 44);
-  private readonly TERRAIN_TOOL_MODE_BUTTON     = this.mkBtn(this.CANVAS_WIDTH - 170, 264, 220, 44);
+  private readonly TERRAIN_TOOL_SWITCH_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 210, 220, 44);
+  private readonly TERRAIN_TOOL_MODE_BUTTON = this.mkBtn(this.CANVAS_WIDTH - 170, 264, 220, 44);
 
   constructor(
     private gameService: MonkeysGameService,
@@ -811,7 +816,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw UI elements (health bar, name label)
-    this.drawEntityUI(this.gameService.player, centerX, centerY, bodyRadius, true, this.gameService.playerName);
+    this.drawEntityUI(
+      this.gameService.player,
+      centerX,
+      centerY,
+      bodyRadius,
+      true,
+      this.gameService.playerName,
+    );
   }
 
   private drawEnemies() {
@@ -1333,7 +1345,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw name label: show for everyone when not the player's turn, or when the player is idle
-    if (label && (!this.gameService.isPlayerTurn() || this.gameService.player.turnState === 'idle')) {
+    if (
+      label &&
+      (!this.gameService.isPlayerTurn() || this.gameService.player.turnState === 'idle')
+    ) {
       const labelY = centerY - bodyRadius - 25;
       this.ctx.font = 'bold 13px Arial';
       this.ctx.textAlign = 'center';
@@ -1621,7 +1636,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.ctx.fillStyle = this.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
       }
 
-      const name = turnEntity.type === 'player' ? this.gameService.playerName : `Enemy ${turnEntity.id.split('_')[1]}`;
+      const name =
+        turnEntity.type === 'player'
+          ? this.gameService.playerName
+          : `Enemy ${turnEntity.id.split('_')[1]}`;
       const timeStr = isCurrent ? '0' : Math.round(turnEntity.entity.delay);
 
       this.ctx.fillText(`${name}: ${timeStr}`, 20, y);
@@ -2099,32 +2117,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillText('Click to edit name', lCx, 162);
     }
 
-    // Vehicle section
+    // Vehicle section header — shows selected vehicle name
+    const selVehicleName =
+      CONST.SELECTABLE_VEHICLES[this.gameService.selectedVehicleIndex]?.vehicle.name ?? 'Vehicle';
     this.ctx.fillStyle = '#BBCCFF';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Vehicle', lCx, 188);
+    this.ctx.fillText(selVehicleName, lCx, 188);
 
-    // Monkey idle sprite as player avatar
-    const idleSprite = this.spriteService.getSprite('monkey_idle');
-    if (idleSprite) {
-      this.ctx.drawImage(
-        idleSprite.image,
-        idleSprite.x,
-        idleSprite.y,
-        idleSprite.width,
-        idleSprite.height,
-        lCx - 40,
-        202,
-        80,
-        80,
-      );
-    }
-
-    // Vehicle name
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '16px Arial';
-    this.ctx.fillText('(Tank)', lCx, 296);
+    this.drawVehicleGrid(18, lCx);
 
     // ── Middle panel: equipment slots ────────────────────────────────────
     const mLeft = 400;
@@ -2156,12 +2157,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       // Left arrow
       const hasLeft = items.length > 1;
       const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
-      this.drawButton(
-        '<',
-        leftBtn,
-        hasLeft ? '#334' : '#222',
-        hasLeft ? '#556' : '#222',
-      );
+      this.drawButton('<', leftBtn, hasLeft ? '#334' : '#222', hasLeft ? '#556' : '#222');
 
       // Item name (center)
       this.ctx.fillStyle = isNone ? '#778899' : '#FFFFFF';
@@ -2170,12 +2166,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillText(selItem?.name ?? 'None', mCx, rowY + 20);
 
       // Right arrow
-      this.drawButton(
-        '>',
-        rightBtn,
-        hasLeft ? '#334' : '#222',
-        hasLeft ? '#556' : '#222',
-      );
+      this.drawButton('>', rightBtn, hasLeft ? '#334' : '#222', hasLeft ? '#556' : '#222');
 
       // Item description (small, below name)
       if (selItem?.description && !isNone) {
@@ -2192,7 +2183,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const rLeft = 816;
     const rRight = 1182;
     const rCx = (rLeft + rRight) / 2;
-    const base = CONST.PLAYER_VEHICLE;
+    const base =
+      CONST.SELECTABLE_VEHICLES[this.gameService.selectedVehicleIndex]?.vehicle ??
+      CONST.PLAYER_VEHICLE;
 
     this.ctx.fillStyle = '#BBCCFF';
     this.ctx.font = 'bold 18px Arial';
@@ -2200,7 +2193,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText('Stats', rCx, 102);
 
     const statDefs: { label: string; base: number; bonus: number }[] = [
-      { label: 'Health', base: base.health, bonus: this.getTotalEquipBonus('defense') + this.getTotalEquipBonus('health') },
+      {
+        label: 'Health',
+        base: base.health,
+        bonus: this.getTotalEquipBonus('defense') + this.getTotalEquipBonus('health'),
+      },
       { label: 'Attack', base: base.bullet.damage, bonus: this.getTotalEquipBonus('attack') },
       {
         label: 'Blast Rad',
@@ -2235,7 +2232,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const bonusStr = bonus !== 0 ? (bonus > 0 ? `+${bonus}` : String(bonus)) : '';
 
       // Determine which stat key this row corresponds to
-      const statKey = ['defense', 'attack', 'blastRadius', 'fuel', 'climbAngle', 'minAimAngle', 'maxAimAngle', '', ''][ri];
+      const statKey = [
+        'defense',
+        'attack',
+        'blastRadius',
+        'fuel',
+        'climbAngle',
+        'minAimAngle',
+        'maxAimAngle',
+        '',
+        '',
+      ][ri];
       const inverted = invertedStats.has(statKey);
 
       this.ctx.textAlign = 'right';
@@ -2255,6 +2262,125 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // ── Back button ──────────────────────────────────────────────────────
     this.drawButton('Back', this.EQUIP_BACK_BUTTON, '#445', '#667');
+  }
+
+  private drawVehicleGrid(panelLeft: number, panelCx: number) {
+    const cellBoxW = 74;
+    const cellBoxH = 74;
+    const gapX = 10;
+    const rowGap = 14;
+    const nameH = 16;
+    const totalW = 4 * cellBoxW + 3 * gapX;
+    const startX = Math.round(panelCx - totalW / 2);
+    const gridStartY = 390;
+    const rowStride = cellBoxH + nameH + rowGap;
+
+    // ── Selected vehicle preview ─────────────────────────────────────────
+    const selEntry = CONST.SELECTABLE_VEHICLES[this.gameService.selectedVehicleIndex];
+    const previewSize = 80;
+    const previewY = 204;
+
+    const idleSprite = this.spriteService.getSprite('monkey_idle');
+    if (idleSprite && !selEntry?.locked) {
+      this.ctx.drawImage(
+        idleSprite.image,
+        idleSprite.x,
+        idleSprite.y,
+        idleSprite.width,
+        idleSprite.height,
+        panelCx - previewSize / 2,
+        previewY,
+        previewSize,
+        previewSize,
+      );
+    }
+
+    // Vehicle description
+    if (selEntry?.description) {
+      this.ctx.fillStyle = 'rgba(170, 190, 220, 0.75)';
+      this.ctx.font = '12px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      // Wrap into two lines of max ~300px
+      const maxW = 320;
+      const words = selEntry.description.split(' ');
+      const lines: string[] = [];
+      let current = '';
+      for (const word of words) {
+        const test = current ? `${current} ${word}` : word;
+        if (this.ctx.measureText(test).width > maxW && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
+      }
+      if (current) lines.push(current);
+      const descY = previewY + previewSize + 10;
+      lines.slice(0, 2).forEach((line, i) => {
+        this.ctx.fillText(line, panelCx, descY + i * 16);
+      });
+    }
+
+    // Selector label
+    this.ctx.fillStyle = '#AABBDD';
+    this.ctx.font = '13px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('Select Vehicle', panelCx, gridStartY - 14);
+
+    for (let i = 0; i < CONST.SELECTABLE_VEHICLES.length; i++) {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      const bx = startX + col * (cellBoxW + gapX);
+      const by = gridStartY + row * rowStride;
+      const entry = CONST.SELECTABLE_VEHICLES[i];
+      const isSelected = i === this.gameService.selectedVehicleIndex;
+      const isLocked = entry.locked;
+
+      // Box background
+      this.ctx.fillStyle = isSelected ? 'rgba(30, 50, 110, 0.95)' : 'rgba(16, 16, 36, 0.85)';
+      this.ctx.fillRect(bx, by, cellBoxW, cellBoxH);
+
+      // Box border
+      this.ctx.strokeStyle = isSelected ? '#88CCFF' : 'rgba(60, 80, 120, 0.7)';
+      this.ctx.lineWidth = isSelected ? 2 : 1;
+      this.ctx.strokeRect(bx, by, cellBoxW, cellBoxH);
+
+      if (!isLocked) {
+        const idleSprite = this.spriteService.getSprite('monkey_idle');
+        if (idleSprite) {
+          const pad = 7;
+          this.ctx.drawImage(
+            idleSprite.image,
+            idleSprite.x,
+            idleSprite.y,
+            idleSprite.width,
+            idleSprite.height,
+            bx + pad,
+            by + pad,
+            cellBoxW - pad * 2,
+            cellBoxH - pad * 2,
+          );
+        }
+      } else {
+        // Silhouette for locked vehicle
+        this.ctx.fillStyle = 'rgba(8, 8, 20, 0.75)';
+        this.ctx.fillRect(bx + 2, by + 2, cellBoxW - 4, cellBoxH - 4);
+        this.ctx.fillStyle = 'rgba(60, 80, 100, 0.8)';
+        this.ctx.font = 'bold 26px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('?', bx + cellBoxW / 2, by + cellBoxH / 2);
+      }
+
+      // Vehicle name below box
+      this.ctx.font = isSelected ? 'bold 12px Arial' : '11px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillStyle = isLocked ? 'rgba(70, 90, 110, 0.7)' : isSelected ? '#AADDFF' : '#778899';
+      this.ctx.fillText(entry.vehicle.name, bx + cellBoxW / 2, by + cellBoxH + 9);
+    }
   }
 
   private drawEquippedIcons(panelLeft: number, panelRight: number) {
@@ -2292,8 +2418,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         const pad = 4;
         this.ctx.drawImage(
           equipSheet,
-          sx, sy, spriteSize, spriteSize,
-          bx + pad, iconsY + pad, boxSize - pad * 2, boxSize - pad * 2,
+          sx,
+          sy,
+          spriteSize,
+          spriteSize,
+          bx + pad,
+          iconsY + pad,
+          boxSize - pad * 2,
+          boxSize - pad * 2,
         );
       } else {
         this.ctx.fillStyle = '#334455';
@@ -2333,6 +2465,33 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     // Click outside name box → stop editing
     this.isNameEditing = false;
+
+    // Vehicle grid clicks
+    {
+      const cellBoxW = 74;
+      const cellBoxH = 74;
+      const gapX = 10;
+      const rowGap = 14;
+      const nameH = 16;
+      const totalW = 4 * cellBoxW + 3 * gapX;
+      const lCx = 18 + 183;
+      const startX = Math.round(lCx - totalW / 2);
+      const gridStartY = 204;
+      const rowStride = cellBoxH + nameH + rowGap;
+
+      for (let i = 0; i < CONST.SELECTABLE_VEHICLES.length; i++) {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const bx = startX + col * (cellBoxW + gapX);
+        const by = gridStartY + row * rowStride;
+        if (x >= bx && x <= bx + cellBoxW && y >= by && y <= by + cellBoxH) {
+          if (!CONST.SELECTABLE_VEHICLES[i].locked) {
+            this.gameService.selectedVehicleIndex = i;
+          }
+          return;
+        }
+      }
+    }
 
     // Slot arrow clicks
     const slotStartY = 160;
@@ -2402,9 +2561,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Draw buttons
-    this.drawButton('Start Game',   this.MENU_START_BUTTON,        '#4CAF50', '#45a049');
-    this.drawButton('Loadout',       this.MENU_LOADOUT_BUTTON,      '#E67C22', '#D35400');
-    this.drawButton('Options',       this.MENU_OPTIONS_BUTTON,      '#2196F3', '#1976D2');
+    this.drawButton('Start Game', this.MENU_START_BUTTON, '#4CAF50', '#45a049');
+    this.drawButton('Loadout', this.MENU_LOADOUT_BUTTON, '#E67C22', '#D35400');
+    this.drawButton('Options', this.MENU_OPTIONS_BUTTON, '#2196F3', '#1976D2');
     if (this.TERRAIN_TOOL_ENABLED) {
       this.drawButton('Terrain Tool', this.MENU_TERRAIN_TOOL_BUTTON, '#9C6ADE', '#7C4DCC');
     }
@@ -2430,9 +2589,24 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const normalActive = diff === 'normal';
     const hardActive = diff === 'hard';
 
-    this.drawButton('Easy',   this.OPTIONS_DIFFICULTY_EASY_BUTTON,   easyActive   ? '#66BB6A' : '#388E3C', easyActive   ? '#81C784' : '#2E7D32');
-    this.drawButton('Normal', this.OPTIONS_DIFFICULTY_NORMAL_BUTTON, normalActive ? '#29B6F6' : '#0288D1', normalActive ? '#4FC3F7' : '#01579B');
-    this.drawButton('Hard',   this.OPTIONS_DIFFICULTY_HARD_BUTTON,   hardActive   ? '#EF5350' : '#C62828', hardActive   ? '#E57373' : '#B71C1C');
+    this.drawButton(
+      'Easy',
+      this.OPTIONS_DIFFICULTY_EASY_BUTTON,
+      easyActive ? '#66BB6A' : '#388E3C',
+      easyActive ? '#81C784' : '#2E7D32',
+    );
+    this.drawButton(
+      'Normal',
+      this.OPTIONS_DIFFICULTY_NORMAL_BUTTON,
+      normalActive ? '#29B6F6' : '#0288D1',
+      normalActive ? '#4FC3F7' : '#01579B',
+    );
+    this.drawButton(
+      'Hard',
+      this.OPTIONS_DIFFICULTY_HARD_BUTTON,
+      hardActive ? '#EF5350' : '#C62828',
+      hardActive ? '#E57373' : '#B71C1C',
+    );
 
     // Back button
     this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON, '#FF9800', '#F57C00');
@@ -2460,8 +2634,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#101A25';
     this.ctx.fillRect(860, 96, 320, 600);
 
-    this.drawButton('Back to Menu',    this.TERRAIN_TOOL_BACK_BUTTON,     '#FF9800', '#F57C00');
-    this.drawButton('Rescan Sheet',     this.TERRAIN_TOOL_RESCAN_BUTTON,   '#1565C0', '#0D47A1');
+    this.drawButton('Back to Menu', this.TERRAIN_TOOL_BACK_BUTTON, '#FF9800', '#F57C00');
+    this.drawButton('Rescan Sheet', this.TERRAIN_TOOL_RESCAN_BUTTON, '#1565C0', '#0D47A1');
     this.drawButton('Copy All Regions', this.TERRAIN_TOOL_COPY_ALL_BUTTON, '#2E7D32', '#1B5E20');
     const switchLabel =
       this.terrainToolActiveSheet === 'terrain' ? 'Switch to Background' : 'Switch to Terrain';
@@ -2863,9 +3037,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     y: number,
     button: { x: number; y: number; width: number; height: number },
   ): boolean {
-    const left   = button.x - button.width  / 2;
-    const right  = button.x + button.width  / 2;
-    const top    = button.y - button.height / 2;
+    const left = button.x - button.width / 2;
+    const right = button.x + button.width / 2;
+    const top = button.y - button.height / 2;
     const bottom = button.y + button.height / 2;
     const hit = x >= left && x <= right && y >= top && y <= bottom;
     return hit;
@@ -3176,7 +3350,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private equipSlotArrowBtns(si: number) {
     const rowY = 160 + si * 72;
     return {
-      left:  this.mkBtn(505, rowY + 20, 44, 36),
+      left: this.mkBtn(505, rowY + 20, 44, 36),
       right: this.mkBtn(696, rowY + 20, 44, 36),
     };
   }
@@ -3207,14 +3381,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private onCanvasClick(event: MouseEvent) {
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     const cs = getComputedStyle(this.canvas.nativeElement);
-    const borderLeft   = parseFloat(cs.borderLeftWidth)   || 0;
-    const borderTop    = parseFloat(cs.borderTopWidth)    || 0;
-    const borderRight  = parseFloat(cs.borderRightWidth)  || 0;
+    const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const borderRight = parseFloat(cs.borderRightWidth) || 0;
     const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
-    const contentWidth  = rect.width  - borderLeft - borderRight;
-    const contentHeight = rect.height - borderTop  - borderBottom;
-    const x = (event.clientX - rect.left - borderLeft) * (this.CANVAS_WIDTH  / contentWidth);
-    const y = (event.clientY - rect.top  - borderTop)  * (this.CANVAS_HEIGHT / contentHeight);
+    const contentWidth = rect.width - borderLeft - borderRight;
+    const contentHeight = rect.height - borderTop - borderBottom;
+    const x = (event.clientX - rect.left - borderLeft) * (this.CANVAS_WIDTH / contentWidth);
+    const y = (event.clientY - rect.top - borderTop) * (this.CANVAS_HEIGHT / contentHeight);
 
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);
