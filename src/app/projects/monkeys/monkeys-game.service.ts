@@ -381,7 +381,19 @@ export class MonkeysGameService {
       targetDepths[i] = currentTarget;
     }
 
+    // Check which chunks have a top surface slope (significant Y change).
+    const topSlopeAtChunk = new Array<boolean>(numChunks).fill(false);
+    for (let i = 0; i < numChunks; i++) {
+      const xStart = Math.min(i * tileWidth, CONST.TERRAIN_WIDTH - 1);
+      const xEnd = Math.min((i + 1) * tileWidth, CONST.TERRAIN_WIDTH - 1);
+      const startSurf = Number.isFinite(topSurfaceProfile[xStart]) ? topSurfaceProfile[xStart] : fallbackSurface;
+      const endSurf = Number.isFinite(topSurfaceProfile[xEnd]) ? topSurfaceProfile[xEnd] : fallbackSurface;
+      topSlopeAtChunk[i] = Math.abs(endSurf - startSurf) > 15;
+    }
+
     // Walk chunks toward their target depth, ±1 tile per chunk.
+    // Skip depth changes on chunks where the top surface is already sloped
+    // to prevent compounding (max ±60 total delta per chunk).
     const chunkDepths = new Array<number>(numChunks);
     const chunkTypes: ('flat' | 'slope_up' | 'slope_down')[] = new Array(numChunks);
     let depth = targetDepths[0];
@@ -390,10 +402,12 @@ export class MonkeysGameService {
     for (let i = 0; i < numChunks; i++) {
       const diff = targetDepths[i] - depth;
       let direction = 0;
-      if (diff > 0 && lastDirection !== -1) {
-        direction = 1;
-      } else if (diff < 0 && lastDirection !== 1) {
-        direction = -1;
+      if (!topSlopeAtChunk[i]) {
+        if (diff > 0 && lastDirection !== -1) {
+          direction = 1;
+        } else if (diff < 0 && lastDirection !== 1) {
+          direction = -1;
+        }
       }
       depth += direction;
       depth = Math.max(minTiles, depth);
