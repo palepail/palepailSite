@@ -74,6 +74,11 @@ export class MonkeysGameService {
   get turnStartTime(): number {
     return this._turnStartTime;
   }
+
+  get hasAimGuide(): boolean {
+    return !!this.equipped.accessory?.stats?.aimGuide;
+  }
+
   // Flags
   isCharging = false;
   chargeStartTime = 0;

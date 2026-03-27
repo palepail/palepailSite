@@ -241,4 +241,6 @@ export interface EquipmentItem {
   stats: EquipmentStats;
   setId?: string;
   description?: string;
+  spriteCol?: number;
+  spriteRow?: number;
 }

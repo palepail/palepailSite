@@ -306,6 +306,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           this.spriteService.loadRawSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET),
         )
         .catch((err) => console.error('Failed to load background sprites:', err)),
+      this.spriteService
+        .loadRawSpritesheet('equipment.png')
+        .catch((err) => console.warn('Failed to load equipment sprites:', err)),
     ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
@@ -2182,6 +2185,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
+    // ── Equipped gear icons ──────────────────────────────────────────────
+    this.drawEquippedIcons(mLeft, mRight);
+
     // ── Right panel: stats ───────────────────────────────────────────────
     const rLeft = 816;
     const rRight = 1182;
@@ -2214,6 +2220,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const statLabelX = rLeft + 16;
     const statValueX = rRight - 16;
 
+    const invertedStats = new Set(['minAimAngle']);
+
     for (let ri = 0; ri < statDefs.length; ri++) {
       const { label, base: bv, bonus } = statDefs[ri];
       const rowY = statStartY + ri * statStepY;
@@ -2226,10 +2234,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const baseStr = String(bv);
       const bonusStr = bonus !== 0 ? (bonus > 0 ? `+${bonus}` : String(bonus)) : '';
 
+      // Determine which stat key this row corresponds to
+      const statKey = ['defense', 'attack', 'blastRadius', 'fuel', 'climbAngle', 'minAimAngle', 'maxAimAngle', '', ''][ri];
+      const inverted = invertedStats.has(statKey);
+
       this.ctx.textAlign = 'right';
       if (bonus !== 0) {
         // Draw bonus in green/red right-aligned, then base value to its left
-        this.ctx.fillStyle = bonus > 0 ? '#55EE77' : '#FF6655';
+        const isGood = inverted ? bonus < 0 : bonus > 0;
+        this.ctx.fillStyle = isGood ? '#55EE77' : '#FF6655';
         this.ctx.fillText(bonusStr, statValueX, rowY);
         const bonusWidth = this.ctx.measureText(bonusStr).width + 6;
         this.ctx.fillStyle = '#FFFFFF';
@@ -2242,6 +2255,62 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // ── Back button ──────────────────────────────────────────────────────
     this.drawButton('Back', this.EQUIP_BACK_BUTTON, '#445', '#667');
+  }
+
+  private drawEquippedIcons(panelLeft: number, panelRight: number) {
+    const equipSheet = this.spriteService.getSpritesheet('equipment.png');
+    const spriteSize = 32;
+    const boxSize = 48;
+    const gap = 10;
+    const count = this.EQUIPMENT_SLOTS.length;
+    const totalW = count * boxSize + (count - 1) * gap;
+    const startX = Math.round((panelLeft + panelRight) / 2 - totalW / 2);
+    const labelY = 510;
+    const iconsY = 526;
+
+    this.ctx.fillStyle = '#AABBDD';
+    this.ctx.font = 'bold 13px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('Active Gear', (panelLeft + panelRight) / 2, labelY);
+
+    for (let i = 0; i < count; i++) {
+      const slot = this.EQUIPMENT_SLOTS[i];
+      const item = this.gameService.equipped[slot];
+      const hasSprite =
+        !!item?.setId && item.spriteCol !== undefined && item.spriteRow !== undefined;
+      const bx = startX + i * (boxSize + gap);
+
+      this.ctx.fillStyle = hasSprite ? 'rgba(20, 20, 60, 0.85)' : 'rgba(16, 16, 32, 0.6)';
+      this.ctx.strokeStyle = hasSprite ? '#6677AA' : '#334455';
+      this.ctx.lineWidth = 1;
+      this.ctx.fillRect(bx, iconsY, boxSize, boxSize);
+      this.ctx.strokeRect(bx, iconsY, boxSize, boxSize);
+
+      if (hasSprite && equipSheet) {
+        const sx = item!.spriteCol! * spriteSize;
+        const sy = item!.spriteRow! * spriteSize;
+        const pad = 4;
+        this.ctx.drawImage(
+          equipSheet,
+          sx, sy, spriteSize, spriteSize,
+          bx + pad, iconsY + pad, boxSize - pad * 2, boxSize - pad * 2,
+        );
+      } else {
+        this.ctx.fillStyle = '#334455';
+        this.ctx.font = '20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('—', bx + boxSize / 2, iconsY + boxSize / 2 + 7);
+      }
+
+      this.ctx.fillStyle = '#667788';
+      this.ctx.font = '11px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(
+        this.SLOT_LABELS[slot].substring(0, 4),
+        bx + boxSize / 2,
+        iconsY + boxSize + 13,
+      );
+    }
   }
 
   private handleEquipmentMenuClick(x: number, y: number) {
