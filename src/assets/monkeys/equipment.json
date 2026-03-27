@@ -227,7 +227,7 @@
       "setId": "iron",
       "spriteCol": 4,
       "spriteRow": 4,
-      "stats": { "pushbackMultiplier": 0.8 },
+      "stats": { "pushbackMultiplier": 1.8 },
       "description": "Forged from shrapnel — blasts send foes flying further"
     },
     {
@@ -267,7 +267,7 @@
       "setId": "miner",
       "spriteCol": 4,
       "spriteRow": 3,
-      "stats": { "blastRadius": 23, "attack": -40, "noPushback": true },
+      "stats": { "blastRadius": 23, "attack": -40, "pushbackMultiplier": 0 },
       "description": "Precision detonator — massive blast, minimal firepower"
     }
   ]

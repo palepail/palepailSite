@@ -763,9 +763,8 @@ export class MonkeysGameService {
       if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
       if (item.stats.defense) vehicle.health += item.stats.defense;
       if (item.stats.health) vehicle.health += item.stats.health;
-      if (item.stats.noPushback) vehicle.bullet.noPushback = true;
-      if (item.stats.pushbackMultiplier)
-        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) + item.stats.pushbackMultiplier;
+      if (item.stats.pushbackMultiplier !== undefined)
+        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
       if (item.stats.blastRadius) {
         vehicle.bullet.explosionRadius = Math.max(
           5,
@@ -1910,7 +1909,6 @@ export class MonkeysGameService {
     radiusY: number,
   ) {
     if (!target.body) return;
-    if (projectile.bullet.noPushback) return;
     const dx = target.x - explosionX;
     const dy = target.y - explosionY;
     const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);

@@ -201,7 +201,6 @@ export interface Bullet {
   explosionRadius: number;
   craterRadius: number;
   speed: number;
-  noPushback?: boolean;
   pushbackMultiplier?: number; // >1 increases knockback, defaults to 1
 }
 
@@ -227,8 +226,7 @@ export interface EquipmentStats {
   defense?: number; // bonus to vehicle.health
   health?: number; // direct bonus to vehicle.health
   blastRadius?: number; // bonus to bullet.explosionRadius (craterRadius scales 0.8×)
-  noPushback?: boolean; // if true, explosions from this player's shots apply no knockback
-  pushbackMultiplier?: number; // multiplier applied to blast knockback distance (stacks additively)
+  pushbackMultiplier?: number; // multiplier applied to blast knockback distance (stacks additively; 0 = no pushback)
   fuel?: number; // bonus to vehicle.fuel
   climbAngle?: number; // bonus to vehicle.climbAngle (degrees)
   minAimAngle?: number; // modifier to vehicle.minAimAngle (negative = wider range)

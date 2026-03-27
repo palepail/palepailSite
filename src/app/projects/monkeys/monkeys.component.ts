@@ -73,27 +73,65 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
 
   // Menu title animation (MONKEYS letters drop in on first menu visit)
-  private readonly MT_LETTERS = ['text_M', 'text_O', 'text_N', 'text_K', 'text_E', 'text_Y', 'text_S'];
+  private readonly MT_LETTERS = [
+    'text_M',
+    'text_O',
+    'text_N',
+    'text_K',
+    'text_E',
+    'text_Y',
+    'text_S',
+  ];
   private menuTitleAnim: BouncingLetterAnimState = {
     cfg: {
-      letterSize: 96, staggerMs: 130, gravity: 1800, bounce: 0.38, minBounceVY: 50,
+      letterSize: 96,
+      staggerMs: 130,
+      gravity: 1800,
+      bounce: 0.38,
+      minBounceVY: 50,
       advanceRatio: 0.5,
       targetYFn: (i) => 55 + [4, -8, 10, -5, 8, -10, 3][i],
     },
-    letterY: [], letterVY: [], animStart: 0, animLastTs: 0,
+    letterY: [],
+    letterVY: [],
+    animStart: 0,
+    animLastTs: 0,
   };
 
   // Game over letter drop animation
-  private readonly GO_LETTERS: string[] = ['arena_G', 'arena_A', 'arena_M', 'arena_E', 'arena_O', 'arena_V', 'arena_E2', 'arena_R'];
-  private readonly WIN_LETTERS: string[] = ['text_Y', 'text_O', 'text_U', 'text_W', 'text_I', 'text_N'];
+  private readonly GO_LETTERS: string[] = [
+    'arena_G',
+    'arena_A',
+    'arena_M',
+    'arena_E',
+    'arena_O',
+    'arena_V',
+    'arena_E2',
+    'arena_R',
+  ];
+  private readonly WIN_LETTERS: string[] = [
+    'text_Y',
+    'text_O',
+    'text_U',
+    'text_W',
+    'text_I',
+    'text_N',
+  ];
   private readonly WIN_TEXT_TINT = '#FFE700';
   private gameOverAnim: BouncingLetterAnimState = {
     cfg: {
-      letterSize: 96, staggerMs: 110, gravity: 2400, bounce: 0.42, minBounceVY: 60,
+      letterSize: 96,
+      staggerMs: 110,
+      gravity: 2400,
+      bounce: 0.42,
+      minBounceVY: 60,
       advanceRatio: 0.62,
       targetYFn: () => CONST.CANVAS_HEIGHT / 2 - 48, // CANVAS_HEIGHT/2 - letterSize/2
     },
-    letterY: [], letterVY: [], animStart: 0, animLastTs: 0,
+    letterY: [],
+    letterVY: [],
+    animStart: 0,
+    animLastTs: 0,
   };
 
   // Setup timer
@@ -150,13 +188,30 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Sprite name maps for digit/symbol rendering — defined once here rather than per render frame.
   private readonly ANGLE_CHAR_TO_SPRITE: Record<string, string> = {
-    '0': 'angle_0', '1': 'angle_1', '2': 'angle_2', '3': 'angle_3', '4': 'angle_4',
-    '5': 'angle_5', '6': 'angle_6', '7': 'angle_7', '8': 'angle_8', '9': 'angle_9',
-    '%': 'angle_percent', '°': 'angle_degree',
+    '0': 'angle_0',
+    '1': 'angle_1',
+    '2': 'angle_2',
+    '3': 'angle_3',
+    '4': 'angle_4',
+    '5': 'angle_5',
+    '6': 'angle_6',
+    '7': 'angle_7',
+    '8': 'angle_8',
+    '9': 'angle_9',
+    '%': 'angle_percent',
+    '°': 'angle_degree',
   };
   private readonly ARENA_CHAR_TO_SPRITE: Record<string, string> = {
-    '0': 'arena_0', '1': 'arena_1', '2': 'arena_2', '3': 'arena_3', '4': 'arena_4',
-    '5': 'arena_5', '6': 'arena_6', '7': 'arena_7', '8': 'arena_8', '9': 'arena_9',
+    '0': 'arena_0',
+    '1': 'arena_1',
+    '2': 'arena_2',
+    '3': 'arena_3',
+    '4': 'arena_4',
+    '5': 'arena_5',
+    '6': 'arena_6',
+    '7': 'arena_7',
+    '8': 'arena_8',
+    '9': 'arena_9',
     '/': 'arena_slash',
   };
 
@@ -219,17 +274,32 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 600, 200, 50);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
   private readonly OPTIONS_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 385, 200, 50);
-  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 200, 160, 44);
+  private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(
+    CONST.CANVAS_WIDTH / 2,
+    200,
+    160,
+    44,
+  );
   private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(
     CONST.CANVAS_WIDTH / 2,
     255,
     160,
     44,
   );
-  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 310, 160, 44);
+  private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(
+    CONST.CANVAS_WIDTH / 2,
+    310,
+    160,
+    44,
+  );
   private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 48, 220, 44);
   private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 102, 220, 44);
-  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 156, 220, 44);
+  private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(
+    CONST.CANVAS_WIDTH - 170,
+    156,
+    220,
+    44,
+  );
   private readonly TERRAIN_TOOL_SWITCH_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 210, 220, 44);
   private readonly TERRAIN_TOOL_MODE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 264, 220, 44);
 
@@ -736,7 +806,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw UI elements (health bar, name label)
     const enemyIndex = this.gameService.enemies.indexOf(enemy);
-    this.drawEntityUI(enemy, centerX, centerY, CONST.TANK_BODY_RADIUS, false, `Enemy ${enemyIndex + 1}`);
+    this.drawEntityUI(
+      enemy,
+      centerX,
+      centerY,
+      CONST.TANK_BODY_RADIUS,
+      false,
+      `Enemy ${enemyIndex + 1}`,
+    );
 
     // Draw prediction path if enabled
     if (this.showPrediction && enemy.turnState === 'charging') {
@@ -879,7 +956,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawTankAimingArc(centerX: number, centerY: number) {
     // Draw cannon range arc (before facing flip)
     // Note: Canvas y increases downward, so positive angles go down. Negate angles to make arcs appear above the tank.
-    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
+    if (
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.PAUSED
+    ) {
       const minAngle = (this.gameService.player.vehicle.minAimAngle * Math.PI) / 180;
       const maxAngle = (this.gameService.player.vehicle.maxAimAngle * Math.PI) / 180;
 
@@ -905,7 +985,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawTankAimLines(centerX: number, centerY: number) {
     // Draw solid lines at 0°, 45°, 90° (after facing flip, so they flip with tank)
-    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
+    if (
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.PAUSED
+    ) {
       this.ctx.globalAlpha = 1.0;
       this.ctx.strokeStyle = CONST.AIM_LINE_COLOR;
       this.ctx.lineWidth = CONST.AIM_LINE_WIDTH;
@@ -1442,7 +1525,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         if (tint) {
           this.ctx.drawImage(this.tintedGlyph(sprite, size, tint), x, topY);
         } else {
-          this.ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, x, topY, size, size);
+          this.ctx.drawImage(
+            sprite.image,
+            sprite.x,
+            sprite.y,
+            sprite.width,
+            sprite.height,
+            x,
+            topY,
+            size,
+            size,
+          );
         }
       } else if (plainFallback) {
         this.ctx.fillStyle = '#FFFFFF';
@@ -1463,19 +1556,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.globalAlpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
       const chars = String(text.damage).split('');
       const totalWidth = (chars.length - 1) * advance + size;
-      this.drawSpriteChars(chars, this.ANGLE_CHAR_TO_SPRITE, screenPos.x - totalWidth / 2, screenPos.y - size, size, advance, tint);
+      this.drawSpriteChars(
+        chars,
+        this.ANGLE_CHAR_TO_SPRITE,
+        screenPos.x - totalWidth / 2,
+        screenPos.y - size,
+        size,
+        advance,
+        tint,
+      );
     }
     this.ctx.globalAlpha = 1;
   }
 
   private drawUI() {
     // Draw countdown timer in top right
-    if (this.gameService.currentState === GameState.PLAYING || this.gameService.currentState === GameState.PAUSED) {
+    if (
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.PAUSED
+    ) {
       const now = this.renderTime;
-      const remaining = Math.max(
-        0,
-        Math.floor(45 - (now - this.gameService.turnStartTime) / 1000),
-      );
+      const remaining = Math.max(0, Math.floor(45 - (now - this.gameService.turnStartTime) / 1000));
       this.drawArenaNumber(String(remaining), CONST.CANVAS_WIDTH - 20, 8, 64);
     }
 
@@ -1502,7 +1603,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.gameService.currentState === GameState.WIN;
       // Initialise on first frame
       if (this.gameOverAnim.animStart === 0) {
-        this.initBouncingLetterAnim(this.gameOverAnim, isWin ? this.WIN_LETTERS.length : this.GO_LETTERS.length);
+        this.initBouncingLetterAnim(
+          this.gameOverAnim,
+          isWin ? this.WIN_LETTERS.length : this.GO_LETTERS.length,
+        );
       }
       this.updateBouncingLetterAnim(this.gameOverAnim);
       this.drawBouncingLetterAnim(
@@ -2020,7 +2124,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.strokeRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
 
     const displayName = this.gameService.playerName;
-    const cursorVisible = this.isNameEditing && performance.now() % this.CURSOR_BLINK_PERIOD_MS < this.CURSOR_ON_DURATION_MS;
+    const cursorVisible =
+      this.isNameEditing &&
+      performance.now() % this.CURSOR_BLINK_PERIOD_MS < this.CURSOR_ON_DURATION_MS;
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'left';
@@ -2368,7 +2474,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private cycleSlot(slot: EquipmentSlot, delta: 1 | -1): void {
     const items = this.gameService.getItemsForSlot(slot);
-    this.loadoutSlotIndices[slot] = (this.loadoutSlotIndices[slot] + delta + items.length) % items.length;
+    this.loadoutSlotIndices[slot] =
+      (this.loadoutSlotIndices[slot] + delta + items.length) % items.length;
     const selected = items[this.loadoutSlotIndices[slot]];
     this.gameService.equipped[slot] = selected?.id?.startsWith('none_') ? null : (selected ?? null);
   }
@@ -2995,7 +3102,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawBouncingLetterAnim(anim: BouncingLetterAnimState, letters: string[], tint?: string): void {
+  private drawBouncingLetterAnim(
+    anim: BouncingLetterAnimState,
+    letters: string[],
+    tint?: string,
+  ): void {
     const { cfg } = anim;
     const size = cfg.letterSize;
     const advance = size * cfg.advanceRatio;
@@ -3014,8 +3125,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         );
       } else {
         this.ctx.drawImage(
-          sprite.image, sprite.x, sprite.y, sprite.width, sprite.height,
-          startX + i * advance, anim.letterY[i], size, size,
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          startX + i * advance,
+          anim.letterY[i],
+          size,
+          size,
         );
       }
     }
@@ -3086,13 +3204,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const advance = size * 0.45;
     const chars = `${pct}%`.split('');
     const totalWidth = (chars.length - 1) * advance + size;
-    this.drawSpriteChars(chars, this.ANGLE_CHAR_TO_SPRITE, centreX - totalWidth / 2, topY, size, advance);
+    this.drawSpriteChars(
+      chars,
+      this.ANGLE_CHAR_TO_SPRITE,
+      centreX - totalWidth / 2,
+      topY,
+      size,
+      advance,
+    );
   }
 
   // Draws an angle value (digits + degree symbol) using row-2 arena sprites, left-aligned.
   private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
     const advance = size * 0.45;
-    this.drawSpriteChars(`${angleDeg}°`.split(''), this.ANGLE_CHAR_TO_SPRITE, leftX, centerY - size / 2, size, advance);
+    this.drawSpriteChars(
+      `${angleDeg}°`.split(''),
+      this.ANGLE_CHAR_TO_SPRITE,
+      leftX,
+      centerY - size / 2,
+      size,
+      advance,
+    );
   }
 
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
@@ -3100,7 +3232,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
     const chars = text.split('');
-    this.drawSpriteChars(chars, this.ARENA_CHAR_TO_SPRITE, rightX - chars.length * advance, topY, size, advance, undefined, true);
+    this.drawSpriteChars(
+      chars,
+      this.ARENA_CHAR_TO_SPRITE,
+      rightX - chars.length * advance,
+      topY,
+      size,
+      advance,
+      undefined,
+      true,
+    );
   }
 
   /** Creates a button rect centred at (cx, cy). Use with drawButton and isPointInsideButton. */
