@@ -226,6 +226,7 @@ export interface Vehicle {
   weight?: number; // pushback resistance; base 10; higher = less knockback, lower = more
   shieldRadius?: number; // radius of the hit-absorbing shield in px
   shieldHealth?: number; // number of hits the shield can absorb before breaking
+  aimGuide?: string; // set bonus from Scout set; activates trajectory arc preview
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
@@ -257,4 +258,10 @@ export interface EquipmentItem {
   description?: string;
   spriteCol?: number;
   spriteRow?: number;
+}
+
+export interface EquipmentSet {
+  id: string;
+  name: string;
+  bonus?: EquipmentStats;
 }

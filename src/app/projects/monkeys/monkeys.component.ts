@@ -2224,6 +2224,34 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return total;
   }
 
+  /** Returns the dominant setId across selected loadout slots and how many pieces match it. */
+  private getPreviewSetInfo(): { setId: string; count: number } | null {
+    const counts = new Map<string, number>();
+    for (const slot of this.EQUIPMENT_SLOTS) {
+      const id = this.getLoadoutItem(slot)?.setId;
+      if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    let best: { setId: string; count: number } | null = null;
+    for (const [setId, count] of counts) {
+      if (!best || count > best.count) best = { setId, count };
+    }
+    return best;
+  }
+
+  /** Human-readable lines describing a set's bonus. */
+  private getPreviewSetBonusLines(setId: string): string[] {
+    const set = this.gameService.equipmentSets.find((s) => s.id === setId);
+    if (!set?.bonus) return [];
+    const b = set.bonus;
+    const lines: string[] = [];
+    if (b.lifesteal) lines.push(`Lifesteal ${b.lifesteal}%`);
+    if (b.shieldHealth) lines.push(`Shield x${b.shieldHealth}`);
+    if (b.aimGuide) lines.push('Aim Guide');
+    if (b.pushbackMultiplier !== undefined)
+      lines.push(b.pushbackMultiplier === 0 ? 'No Knockback' : b.pushbackMultiplier < 0 ? `Vacuum ×${Math.abs(b.pushbackMultiplier)}` : `Knockback ×${b.pushbackMultiplier}`);
+    return lines;
+  }
+
   private drawEquipmentMenu() {
     // Background
     this.ctx.fillStyle = CONST.SKY_COLOR;
@@ -2435,6 +2463,44 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.fillText(baseStr, statValueX, rowY);
       }
+    }
+
+    // ── Set bonus section ────────────────────────────────────────────────
+    const setBonusDivY = statStartY + statDefs.length * statStepY + 12;
+    this.ctx.strokeStyle = 'rgba(100, 120, 180, 0.45)';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(rLeft + 16, setBonusDivY);
+    this.ctx.lineTo(rRight - 16, setBonusDivY);
+    this.ctx.stroke();
+
+    this.ctx.textAlign = 'center';
+    this.ctx.fillStyle = '#8899CC';
+    this.ctx.font = 'bold 12px Arial';
+    this.ctx.fillText('SET BONUS', rCx, setBonusDivY + 18);
+
+    const setInfo = this.getPreviewSetInfo();
+    const isFullSet = setInfo?.count === this.EQUIPMENT_SLOTS.length;
+    const setCountY = setBonusDivY + 40;
+
+    if (setInfo) {
+      const setName = this.gameService.equipmentSets.find((s) => s.id === setInfo.setId)?.name ?? setInfo.setId;
+      this.ctx.fillStyle = isFullSet ? '#55EE77' : '#888888';
+      this.ctx.font = 'bold 14px Arial';
+      this.ctx.fillText(`${setInfo.count} / ${this.EQUIPMENT_SLOTS.length}  ${setName}`, rCx, setCountY);
+
+      const bonusLines = this.getPreviewSetBonusLines(setInfo.setId);
+      this.ctx.font = '13px Arial';
+      if (!isFullSet) this.ctx.globalAlpha = 0.4;
+      for (let li = 0; li < bonusLines.length; li++) {
+        this.ctx.fillStyle = isFullSet ? '#55EE77' : '#AABBDD';
+        this.ctx.fillText(bonusLines[li], rCx, setCountY + 24 + li * 22);
+      }
+      this.ctx.globalAlpha = 1;
+    } else {
+      this.ctx.fillStyle = '#555566';
+      this.ctx.font = '14px Arial';
+      this.ctx.fillText('—', rCx, setCountY);
     }
 
     // ── Back button ──────────────────────────────────────────────────────

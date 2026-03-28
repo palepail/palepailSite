@@ -1,10 +1,10 @@
 {
   "sets": [
-    { "id": "iron", "name": "Iron" },
-    { "id": "berserker", "name": "Berserker" },
-    { "id": "fortress", "name": "Fortress" },
-    { "id": "scout", "name": "Scout" },
-    { "id": "miner", "name": "Miner" }
+    { "id": "iron", "name": "Iron", "bonus": { "pushbackMultiplier": 3 } },
+    { "id": "berserker", "name": "Berserker", "bonus": { "lifesteal": 20 } },
+    { "id": "fortress", "name": "Fortress", "bonus": { "shieldRadius": 120, "shieldHealth": 2 } },
+    { "id": "scout", "name": "Scout", "bonus": { "aimGuide": "extended" } },
+    { "id": "miner", "name": "Miner", "bonus": { "pushbackMultiplier": -2 } }
   ],
   "items": [
     { "id": "none_headgear", "name": "None", "slot": "headgear", "stats": {} },
@@ -68,7 +68,14 @@
       "setId": "iron",
       "spriteCol": 1,
       "spriteRow": 4,
-      "stats": { "health": 12, "attack": 10, "blastRadius": 5, "armor": 2, "maxAimAngle": -5, "weight": 2 },
+      "stats": {
+        "health": 12,
+        "attack": 10,
+        "blastRadius": 5,
+        "armor": 2,
+        "maxAimAngle": -5,
+        "weight": 2
+      },
       "description": "Reliable all-round armour that means business"
     },
     {
@@ -88,7 +95,14 @@
       "setId": "fortress",
       "spriteCol": 1,
       "spriteRow": 0,
-      "stats": { "health": 20, "armor": 3, "fuel": -10, "attack": -5, "maxAimAngle": 2, "weight": 5 },
+      "stats": {
+        "health": 20,
+        "armor": 3,
+        "fuel": -10,
+        "attack": -5,
+        "maxAimAngle": 2,
+        "weight": 5
+      },
       "description": "Near-impenetrable hull — heavy and slow"
     },
     {
@@ -121,7 +135,14 @@
       "setId": "iron",
       "spriteCol": 2,
       "spriteRow": 4,
-      "stats": { "health": 6, "blastRadius": 6, "climbAngle": 5, "armor": 1, "minAimAngle": 5, "weight": 1 },
+      "stats": {
+        "health": 6,
+        "blastRadius": 6,
+        "climbAngle": 5,
+        "armor": 1,
+        "minAimAngle": 5,
+        "weight": 1
+      },
       "description": "Stable footing with reinforced stopping power"
     },
     {
@@ -194,7 +215,14 @@
       "setId": "fortress",
       "spriteCol": 3,
       "spriteRow": 0,
-      "stats": { "health": 8, "armor": 1, "fuel": -5, "attack": -5, "minAimAngle": -2, "weight": 3 },
+      "stats": {
+        "health": 8,
+        "armor": 1,
+        "fuel": -5,
+        "attack": -5,
+        "minAimAngle": -2,
+        "weight": 3
+      },
       "description": "Heavy plated boots — drain fuel with every step"
     },
     {
@@ -227,7 +255,7 @@
       "setId": "iron",
       "spriteCol": 4,
       "spriteRow": 4,
-      "stats": { "pushbackMultiplier": 1.8, "armor": 2 },
+      "stats": { "armor": 2 },
       "description": "Forged from shrapnel — blasts send foes flying further"
     },
     {
@@ -237,7 +265,7 @@
       "setId": "berserker",
       "spriteCol": 4,
       "spriteRow": 1,
-      "stats": { "attack": 10, "lifesteal": 20 },
+      "stats": { "attack": 10 },
       "description": "Heal 20% of damage dealt — rage fuels recovery"
     },
     {
@@ -247,8 +275,8 @@
       "setId": "fortress",
       "spriteCol": 4,
       "spriteRow": 0,
-      "stats": { "armor": 7, "weight": 2, "shieldRadius": 120, "shieldHealth": 2 },
-      "description": "Hardened casing — absorbs two hits before breaking; large blasts may still pierce"
+      "stats": { "armor": 7, "weight": 2 },
+      "description": "Hardened casing — activates shield when full Iron set equipped"
     },
     {
       "id": "scout_beacon",
@@ -257,8 +285,8 @@
       "setId": "scout",
       "spriteCol": 4,
       "spriteRow": 2,
-      "stats": { "aimGuide": "extended" },
-      "description": "Shows trajectory arc up to the apex of the shot"
+      "stats": { "fuel": 15, "attack": 10 },
+      "description": "Reconnaissance gear — extends range and sharpens targeting"
     },
     {
       "id": "miner_detonator",
@@ -267,7 +295,7 @@
       "setId": "miner",
       "spriteCol": 4,
       "spriteRow": 3,
-      "stats": { "blastRadius": 23, "attack": -40, "pushbackMultiplier": 0 },
+      "stats": { "blastRadius": 23, "attack": -40 },
       "description": "Precision detonator — massive blast, minimal firepower"
     }
   ]

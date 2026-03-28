@@ -15,7 +15,9 @@ import {
   TerrainSpriteMetadata,
   Vehicle,
   EquipmentItem,
+  EquipmentSet,
   EquipmentSlot,
+  EquipmentStats,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
@@ -76,7 +78,7 @@ export class MonkeysGameService {
   }
 
   get hasAimGuide(): boolean {
-    return !!this.equipped.accessory?.stats?.aimGuide;
+    return !!(this.player?.vehicle?.aimGuide);
   }
 
   // Flags
@@ -107,6 +109,7 @@ export class MonkeysGameService {
     accessory: null,
   };
   equipmentItems: EquipmentItem[] = [];
+  equipmentSets: EquipmentSet[] = [];
   private equipmentLoadPromise: Promise<void> | null = null;
 
   constructor(private spriteService: MonkeysSpriteService) {
@@ -696,8 +699,9 @@ export class MonkeysGameService {
       try {
         const response = await fetch('assets/monkeys/equipment.json');
         if (!response.ok) return;
-        const data = (await response.json()) as { items: EquipmentItem[] };
+        const data = (await response.json()) as { items: EquipmentItem[]; sets: EquipmentSet[] };
         this.equipmentItems = data.items;
+        this.equipmentSets = data.sets ?? [];
         this.loadLoadout();
       } catch {
         /* ignore load failure */
@@ -708,6 +712,16 @@ export class MonkeysGameService {
 
   getItemsForSlot(slot: EquipmentSlot): EquipmentItem[] {
     return this.equipmentItems.filter((i) => i.slot === slot);
+  }
+
+  getEquippedSetBonus(): EquipmentStats | null {
+    const slots: EquipmentSlot[] = ['headgear', 'torso', 'legs', 'footwear', 'accessory'];
+    const setIds = slots.map((s) => this.equipped[s]?.setId ?? null);
+    if (setIds.some((id) => !id)) return null;
+    const firstId = setIds[0]!;
+    if (!setIds.every((id) => id === firstId)) return null;
+    const set = this.equipmentSets.find((s) => s.id === firstId);
+    return set?.bonus ?? null;
   }
 
   saveLoadout(): void {
@@ -791,6 +805,15 @@ export class MonkeysGameService {
         vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + item.stats.shieldRadius;
       if (item.stats.shieldHealth)
         vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + item.stats.shieldHealth;
+    }
+    const setBonus = this.getEquippedSetBonus();
+    if (setBonus) {
+      if (setBonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + setBonus.lifesteal;
+      if (setBonus.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + setBonus.shieldRadius;
+      if (setBonus.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + setBonus.shieldHealth;
+      if (setBonus.pushbackMultiplier !== undefined)
+        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * setBonus.pushbackMultiplier;
+      if (setBonus.aimGuide) vehicle.aimGuide = setBonus.aimGuide;
     }
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
@@ -1715,13 +1738,13 @@ export class MonkeysGameService {
 
         if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
           this.player.targetAngle = Math.min(
-            CONST.MAX_AIM_ANGLE,
+            this.player.vehicle.maxAimAngle,
             (this.player.targetAngle ?? this.player.angle) + CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
         if (keys['ArrowDown'] && !this.isCharging && !this.projectile) {
           this.player.targetAngle = Math.max(
-            CONST.MIN_AIM_ANGLE,
+            this.player.vehicle.minAimAngle,
             (this.player.targetAngle ?? this.player.angle) - CONST.ANGLE_ADJUST_SPEED / 400,
           );
         }
@@ -1966,11 +1989,14 @@ export class MonkeysGameService {
     const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
     const pushMultiplier = projectile.bullet.pushbackMultiplier ?? 1;
     const weightFactor = 10 / Math.max(1, target.vehicle?.weight ?? 10);
-    const pushDistance = maxPushDistance * (1 - normalizedDist) * pushMultiplier * weightFactor;
+    const pushDistance = maxPushDistance * (1 - normalizedDist) * Math.abs(pushMultiplier) * weightFactor;
     if (pushDistance <= 0) return;
     const distance = Math.hypot(dx, dy);
-    const dirX = distance > 0.001 ? dx / distance : 0;
-    const dirY = distance > 0.001 ? dy / distance : -1;
+    const awayX = distance > 0.001 ? dx / distance : 0;
+    const awayY = distance > 0.001 ? dy / distance : -1;
+    const sign = pushMultiplier < 0 ? -1 : 1;
+    const dirX = awayX * sign;
+    const dirY = awayY * sign;
     const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + dirX * pushDistance));
     const targetY = target.y + dirY * pushDistance;
     this.Body.setPosition(target.body, { x: targetX, y: targetY });
