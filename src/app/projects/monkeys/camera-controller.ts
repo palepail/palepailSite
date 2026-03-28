@@ -299,12 +299,10 @@ class CameraController {
       type: 'projectile' | 'explosion';
     } | null = null;
 
-    // Projectile/explosion tracking takes priority over panning.
-    if ((projectile || explodedProjectiles.length > 0) && this.isPanning) {
-      this.isPanning = false;
-      this.panTargetX = null;
-      this.panTargetY = null;
-    }
+    // Projectile/explosion tracking takes priority over panning, but don't cancel the
+    // pending pan — just suppress it until tracking ends so the camera returns to the
+    // turn entity once the explosion clears.
+    const hasActiveTracking = !!(projectile || explodedProjectiles.length > 0);
 
     // If we're already tracking an explosion and it still exists, continue tracking it
     if (this.trackedExplosion && explodedProjectiles.includes(this.trackedExplosion)) {
@@ -349,9 +347,10 @@ class CameraController {
       }
     }
 
-    // Pan to entity if panning
+    // Pan to entity if panning and no active projectile/explosion tracking
     if (
       this.isPanning &&
+      !hasActiveTracking &&
       this.panTargetX !== null &&
       this.panTargetY !== null &&
       isFinite(this.panTargetX) &&

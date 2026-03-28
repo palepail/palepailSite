@@ -5514,7 +5514,7 @@
       "pieceType": "bottom_slope_up",
       "topEntryY": 0,
       "topExitY": 0,
-      "bottomEntryY": 80,
+      "bottomEntryY": 81,
       "bottomExitY": 21,
       "fillToBottom": true
     },

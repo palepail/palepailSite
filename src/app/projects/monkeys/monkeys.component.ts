@@ -471,7 +471,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState === GameState.PLAYING &&
       currentTurnEntity &&
       !this.gameService.projectile &&
-      this.gameService.explodedProjectiles.length === 0
+      this.gameService.explodedProjectiles.length === 0 &&
+      !this.gameService.isCharging
     ) {
       this.cameraController.enableIdleMode();
     } else {

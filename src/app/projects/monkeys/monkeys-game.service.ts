@@ -493,16 +493,7 @@ export class MonkeysGameService {
         selected = bottomFlat[Math.floor(Math.random() * bottomFlat.length)];
       }
 
-      // Snap startY so the sprite's topWorldY (= startY - bottomEntryY) lands exactly on a
-      // 60px interior-tile boundary. The profile is built with FLAT_BOTTOM_ENTRY_Y=21, so
-      // any sprite whose bottomEntryY(t=0) differs from 21 by a non-multiple of 60 would
-      // otherwise land off-grid by that remainder (e.g. bottom_slope_up has entry=80,
-      // so 80-21=59 → 1px gap). Subtracting the remainder snaps it to zero gap.
-      const FLAT_BOTTOM_ENTRY_Y = 21;
-      const TILE_H = 60;
-      const entry0 = this.getBottomProfileY(selected, 0);
-      const gridRemainder = ((FLAT_BOTTOM_ENTRY_Y - entry0) % TILE_H + TILE_H) % TILE_H;
-      placements.push(this.createBottomPlacement(selected, xCursor, startY - gridRemainder));
+      placements.push(this.createBottomPlacement(selected, xCursor, startY));
     }
 
     return placements;
