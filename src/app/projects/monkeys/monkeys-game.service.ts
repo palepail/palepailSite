@@ -22,6 +22,13 @@ import {
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
 import { EnemyFactoryService } from './enemy-factory.service';
+import { TerrainService } from './terrain.service';
+import { PhysicsService } from './physics.service';
+import { AIService } from './ai.service';
+import { TurnService } from './turn.service';
+import { EquipmentService } from './equipment.service';
+import { ProjectileService } from './projectile.service';
+import { CollisionService } from './collision.service';
 
 @Injectable({
   providedIn: 'root',
@@ -42,55 +49,19 @@ export class MonkeysGameService {
   private runner: any;
 
   // Game data
-  terrain: number[][] = [];
-  terrainChunkPlacements: TerrainChunkPlacement[] = [];
-  terrainInteriorPlacements: TerrainChunkPlacement[] = [];
-  terrainBottomPlacements: TerrainChunkPlacement[] = [];
   player: Player;
   enemies: Enemy[] = [];
-  projectile: Projectile | null = null;
-  explosions: Explosion[] = [];
-  explodedProjectiles: ExplodedProjectile[] = [];
-  damageTexts: DamageText[] = [];
-  public panToEntity: any = null;
+  panToEntity: any = null;
   currentState: GameState = GameState.MENU;
   difficulty: 'easy' | 'normal' | 'hard' = 'normal';
 
   // Turn-based system
-  private _turnQueue: TurnEntity[] = [];
-  currentTurnIndex: number = 0;
-  turnTime: number = 0; // Current turn timer
   private _turnStartTime: number = 0;
   private lastUpdateTime = Date.now();
-  private readonly TIMEOUT_MS = 45000;
-  private readonly VEHICLE_NO_COLLISION_GROUP = -1;
-  private readonly TERRAIN_MIN_TOP_Y = 40;
-  private readonly TERRAIN_MAX_TOP_Y = CONST.TERRAIN_STRIP_HEIGHT - 120;
-  private readonly TERRAIN_MIN_BOTTOM_Y = 180;
-  private readonly TERRAIN_MAX_BOTTOM_Y = CONST.TERRAIN_STRIP_HEIGHT - 6;
-  private readonly TERRAIN_MIN_THICKNESS = 90;
-  private readonly TERRAIN_MAX_THICKNESS = 170;
-  private readonly TERRAIN_MAX_CONSECUTIVE_FLATS = 3;
-  private terrainMetadataById: Map<number, TerrainSpriteMetadata> = new Map();
-  private terrainMetadataLoaded = false;
-
-  get turnStartTime(): number {
-    return this._turnStartTime;
-  }
-
-  get hasAimGuide(): boolean {
-    return !!this.player?.vehicle?.aimGuide;
-  }
 
   // Flags
   isCharging = false;
   chargeStartTime = 0;
-
-  // Trajectory cache
-  private trajectoryCache: Map<
-    string,
-    { positions: { x: number; y: number }[]; endReason: string }
-  > = new Map();
 
   // Input
   keys: { [key: string]: boolean } = {};
@@ -99,82 +70,33 @@ export class MonkeysGameService {
   private gameOverTimer: number = 0;
   private winTimer: number = 0;
 
-  // Loadout / equipment
-  playerName = 'Player';
-  selectedVehicleIndex = 0; // index into CONST.SELECTABLE_VEHICLES
-  equipped: Record<EquipmentSlot, EquipmentItem | null> = {
-    headgear: null,
-    torso: null,
-    legs: null,
-    footwear: null,
-    accessory: null,
-  };
-  equipmentItems: EquipmentItem[] = [];
-  equipmentSets: EquipmentSet[] = [];
-  private equipmentLoadPromise: Promise<void> | null = null;
+  // Equipment properties (delegated to EquipmentService)
+  get playerName(): string {
+    return this.equipmentService.playerName;
+  }
+
+  set playerName(value: string) {
+    this.equipmentService.playerName = value;
+  }
 
   constructor(
     private spriteService: MonkeysSpriteService,
     private enemyFactory: EnemyFactoryService,
+    private terrainService: TerrainService,
+    private physicsService: PhysicsService,
+    private aiService: AIService,
+    private turnService: TurnService,
+    private equipmentService: EquipmentService,
+    private projectileService: ProjectileService,
+    private collisionService: CollisionService,
   ) {
     this.player = this.createInitialPlayer();
-    void this.loadEquipmentData();
-  }
-
-  simulateTrajectory(
-    startX: number,
-    startY: number,
-    angleRad: number,
-    power: number,
-    bullet: any,
-  ): { positions: { x: number; y: number }[]; endReason: string } {
-    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}`;
-    if (this.trajectoryCache.has(cacheKey)) {
-      return this.trajectoryCache.get(cacheKey)!;
-    }
-
-    const tempEngine = this.Engine.create();
-    tempEngine.world.gravity.y = CONST.GRAVITY_STRENGTH;
-
-    const velocity = (power / 100) * bullet.speed;
-    const vx = Math.cos(angleRad) * velocity;
-    const vy = -Math.sin(angleRad) * velocity;
-
-    const projectile = this.Bodies.circle(startX, startY, CONST.PROJECTILE_RADIUS, {
-      friction: CONST.PROJECTILE_FRICTION,
-      restitution: CONST.PROJECTILE_RESTITUTION,
-      frictionAir: 0,
-    });
-    this.Body.setVelocity(projectile, { x: vx, y: vy });
-    this.World.add(tempEngine.world, projectile);
-
-    const positions: { x: number; y: number }[] = [];
-    let endReason = 'timeout';
-    const maxSteps = 1000;
-    let step = 0;
-
-    while (step < maxSteps) {
-      // Record position
-      positions.push({ x: projectile.position.x, y: projectile.position.y });
-
-      // Apply wind force
-      this.Body.applyForce(projectile, projectile.position, { x: CONST.WIND_STRENGTH, y: 0 });
-
-      // Update simulation
-      this.Engine.update(tempEngine, 16.666); // ~60 FPS
-
-      step++;
-    }
-
-    // Clean up
-    this.World.remove(tempEngine.world, projectile);
-
-    const result = { positions, endReason };
-    this.trajectoryCache.set(cacheKey, result);
-    return result;
+    void this.equipmentService.loadEquipmentData();
   }
 
   setMatterJS(matter: any) {
+    this.physicsService.setMatterJS(matter);
+    // Also set on main service for backward compatibility
     this.Engine = matter.Engine;
     this.Runner = matter.Runner;
     this.Bodies = matter.Bodies;
@@ -187,15 +109,8 @@ export class MonkeysGameService {
   private createEntity(entity: Player | Enemy, x: number, y: number) {
     entity.x = x;
     entity.y = y;
-    entity.terrainAngle = this.getTerrainAngleAt(x);
-    entity.body = this.Bodies.rectangle(x, y, 30, 30, {
-      friction: CONST.PLAYER_FRICTION,
-      frictionAir: CONST.PLAYER_AIR_FRICTION,
-      restitution: CONST.PLAYER_RESTITUTION,
-      density: CONST.PLAYER_DENSITY,
-      collisionFilter: { group: this.VEHICLE_NO_COLLISION_GROUP },
-    });
-    this.World.add(this.world, entity.body);
+    entity.terrainAngle = this.collisionService.getTerrainAngleAt(x, this.terrainService.terrain);
+    this.physicsService.createEntity(entity, x, y);
   }
 
   private createInitialPlayer(): Player {
@@ -222,619 +137,34 @@ export class MonkeysGameService {
   async initGame() {
     this.gameOverTimer = 0;
     this.winTimer = 0;
-    this.trajectoryCache.clear();
-    await this.ensureTerrainMetadataLoaded();
-    this.generateTerrain();
-    this.initPhysics();
+    this.physicsService.clearTrajectoryCache();
+    await this.terrainService.loadTerrainMetadata();
+    this.terrainService.generateTerrain();
+    this.physicsService.initPhysics();
     this.initPlayer();
     this.spawnEnemies();
-    this.initTurnQueue();
-    this.startTurn();
+    this.turnService.initTurnQueue(this.player, this.enemies);
+    this.turnService.startTurn();
     this.currentState = GameState.SETUP;
   }
 
-  private async ensureTerrainMetadataLoaded(): Promise<void> {
-    if (this.terrainMetadataLoaded) {
-      return;
-    }
-
-    const metadata = await this.spriteService.loadTerrainMetadata();
-    this.terrainMetadataById.clear();
-    for (const sprite of metadata.sprites) {
-      this.terrainMetadataById.set(sprite.id, sprite);
-    }
-    this.terrainMetadataLoaded = true;
-  }
-
-  private generateTerrain() {
-    this.terrain = [];
-    for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
-      this.terrain[x] = [];
-      for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-        this.terrain[x][y] = 0; // Air
-      }
-    }
-
-    const topPlacements = this.buildTerrainChunkPlan();
-    const {
-      profile: bottomProfile,
-      chunkTypes,
-      chunkBottomY,
-    } = this.buildBottomProfile(topPlacements);
-    const bottomPlacements = this.buildBottomChunkPlan(chunkBottomY, chunkTypes);
-    this.terrainChunkPlacements = topPlacements;
-    this.terrainBottomPlacements = bottomPlacements;
-    this.rasterizeTerrainPlacements(topPlacements, bottomProfile, bottomPlacements);
-    this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomPlacements);
-  }
-
-  private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
-    const topFlat = this.getTerrainRegionsByType('top_flat');
-    const topSlopeUp = this.getTerrainRegionsByType('top_slope_up');
-    const topSlopeDown = this.getTerrainRegionsByType('top_slope_down');
-
-    if (topFlat.length === 0 || topSlopeUp.length === 0 || topSlopeDown.length === 0) {
-      return this.buildFallbackTerrainPlan();
-    }
-
-    const placements: TerrainChunkPlacement[] = [];
-    const topStartMin = 80;
-    const topStartMax = 140;
-    let currentTopY = this.randomInRange(topStartMin, topStartMax);
-    let xCursor = 0;
-    let consecutiveFlats = 0;
-    let lastSlopeDir: 'flat' | 'up' | 'down' = 'flat';
-
-    while (xCursor < CONST.TERRAIN_WIDTH) {
-      const candidatePool = this.buildTopCandidatePool(
-        topFlat,
-        topSlopeUp,
-        topSlopeDown,
-        consecutiveFlats,
-        currentTopY,
-        lastSlopeDir,
-      );
-
-      if (candidatePool.length === 0) {
-        break;
-      }
-
-      const selected = candidatePool[Math.floor(Math.random() * candidatePool.length)];
-      placements.push(this.createPlacement(selected, xCursor, currentTopY));
-
-      const delta = selected.topExitY - selected.topEntryY;
-      currentTopY += delta;
-      xCursor += selected.width;
-      if (selected.pieceType === 'top_flat') {
-        consecutiveFlats++;
-        lastSlopeDir = 'flat';
-      } else {
-        consecutiveFlats = 0;
-        lastSlopeDir = selected.pieceType === 'top_slope_down' ? 'up' : 'down';
-      }
-    }
-    return placements;
-  }
-
-  private buildTopCandidatePool(
-    topFlat: TerrainSpriteMetadata[],
-    topSlopeUp: TerrainSpriteMetadata[],
-    topSlopeDown: TerrainSpriteMetadata[],
-    consecutiveFlats: number,
-    currentTopY: number,
-    lastSlopeDir: 'flat' | 'up' | 'down',
-  ): TerrainSpriteMetadata[] {
-    const shouldForceSlope = consecutiveFlats >= this.TERRAIN_MAX_CONSECUTIVE_FLATS;
-    const pool: TerrainSpriteMetadata[] = [];
-
-    if (!shouldForceSlope) {
-      pool.push(...topFlat, ...topFlat, ...topFlat);
-    }
-
-    const canGoUp = currentTopY > this.TERRAIN_MIN_TOP_Y + 40;
-    const canGoDown = currentTopY < this.TERRAIN_MAX_TOP_Y - 40;
-    // Prevent consecutive same-direction slopes to keep height change within one interior tile.
-    if (canGoUp && lastSlopeDir !== 'up') {
-      pool.push(...topSlopeDown, ...topSlopeDown);
-    }
-    if (canGoDown && lastSlopeDir !== 'down') {
-      pool.push(...topSlopeUp, ...topSlopeUp);
-    }
-
-    if (pool.length === 0) {
-      pool.push(...topFlat);
-    }
-
-    return pool;
-  }
-
-  private buildBottomProfile(topPlacements: TerrainChunkPlacement[]): {
-    profile: number[];
-    chunkTypes: ('flat' | 'slope_up' | 'slope_down')[];
-    chunkBottomY: number[];
-  } {
-    const topSurfaceProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
-    const interiorHeight = 60; // one interior tile
-    const topTileHeight = 34; // pixels from terrain surface to bottom of flat top sprite (height - topEntryY = 36 - 2)
-    const FLAT_BOTTOM_ENTRY_Y = 21; // bottomEntryY of all flat bottom sprites; added to profile so bp.topWorldY lands on an interior tile boundary
-    const tileWidth = 90;
-    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
-
-    // Use top surface + flat tile height as a consistent base so the
-    // bottom profile doesn't jump by ~60px under top slope tiles.
-    const fallbackSurface = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-
-    // Plan depth in tile-sized chunks (90px wide), with depth changing
-    // by at most 1 interior tile (60px) per chunk. Direction reversals
-    // require at least one flat chunk between them (no ^ or V shapes).
-    // +1 extra chunk so the visible last chunk has a real look-ahead for slope detection.
-    const numChunks = Math.ceil(CONST.TERRAIN_WIDTH / tileWidth) + 1;
-    const minTiles = 2;
-    const maxTiles = 5;
-
-    // Generate target depth per segment (in tile units, 3–6 chunks per segment).
-    const targetDepths = new Array<number>(numChunks);
-    let currentTarget = this.randomInRange(minTiles, maxTiles);
-    let segRemaining = this.randomInRange(3, 6);
-    for (let i = 0; i < numChunks; i++) {
-      segRemaining--;
-      if (segRemaining <= 0) {
-        currentTarget = this.randomInRange(minTiles, maxTiles);
-        segRemaining = this.randomInRange(3, 6);
-      }
-      targetDepths[i] = currentTarget;
-    }
-
-    // Check which chunks have a top surface slope (significant Y change).
-    const topSlopeAtChunk = new Array<boolean>(numChunks).fill(false);
-    for (let i = 0; i < numChunks; i++) {
-      const xStart = Math.min(i * tileWidth, CONST.TERRAIN_WIDTH - 1);
-      const xEnd = Math.min((i + 1) * tileWidth, CONST.TERRAIN_WIDTH - 1);
-      const startSurf = Number.isFinite(topSurfaceProfile[xStart])
-        ? topSurfaceProfile[xStart]
-        : fallbackSurface;
-      const endSurf = Number.isFinite(topSurfaceProfile[xEnd])
-        ? topSurfaceProfile[xEnd]
-        : fallbackSurface;
-      topSlopeAtChunk[i] = Math.abs(endSurf - startSurf) > 15;
-    }
-
-    // Walk chunks toward their target depth, ±1 tile per chunk.
-    // Skip depth changes on chunks where the top surface is already sloped
-    // to prevent compounding (max ±60 total delta per chunk).
-    const chunkDepths = new Array<number>(numChunks);
-    const chunkTypes: ('flat' | 'slope_up' | 'slope_down')[] = new Array(numChunks);
-    let depth = targetDepths[0];
-    let lastDirection = 0; // -1=shallower, 0=flat, +1=deeper
-
-    for (let i = 0; i < numChunks; i++) {
-      const diff = targetDepths[i] - depth;
-      let direction = 0;
-      if (!topSlopeAtChunk[i]) {
-        if (diff > 0 && lastDirection !== -1) {
-          direction = 1;
-        } else if (diff < 0 && lastDirection !== 1) {
-          direction = -1;
-        }
-      }
-      depth += direction;
-      depth = Math.max(minTiles, depth);
-      chunkDepths[i] = depth;
-      lastDirection = direction;
-    }
-
-    // Fill per-pixel profile using actual top surface at each pixel.
-    for (let i = 0; i < numChunks; i++) {
-      const xStart = i * tileWidth;
-      const xEnd = Math.min(xStart + tileWidth, CONST.TERRAIN_WIDTH);
-      const prevDepth = i > 0 ? chunkDepths[i - 1] : chunkDepths[i];
-      const currDepth = chunkDepths[i];
-
-      for (let x = xStart; x < xEnd; x++) {
-        const surfaceY = Number.isFinite(topSurfaceProfile[x])
-          ? topSurfaceProfile[x]
-          : fallbackSurface;
-        const base = surfaceY + topTileHeight;
-        const t = (x - xStart) / tileWidth;
-        const depthPx = (prevDepth + t * (currDepth - prevDepth)) * interiorHeight;
-        // Add FLAT_BOTTOM_ENTRY_Y so that bp.topWorldY (= profile - bottomEntryY) for flat tiles
-        // lands exactly at the interior tile row boundary, giving zero gap/overlap.
-        profile[x] = Math.round(base + depthPx) + FLAT_BOTTOM_ENTRY_Y;
-      }
-    }
-
-    // Derive chunkBottomY and chunkTypes from the actual profile values
-    // at chunk boundaries. This accounts for both depth changes AND top
-    // surface slope, so tile selection matches what's visually happening.
-    const chunkBottomY = new Array<number>(numChunks);
-    for (let i = 0; i < numChunks; i++) {
-      const x = Math.min(i * tileWidth, CONST.TERRAIN_WIDTH - 1);
-      chunkBottomY[i] = profile[x];
-    }
-    for (let i = 0; i < numChunks; i++) {
-      const nextY = i + 1 < numChunks ? chunkBottomY[i + 1] : chunkBottomY[i];
-      const delta = nextY - chunkBottomY[i];
-      // Round to nearest 60 to ignore ±1 rounding noise
-      const rounded = Math.round(delta / interiorHeight) * interiorHeight;
-      chunkTypes[i] = rounded > 0 ? 'slope_up' : rounded < 0 ? 'slope_down' : 'flat';
-    }
-
-    return { profile, chunkTypes, chunkBottomY };
-  }
-
-  private buildBottomChunkPlan(
-    chunkBottomY: number[],
-    chunkTypes: ('flat' | 'slope_up' | 'slope_down')[],
-  ): TerrainChunkPlacement[] {
-    const bottomFlat = this.getTerrainRegionsByType('bottom_flat').filter(
-      (item) => ![8, 9].includes(item.id),
-    );
-    const bottomSlopeUp = this.getTerrainRegionsByType('bottom_slope_up');
-    const bottomSlopeDown = this.getTerrainRegionsByType('bottom_slope_down');
-
-    if (bottomFlat.length === 0) {
-      return this.buildFallbackBottomPlan();
-    }
-
-    const placements: TerrainChunkPlacement[] = [];
-
-    for (let i = 0; i < chunkTypes.length; i++) {
-      const xCursor = i * 90;
-      if (xCursor >= CONST.TERRAIN_WIDTH) break;
-
-      const startY = chunkBottomY[i];
-      let selected: TerrainSpriteMetadata;
-
-      if (chunkTypes[i] === 'slope_up' && bottomSlopeDown.length > 0) {
-        selected = bottomSlopeDown[Math.floor(Math.random() * bottomSlopeDown.length)];
-      } else if (chunkTypes[i] === 'slope_down' && bottomSlopeUp.length > 0) {
-        selected = bottomSlopeUp[Math.floor(Math.random() * bottomSlopeUp.length)];
-      } else {
-        selected = bottomFlat[Math.floor(Math.random() * bottomFlat.length)];
-      }
-
-      placements.push(this.createBottomPlacement(selected, xCursor, startY));
-    }
-
-    return placements;
-  }
-
-  private createPlacement(
-    region: TerrainSpriteMetadata,
-    x: number,
-    topAtLeft: number,
-  ): TerrainChunkPlacement {
-    return {
-      region,
-      x,
-      topWorldY: topAtLeft - region.topEntryY,
-    };
-  }
-
-  private createBottomPlacement(
-    region: TerrainSpriteMetadata,
-    x: number,
-    bottomAtLeft: number,
-  ): TerrainChunkPlacement {
-    const localBottomEntry = this.getBottomProfileY(region, 0);
-    return {
-      region,
-      x,
-      topWorldY: bottomAtLeft - localBottomEntry,
-    };
-  }
-
-  private getBottomProfileY(region: TerrainSpriteMetadata, t: number): number {
-    const clampedT = Math.max(0, Math.min(1, t));
-    const defaultBottomY = Math.max(0, region.height - 1);
-    const bottomEntryY = region.bottomEntryY ?? defaultBottomY;
-    const bottomExitY = region.bottomExitY ?? defaultBottomY;
-    return Math.round(bottomEntryY + (bottomExitY - bottomEntryY) * clampedT);
-  }
-
-  private rasterizeTerrainPlacements(
-    topPlacements: TerrainChunkPlacement[],
-    bottomProfile: number[],
-    bottomPlacements: TerrainChunkPlacement[],
-  ): void {
-    const topProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
-
-    for (let x = 0; x < CONST.TERRAIN_WIDTH; x++) {
-      const fallbackTop = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-      const topY = Number.isFinite(topProfile[x]) ? topProfile[x] : fallbackTop;
-      const bottomY = Math.min(this.TERRAIN_MAX_BOTTOM_Y, bottomProfile[x]);
-
-      for (let y = topY; y <= bottomY; y++) {
-        if (y >= 0 && y < CONST.TERRAIN_STRIP_HEIGHT) {
-          this.terrain[x][y] = 1;
-        }
-      }
-    }
-
-    // Extend terrain grid to cover full visual extent of bottom sprites
-    // using value 2 (visual-only) so the destination-out mask doesn't carve
-    // into their rendered area, but brown fill and physics ignore them.
-    for (const placement of bottomPlacements) {
-      const startX = Math.max(0, Math.floor(placement.x));
-      const endXExclusive = Math.min(
-        CONST.TERRAIN_WIDTH,
-        Math.floor(placement.x + placement.region.width),
-      );
-      const spriteTopY = Math.floor(placement.topWorldY);
-      const spriteBottomY = Math.floor(placement.topWorldY + placement.region.height);
-      for (let x = startX; x < endXExclusive; x++) {
-        for (let y = spriteTopY; y < spriteBottomY; y++) {
-          if (y >= 0 && y < CONST.TERRAIN_STRIP_HEIGHT && this.terrain[x][y] === 0) {
-            this.terrain[x][y] = 2;
-          }
-        }
-      }
-    }
-  }
-
-  private rasterizeBoundaryProfile(
-    placements: TerrainChunkPlacement[],
-    boundary: 'top' | 'bottom',
-  ): number[] {
-    const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(NaN);
-
-    for (const placement of placements) {
-      const { region } = placement;
-      const startX = Math.max(0, Math.floor(placement.x));
-      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(placement.x + region.width));
-      if (startX >= endXExclusive) {
-        continue;
-      }
-
-      const widthDenominator = Math.max(1, region.width - 1);
-      for (let x = startX; x < endXExclusive; x++) {
-        const localX = x - placement.x;
-        const t = Math.max(0, Math.min(1, localX / widthDenominator));
-        const localY =
-          boundary === 'top'
-            ? region.topEntryY + (region.topExitY - region.topEntryY) * t
-            : this.getBottomProfileY(region, t);
-        const worldY = Math.max(0, Math.floor(placement.topWorldY + localY));
-
-        if (!Number.isFinite(profile[x])) {
-          profile[x] = worldY;
-        } else if (boundary === 'top') {
-          profile[x] = Math.min(profile[x], worldY);
-        } else {
-          profile[x] = Math.max(profile[x], worldY);
-        }
-      }
-    }
-
-    return profile;
-  }
-
-  private buildInteriorPlacements(
-    topPlacements: TerrainChunkPlacement[],
-    bottomPlacements: TerrainChunkPlacement[],
-  ): TerrainChunkPlacement[] {
-    const interiorRegions = this.getTerrainRegionsByType('interior');
-    if (interiorRegions.length === 0) return [];
-
-    // bottomCutoff = bp.topWorldY (top of bottom sprite). Because the profile now bakes in
-    // FLAT_BOTTOM_ENTRY_Y, bp.topWorldY for flat tiles lands exactly on an interior tile row
-    // boundary (fillStartY + d*60). For slope_up tiles whose entry bottomEntryY=80, bp.topWorldY
-    // is ~60px higher, so Math.floor naturally gives d-1 interior tiles — the slope body
-    // substitutes for the interior tile it replaces.
-    const bottomCutoffByX = new Map<number, number>();
-    for (const bp of bottomPlacements) {
-      bottomCutoffByX.set(Math.floor(bp.x), Math.floor(bp.topWorldY));
-    }
-
-    const TILE_H = 60; // all interior tiles are exactly 60 px tall
-    // TOP_SPRITE_DEPTH: pixels from terrain surface to bottom of a flat top sprite.
-    // = height - topEntryY for flat tiles (36 - 2 = 34). Slope sprites are taller but
-    // are drawn on top of interior, so any overlap is hidden.
-    const TOP_SPRITE_DEPTH = 34;
-    const placements: TerrainChunkPlacement[] = [];
-
-    for (const top of topPlacements) {
-      const startX = Math.max(0, Math.floor(top.x));
-      // Start interior exactly at the bottom edge of the top sprite's solid area so there
-      // is zero pixel gap and zero overlap between the top sprite and the first interior tile.
-      const fillStartY = top.topWorldY + (top.region.topEntryY ?? 0) + TOP_SPRITE_DEPTH;
-      const bottomCutoff = bottomCutoffByX.get(startX) ?? fillStartY + TILE_H;
-
-      // Math.floor ensures we never place a tile that overshoots bp.topWorldY.
-      const numTiles = Math.floor((bottomCutoff - fillStartY) / TILE_H);
-
-      for (let i = 0; i < numTiles; i++) {
-        const region = interiorRegions[Math.floor(Math.random() * interiorRegions.length)];
-        placements.push({ region, x: top.x, topWorldY: fillStartY + i * TILE_H });
-      }
-    }
-    return placements;
-  }
-
-  private buildFallbackTerrainPlan(): TerrainChunkPlacement[] {
-    const fallbackRegion = this.requireTerrainRegion(11);
-    const placements: TerrainChunkPlacement[] = [];
-    const flatTopY = Math.floor((this.TERRAIN_MIN_TOP_Y + this.TERRAIN_MAX_TOP_Y) / 2);
-    for (let x = 0; x < CONST.TERRAIN_WIDTH; x += fallbackRegion.width) {
-      placements.push(this.createPlacement(fallbackRegion, x, flatTopY));
-    }
-    return placements;
-  }
-
-  private buildFallbackBottomPlan(): TerrainChunkPlacement[] {
-    const fallbackRegion = this.requireTerrainRegion(13);
-    const placements: TerrainChunkPlacement[] = [];
-    const flatBottomY = Math.floor((this.TERRAIN_MIN_BOTTOM_Y + this.TERRAIN_MAX_BOTTOM_Y) / 2);
-    for (let x = 0; x < CONST.TERRAIN_WIDTH; x += fallbackRegion.width) {
-      placements.push(this.createBottomPlacement(fallbackRegion, x, flatBottomY));
-    }
-    return placements;
-  }
-
-  private requireTerrainRegion(id: number): TerrainSpriteMetadata {
-    const region = this.terrainMetadataById.get(id);
-    if (!region) {
-      throw new Error(`Missing terrain metadata for region ${id}`);
-    }
-    return region;
-  }
-
-  private getTerrainRegionsByType(
-    type: TerrainSpriteMetadata['pieceType'],
-  ): TerrainSpriteMetadata[] {
-    return Array.from(this.terrainMetadataById.values())
-      .filter((region) => region.pieceType === type)
-      .sort((a, b) => a.id - b.id);
-  }
-
-  private randomInRange(min: number, max: number): number {
-    return Math.floor(min + Math.random() * (max - min + 1));
-  }
-
-  private initPhysics() {
-    this.engine = this.Engine.create();
-    this.world = this.engine.world;
-    this.engine.world.gravity.y = CONST.GRAVITY_STRENGTH;
-
-    this.runner = this.Runner.create();
-    this.Runner.run(this.runner, this.engine);
-  }
-
-  async loadEquipmentData(): Promise<void> {
-    if (this.equipmentLoadPromise) return this.equipmentLoadPromise;
-    this.equipmentLoadPromise = (async () => {
-      try {
-        const response = await fetch('assets/monkeys/equipment.json');
-        if (!response.ok) return;
-        const data = (await response.json()) as { items: EquipmentItem[]; sets: EquipmentSet[] };
-        this.equipmentItems = data.items;
-        this.equipmentSets = data.sets ?? [];
-        this.loadLoadout();
-      } catch {
-        /* ignore load failure */
-      }
-    })();
-    return this.equipmentLoadPromise;
-  }
-
   getItemsForSlot(slot: EquipmentSlot): EquipmentItem[] {
-    return this.equipmentItems.filter((i) => i.slot === slot);
+    return this.equipmentService.getItemsForSlot(slot);
   }
 
   getEquippedSetBonus(): EquipmentStats | null {
-    const slots: EquipmentSlot[] = ['headgear', 'torso', 'legs', 'footwear', 'accessory'];
-    const setIds = slots.map((s) => this.equipped[s]?.setId ?? null);
-    if (setIds.some((id) => !id)) return null;
-    const firstId = setIds[0]!;
-    if (!setIds.every((id) => id === firstId)) return null;
-    const set = this.equipmentSets.find((s) => s.id === firstId);
-    return set?.bonus ?? null;
-  }
-
-  saveLoadout(): void {
-    const savedEquipped: Record<string, string | null> = {};
-    for (const slot of ['headgear', 'torso', 'legs', 'footwear', 'accessory'] as EquipmentSlot[]) {
-      savedEquipped[slot] = this.equipped[slot]?.id ?? null;
-    }
-    localStorage.setItem(
-      'monkeys_loadout',
-      JSON.stringify({
-        playerName: this.playerName,
-        equipped: savedEquipped,
-        selectedVehicleIndex: this.selectedVehicleIndex,
-      }),
-    );
-  }
-
-  private loadLoadout(): void {
-    const raw = localStorage.getItem('monkeys_loadout');
-    if (!raw) return;
-    try {
-      const data = JSON.parse(raw) as {
-        playerName?: string;
-        equipped?: Record<string, string | null>;
-        selectedVehicleIndex?: number;
-      };
-      if (typeof data.playerName === 'string' && data.playerName.trim()) {
-        this.playerName = data.playerName.trim().slice(0, 12);
-      }
-      if (
-        typeof data.selectedVehicleIndex === 'number' &&
-        data.selectedVehicleIndex >= 0 &&
-        data.selectedVehicleIndex < CONST.SELECTABLE_VEHICLES.length &&
-        !CONST.SELECTABLE_VEHICLES[data.selectedVehicleIndex].locked
-      ) {
-        this.selectedVehicleIndex = data.selectedVehicleIndex;
-      }
-      if (data.equipped) {
-        for (const [slot, id] of Object.entries(data.equipped)) {
-          if (!id) continue;
-          const item = this.equipmentItems.find((i) => i.id === id) ?? null;
-          if (item) (this.equipped as Record<string, EquipmentItem | null>)[slot] = item;
-        }
-      }
-    } catch {
-      /* corrupted data, ignore */
-    }
-  }
-
-  private applyEquipmentToVehicle(vehicle: Vehicle): void {
-    for (const item of Object.values(this.equipped)) {
-      if (!item?.stats) continue;
-      if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
-      if (item.stats.health) vehicle.health += item.stats.health;
-      if (item.stats.armor)
-        vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);
-      if (item.stats.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier =
-          (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
-      if (item.stats.blastRadius) {
-        vehicle.bullet.explosionRadius = Math.max(
-          5,
-          vehicle.bullet.explosionRadius + item.stats.blastRadius,
-        );
-        vehicle.bullet.craterRadius = Math.max(
-          5,
-          vehicle.bullet.craterRadius + Math.round(item.stats.blastRadius * 0.8),
-        );
-      }
-      if (item.stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + item.stats.fuel);
-      if (item.stats.climbAngle)
-        vehicle.climbAngle = Math.max(10, vehicle.climbAngle + item.stats.climbAngle);
-      if (item.stats.minAimAngle)
-        vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + item.stats.minAimAngle);
-      if (item.stats.maxAimAngle)
-        vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
-      if (item.stats.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
-      if (item.stats.weight) vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
-      if (item.stats.shieldRadius)
-        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + item.stats.shieldRadius;
-      if (item.stats.shieldHealth)
-        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + item.stats.shieldHealth;
-    }
-    const setBonus = this.getEquippedSetBonus();
-    if (setBonus) {
-      if (setBonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + setBonus.lifesteal;
-      if (setBonus.shieldRadius)
-        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + setBonus.shieldRadius;
-      if (setBonus.shieldHealth)
-        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + setBonus.shieldHealth;
-      if (setBonus.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier =
-          (vehicle.bullet.pushbackMultiplier ?? 1) * setBonus.pushbackMultiplier;
-      if (setBonus.aimGuide) vehicle.aimGuide = setBonus.aimGuide;
-    }
-    vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
+    return this.equipmentService.getEquippedSetBonus();
   }
 
   private initPlayer() {
     const baseVehicle =
-      CONST.SELECTABLE_VEHICLES[this.selectedVehicleIndex]?.vehicle ?? CONST.PLAYER_VEHICLE;
+      CONST.SELECTABLE_VEHICLES[this.equipmentService.selectedVehicleIndex]?.vehicle ??
+      CONST.PLAYER_VEHICLE;
     const vehicle: Vehicle = {
       ...baseVehicle,
       bullet: { ...baseVehicle.bullet },
     };
-    this.applyEquipmentToVehicle(vehicle);
+    this.equipmentService.applyEquipmentToVehicle(vehicle);
     this.player.vehicle = vehicle;
     this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
     this.player.y =
@@ -872,8 +202,8 @@ export class MonkeysGameService {
 
       const { vehicle: enemyVehicle } = this.enemyFactory.buildEnemyVehicle(
         this.difficulty,
-        this.equipmentItems,
-        this.equipmentSets,
+        this.equipmentService.equipmentItems,
+        this.equipmentService.equipmentSets,
       );
       const enemy: Enemy = {
         body: null,
@@ -903,56 +233,10 @@ export class MonkeysGameService {
     }
   }
 
-  startTurn() {
-    if (this._turnQueue.length > 0) {
-      const waited = this._turnQueue[0].entity.delay;
-      this._turnQueue.forEach((te) => (te.entity.delay -= waited));
-    }
-    this._turnStartTime = Date.now();
-  }
-
-  areAllEntitiesSettled(): boolean {
-    const entities = [this.player, ...this.enemies];
-    return entities.every((e) => e.body && Math.abs(e.body.velocity.y) <= 0.5);
-  }
-
-  private initTurnQueue() {
-    this._turnQueue = [];
-
-    // Add player to queue
-    const playerRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * this.player.vehicle.speed;
-    this.player.delay = Math.round(100 - this.player.vehicle.speed + playerRandomOffset);
-    this._turnQueue.push({
-      id: 'player',
-      type: 'player',
-      entity: this.player,
-      baseDelay: 100 - this.player.vehicle.speed,
-      delay: this.player.delay,
-    });
-
-    // Add enemies to queue
-    this.enemies.forEach((enemy, index) => {
-      const enemyRandomOffset = (Math.random() - 0.5) * 2 * 0.05 * enemy.vehicle.speed;
-      enemy.delay = Math.round(100 - enemy.vehicle.speed + enemyRandomOffset);
-      this._turnQueue.push({
-        id: `enemy_${index}`,
-        type: 'enemy',
-        entity: enemy,
-        baseDelay: 100 - enemy.vehicle.speed,
-        delay: enemy.delay,
-      });
-    });
-
-    // Sort queue by entity.delay (lowest first)
-    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
-    this.currentTurnIndex = 0;
-    this.turnTime = 0;
-  }
-
   private updateEnemies() {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
-        this.updateEntityPhysics(enemy);
+        this.physicsService.updateEntityPhysics(enemy);
         // Kill enemies that have fallen off the map before AI or terrain-snap runs
         if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
           enemy.health = 0;
@@ -965,7 +249,11 @@ export class MonkeysGameService {
     // Handle enemy AI turns
     this.handleEnemyTurns();
 
-    this.checkEnemiesTerrainCollision();
+    this.collisionService.checkEnemiesTerrainCollision(
+      this.enemies,
+      this.terrainService.terrain,
+      this.physicsService,
+    );
   }
 
   private handleEnemyTurns() {
@@ -978,13 +266,13 @@ export class MonkeysGameService {
     if (!enemy.active) return;
 
     // Check for timeout
-    if (this.turnTime > this.TIMEOUT_MS) {
+    if (this.turnService.turnTime > this.turnService.TIMEOUT_MS) {
       this.endTurn();
       return;
     }
 
     // Simple enemy AI: aim at player and shoot
-    this.performEnemyAction(enemy);
+    this.aiService.performEnemyAction(enemy, this.player, this.enemies);
   }
 
   private handlePlayerTurns() {
@@ -1353,7 +641,7 @@ export class MonkeysGameService {
             const barrelEndX = enemy.x + Math.cos(simAngleRad) * CONST.BARREL_LENGTH;
             const barrelEndY = enemy.y - Math.sin(simAngleRad) * CONST.BARREL_LENGTH;
             for (let pow = 20; pow <= maxPower; pow += powerStep) {
-              const { positions } = this.simulateTrajectory(
+              const { positions } = this.physicsService.simulateTrajectory(
                 barrelEndX,
                 barrelEndY,
                 simAngleRad,
@@ -1443,9 +731,15 @@ export class MonkeysGameService {
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
-    const { positions } = this.simulateTrajectory(barrelEndX, barrelEndY, angleRad, power, bullet);
+    const { positions } = this.physicsService.simulateTrajectory(
+      barrelEndX,
+      barrelEndY,
+      angleRad,
+      power,
+      bullet,
+    );
 
-    this.projectile = {
+    this.projectileService.projectile = {
       x: barrelEndX,
       y: barrelEndY,
       trajectory: positions,
@@ -1465,8 +759,7 @@ export class MonkeysGameService {
   }
 
   getCurrentTurnEntity(): TurnEntity | null {
-    if (this._turnQueue.length === 0) return null;
-    return this._turnQueue[0];
+    return this.turnService.getCurrentTurnEntity();
   }
 
   isPlayerTurn(): boolean {
@@ -1475,24 +768,25 @@ export class MonkeysGameService {
   }
 
   endTurn(actionCost: number = 100) {
-    if (this._turnQueue.length === 0) return;
+    if (this.turnService._turnQueue.length === 0) return;
 
     // Normalize delays first
-    this.startTurn();
+    this.turnService.startTurn();
 
     // Then add actionCost to the current entity's delay
-    this._turnQueue[0].entity.delay += actionCost;
+    this.turnService._turnQueue[0].entity.delay += actionCost;
 
     // Resort queue by entity.delay
-    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
+    this.turnService._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
     // Reset turn time
-    this.turnTime = 0;
+    this.turnService.turnTime = 0;
 
     // Reset player-specific flags
     if (this.isPlayerTurn()) {
       this.isCharging = false;
       this.chargeStartTime = 0;
+      this.keys = {};
     }
 
     // Set next entity's turn state to turn_start
@@ -1504,42 +798,17 @@ export class MonkeysGameService {
     }
 
     // Clean up projectiles owned by previous entity
-    const prevEntity = this._turnQueue[this._turnQueue.length - 1]; // Since resorted, last is previous
+    const prevEntity = this.turnService._turnQueue[this.turnService._turnQueue.length - 1]; // Since resorted, last is previous
     if (prevEntity) {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
-        this.destroyTrajectoryProjectile();
+        this.calculateExplosionDamage(this.projectile.x, this.projectile.y, this.projectile);
+        this.projectileService.destroyTrajectoryProjectile(this.terrainService.terrain);
       }
-      this.explodedProjectiles = this.explodedProjectiles.filter(
-        (ep) => ep.owner !== prevEntity.entity,
-      );
+      this.projectileService.explodedProjectiles =
+        this.projectileService.explodedProjectiles.filter((ep) => ep.owner !== prevEntity.entity);
     }
 
     this.panToEntity = nextEntity;
-  }
-
-  updateTurnQueue(deltaTime: number = 0) {
-    // Remove inactive enemies from queue
-    this._turnQueue = this._turnQueue.filter((turnEntity) => {
-      if (turnEntity.type === 'enemy') {
-        return (turnEntity.entity as Enemy).active;
-      }
-      return true;
-    });
-
-    // If current turn entity was removed, reset to first
-    if (this.currentTurnIndex >= this._turnQueue.length) {
-      this.currentTurnIndex = 0;
-    }
-
-    if (this._turnQueue.length > 0) {
-      const currentEntity = this._turnQueue[0].entity as any;
-      if (currentEntity.turnState === 'post_bullet') {
-        currentEntity.turnTimer -= deltaTime;
-        if (currentEntity.turnTimer <= 0) {
-          this.endTurn(100);
-        }
-      }
-    }
   }
 
   private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
@@ -1565,7 +834,7 @@ export class MonkeysGameService {
         const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
         this.player.health -= actualDamage;
         this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
-        this.damageTexts.push({
+        this.projectileService.damageTexts.push({
           x: this.player.x,
           y: this.player.y - 30,
           damage: actualDamage,
@@ -1594,7 +863,7 @@ export class MonkeysGameService {
           );
           enemy.health -= damage;
           enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
-          this.damageTexts.push({
+          this.projectileService.damageTexts.push({
             x: enemy.x,
             y: enemy.y - 30,
             damage: damage,
@@ -1605,7 +874,7 @@ export class MonkeysGameService {
             const heal = Math.round(damage * (this.player.vehicle.lifesteal / 100));
             if (heal > 0) {
               this.player.health = Math.min(this.player.health + heal, this.player.vehicle.health);
-              this.damageTexts.push({
+              this.projectileService.damageTexts.push({
                 x: this.player.x,
                 y: this.player.y - 30,
                 damage: heal,
@@ -1667,10 +936,10 @@ export class MonkeysGameService {
 
     this.handleInput(this.keys);
 
-    this.turnTime = now - this._turnStartTime;
+    this.turnService.turnTime = now - this.turnService.turnStartTime;
 
     // Update player physics
-    this.updateEntityPhysics(this.player);
+    this.physicsService.updateEntityPhysics(this.player);
 
     // Update enemies
     this.updateEnemies();
@@ -1679,33 +948,42 @@ export class MonkeysGameService {
     this.handlePlayerTurns();
 
     // Update projectile if exists
-    if (this.projectile) {
-      this.updateTrajectoryProjectile();
+    if (this.projectileService.projectile) {
+      this.projectileService.updateTrajectoryProjectile(
+        this.terrainService.terrain,
+        this.physicsService,
+      );
     }
 
     // Check player collision with terrain
-    this.checkPlayerTerrainCollision();
+    this.collisionService.checkPlayerTerrainCollision(
+      this.player,
+      this.terrainService.terrain,
+      this.physicsService,
+    );
 
     // Check if entities fell off the screen
-    this.checkEntitiesFall();
+    this.collisionService.checkEntitiesFall(this.player, this.enemies);
 
     // Update explosions
-    this.updateExplosions();
+    this.projectileService.updateExplosions();
 
     // Update damage texts
-    this.updateDamageTexts();
+    this.projectileService.updateDamageTexts();
 
     // Remove expired exploded projectiles
-    this.explodedProjectiles = this.explodedProjectiles.filter((ep) => Date.now() < ep.removalTime);
+    this.projectileService.explodedProjectiles = this.projectileService.explodedProjectiles.filter(
+      (ep) => Date.now() < ep.removalTime,
+    );
 
     // Update turn queue (remove inactive enemies)
-    this.updateTurnQueue(deltaTime);
+    this.turnService.updateTurnQueue(deltaTime);
 
-    // Check for turn timeout
+    // Check for turn timeout (for enemies, since players don't timeout)
     if (
       this.currentState === GameState.PLAYING &&
-      this.currentTurnIndex < this._turnQueue.length &&
-      Date.now() - this._turnStartTime > this.TIMEOUT_MS
+      !this.isPlayerTurn() &&
+      this.turnService.turnTime > this.turnService.TIMEOUT_MS
     ) {
       this.endTurn(150);
     }
@@ -1809,7 +1087,7 @@ export class MonkeysGameService {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    const { positions } = this.simulateTrajectory(
+    const { positions } = this.physicsService.simulateTrajectory(
       barrelEndX,
       barrelEndY,
       angleRad,
@@ -1817,7 +1095,7 @@ export class MonkeysGameService {
       bullet,
     );
 
-    this.projectile = {
+    this.projectileService.projectile = {
       x: barrelEndX,
       y: barrelEndY,
       trajectory: positions,
@@ -1828,158 +1106,6 @@ export class MonkeysGameService {
 
     this.isCharging = false;
     this.player.turnState = 'bullet_in_flight';
-  }
-
-  private updateTrajectoryProjectile() {
-    if (
-      !this.projectile ||
-      !this.projectile.trajectory ||
-      this.projectile.trajectoryIndex === undefined
-    )
-      return;
-
-    const index = this.projectile.trajectoryIndex;
-    const positions = this.projectile.trajectory;
-
-    if (index >= positions.length) {
-      this.projectile = null;
-      return;
-    }
-
-    // Set position to current trajectory point
-    this.projectile.x = positions[index].x;
-    this.projectile.y = positions[index].y;
-
-    // Check if projectile went off game area
-    if (
-      this.projectile.x < -CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
-      this.projectile.x > CONST.TERRAIN_WIDTH + CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
-      this.projectile.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
-      this.projectile.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
-    ) {
-      this.destroyTrajectoryProjectile();
-      return;
-    }
-
-    // Check terrain collision
-    const px = Math.floor(this.projectile.x);
-    const py = Math.floor(this.projectile.y);
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    const terrainLocalY = py - terrainY;
-
-    if (
-      px >= 0 &&
-      px < CONST.TERRAIN_WIDTH &&
-      terrainLocalY >= 0 &&
-      terrainLocalY < this.terrain[px]?.length &&
-      this.terrain[px][terrainLocalY] === 1
-    ) {
-      this.destroyTrajectoryProjectile();
-      return;
-    }
-
-    // Check offsets for collision
-    const checkOffsets = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-    ];
-    let collided = false;
-    for (const [offsetX, offsetY] of checkOffsets) {
-      const checkX = px + offsetX;
-      const checkY = py + offsetY;
-      const terrainCheckY = checkY - terrainY;
-
-      if (
-        checkX >= 0 &&
-        checkX < CONST.TERRAIN_WIDTH &&
-        terrainCheckY >= 0 &&
-        terrainCheckY < this.terrain[checkX]?.length &&
-        this.terrain[checkX][terrainCheckY] === 1
-      ) {
-        collided = true;
-        break;
-      }
-    }
-    if (collided) {
-      this.destroyTrajectoryProjectile();
-      return;
-    }
-
-    // Check shield boundary — intercept before entity collision.
-    // Applies to any active entity (player or enemy) that owns a shield,
-    // but never blocks the entity's own projectile.
-    const shieldedEntities: Array<typeof this.player | (typeof this.enemies)[0]> = [
-      this.player,
-      ...this.enemies,
-    ];
-    for (const entity of shieldedEntities) {
-      if (!entity.active) continue;
-      const shield = entity.vehicle?.shieldRadius;
-      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
-      if ((this.projectile.owner as object) === (entity as object)) continue;
-
-      const sdx = this.projectile.x - entity.x;
-      const sdy = this.projectile.y - entity.y;
-      const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-      const ownerDist = Math.hypot(
-        this.projectile.owner.x - entity.x,
-        this.projectile.owner.y - entity.y,
-      );
-      if (sdist < shield && ownerDist >= shield) {
-        // Reposition explosion to shield boundary point
-        const scale = shield / Math.max(sdist, 0.001);
-        this.projectile.x = entity.x + sdx * scale;
-        this.projectile.y = entity.y + sdy * scale;
-        entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
-        entity.shieldHitAngle = Math.atan2(sdy, sdx);
-        this.destroyTrajectoryProjectile();
-        return;
-      }
-    }
-
-    // Check collision with entities
-    if (this.checkEntityCollisions(this.projectile)) {
-      this.destroyTrajectoryProjectile();
-      return;
-    }
-
-    // Advance to next position
-    this.projectile.trajectoryIndex++;
-  }
-
-  private destroyTrajectoryProjectile() {
-    if (!this.projectile) return;
-
-    this.explosions.push({
-      x: this.projectile.x,
-      y: this.projectile.y,
-      radius: CONST.EXPLOSION_INITIAL_RADIUS,
-      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-      life: CONST.EXPLOSION_LIFETIME_FRAMES,
-      shape: this.projectile.bullet.explosionShape,
-    });
-
-    // Apply damage
-    this.calculateExplosionDamage(this.projectile.x, this.projectile.y, this.projectile);
-
-    // Create crater
-    this.createCrater(
-      this.projectile.x,
-      this.projectile.y,
-      this.projectile.bullet.craterRadius,
-      this.projectile.bullet,
-    );
-
-    this.explodedProjectiles.push({
-      position: { x: this.projectile.x, y: this.projectile.y },
-      bullet: this.projectile.bullet,
-      removalTime: Date.now() + 2000,
-      owner: this.projectile.owner,
-    });
-
-    this.projectile = null;
   }
 
   private checkEntityCollisions(projectile: Projectile): boolean {
@@ -2046,78 +1172,6 @@ export class MonkeysGameService {
     target.y = targetY;
   }
 
-  private createCrater(centerX: number, centerY: number, radius: number, bullet: any): void {
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    let craterRadiusX = radius;
-    let craterRadiusY = radius;
-    if (bullet.explosionShape === 'horizontal_oval') {
-      craterRadiusX = radius * 1.5;
-    } else if (bullet.explosionShape === 'vertical_oval') {
-      craterRadiusY = radius * 1.5;
-    }
-
-    for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
-      for (let y = centerY - craterRadiusY; y < centerY + craterRadiusY; y++) {
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const normalizedDist = Math.sqrt((dx / craterRadiusX) ** 2 + (dy / craterRadiusY) ** 2);
-        if (normalizedDist <= 1) {
-          const ix = Math.floor(x);
-          const iy = Math.floor(y - terrainY);
-          if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
-            if (this.terrain[ix] && this.terrain[ix][iy] !== 0) {
-              this.terrain[ix][iy] = 0; // Remove terrain (solid and visual-only)
-            }
-          }
-        }
-      }
-    }
-  }
-
-  private checkPlayerTerrainCollision() {
-    if (!this.player.body) return;
-
-    const terrainHeight = this.getTerrainHeightAt(this.player.x);
-    if (terrainHeight !== -1) {
-      const terrainAngle = this.getTerrainAngleAt(this.player.x);
-      const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
-      const tankBottom = this.player.body.position.y + tankHalfHeight;
-
-      if (tankBottom > terrainHeight) {
-        // Player is below terrain surface, reposition to surface
-        const targetY = terrainHeight - tankHalfHeight;
-        this.Body.setPosition(this.player.body, { x: this.player.x, y: targetY });
-        this.Body.setVelocity(this.player.body, { x: this.player.body.velocity.x, y: 0 });
-
-        this.player.terrainAngle = terrainAngle;
-      }
-    }
-  }
-
-  private checkEnemiesTerrainCollision() {
-    for (const enemy of this.enemies) {
-      if (enemy.body && enemy.active) {
-        const terrainHeight = this.getTerrainHeightAt(enemy.x);
-        if (terrainHeight !== -1) {
-          const terrainAngle = this.getTerrainAngleAt(enemy.x);
-          const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
-          const tankBottom = enemy.body.position.y + tankHalfHeight;
-
-          if (tankBottom > terrainHeight) {
-            // Enemy is below terrain surface, reposition to surface
-            const targetY = terrainHeight - tankHalfHeight;
-            this.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
-            this.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
-          }
-          // If enemy is above terrain, let gravity pull it down
-
-          enemy.terrainAngle = terrainAngle;
-        }
-        // If no terrain at enemy position, let it fall under gravity
-      }
-    }
-  }
-
   private checkEntitiesFall() {
     // Check player fall
     if (this.player.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
@@ -2165,7 +1219,7 @@ export class MonkeysGameService {
     if (ix < 0 || ix >= CONST.TERRAIN_WIDTH) return -1;
 
     for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-      if (this.terrain[ix] && this.terrain[ix][y] === 1) {
+      if (this.terrainService.terrain[ix] && this.terrainService.terrain[ix][y] === 1) {
         return CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET + y;
       }
     }
@@ -2192,8 +1246,62 @@ export class MonkeysGameService {
     return Math.round(trueAngleDeg);
   }
 
-  get turnQueue(): TurnEntity[] {
-    return this._turnQueue;
+  get terrainInteriorPlacements() {
+    return this.terrainService.terrainInteriorPlacements;
+  }
+
+  get terrainBottomPlacements() {
+    return this.terrainService.terrainBottomPlacements;
+  }
+
+  get terrainChunkPlacements() {
+    return this.terrainService.terrainChunkPlacements;
+  }
+
+  get terrain() {
+    return this.terrainService.terrain;
+  }
+
+  get hasAimGuide() {
+    return this.projectileService.projectile !== null;
+  }
+
+  simulateTrajectory(
+    barrelEndX: number,
+    barrelEndY: number,
+    angleRad: number,
+    power: number,
+    bullet: any,
+  ) {
+    return this.physicsService.simulateTrajectory(barrelEndX, barrelEndY, angleRad, power, bullet);
+  }
+
+  get turnStartTime() {
+    return this.turnService.turnStartTime;
+  }
+
+  get turnQueue() {
+    return this.turnService.turnQueue;
+  }
+
+  get equipped() {
+    return this.equipmentService.equipped;
+  }
+
+  get equipmentSets() {
+    return this.equipmentService.equipmentSets;
+  }
+
+  get selectedVehicleIndex(): number {
+    return this.equipmentService.selectedVehicleIndex;
+  }
+
+  set selectedVehicleIndex(value: number) {
+    this.equipmentService.selectedVehicleIndex = value;
+  }
+
+  saveLoadout(): void {
+    this.equipmentService.saveLoadout();
   }
 
   pausePhysics() {
@@ -2206,6 +1314,31 @@ export class MonkeysGameService {
     if (this.runner) {
       this.Runner.run(this.runner, this.engine);
     }
+  }
+
+  // Getters for properties moved to services
+  get projectile() {
+    return this.projectileService.projectile;
+  }
+
+  get explodedProjectiles() {
+    return this.projectileService.explodedProjectiles;
+  }
+
+  get explosions() {
+    return this.projectileService.explosions;
+  }
+
+  get damageTexts() {
+    return this.projectileService.damageTexts;
+  }
+
+  areAllEntitiesSettled(): boolean {
+    return this.turnService.areAllEntitiesSettled([this.player, ...this.enemies]);
+  }
+
+  startTurn() {
+    this.turnService.startTurn();
   }
 
   destroy() {
