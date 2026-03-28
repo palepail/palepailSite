@@ -58,6 +58,7 @@ export interface Enemy {
   behavior?: 'aggressive' | 'defensive' | 'flanking';
   forceTerrainClearingShot?: boolean;
   reassessCount?: number;
+  target?: Player | Enemy;
   currentShieldHealth?: number;
   shieldHitAngle?: number;
 }

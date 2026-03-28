@@ -1116,6 +1116,7 @@ export class MonkeysGameService {
   }
 
   private performEnemyAction(enemy: Enemy) {
+    const target: Player | Enemy = enemy.target ?? this.player;
     switch (enemy.turnState) {
       case 'turn_start':
         // Reset fuel at turn start
@@ -1128,6 +1129,7 @@ export class MonkeysGameService {
         enemy.turnState = 'assess';
         enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
         enemy.stuckCounter = 0;
+        enemy.target = this.pickEnemyTarget(enemy);
         break;
 
       case 'assess':
@@ -1136,8 +1138,8 @@ export class MonkeysGameService {
           return;
         }
         // Assess situation and decide action
-        const dx = this.player.x - enemy.x;
-        const dy = this.player.y - enemy.y;
+        const dx = target.x - enemy.x;
+        const dy = target.y - enemy.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         // Set behavior
@@ -1207,7 +1209,7 @@ export class MonkeysGameService {
           enemy.moveDirection = 0;
           enemy.movementTimer = 0;
           // After moving, reassess or go to aiming
-          const newDx = this.player.x - enemy.x;
+          const newDx = target.x - enemy.x;
           const newDistance = Math.abs(newDx);
           const maxReassess = (enemy.reassessCount ?? 0) >= 3;
           if (!maxReassess && (newDistance > 500 || newDistance < 100)) {
@@ -1245,9 +1247,9 @@ export class MonkeysGameService {
 
       case 'aiming':
         if (enemy.targetAngle === undefined) {
-          // Calculate precise angle to player
-          const dx = this.player.x - enemy.x;
-          const dy = this.player.y - enemy.y;
+          // Calculate precise angle to target
+          const dx = target.x - enemy.x;
+          const dy = target.y - enemy.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (enemy.forceTerrainClearingShot) {
@@ -1350,9 +1352,9 @@ export class MonkeysGameService {
                 enemy.vehicle.bullet,
               );
               for (const pos of positions) {
-                const distToPlayer = Math.hypot(pos.x - this.player.x, pos.y - this.player.y);
-                if (distToPlayer < 50 && (!bestHit || distToPlayer < bestHit.dist)) {
-                  bestHit = { angle: relAng, power: pow, dist: distToPlayer };
+                const distToTarget = Math.hypot(pos.x - target.x, pos.y - target.y);
+                if (distToTarget < 50 && (!bestHit || distToTarget < bestHit.dist)) {
+                  bestHit = { angle: relAng, power: pow, dist: distToTarget };
                 }
               }
             }
@@ -1442,6 +1444,15 @@ export class MonkeysGameService {
       owner: enemy,
       bullet: bullet,
     };
+  }
+
+  private pickEnemyTarget(enemy: Enemy): Player | Enemy {
+    const candidates: (Player | Enemy)[] = [
+      ...(this.player.active ? [this.player] : []),
+      ...this.enemies.filter((e) => e !== enemy && e.active),
+    ];
+    if (candidates.length === 0) return this.player;
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
   getCurrentTurnEntity(): TurnEntity | null {
