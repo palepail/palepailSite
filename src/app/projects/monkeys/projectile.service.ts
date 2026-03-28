@@ -18,7 +18,7 @@ export class ProjectileService {
   explodedProjectiles: ExplodedProjectile[] = [];
   damageTexts: DamageText[] = [];
 
-  updateTrajectoryProjectile(terrain: number[][], physicsService: any) {
+  updateTrajectoryProjectile(terrain: number[][], physicsService: any, player: Player, enemies: Enemy[]) {
     if (
       !this.projectile ||
       !this.projectile.trajectory ||
@@ -30,7 +30,7 @@ export class ProjectileService {
     const positions = this.projectile.trajectory;
 
     if (index >= positions.length) {
-      this.destroyTrajectoryProjectile(terrain);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
       return;
     }
 
@@ -45,7 +45,7 @@ export class ProjectileService {
       this.projectile.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
       this.projectile.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
     ) {
-      this.destroyTrajectoryProjectile(terrain);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
       return;
     }
 
@@ -62,7 +62,7 @@ export class ProjectileService {
       terrainLocalY < terrain[px]?.length &&
       terrain[px][terrainLocalY] === 1
     ) {
-      this.destroyTrajectoryProjectile(terrain);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
       return;
     }
 
@@ -91,41 +91,76 @@ export class ProjectileService {
       }
     }
     if (collided) {
-      this.destroyTrajectoryProjectile(terrain);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
       return;
     }
 
     // Check shield boundary
-    // Shield check will be handled in main service
+    const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
+    for (const entity of shieldedEntities) {
+      if (!entity.active) continue;
+      const shield = entity.vehicle?.shieldRadius;
+      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+      if ((this.projectile.owner as object) === (entity as object)) continue;
+      const sdx = this.projectile.x - entity.x;
+      const sdy = this.projectile.y - entity.y;
+      const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+      const ownerDist = Math.hypot(
+        this.projectile.owner.x - entity.x,
+        this.projectile.owner.y - entity.y,
+      );
+      if (sdist < shield && ownerDist >= shield) {
+        const scale = shield / Math.max(sdist, 0.001);
+        this.projectile.x = entity.x + sdx * scale;
+        this.projectile.y = entity.y + sdy * scale;
+        entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
+        entity.shieldHitAngle = Math.atan2(sdy, sdx);
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+        return;
+      }
+    }
 
-    // Check collision with entities - handled in main service
+    // Check collision with entities
+    if (this.checkEntityCollisions(this.projectile, player, enemies)) {
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      return;
+    }
 
     // Advance to next position
     this.projectile.trajectoryIndex++;
   }
 
-  destroyTrajectoryProjectile(terrain: number[][]) {
+  destroyTrajectoryProjectile(
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+  ) {
     if (!this.projectile) return;
 
+    const explosionX = this.projectile.x;
+    const explosionY = this.projectile.y;
+    const projectileSnapshot = this.projectile;
+
     this.explosions.push({
-      x: this.projectile.x,
-      y: this.projectile.y,
+      x: explosionX,
+      y: explosionY,
       radius: CONST.EXPLOSION_INITIAL_RADIUS,
       maxRadius: CONST.EXPLOSION_MAX_RADIUS,
       life: CONST.EXPLOSION_LIFETIME_FRAMES,
       shape: this.projectile.bullet.explosionShape,
     });
 
-    // Apply damage - handled in main service
+    this.calculateExplosionDamage(explosionX, explosionY, projectileSnapshot, player, enemies, physicsService);
 
     // Create crater
-    this.createCrater(this.projectile.x, this.projectile.y, terrain, this.projectile.bullet);
+    this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
 
     this.explodedProjectiles.push({
-      position: { x: this.projectile.x, y: this.projectile.y },
-      bullet: this.projectile.bullet,
+      position: { x: explosionX, y: explosionY },
+      bullet: projectileSnapshot.bullet,
       removalTime: Date.now() + 2000,
-      owner: this.projectile.owner,
+      owner: projectileSnapshot.owner,
     });
 
     this.projectile = null;
@@ -137,6 +172,7 @@ export class ProjectileService {
     projectile: any,
     player: Player,
     enemies: Enemy[],
+    physicsService: any,
   ) {
     const maxDamage = projectile.bullet.damage;
     const damageRadius = projectile.bullet.explosionRadius ?? 50;
@@ -166,7 +202,7 @@ export class ProjectileService {
           damage: actualDamage,
           life: CONST.DAMAGE_TEXT_LIFETIME,
         });
-        // Knockback handled in physics service
+        physicsService.applyExplosionKnockback(player, explosionX, explosionY, projectile, radiusX, radiusY);
       }
     }
 
@@ -188,7 +224,7 @@ export class ProjectileService {
             damage: damage,
             life: CONST.DAMAGE_TEXT_LIFETIME,
           });
-          // Knockback handled in physics service
+          physicsService.applyExplosionKnockback(enemy, explosionX, explosionY, projectile, radiusX, radiusY);
           if (projectile.owner === player && player.vehicle.lifesteal && damage > 0) {
             const heal = Math.round(damage * (player.vehicle.lifesteal / 100));
             if (heal > 0) {
@@ -205,7 +241,7 @@ export class ProjectileService {
           if (enemy.health <= 0) {
             enemy.active = false;
             if (enemy.body) {
-              // Remove body handled in main service
+              physicsService.removeBody(enemy.body);
             }
           }
         }

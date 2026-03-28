@@ -43,9 +43,8 @@ export class TerrainService {
     );
 
     this.terrainChunkPlacements = this.buildTopChunkPlan();
-    this.terrainBottomPlacements = this.buildBottomChunkPlan(
-      this.buildBottomProfile(this.terrainChunkPlacements),
-    );
+    const bottomProfileResult = this.buildBottomProfile(this.terrainChunkPlacements);
+    this.terrainBottomPlacements = this.buildBottomChunkPlan(bottomProfileResult);
     this.terrainInteriorPlacements = this.buildInteriorPlacements(
       this.terrainChunkPlacements,
       this.terrainBottomPlacements,
@@ -53,7 +52,7 @@ export class TerrainService {
 
     this.rasterizeTerrainPlacements(
       this.terrainChunkPlacements,
-      this.buildBottomProfile(this.terrainChunkPlacements).profile,
+      bottomProfileResult.profile,
       this.terrainBottomPlacements,
     );
   }
@@ -70,6 +69,9 @@ export class TerrainService {
     }
 
     const placements: TerrainChunkPlacement[] = [];
+    const topStartMin = 80;
+    const topStartMax = 140;
+    let currentTopY = this.randomInRange(topStartMin, topStartMax);
     let xCursor = 0;
     let consecutiveFlats = 0;
     let lastSlopeDir: 'flat' | 'up' | 'down' = 'flat';
@@ -80,7 +82,7 @@ export class TerrainService {
         topSlopeUp,
         topSlopeDown,
         consecutiveFlats,
-        this.randomInRange(this.TERRAIN_MIN_TOP_Y, this.TERRAIN_MAX_TOP_Y),
+        currentTopY,
         lastSlopeDir,
       );
 
@@ -89,15 +91,10 @@ export class TerrainService {
       }
 
       const selected = candidatePool[Math.floor(Math.random() * candidatePool.length)];
-      placements.push(
-        this.createPlacement(
-          selected,
-          xCursor,
-          this.randomInRange(this.TERRAIN_MIN_TOP_Y, this.TERRAIN_MAX_TOP_Y),
-        ),
-      );
+      placements.push(this.createPlacement(selected, xCursor, currentTopY));
 
       const delta = selected.topExitY - selected.topEntryY;
+      currentTopY += delta;
       xCursor += selected.width;
       if (selected.pieceType === 'top_flat') {
         consecutiveFlats++;

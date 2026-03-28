@@ -180,6 +180,12 @@ export class PhysicsService {
     }
   }
 
+  removeBody(body: any): void {
+    if (this.world && body) {
+      this.World.remove(this.world, body);
+    }
+  }
+
   resumePhysics() {
     if (this.runner) {
       this.Runner.run(this.runner, this.engine);

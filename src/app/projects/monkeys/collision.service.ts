@@ -6,8 +6,7 @@ import * as CONST from './monkeys.constants';
   providedIn: 'root',
 })
 export class CollisionService {
-
-  constructor() { }
+  constructor() {}
 
   checkPlayerTerrainCollision(player: Player, terrain: number[][], physicsService: any) {
     if (!player.body) return;

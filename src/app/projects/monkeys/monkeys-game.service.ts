@@ -271,8 +271,8 @@ export class MonkeysGameService {
       return;
     }
 
-    // Simple enemy AI: aim at player and shoot
-    this.aiService.performEnemyAction(enemy, this.player, this.enemies);
+    // Use local performEnemyAction which has full movement/charging/shooting logic
+    this.performEnemyAction(enemy);
   }
 
   private handlePlayerTurns() {
@@ -801,8 +801,13 @@ export class MonkeysGameService {
     const prevEntity = this.turnService._turnQueue[this.turnService._turnQueue.length - 1]; // Since resorted, last is previous
     if (prevEntity) {
       if (this.projectile && this.projectile.owner === prevEntity.entity) {
-        this.calculateExplosionDamage(this.projectile.x, this.projectile.y, this.projectile);
-        this.projectileService.destroyTrajectoryProjectile(this.terrainService.terrain);
+        // destroyTrajectoryProjectile handles damage internally
+        this.projectileService.destroyTrajectoryProjectile(
+          this.terrainService.terrain,
+          this.player,
+          this.enemies,
+          this.physicsService,
+        );
       }
       this.projectileService.explodedProjectiles =
         this.projectileService.explodedProjectiles.filter((ep) => ep.owner !== prevEntity.entity);
@@ -952,6 +957,8 @@ export class MonkeysGameService {
       this.projectileService.updateTrajectoryProjectile(
         this.terrainService.terrain,
         this.physicsService,
+        this.player,
+        this.enemies,
       );
     }
 
