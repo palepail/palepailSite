@@ -79,7 +79,7 @@ export class MonkeysGameService {
   }
 
   get hasAimGuide(): boolean {
-    return !!(this.player?.vehicle?.aimGuide);
+    return !!this.player?.vehicle?.aimGuide;
   }
 
   // Flags
@@ -113,7 +113,10 @@ export class MonkeysGameService {
   equipmentSets: EquipmentSet[] = [];
   private equipmentLoadPromise: Promise<void> | null = null;
 
-  constructor(private spriteService: MonkeysSpriteService, private enemyFactory: EnemyFactoryService) {
+  constructor(
+    private spriteService: MonkeysSpriteService,
+    private enemyFactory: EnemyFactoryService,
+  ) {
     this.player = this.createInitialPlayer();
     void this.loadEquipmentData();
   }
@@ -253,12 +256,16 @@ export class MonkeysGameService {
     }
 
     const topPlacements = this.buildTerrainChunkPlan();
-    const { profile: bottomProfile, chunkTypes, chunkBottomY } = this.buildBottomProfile(topPlacements);
+    const {
+      profile: bottomProfile,
+      chunkTypes,
+      chunkBottomY,
+    } = this.buildBottomProfile(topPlacements);
     const bottomPlacements = this.buildBottomChunkPlan(chunkBottomY, chunkTypes);
     this.terrainChunkPlacements = topPlacements;
     this.terrainBottomPlacements = bottomPlacements;
     this.rasterizeTerrainPlacements(topPlacements, bottomProfile, bottomPlacements);
-    this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomProfile);
+    this.terrainInteriorPlacements = this.buildInteriorPlacements(topPlacements, bottomPlacements);
   }
 
   private buildTerrainChunkPlan(): TerrainChunkPlacement[] {
@@ -348,7 +355,8 @@ export class MonkeysGameService {
   } {
     const topSurfaceProfile = this.rasterizeBoundaryProfile(topPlacements, 'top');
     const interiorHeight = 60; // one interior tile
-    const topTileHeight = 37; // approximate top sprite height
+    const topTileHeight = 34; // pixels from terrain surface to bottom of flat top sprite (height - topEntryY = 36 - 2)
+    const FLAT_BOTTOM_ENTRY_Y = 21; // bottomEntryY of all flat bottom sprites; added to profile so bp.topWorldY lands on an interior tile boundary
     const tileWidth = 90;
     const profile = new Array<number>(CONST.TERRAIN_WIDTH).fill(0);
 
@@ -382,8 +390,12 @@ export class MonkeysGameService {
     for (let i = 0; i < numChunks; i++) {
       const xStart = Math.min(i * tileWidth, CONST.TERRAIN_WIDTH - 1);
       const xEnd = Math.min((i + 1) * tileWidth, CONST.TERRAIN_WIDTH - 1);
-      const startSurf = Number.isFinite(topSurfaceProfile[xStart]) ? topSurfaceProfile[xStart] : fallbackSurface;
-      const endSurf = Number.isFinite(topSurfaceProfile[xEnd]) ? topSurfaceProfile[xEnd] : fallbackSurface;
+      const startSurf = Number.isFinite(topSurfaceProfile[xStart])
+        ? topSurfaceProfile[xStart]
+        : fallbackSurface;
+      const endSurf = Number.isFinite(topSurfaceProfile[xEnd])
+        ? topSurfaceProfile[xEnd]
+        : fallbackSurface;
       topSlopeAtChunk[i] = Math.abs(endSurf - startSurf) > 15;
     }
 
@@ -425,7 +437,9 @@ export class MonkeysGameService {
         const base = surfaceY + topTileHeight;
         const t = (x - xStart) / tileWidth;
         const depthPx = (prevDepth + t * (currDepth - prevDepth)) * interiorHeight;
-        profile[x] = Math.round(base + depthPx);
+        // Add FLAT_BOTTOM_ENTRY_Y so that bp.topWorldY (= profile - bottomEntryY) for flat tiles
+        // lands exactly at the interior tile row boundary, giving zero gap/overlap.
+        profile[x] = Math.round(base + depthPx) + FLAT_BOTTOM_ENTRY_Y;
       }
     }
 
@@ -518,8 +532,6 @@ export class MonkeysGameService {
     return Math.round(bottomEntryY + (bottomExitY - bottomEntryY) * clampedT);
   }
 
-
-
   private rasterizeTerrainPlacements(
     topPlacements: TerrainChunkPlacement[],
     bottomProfile: number[],
@@ -599,47 +611,41 @@ export class MonkeysGameService {
 
   private buildInteriorPlacements(
     topPlacements: TerrainChunkPlacement[],
-    bottomProfile: number[],
+    bottomPlacements: TerrainChunkPlacement[],
   ): TerrainChunkPlacement[] {
     const interiorRegions = this.getTerrainRegionsByType('interior');
     if (interiorRegions.length === 0) return [];
 
+    // bottomCutoff = bp.topWorldY (top of bottom sprite). Because the profile now bakes in
+    // FLAT_BOTTOM_ENTRY_Y, bp.topWorldY for flat tiles lands exactly on an interior tile row
+    // boundary (fillStartY + d*60). For slope_up tiles whose entry bottomEntryY=80, bp.topWorldY
+    // is ~60px higher, so Math.floor naturally gives d-1 interior tiles — the slope body
+    // substitutes for the interior tile it replaces.
+    const bottomCutoffByX = new Map<number, number>();
+    for (const bp of bottomPlacements) {
+      bottomCutoffByX.set(Math.floor(bp.x), Math.floor(bp.topWorldY));
+    }
+
+    const TILE_H = 60; // all interior tiles are exactly 60 px tall
+    // TOP_SPRITE_DEPTH: pixels from terrain surface to bottom of a flat top sprite.
+    // = height - topEntryY for flat tiles (36 - 2 = 34). Slope sprites are taller but
+    // are drawn on top of interior, so any overlap is hidden.
+    const TOP_SPRITE_DEPTH = 34;
     const placements: TerrainChunkPlacement[] = [];
+
     for (const top of topPlacements) {
       const startX = Math.max(0, Math.floor(top.x));
-      const endXExclusive = Math.min(CONST.TERRAIN_WIDTH, Math.floor(top.x + top.region.width));
+      // Start interior exactly at the bottom edge of the top sprite's solid area so there
+      // is zero pixel gap and zero overlap between the top sprite and the first interior tile.
+      const fillStartY = top.topWorldY + (top.region.topEntryY ?? 0) + TOP_SPRITE_DEPTH;
+      const bottomCutoff = bottomCutoffByX.get(startX) ?? fillStartY + TILE_H;
 
-      // Use the shallowest (min) bottom profile value across this chunk's columns
-      // so no interior tile extends below the bottom profile at any column.
-      let minBottomY = Number.POSITIVE_INFINITY;
-      for (let x = startX; x < endXExclusive; x++) {
-        minBottomY = Math.min(minBottomY, bottomProfile[x]);
-      }
-      if (!Number.isFinite(minBottomY)) {
-        minBottomY = CONST.TERRAIN_STRIP_HEIGHT;
-      }
+      // Math.floor ensures we never place a tile that overshoots bp.topWorldY.
+      const numTiles = Math.floor((bottomCutoff - fillStartY) / TILE_H);
 
-      const fillStartY = Math.floor(top.topWorldY + top.region.height);
-      let y = fillStartY;
-      while (y < minBottomY) {
+      for (let i = 0; i < numTiles; i++) {
         const region = interiorRegions[Math.floor(Math.random() * interiorRegions.length)];
-        const nextY = y + region.height;
-
-        if (nextY <= minBottomY) {
-          placements.push({ region, x: top.x, topWorldY: y });
-          y = nextY;
-          continue;
-        }
-
-        // Final interior tile: anchor flush with bottom cutoff so there's
-        // no visible gap above the bottom tile. Allow overlap with the
-        // previous interior tile (they're solid fill), but don't go above
-        // the top tile's lower edge.
-        const anchoredY = Math.floor(minBottomY - region.height);
-        if (anchoredY >= fillStartY) {
-          placements.push({ region, x: top.x, topWorldY: anchoredY });
-        }
-        break;
+        placements.push({ region, x: top.x, topWorldY: fillStartY + i * TILE_H });
       }
     }
     return placements;
@@ -682,7 +688,7 @@ export class MonkeysGameService {
   }
 
   private randomInRange(min: number, max: number): number {
-    return min + Math.random() * (max - min);
+    return Math.floor(min + Math.random() * (max - min + 1));
   }
 
   private initPhysics() {
@@ -780,7 +786,8 @@ export class MonkeysGameService {
       if (item.stats.armor)
         vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);
       if (item.stats.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
+        vehicle.bullet.pushbackMultiplier =
+          (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
       if (item.stats.blastRadius) {
         vehicle.bullet.explosionRadius = Math.max(
           5,
@@ -798,10 +805,8 @@ export class MonkeysGameService {
         vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + item.stats.minAimAngle);
       if (item.stats.maxAimAngle)
         vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
-      if (item.stats.lifesteal)
-        vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
-      if (item.stats.weight)
-        vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
+      if (item.stats.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
+      if (item.stats.weight) vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
       if (item.stats.shieldRadius)
         vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + item.stats.shieldRadius;
       if (item.stats.shieldHealth)
@@ -810,17 +815,21 @@ export class MonkeysGameService {
     const setBonus = this.getEquippedSetBonus();
     if (setBonus) {
       if (setBonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + setBonus.lifesteal;
-      if (setBonus.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + setBonus.shieldRadius;
-      if (setBonus.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + setBonus.shieldHealth;
+      if (setBonus.shieldRadius)
+        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + setBonus.shieldRadius;
+      if (setBonus.shieldHealth)
+        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + setBonus.shieldHealth;
       if (setBonus.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * setBonus.pushbackMultiplier;
+        vehicle.bullet.pushbackMultiplier =
+          (vehicle.bullet.pushbackMultiplier ?? 1) * setBonus.pushbackMultiplier;
       if (setBonus.aimGuide) vehicle.aimGuide = setBonus.aimGuide;
     }
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
 
   private initPlayer() {
-    const baseVehicle = CONST.SELECTABLE_VEHICLES[this.selectedVehicleIndex]?.vehicle ?? CONST.PLAYER_VEHICLE;
+    const baseVehicle =
+      CONST.SELECTABLE_VEHICLES[this.selectedVehicleIndex]?.vehicle ?? CONST.PLAYER_VEHICLE;
     const vehicle: Vehicle = {
       ...baseVehicle,
       bullet: { ...baseVehicle.bullet },
@@ -1580,7 +1589,9 @@ export class MonkeysGameService {
         const dy = enemy.y - explosionY;
         const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
         if (normalizedDist <= 1) {
-          const damage = Math.round(maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)));
+          const damage = Math.round(
+            maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)),
+          );
           enemy.health -= damage;
           enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
           this.damageTexts.push({
@@ -2013,7 +2024,8 @@ export class MonkeysGameService {
     const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
     const pushMultiplier = projectile.bullet.pushbackMultiplier ?? 1;
     const weightFactor = 10 / Math.max(1, target.vehicle?.weight ?? 10);
-    const pushDistance = maxPushDistance * (1 - normalizedDist) * Math.abs(pushMultiplier) * weightFactor;
+    const pushDistance =
+      maxPushDistance * (1 - normalizedDist) * Math.abs(pushMultiplier) * weightFactor;
     if (pushDistance <= 0) return;
     const distance = Math.hypot(dx, dy);
     const awayX = distance > 0.001 ? dx / distance : 0;
