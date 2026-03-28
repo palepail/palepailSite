@@ -233,6 +233,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Shield animation state machine per entity
   private shieldStateByEntity = new WeakMap<object, 'idle' | 'damage' | 'break'>();
   private shieldAnimStartByEntity = new WeakMap<object, number>();
+  private shieldIdleStartByEntity = new WeakMap<object, number>();
   private prevShieldHealthByEntity = new WeakMap<object, number>();
   private terrainToolImage: HTMLImageElement | HTMLCanvasElement | null = null;
   private terrainToolRegions: TerrainSpriteRegion[] = [];
@@ -385,6 +386,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.shootReleaseStartByEntity = new WeakMap<object, number>();
     this.shieldStateByEntity = new WeakMap();
     this.shieldAnimStartByEntity = new WeakMap();
+    this.shieldIdleStartByEntity = new WeakMap();
     this.prevShieldHealthByEntity = new WeakMap();
 
     // Add mouse listeners for camera control
@@ -536,12 +538,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.cameraController.panToEntity(this.gameService.player);
     }
 
-    // Update turn message
+    // Update turn message (not during setup phase)
     if (currentTurn && currentTurn.id !== this.previousTurnId) {
-      this.turnMessage = currentTurn.type === 'player' ? "Player's Turn" : "Enemy's Turn";
-      this.messageTimer = 500;
-      this.previousTurnId = currentTurn.id;
-      this.previousTurnState = (currentTurn.entity as any).turnState as string;
+      if (this.gameService.currentState !== GameState.SETUP) {
+        this.turnMessage = currentTurn.type === 'player' ? "Player's Turn" : "Enemy's Turn";
+        this.messageTimer = 1500;
+        this.previousTurnId = currentTurn.id;
+        this.previousTurnState = (currentTurn.entity as any).turnState as string;
+      }
       this.playerMovementStarted = false;
     }
     if (this.messageTimer > 0) {
@@ -865,9 +869,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private getShieldIdleFrame(now: number): number {
+  private getShieldIdleFrame(now: number, idleStart: number): number {
     const cycleDuration = this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS + this.SHIELD_IDLE_HOLD_MS;
-    const pos = now % cycleDuration;
+    const pos = (now - idleStart) % cycleDuration;
     return pos < this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS
       ? Math.floor(pos / this.SHIELD_IDLE_FRAME_MS)
       : this.SHIELD_IDLE_FRAMES - 1;
@@ -896,15 +900,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const frame = Math.floor((now - animStart) / this.SHIELD_DAMAGE_FRAME_MS);
       if (frame >= this.SHIELD_DAMAGE_FRAMES) {
         this.shieldStateByEntity.set(key, 'idle');
+        this.shieldIdleStartByEntity.set(key, now);
         if (currentShield <= 0) return;
-        spriteName = `shield_idle_${this.getShieldIdleFrame(now)}`;
+        spriteName = `shield_idle_${this.getShieldIdleFrame(now, now)}`;
       } else {
         spriteName = `shield_damage_${frame}`;
         rotation = entity.shieldHitAngle ?? 0;
       }
     } else {
       if (currentShield <= 0) return;
-      spriteName = `shield_idle_${this.getShieldIdleFrame(now)}`;
+      if (!this.shieldIdleStartByEntity.has(key)) {
+        this.shieldIdleStartByEntity.set(key, now);
+      }
+      const idleStart = this.shieldIdleStartByEntity.get(key)!;
+      spriteName = `shield_idle_${this.getShieldIdleFrame(now, idleStart)}`;
     }
 
     const sprite = this.spriteService.getSprite(spriteName);
@@ -1720,7 +1729,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw turn message
     if (this.turnMessage) {
+      const FADE = 500;
+      const alpha = this.messageTimer > 1000
+        ? (1500 - this.messageTimer) / FADE          // fade in
+        : this.messageTimer > FADE
+          ? 1                                          // hold
+          : this.messageTimer / FADE;                 // fade out
+      this.ctx.save();
+      this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
       this.drawSpriteTextCentered(this.turnMessage, CONST.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
+      this.ctx.restore();
     }
 
     // Draw pause/game over message
