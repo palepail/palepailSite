@@ -1,5 +1,11 @@
 import { Injectable } from '@angular/core';
-import { EquipmentItem, EquipmentSet, EquipmentSlot, EquipmentStats, Vehicle } from './monkeys.types';
+import {
+  EquipmentItem,
+  EquipmentSet,
+  EquipmentSlot,
+  EquipmentStats,
+  Vehicle,
+} from './monkeys.types';
 import * as CONST from './monkeys.constants';
 
 const SLOTS: EquipmentSlot[] = ['headgear', 'torso', 'legs', 'footwear', 'accessory'];
@@ -22,11 +28,7 @@ export class EnemyFactoryService {
    * Partial set (~80%): N slots from a chosen set (difficulty-gated),
    *   remaining slots filled with a random item from ANY other set or "none".
    */
-  buildEnemyLoadout(
-    difficulty: string,
-    items: EquipmentItem[],
-    sets: EquipmentSet[],
-  ): Loadout {
+  buildEnemyLoadout(difficulty: string, items: EquipmentItem[], sets: EquipmentSet[]): Loadout {
     if (!items.length || !sets.length) return this.emptyLoadout();
 
     const isFullSet = Math.random() < 0.2;
@@ -52,9 +54,7 @@ export class EnemyFactoryService {
         loadout[slot] = items.find((i) => i.slot === slot && i.setId === chosenSet.id) ?? null;
       } else {
         // Random: none-item or any item from a different set
-        const candidates = items.filter(
-          (i) => i.slot === slot && i.setId !== chosenSet.id,
-        );
+        const candidates = items.filter((i) => i.slot === slot && i.setId !== chosenSet.id);
         if (!candidates.length) continue;
         const pick = candidates[Math.floor(Math.random() * candidates.length)];
         // Only assign if it actually has stats (not the bare "None" placeholder) ~50% chance
@@ -75,13 +75,19 @@ export class EnemyFactoryService {
       const s = item.stats;
       if (s.attack) vehicle.bullet.damage += s.attack;
       if (s.health) vehicle.health += s.health;
-      if (s.armor)
-        vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - s.armor / 100);
+      if (s.armor) vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - s.armor / 100);
       if (s.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * s.pushbackMultiplier;
+        vehicle.bullet.pushbackMultiplier =
+          (vehicle.bullet.pushbackMultiplier ?? 1) * s.pushbackMultiplier;
       if (s.blastRadius) {
-        vehicle.bullet.explosionRadius = Math.max(5, vehicle.bullet.explosionRadius + s.blastRadius);
-        vehicle.bullet.craterRadius = Math.max(5, vehicle.bullet.craterRadius + Math.round(s.blastRadius * 0.8));
+        vehicle.bullet.explosionRadius = Math.max(
+          5,
+          vehicle.bullet.explosionRadius + s.blastRadius,
+        );
+        vehicle.bullet.craterRadius = Math.max(
+          5,
+          vehicle.bullet.craterRadius + Math.round(s.blastRadius * 0.8),
+        );
       }
       if (s.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + s.fuel);
       if (s.climbAngle) vehicle.climbAngle = Math.max(10, vehicle.climbAngle + s.climbAngle);

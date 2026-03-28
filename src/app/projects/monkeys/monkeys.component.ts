@@ -871,7 +871,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private getShieldIdleFrame(now: number, idleStart: number): number {
-    const cycleDuration = this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS + this.SHIELD_IDLE_HOLD_MS;
+    const cycleDuration =
+      this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS + this.SHIELD_IDLE_HOLD_MS;
     const pos = (now - idleStart) % cycleDuration;
     return pos < this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS
       ? Math.floor(pos / this.SHIELD_IDLE_FRAME_MS)
@@ -944,9 +945,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     offCtx.drawImage(
       sprite.image,
-      sprite.x, sprite.y, sprite.width, sprite.height,
-      centerX - size / 2, centerY - size / 2,
-      size, size,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      centerX - size / 2,
+      centerY - size / 2,
+      size,
+      size,
     );
     offCtx.restore();
 
@@ -955,7 +961,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
     );
     const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
-    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH));
+    const endX = Math.min(
+      CONST.TERRAIN_WIDTH,
+      Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
+    );
     offCtx.globalCompositeOperation = 'destination-out';
     offCtx.fillStyle = 'rgba(0,0,0,1)';
     this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 1);
@@ -1731,11 +1740,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw turn message
     if (this.turnMessage) {
       const FADE = 500;
-      const alpha = this.messageTimer > 1000
-        ? (1500 - this.messageTimer) / FADE          // fade in
-        : this.messageTimer > FADE
-          ? 1                                          // hold
-          : this.messageTimer / FADE;                 // fade out
+      const alpha =
+        this.messageTimer > 1000
+          ? (1500 - this.messageTimer) / FADE // fade in
+          : this.messageTimer > FADE
+            ? 1 // hold
+            : this.messageTimer / FADE; // fade out
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
       this.drawSpriteTextCentered(this.turnMessage, CONST.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
@@ -2249,7 +2259,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (b.shieldHealth) lines.push(`Shield x${b.shieldHealth}`);
     if (b.aimGuide) lines.push('Aim Guide');
     if (b.pushbackMultiplier !== undefined)
-      lines.push(b.pushbackMultiplier === 0 ? 'No Knockback' : b.pushbackMultiplier < 0 ? `Vacuum ×${Math.abs(b.pushbackMultiplier)}` : `Knockback ×${b.pushbackMultiplier}`);
+      lines.push(
+        b.pushbackMultiplier === 0
+          ? 'No Knockback'
+          : b.pushbackMultiplier < 0
+            ? `Vacuum ×${Math.abs(b.pushbackMultiplier)}`
+            : `Knockback ×${b.pushbackMultiplier}`,
+      );
     return lines;
   }
 
@@ -2485,10 +2501,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const setCountY = setBonusDivY + 40;
 
     if (setInfo) {
-      const setName = this.gameService.equipmentSets.find((s) => s.id === setInfo.setId)?.name ?? setInfo.setId;
+      const setName =
+        this.gameService.equipmentSets.find((s) => s.id === setInfo.setId)?.name ?? setInfo.setId;
       this.ctx.fillStyle = isFullSet ? '#55EE77' : '#888888';
       this.ctx.font = 'bold 14px Arial';
-      this.ctx.fillText(`${setInfo.count} / ${this.EQUIPMENT_SLOTS.length}  ${setName}`, rCx, setCountY);
+      this.ctx.fillText(
+        `${setInfo.count} / ${this.EQUIPMENT_SLOTS.length}  ${setName}`,
+        rCx,
+        setCountY,
+      );
 
       const bonusLines = this.getPreviewSetBonusLines(setInfo.setId);
       this.ctx.font = '13px Arial';

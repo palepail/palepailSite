@@ -27,7 +27,7 @@ export const MAX_CLIMB_ANGLE = (45 * Math.PI) / 180; // 45 degrees
 export const PLAYER_START_X = 100;
 export const PLAYER_START_ANGLE = 45;
 export const PLAYER_START_POWER = 0;
-export const PLAYER_START_HEALTH = 100;
+export const PLAYER_START_HEALTH = 300;
 export const PLAYER_START_MOVEMENT_FUEL = 50;
 export const PLAYER_START_FACING = 1;
 export const PLAYER_START_TERRAIN_ANGLE = 0;
@@ -70,7 +70,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   spritesheet: 'Lupin.png',
   climbAngle: 45,
   fuel: 75,
-  health: 100,
+  health: 300,
   minAimAngle: 25,
   maxAimAngle: 60,
   shotDelay: 100,
@@ -135,7 +135,7 @@ export const ENEMY_VEHICLE: Vehicle = {
   spritesheet: 'Lupin.png',
   climbAngle: 45,
   fuel: 75,
-  health: 80,
+  health: 300,
   minAimAngle: 20,
   maxAimAngle: 75,
   shotDelay: 100,

@@ -15,7 +15,7 @@
       "setId": "iron",
       "spriteCol": 0,
       "spriteRow": 4,
-      "stats": { "health": 8, "attack": 5, "armor": 2, "maxAimAngle": -5, "weight": 1 },
+      "stats": { "health": 16, "attack": 5, "armor": 2, "maxAimAngle": -5, "weight": 1 },
       "description": "Solid protection with a hint of menace"
     },
     {
@@ -25,7 +25,7 @@
       "setId": "berserker",
       "spriteCol": 0,
       "spriteRow": 1,
-      "stats": { "attack": 15, "health": -10, "armor": 3, "weight": -1 },
+      "stats": { "attack": 15, "health": -20, "armor": 3, "weight": -1 },
       "description": "Pain is power — sustain is everything"
     },
     {
@@ -35,7 +35,7 @@
       "setId": "fortress",
       "spriteCol": 0,
       "spriteRow": 0,
-      "stats": { "health": 15, "armor": 2, "attack": -5, "maxAimAngle": 3, "weight": 4 },
+      "stats": { "health": 30, "armor": 2, "attack": -5, "maxAimAngle": 3, "weight": 4 },
       "description": "Heavy plating for maximum protection"
     },
     {
@@ -56,7 +56,7 @@
       "setId": "miner",
       "spriteCol": 0,
       "spriteRow": 3,
-      "stats": { "blastRadius": 13, "health": 5, "attack": -8, "weight": 2 },
+      "stats": { "blastRadius": 13, "health": 10, "attack": -8, "weight": 2 },
       "description": "Blast-tested headgear from the deep"
     },
 
@@ -69,7 +69,7 @@
       "spriteCol": 1,
       "spriteRow": 4,
       "stats": {
-        "health": 12,
+        "health": 24,
         "attack": 10,
         "blastRadius": 5,
         "armor": 2,
@@ -85,7 +85,7 @@
       "setId": "berserker",
       "spriteCol": 1,
       "spriteRow": 1,
-      "stats": { "attack": 20, "health": -10, "weight": -2 },
+      "stats": { "attack": 20, "health": -20, "weight": -2 },
       "description": "Lightweight rage-fuelled plating"
     },
     {
@@ -96,7 +96,7 @@
       "spriteCol": 1,
       "spriteRow": 0,
       "stats": {
-        "health": 20,
+        "health": 40,
         "armor": 3,
         "fuel": -10,
         "attack": -5,
@@ -112,7 +112,7 @@
       "setId": "scout",
       "spriteCol": 1,
       "spriteRow": 2,
-      "stats": { "attack": 15, "fuel": 20, "blastRadius": -10, "health": -5, "weight": -2 },
+      "stats": { "attack": 15, "fuel": 20, "blastRadius": -10, "health": -10, "weight": -2 },
       "description": "Light and nimble — trades impact for speed"
     },
 
@@ -123,7 +123,7 @@
       "setId": "miner",
       "spriteCol": 1,
       "spriteRow": 3,
-      "stats": { "blastRadius": 13, "health": 10, "attack": -8, "weight": 2 },
+      "stats": { "blastRadius": 13, "health": 20, "attack": -8, "weight": 2 },
       "description": "Reinforced canvas, primed for demolition"
     },
 
@@ -136,7 +136,7 @@
       "spriteCol": 2,
       "spriteRow": 4,
       "stats": {
-        "health": 6,
+        "health": 12,
         "blastRadius": 6,
         "climbAngle": 5,
         "armor": 1,
@@ -162,7 +162,7 @@
       "setId": "fortress",
       "spriteCol": 2,
       "spriteRow": 0,
-      "stats": { "health": 12, "armor": 2, "attack": -5, "minAimAngle": -3, "weight": 4 },
+      "stats": { "health": 24, "armor": 2, "attack": -5, "minAimAngle": -3, "weight": 4 },
       "description": "Reinforced leg armour — too heavy to climb freely"
     },
     {
@@ -172,7 +172,7 @@
       "setId": "scout",
       "spriteCol": 2,
       "spriteRow": 2,
-      "stats": { "climbAngle": 20, "fuel": 15, "blastRadius": -9, "health": -5, "weight": -2 },
+      "stats": { "climbAngle": 20, "fuel": 15, "blastRadius": -9, "health": -10, "weight": -2 },
       "description": "Supreme terrain agility — built to cover ground"
     },
 
@@ -183,7 +183,7 @@
       "setId": "miner",
       "spriteCol": 2,
       "spriteRow": 3,
-      "stats": { "blastRadius": 13, "health": 5, "attack": -7, "weight": 1 },
+      "stats": { "blastRadius": 13, "health": 10, "attack": -7, "weight": 1 },
       "description": "Crouch-braced for controlled detonations"
     },
 
@@ -195,7 +195,7 @@
       "setId": "iron",
       "spriteCol": 3,
       "spriteRow": 4,
-      "stats": { "health": 4, "attack": 8, "fuel": 5, "armor": 1, "minAimAngle": 5, "weight": 2 },
+      "stats": { "health": 8, "attack": 8, "fuel": 5, "armor": 1, "minAimAngle": 5, "weight": 2 },
       "description": "Heavy boots that hit harder with every step"
     },
     {
@@ -216,7 +216,7 @@
       "spriteCol": 3,
       "spriteRow": 0,
       "stats": {
-        "health": 8,
+        "health": 16,
         "armor": 1,
         "fuel": -5,
         "attack": -5,
@@ -243,7 +243,7 @@
       "setId": "miner",
       "spriteCol": 3,
       "spriteRow": 3,
-      "stats": { "blastRadius": 13, "health": 5, "attack": -7, "weight": 1 },
+      "stats": { "blastRadius": 13, "health": 10, "attack": -7, "weight": 1 },
       "description": "Rated for underground blasting"
     },
 
