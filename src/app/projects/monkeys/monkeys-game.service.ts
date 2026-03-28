@@ -1510,32 +1510,25 @@ export class MonkeysGameService {
       const dy = this.player.y - explosionY;
       const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
       if (normalizedDist <= 1) {
-        const shieldRadius = this.player.vehicle.shieldRadius;
-        const ownerOutside = shieldRadius !== undefined
-          && Math.hypot(projectile.owner.x - this.player.x, projectile.owner.y - this.player.y) >= shieldRadius;
-        if (ownerOutside && (this.player.currentShieldHealth ?? 0) > 0) {
-          this.player.currentShieldHealth = (this.player.currentShieldHealth ?? 1) - 1;
-        } else {
-          const damage = Math.round(maxDamage * (1 - normalizedDist));
-          const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
-          const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
-          this.player.health -= actualDamage;
-          this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
-          this.damageTexts.push({
-            x: this.player.x,
-            y: this.player.y - 30,
-            damage: actualDamage,
-            life: CONST.DAMAGE_TEXT_LIFETIME,
-          });
-          this.applyExplosionKnockback(
-            this.player,
-            explosionX,
-            explosionY,
-            projectile,
-            radiusX,
-            radiusY,
-          );
-        }
+        const damage = Math.round(maxDamage * (1 - normalizedDist));
+        const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
+        const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
+        this.player.health -= actualDamage;
+        this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
+        this.damageTexts.push({
+          x: this.player.x,
+          y: this.player.y - 30,
+          damage: actualDamage,
+          life: CONST.DAMAGE_TEXT_LIFETIME,
+        });
+        this.applyExplosionKnockback(
+          this.player,
+          explosionX,
+          explosionY,
+          projectile,
+          radiusX,
+          radiusY,
+        );
       }
     }
 
@@ -1860,6 +1853,32 @@ export class MonkeysGameService {
     if (collided) {
       this.destroyTrajectoryProjectile();
       return;
+    }
+
+    // Check shield boundary — intercept before entity collision
+    const shield = this.player.vehicle.shieldRadius;
+    if (
+      this.player.active &&
+      shield &&
+      (this.player.currentShieldHealth ?? 0) > 0
+    ) {
+      const sdx = this.projectile.x - this.player.x;
+      const sdy = this.projectile.y - this.player.y;
+      const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+      const ownerDist = Math.hypot(
+        this.projectile.owner.x - this.player.x,
+        this.projectile.owner.y - this.player.y,
+      );
+      if (sdist < shield && ownerDist >= shield) {
+        // Reposition explosion to boundary point
+        const scale = shield / Math.max(sdist, 0.001);
+        this.projectile.x = this.player.x + sdx * scale;
+        this.projectile.y = this.player.y + sdy * scale;
+        this.player.currentShieldHealth = (this.player.currentShieldHealth ?? 1) - 1;
+        this.player.shieldHitAngle = Math.atan2(sdy, sdx);
+        this.destroyTrajectoryProjectile();
+        return;
+      }
     }
 
     // Check collision with entities

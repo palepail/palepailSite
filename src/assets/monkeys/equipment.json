@@ -247,8 +247,8 @@
       "setId": "fortress",
       "spriteCol": 4,
       "spriteRow": 0,
-      "stats": { "armor": 7, "weight": 2, "shieldRadius": 120, "shieldHealth": 1 },
-      "description": "Hardened casing — blocks the next incoming hit, then breaks"
+      "stats": { "armor": 7, "weight": 2, "shieldRadius": 120, "shieldHealth": 2 },
+      "description": "Hardened casing — absorbs two hits before breaking; large blasts may still pierce"
     },
     {
       "id": "scout_beacon",

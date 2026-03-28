@@ -2,7 +2,8 @@
   "spritesheets": {
     "lupin": "Lupin.png",
     "cursors": "Cursors.png",
-    "text": "Text.png"
+    "text": "Text.png",
+    "shield": "Shield Round Hex.png"
   },
   "sprites": [
     { "name": "arena_G",     "spritesheet": "text", "x": 0,   "y": 0,  "width": 64, "height": 64 },
@@ -335,6 +336,37 @@
       "y": 64,
       "width": 64,
       "height": 64
-    }
+    },
+
+    { "name": "shield_idle_0",   "spritesheet": "shield", "x": 0,    "y": 0,    "width": 512, "height": 512 },
+    { "name": "shield_idle_1",   "spritesheet": "shield", "x": 512,  "y": 0,    "width": 512, "height": 512 },
+    { "name": "shield_idle_2",   "spritesheet": "shield", "x": 1024, "y": 0,    "width": 512, "height": 512 },
+    { "name": "shield_idle_3",   "spritesheet": "shield", "x": 1536, "y": 0,    "width": 512, "height": 512 },
+    { "name": "shield_idle_4",   "spritesheet": "shield", "x": 0,    "y": 512,  "width": 512, "height": 512 },
+    { "name": "shield_idle_5",   "spritesheet": "shield", "x": 512,  "y": 512,  "width": 512, "height": 512 },
+    { "name": "shield_idle_6",   "spritesheet": "shield", "x": 1024, "y": 512,  "width": 512, "height": 512 },
+    { "name": "shield_idle_7",   "spritesheet": "shield", "x": 1536, "y": 512,  "width": 512, "height": 512 },
+    { "name": "shield_idle_8",   "spritesheet": "shield", "x": 0,    "y": 1024, "width": 512, "height": 512 },
+    { "name": "shield_idle_9",   "spritesheet": "shield", "x": 512,  "y": 1024, "width": 512, "height": 512 },
+    { "name": "shield_idle_10",  "spritesheet": "shield", "x": 1024, "y": 1024, "width": 512, "height": 512 },
+    { "name": "shield_idle_11",  "spritesheet": "shield", "x": 1536, "y": 1024, "width": 512, "height": 512 },
+    { "name": "shield_idle_12",  "spritesheet": "shield", "x": 0,    "y": 1536, "width": 512, "height": 512 },
+    { "name": "shield_idle_13",  "spritesheet": "shield", "x": 512,  "y": 1536, "width": 512, "height": 512 },
+
+    { "name": "shield_damage_0", "spritesheet": "shield", "x": 0,    "y": 2560, "width": 512, "height": 512 },
+    { "name": "shield_damage_1", "spritesheet": "shield", "x": 512,  "y": 2560, "width": 512, "height": 512 },
+    { "name": "shield_damage_2", "spritesheet": "shield", "x": 1024, "y": 2560, "width": 512, "height": 512 },
+    { "name": "shield_damage_3", "spritesheet": "shield", "x": 1536, "y": 2560, "width": 512, "height": 512 },
+    { "name": "shield_damage_4", "spritesheet": "shield", "x": 0,    "y": 3072, "width": 512, "height": 512 },
+    { "name": "shield_damage_5", "spritesheet": "shield", "x": 512,  "y": 3072, "width": 512, "height": 512 },
+
+    { "name": "shield_break_0",  "spritesheet": "shield", "x": 0,    "y": 3584, "width": 512, "height": 512 },
+    { "name": "shield_break_1",  "spritesheet": "shield", "x": 512,  "y": 3584, "width": 512, "height": 512 },
+    { "name": "shield_break_2",  "spritesheet": "shield", "x": 1024, "y": 3584, "width": 512, "height": 512 },
+    { "name": "shield_break_3",  "spritesheet": "shield", "x": 1536, "y": 3584, "width": 512, "height": 512 },
+    { "name": "shield_break_4",  "spritesheet": "shield", "x": 0,    "y": 4096, "width": 512, "height": 512 },
+    { "name": "shield_break_5",  "spritesheet": "shield", "x": 512,  "y": 4096, "width": 512, "height": 512 },
+    { "name": "shield_break_6",  "spritesheet": "shield", "x": 1024, "y": 4096, "width": 512, "height": 512 },
+    { "name": "shield_break_7",  "spritesheet": "shield", "x": 1536, "y": 4096, "width": 512, "height": 512 }
   ]
 }

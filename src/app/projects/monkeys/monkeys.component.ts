@@ -170,10 +170,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
-  private readonly SHIELD_FRAME_MS = 80;
-  private readonly SHIELD_FRAME_SIZE = 512;
-  private readonly SHIELD_COLS = 4;
-  private readonly SHIELD_TOTAL_FRAMES = 14;
+  private readonly SHIELD_IDLE_FRAME_MS = 80;
+  private readonly SHIELD_IDLE_FRAMES = 14;
+  private readonly SHIELD_DAMAGE_FRAME_MS = 60;
+  private readonly SHIELD_DAMAGE_FRAMES = 6;
+  private readonly SHIELD_BREAK_FRAME_MS = 80;
+  private readonly SHIELD_BREAK_FRAMES = 8;
   private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
   private readonly DEATH_SPRITE_FRAME_COUNT = 3;
   private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
@@ -225,6 +227,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private deathAnimationStartByEntity = new WeakMap<object, number>();
   private wasChargingByEntity = new WeakMap<object, boolean>();
   private shootReleaseStartByEntity = new WeakMap<object, number>();
+  // Shield animation state machine per entity
+  private shieldStateByEntity = new WeakMap<object, 'idle' | 'damage' | 'break'>();
+  private shieldAnimStartByEntity = new WeakMap<object, number>();
+  private prevShieldHealthByEntity = new WeakMap<object, number>();
   private terrainToolImage: HTMLImageElement | HTMLCanvasElement | null = null;
   private terrainToolRegions: TerrainSpriteRegion[] = [];
   private terrainToolSelectedRegionId: number | null = null;
@@ -325,9 +331,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.spriteService
         .loadRawSpritesheet('equipment.png')
         .catch((err) => console.warn('Failed to load equipment sprites:', err)),
-      this.spriteService
-        .loadRawSpritesheet('Shield Round Hex.png')
-        .catch((err) => console.warn('Failed to load shield sprites:', err)),
     ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
@@ -377,6 +380,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.deathAnimationStartByEntity = new WeakMap<object, number>();
     this.wasChargingByEntity = new WeakMap<object, boolean>();
     this.shootReleaseStartByEntity = new WeakMap<object, number>();
+    this.shieldStateByEntity = new WeakMap();
+    this.shieldAnimStartByEntity = new WeakMap();
+    this.prevShieldHealthByEntity = new WeakMap();
 
     // Add mouse listeners for camera control
     this.canvas.nativeElement.addEventListener('mousedown', (event) => this.onMouseDown(event));
@@ -435,6 +441,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.updateShootSpriteState();
+    this.updateShieldAnimState();
     this.updateHurtSpriteState();
 
     // Check if setup is complete: minimum 1s elapsed AND all vehicles have landed
@@ -847,21 +854,57 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
-    if (!((entity.currentShieldHealth ?? 0) > 0)) return;
-    const sheet = this.spriteService.getSpritesheet('Shield Round Hex.png');
-    if (!sheet) return;
-    const frame = Math.floor(this.renderTime / this.SHIELD_FRAME_MS) % this.SHIELD_TOTAL_FRAMES;
-    const col = frame % this.SHIELD_COLS;
-    const row = Math.floor(frame / this.SHIELD_COLS);
-    const sx = col * this.SHIELD_FRAME_SIZE;
-    const sy = row * this.SHIELD_FRAME_SIZE;
+    const key = entity as object;
+    const currentShield = entity.currentShieldHealth ?? 0;
+    const state = this.shieldStateByEntity.get(key) ?? 'idle';
+    const animStart = this.shieldAnimStartByEntity.get(key) ?? 0;
+    const now = this.renderTime;
+
+    let spriteName: string;
+    let rotation = 0;
+
+    if (state === 'break') {
+      const frame = Math.floor((now - animStart) / this.SHIELD_BREAK_FRAME_MS);
+      if (frame >= this.SHIELD_BREAK_FRAMES) {
+        this.shieldStateByEntity.delete(key);
+        return;
+      }
+      spriteName = `shield_break_${frame}`;
+      rotation = entity.shieldHitAngle ?? 0;
+    } else if (state === 'damage') {
+      const frame = Math.floor((now - animStart) / this.SHIELD_DAMAGE_FRAME_MS);
+      if (frame >= this.SHIELD_DAMAGE_FRAMES) {
+        this.shieldStateByEntity.set(key, 'idle');
+        if (currentShield <= 0) return;
+        const idleFrame = Math.floor(now / this.SHIELD_IDLE_FRAME_MS) % this.SHIELD_IDLE_FRAMES;
+        spriteName = `shield_idle_${idleFrame}`;
+      } else {
+        spriteName = `shield_damage_${frame}`;
+        rotation = entity.shieldHitAngle ?? 0;
+      }
+    } else {
+      if (currentShield <= 0) return;
+      const idleFrame = Math.floor(now / this.SHIELD_IDLE_FRAME_MS) % this.SHIELD_IDLE_FRAMES;
+      spriteName = `shield_idle_${idleFrame}`;
+    }
+
+    const sprite = this.spriteService.getSprite(spriteName);
+    if (!sprite) return;
+
     const size = (entity.vehicle?.shieldRadius ?? 120) * 2 * 1.15;
+    this.ctx.save();
+    if (rotation !== 0) {
+      this.ctx.translate(centerX, centerY);
+      this.ctx.rotate(rotation);
+      this.ctx.translate(-centerX, -centerY);
+    }
     this.ctx.drawImage(
-      sheet,
-      sx, sy, this.SHIELD_FRAME_SIZE, this.SHIELD_FRAME_SIZE,
+      sprite.image,
+      sprite.x, sprite.y, sprite.width, sprite.height,
       centerX - size / 2, centerY - size / 2,
       size, size,
     );
+    this.ctx.restore();
   }
 
   // Shared tank rendering core: transform, shadow, barrel, body, restore.
@@ -1291,6 +1334,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.previousHealthByEntity.set(key, currentHealth);
+  }
+
+  private updateShieldAnimState() {
+    const now = this.renderTime;
+    this.trackEntityShieldHit(this.gameService.player, now);
+    for (const enemy of this.gameService.enemies) {
+      this.trackEntityShieldHit(enemy, now);
+    }
+  }
+
+  private trackEntityShieldHit(entity: any, now: number) {
+    const key = entity as object;
+    const current = entity.currentShieldHealth ?? 0;
+    const prev = this.prevShieldHealthByEntity.get(key);
+    if (prev !== undefined && current < prev) {
+      this.shieldStateByEntity.set(key, current <= 0 ? 'break' : 'damage');
+      this.shieldAnimStartByEntity.set(key, now);
+    }
+    this.prevShieldHealthByEntity.set(key, current);
   }
 
   private drawEntityBody(

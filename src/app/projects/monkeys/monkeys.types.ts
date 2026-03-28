@@ -20,6 +20,7 @@ export interface Player {
   delay: number;
   targetAngle?: number;
   currentShieldHealth?: number;
+  shieldHitAngle?: number;
 }
 
 export interface Enemy {
