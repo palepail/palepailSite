@@ -217,14 +217,15 @@ export interface Vehicle {
   bullet: Bullet;
   shotDelay: number;
   spritesheet: string;
+  armor?: number; // computed DR multiplier (0–1); set by applyEquipmentToVehicle, never set directly
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
 
 export interface EquipmentStats {
   attack?: number; // bonus to bullet.damage
-  defense?: number; // bonus to vehicle.health
-  health?: number; // direct bonus to vehicle.health
+  health?: number; // bonus to vehicle.health
+  armor?: number; // integer % DR, e.g. 10 = 10%; stacks multiplicatively, can never reach 100%
   blastRadius?: number; // bonus to bullet.explosionRadius (craterRadius scales 0.8×)
   pushbackMultiplier?: number; // multiplier applied to blast knockback distance (stacks additively; 0 = no pushback)
   fuel?: number; // bonus to vehicle.fuel

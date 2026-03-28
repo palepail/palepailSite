@@ -761,8 +761,9 @@ export class MonkeysGameService {
     for (const item of Object.values(this.equipped)) {
       if (!item?.stats) continue;
       if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
-      if (item.stats.defense) vehicle.health += item.stats.defense;
       if (item.stats.health) vehicle.health += item.stats.health;
+      if (item.stats.armor)
+        vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);
       if (item.stats.pushbackMultiplier !== undefined)
         vehicle.bullet.pushbackMultiplier = (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
       if (item.stats.blastRadius) {
@@ -1501,7 +1502,8 @@ export class MonkeysGameService {
       const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
       if (normalizedDist <= 1) {
         const damage = Math.round(maxDamage * (1 - normalizedDist));
-        const actualDamage = projectile.owner === this.player ? damage * 0.5 : damage;
+        const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
+        const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
         this.player.health -= actualDamage;
         this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
         this.damageTexts.push({
@@ -1528,7 +1530,7 @@ export class MonkeysGameService {
         const dy = enemy.y - explosionY;
         const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
         if (normalizedDist <= 1) {
-          const damage = Math.round(maxDamage * (1 - normalizedDist));
+          const damage = Math.round(maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)));
           enemy.health -= damage;
           enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
           this.damageTexts.push({
