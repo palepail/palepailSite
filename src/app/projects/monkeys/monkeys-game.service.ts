@@ -785,6 +785,8 @@ export class MonkeysGameService {
         vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
       if (item.stats.lifesteal)
         vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
+      if (item.stats.weight)
+        vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
     }
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
@@ -1932,7 +1934,8 @@ export class MonkeysGameService {
     if (normalizedDist > 1) return;
     const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
     const pushMultiplier = projectile.bullet.pushbackMultiplier ?? 1;
-    const pushDistance = maxPushDistance * (1 - normalizedDist) * pushMultiplier;
+    const weightFactor = 10 / Math.max(1, target.vehicle?.weight ?? 10);
+    const pushDistance = maxPushDistance * (1 - normalizedDist) * pushMultiplier * weightFactor;
     if (pushDistance <= 0) return;
     const distance = Math.hypot(dx, dy);
     const dirX = distance > 0.001 ? dx / distance : 0;

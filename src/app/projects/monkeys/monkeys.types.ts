@@ -220,6 +220,7 @@ export interface Vehicle {
   spritesheet: string;
   armor?: number; // computed DR multiplier (0–1); set by applyEquipmentToVehicle, never set directly
   lifesteal?: number; // % of damage dealt healed back to player; set by applyEquipmentToVehicle
+  weight?: number; // pushback resistance; base 10; higher = less knockback, lower = more
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
@@ -235,6 +236,7 @@ export interface EquipmentStats {
   minAimAngle?: number; // modifier to vehicle.minAimAngle (negative = wider range)
   maxAimAngle?: number; // modifier to vehicle.maxAimAngle (positive = wider range)
   lifesteal?: number; // % of damage dealt restored as health (e.g. 20 = 20%)
+  weight?: number; // modifier to vehicle.weight (hidden stat)
   // Accessory abilities — stored but not yet implemented
   aimGuide?: 'extended' | 'full';
 }
