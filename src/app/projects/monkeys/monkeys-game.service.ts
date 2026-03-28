@@ -787,6 +787,10 @@ export class MonkeysGameService {
         vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
       if (item.stats.weight)
         vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
+      if (item.stats.shieldRadius)
+        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + item.stats.shieldRadius;
+      if (item.stats.shieldHealth)
+        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + item.stats.shieldHealth;
     }
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
@@ -807,6 +811,7 @@ export class MonkeysGameService {
       CONST.SPAWN_HEIGHT_OFFSET;
     this.player.maxPower = this.player.vehicle.power;
     this.player.health = this.player.vehicle.health;
+    this.player.currentShieldHealth = this.player.vehicle.shieldHealth ?? 0;
     this.player.movementFuel = this.player.vehicle.fuel;
 
     this.createEntity(this.player, this.player.x, this.player.y);
@@ -1505,25 +1510,32 @@ export class MonkeysGameService {
       const dy = this.player.y - explosionY;
       const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
       if (normalizedDist <= 1) {
-        const damage = Math.round(maxDamage * (1 - normalizedDist));
-        const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
-        const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
-        this.player.health -= actualDamage;
-        this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
-        this.damageTexts.push({
-          x: this.player.x,
-          y: this.player.y - 30,
-          damage: actualDamage,
-          life: CONST.DAMAGE_TEXT_LIFETIME,
-        });
-        this.applyExplosionKnockback(
-          this.player,
-          explosionX,
-          explosionY,
-          projectile,
-          radiusX,
-          radiusY,
-        );
+        const shieldRadius = this.player.vehicle.shieldRadius;
+        const ownerOutside = shieldRadius !== undefined
+          && Math.hypot(projectile.owner.x - this.player.x, projectile.owner.y - this.player.y) >= shieldRadius;
+        if (ownerOutside && (this.player.currentShieldHealth ?? 0) > 0) {
+          this.player.currentShieldHealth = (this.player.currentShieldHealth ?? 1) - 1;
+        } else {
+          const damage = Math.round(maxDamage * (1 - normalizedDist));
+          const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
+          const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
+          this.player.health -= actualDamage;
+          this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
+          this.damageTexts.push({
+            x: this.player.x,
+            y: this.player.y - 30,
+            damage: actualDamage,
+            life: CONST.DAMAGE_TEXT_LIFETIME,
+          });
+          this.applyExplosionKnockback(
+            this.player,
+            explosionX,
+            explosionY,
+            projectile,
+            radiusX,
+            radiusY,
+          );
+        }
       }
     }
 

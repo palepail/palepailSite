@@ -15,7 +15,7 @@
       "setId": "iron",
       "spriteCol": 0,
       "spriteRow": 4,
-      "stats": { "health": 15, "attack": 5, "armor": 2, "maxAimAngle": -5, "weight": 1 },
+      "stats": { "health": 8, "attack": 5, "armor": 2, "maxAimAngle": -5, "weight": 1 },
       "description": "Solid protection with a hint of menace"
     },
     {
@@ -35,7 +35,7 @@
       "setId": "fortress",
       "spriteCol": 0,
       "spriteRow": 0,
-      "stats": { "health": 25, "armor": 3, "attack": -5, "maxAimAngle": 3, "weight": 4 },
+      "stats": { "health": 15, "armor": 2, "attack": -5, "maxAimAngle": 3, "weight": 4 },
       "description": "Heavy plating for maximum protection"
     },
     {
@@ -68,7 +68,7 @@
       "setId": "iron",
       "spriteCol": 1,
       "spriteRow": 4,
-      "stats": { "health": 20, "attack": 10, "blastRadius": 5, "armor": 2, "maxAimAngle": -5, "weight": 2 },
+      "stats": { "health": 12, "attack": 10, "blastRadius": 5, "armor": 2, "maxAimAngle": -5, "weight": 2 },
       "description": "Reliable all-round armour that means business"
     },
     {
@@ -88,7 +88,7 @@
       "setId": "fortress",
       "spriteCol": 1,
       "spriteRow": 0,
-      "stats": { "health": 35, "armor": 4, "fuel": -10, "attack": -5, "maxAimAngle": 2, "weight": 5 },
+      "stats": { "health": 20, "armor": 3, "fuel": -10, "attack": -5, "maxAimAngle": 2, "weight": 5 },
       "description": "Near-impenetrable hull — heavy and slow"
     },
     {
@@ -121,7 +121,7 @@
       "setId": "iron",
       "spriteCol": 2,
       "spriteRow": 4,
-      "stats": { "health": 10, "blastRadius": 6, "climbAngle": 5, "armor": 1, "minAimAngle": 5, "weight": 1 },
+      "stats": { "health": 6, "blastRadius": 6, "climbAngle": 5, "armor": 1, "minAimAngle": 5, "weight": 1 },
       "description": "Stable footing with reinforced stopping power"
     },
     {
@@ -141,7 +141,7 @@
       "setId": "fortress",
       "spriteCol": 2,
       "spriteRow": 0,
-      "stats": { "health": 20, "armor": 3, "attack": -5, "minAimAngle": -3, "weight": 4 },
+      "stats": { "health": 12, "armor": 2, "attack": -5, "minAimAngle": -3, "weight": 4 },
       "description": "Reinforced leg armour — too heavy to climb freely"
     },
     {
@@ -174,7 +174,7 @@
       "setId": "iron",
       "spriteCol": 3,
       "spriteRow": 4,
-      "stats": { "health": 10, "attack": 8, "fuel": 5, "armor": 1, "minAimAngle": 5, "weight": 2 },
+      "stats": { "health": 4, "attack": 8, "fuel": 5, "armor": 1, "minAimAngle": 5, "weight": 2 },
       "description": "Heavy boots that hit harder with every step"
     },
     {
@@ -194,7 +194,7 @@
       "setId": "fortress",
       "spriteCol": 3,
       "spriteRow": 0,
-      "stats": { "health": 20, "armor": 2, "fuel": -5, "attack": -5, "minAimAngle": -2, "weight": 3 },
+      "stats": { "health": 8, "armor": 1, "fuel": -5, "attack": -5, "minAimAngle": -2, "weight": 3 },
       "description": "Heavy plated boots — drain fuel with every step"
     },
     {
@@ -227,7 +227,7 @@
       "setId": "iron",
       "spriteCol": 4,
       "spriteRow": 4,
-      "stats": { "pushbackMultiplier": 1.8, "armor": 5 },
+      "stats": { "pushbackMultiplier": 1.8, "armor": 2 },
       "description": "Forged from shrapnel — blasts send foes flying further"
     },
     {
@@ -247,8 +247,8 @@
       "setId": "fortress",
       "spriteCol": 4,
       "spriteRow": 0,
-      "stats": { "armor": 10, "weight": 2 },
-      "description": "Hardened casing — absorbs ~10% of all incoming damage"
+      "stats": { "armor": 7, "weight": 2, "shieldRadius": 120, "shieldHealth": 1 },
+      "description": "Hardened casing — blocks the next incoming hit, then breaks"
     },
     {
       "id": "scout_beacon",

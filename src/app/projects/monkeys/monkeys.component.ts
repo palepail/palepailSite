@@ -170,6 +170,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
+  private readonly SHIELD_FRAME_MS = 80;
+  private readonly SHIELD_FRAME_SIZE = 512;
+  private readonly SHIELD_COLS = 4;
+  private readonly SHIELD_TOTAL_FRAMES = 14;
   private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
   private readonly DEATH_SPRITE_FRAME_COUNT = 3;
   private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
@@ -321,6 +325,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.spriteService
         .loadRawSpritesheet('equipment.png')
         .catch((err) => console.warn('Failed to load equipment sprites:', err)),
+      this.spriteService
+        .loadRawSpritesheet('Shield Round Hex.png')
+        .catch((err) => console.warn('Failed to load shield sprites:', err)),
     ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
@@ -767,6 +774,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       },
     );
 
+    this.drawShieldOverlay(this.gameService.player, centerX, centerY);
+
     // Draw player prediction path when charging
     if (this.showPrediction && this.gameService.isCharging && this.gameService.hasAimGuide) {
       const angleRad = this.gameService.getBarrelAngle();
@@ -804,6 +813,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawEnemy(enemy: any) {
     const { centerX, centerY } = this.drawTankBase(enemy, CONST.ENEMY_FALLBACK_COLOR);
 
+    this.drawShieldOverlay(enemy, centerX, centerY);
+
     // Draw UI elements (health bar, name label)
     const enemyIndex = this.gameService.enemies.indexOf(enemy);
     this.drawEntityUI(
@@ -833,6 +844,24 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         CONST.PREDICTION_ENEMY_COLOR,
       );
     }
+  }
+
+  private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
+    if (!((entity.currentShieldHealth ?? 0) > 0)) return;
+    const sheet = this.spriteService.getSpritesheet('Shield Round Hex.png');
+    if (!sheet) return;
+    const frame = Math.floor(this.renderTime / this.SHIELD_FRAME_MS) % this.SHIELD_TOTAL_FRAMES;
+    const col = frame % this.SHIELD_COLS;
+    const row = Math.floor(frame / this.SHIELD_COLS);
+    const sx = col * this.SHIELD_FRAME_SIZE;
+    const sy = row * this.SHIELD_FRAME_SIZE;
+    const size = (entity.vehicle?.shieldRadius ?? 120) * 2 * 1.15;
+    this.ctx.drawImage(
+      sheet,
+      sx, sy, this.SHIELD_FRAME_SIZE, this.SHIELD_FRAME_SIZE,
+      centerX - size / 2, centerY - size / 2,
+      size, size,
+    );
   }
 
   // Shared tank rendering core: transform, shadow, barrel, body, restore.
