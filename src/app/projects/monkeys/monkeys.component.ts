@@ -1091,7 +1091,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const minAngle = (this.gameService.player.vehicle.minAimAngle * Math.PI) / 180;
       const maxAngle = (this.gameService.player.vehicle.maxAimAngle * Math.PI) / 180;
 
-      this.ctx.globalAlpha = 0.2;
+      this.ctx.globalAlpha = 0.55;
       this.ctx.fillStyle = CONST.CANNON_ARC_COLOR; // Yellow transparent
       this.ctx.beginPath();
       this.ctx.moveTo(centerX, centerY);

@@ -59,6 +59,7 @@ export interface Enemy {
   forceTerrainClearingShot?: boolean;
   reassessCount?: number;
   currentShieldHealth?: number;
+  shieldHitAngle?: number;
 }
 
 export enum GameState {

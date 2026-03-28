@@ -21,6 +21,7 @@ import {
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
+import { EnemyFactoryService } from './enemy-factory.service';
 
 @Injectable({
   providedIn: 'root',
@@ -112,7 +113,7 @@ export class MonkeysGameService {
   equipmentSets: EquipmentSet[] = [];
   private equipmentLoadPromise: Promise<void> | null = null;
 
-  constructor(private spriteService: MonkeysSpriteService) {
+  constructor(private spriteService: MonkeysSpriteService, private enemyFactory: EnemyFactoryService) {
     this.player = this.createInitialPlayer();
     void this.loadEquipmentData();
   }
@@ -860,17 +861,22 @@ export class MonkeysGameService {
             CONST.PLAYER_HOVER_HEIGHT -
             CONST.SPAWN_HEIGHT_OFFSET;
 
+      const { vehicle: enemyVehicle } = this.enemyFactory.buildEnemyVehicle(
+        this.difficulty,
+        this.equipmentItems,
+        this.equipmentSets,
+      );
       const enemy: Enemy = {
         body: null,
         x: x,
         y: y,
-        angle: (CONST.ENEMY_VEHICLE.minAimAngle + CONST.ENEMY_VEHICLE.maxAimAngle) / 2,
-        health: CONST.ENEMY_VEHICLE.health,
+        angle: (enemyVehicle.minAimAngle + enemyVehicle.maxAimAngle) / 2,
+        health: enemyVehicle.health,
         color: '#FF6B6B',
         active: true,
         facing: Math.random() > 0.5 ? 1 : -1,
         terrainAngle: 0, // Will be set in createEntity
-        vehicle: CONST.ENEMY_VEHICLE,
+        vehicle: enemyVehicle,
         turnState: 'turn_start',
         turnTimer: 0,
         targetPower: 0,
@@ -880,7 +886,8 @@ export class MonkeysGameService {
         assessCounter: 0,
         lastX: x,
         lastY: y,
-        movementFuel: CONST.ENEMY_VEHICLE.fuel,
+        movementFuel: enemyVehicle.fuel,
+        currentShieldHealth: enemyVehicle.shieldHealth ?? 0,
       };
       this.createEntity(enemy, x, y);
       this.enemies.push(enemy);
@@ -1878,27 +1885,33 @@ export class MonkeysGameService {
       return;
     }
 
-    // Check shield boundary — intercept before entity collision
-    const shield = this.player.vehicle.shieldRadius;
-    if (
-      this.player.active &&
-      shield &&
-      (this.player.currentShieldHealth ?? 0) > 0
-    ) {
-      const sdx = this.projectile.x - this.player.x;
-      const sdy = this.projectile.y - this.player.y;
+    // Check shield boundary — intercept before entity collision.
+    // Applies to any active entity (player or enemy) that owns a shield,
+    // but never blocks the entity's own projectile.
+    const shieldedEntities: Array<typeof this.player | (typeof this.enemies)[0]> = [
+      this.player,
+      ...this.enemies,
+    ];
+    for (const entity of shieldedEntities) {
+      if (!entity.active) continue;
+      const shield = entity.vehicle?.shieldRadius;
+      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+      if ((this.projectile.owner as object) === (entity as object)) continue;
+
+      const sdx = this.projectile.x - entity.x;
+      const sdy = this.projectile.y - entity.y;
       const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
       const ownerDist = Math.hypot(
-        this.projectile.owner.x - this.player.x,
-        this.projectile.owner.y - this.player.y,
+        this.projectile.owner.x - entity.x,
+        this.projectile.owner.y - entity.y,
       );
       if (sdist < shield && ownerDist >= shield) {
-        // Reposition explosion to boundary point
+        // Reposition explosion to shield boundary point
         const scale = shield / Math.max(sdist, 0.001);
-        this.projectile.x = this.player.x + sdx * scale;
-        this.projectile.y = this.player.y + sdy * scale;
-        this.player.currentShieldHealth = (this.player.currentShieldHealth ?? 1) - 1;
-        this.player.shieldHitAngle = Math.atan2(sdy, sdx);
+        this.projectile.x = entity.x + sdx * scale;
+        this.projectile.y = entity.y + sdy * scale;
+        entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
+        entity.shieldHitAngle = Math.atan2(sdy, sdx);
         this.destroyTrajectoryProjectile();
         return;
       }
