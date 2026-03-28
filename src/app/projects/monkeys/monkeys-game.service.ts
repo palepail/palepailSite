@@ -783,6 +783,8 @@ export class MonkeysGameService {
         vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + item.stats.minAimAngle);
       if (item.stats.maxAimAngle)
         vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
+      if (item.stats.lifesteal)
+        vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
     }
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
@@ -1540,6 +1542,19 @@ export class MonkeysGameService {
             life: CONST.DAMAGE_TEXT_LIFETIME,
           });
           this.applyExplosionKnockback(enemy, explosionX, explosionY, projectile, radiusX, radiusY);
+          if (projectile.owner === this.player && this.player.vehicle.lifesteal && damage > 0) {
+            const heal = Math.round(damage * (this.player.vehicle.lifesteal / 100));
+            if (heal > 0) {
+              this.player.health = Math.min(this.player.health + heal, this.player.vehicle.health);
+              this.damageTexts.push({
+                x: this.player.x,
+                y: this.player.y - 30,
+                damage: heal,
+                life: CONST.DAMAGE_TEXT_LIFETIME,
+                isHeal: true,
+              });
+            }
+          }
           if (enemy.health <= 0) {
             enemy.active = false;
             if (enemy.body) {

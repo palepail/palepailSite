@@ -1550,8 +1550,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawDamageTexts() {
     const size = 28;
     const advance = size * 0.45;
-    const tint = CONST.DAMAGE_TEXT_COLOR;
     for (const text of this.gameService.damageTexts) {
+      const tint = text.isHeal ? '#22FF55' : CONST.DAMAGE_TEXT_COLOR;
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
       this.ctx.globalAlpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
       const chars = String(text.damage).split('');
@@ -2223,8 +2223,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       {
         label: 'Health',
         base: base.health,
-        bonus: this.getTotalEquipBonus('defense') + this.getTotalEquipBonus('health'),
+        bonus: this.getTotalEquipBonus('health'),
       },
+      { label: 'Armor', base: 0, bonus: this.getTotalEquipBonus('armor') },
       { label: 'Attack', base: base.bullet.damage, bonus: this.getTotalEquipBonus('attack') },
       {
         label: 'Blast Rad',
@@ -2235,8 +2236,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       { label: 'Climb Ang', base: base.climbAngle, bonus: this.getTotalEquipBonus('climbAngle') },
       { label: 'Min Aim', base: base.minAimAngle, bonus: this.getTotalEquipBonus('minAimAngle') },
       { label: 'Max Aim', base: base.maxAimAngle, bonus: this.getTotalEquipBonus('maxAimAngle') },
-      { label: 'Speed', base: base.speed, bonus: 0 },
-      { label: 'Power', base: base.power, bonus: 0 },
     ];
 
     const statStartY = 138;
@@ -2260,15 +2259,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Determine which stat key this row corresponds to
       const statKey = [
-        'defense',
+        'health',
+        'armor',
         'attack',
         'blastRadius',
         'fuel',
         'climbAngle',
         'minAimAngle',
         'maxAimAngle',
-        '',
-        '',
       ][ri];
       const inverted = invertedStats.has(statKey);
 
