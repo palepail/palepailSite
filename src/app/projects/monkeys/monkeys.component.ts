@@ -64,6 +64,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private ctx!: CanvasRenderingContext2D;
   private terrainSpriteCanvas: HTMLCanvasElement | null = null;
   private terrainSpriteCtx: CanvasRenderingContext2D | null = null;
+  private shieldMaskCanvas: HTMLCanvasElement | null = null;
+  private shieldMaskCtx: CanvasRenderingContext2D | null = null;
   private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
 
   // Camera system
@@ -172,6 +174,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly HURT_SPRITE_DURATION_MS = 300;
   private readonly SHIELD_IDLE_FRAME_MS = 80;
   private readonly SHIELD_IDLE_FRAMES = 14;
+  private readonly SHIELD_IDLE_HOLD_MS = 3000;
   private readonly SHIELD_DAMAGE_FRAME_MS = 60;
   private readonly SHIELD_DAMAGE_FRAMES = 6;
   private readonly SHIELD_BREAK_FRAME_MS = 80;
@@ -853,7 +856,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private drawAllShields() {
+    const entities: any[] = [this.gameService.player, ...this.gameService.enemies];
+    for (const entity of entities) {
+      if (!entity.active && !this.isEntityDeathAnimationActive(entity)) continue;
+      const screen = this.cameraController.worldToScreen(entity.x, entity.y);
+      this.drawShieldOverlay(entity, screen.x, screen.y);
+    }
+  }
+
+  private getShieldIdleFrame(now: number): number {
+    const cycleDuration = this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS + this.SHIELD_IDLE_HOLD_MS;
+    const pos = now % cycleDuration;
+    return pos < this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS
+      ? Math.floor(pos / this.SHIELD_IDLE_FRAME_MS)
+      : this.SHIELD_IDLE_FRAMES - 1;
+  }
+
   private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
+    if (this.gameService.currentState === GameState.SETUP) return;
     const key = entity as object;
     const currentShield = entity.currentShieldHealth ?? 0;
     const state = this.shieldStateByEntity.get(key) ?? 'idle';
@@ -876,35 +897,61 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (frame >= this.SHIELD_DAMAGE_FRAMES) {
         this.shieldStateByEntity.set(key, 'idle');
         if (currentShield <= 0) return;
-        const idleFrame = Math.floor(now / this.SHIELD_IDLE_FRAME_MS) % this.SHIELD_IDLE_FRAMES;
-        spriteName = `shield_idle_${idleFrame}`;
+        spriteName = `shield_idle_${this.getShieldIdleFrame(now)}`;
       } else {
         spriteName = `shield_damage_${frame}`;
         rotation = entity.shieldHitAngle ?? 0;
       }
     } else {
       if (currentShield <= 0) return;
-      const idleFrame = Math.floor(now / this.SHIELD_IDLE_FRAME_MS) % this.SHIELD_IDLE_FRAMES;
-      spriteName = `shield_idle_${idleFrame}`;
+      spriteName = `shield_idle_${this.getShieldIdleFrame(now)}`;
     }
 
     const sprite = this.spriteService.getSprite(spriteName);
     if (!sprite) return;
 
     const size = (entity.vehicle?.shieldRadius ?? 120) * 2 * 1.15;
-    this.ctx.save();
-    if (rotation !== 0) {
-      this.ctx.translate(centerX, centerY);
-      this.ctx.rotate(rotation);
-      this.ctx.translate(-centerX, -centerY);
+
+    // Draw shield to offscreen canvas, then punch out terrain so it is naturally occluded.
+    if (
+      !this.shieldMaskCanvas ||
+      this.shieldMaskCanvas.width !== CONST.CANVAS_WIDTH ||
+      this.shieldMaskCanvas.height !== CONST.CANVAS_HEIGHT
+    ) {
+      this.shieldMaskCanvas = document.createElement('canvas');
+      this.shieldMaskCanvas.width = CONST.CANVAS_WIDTH;
+      this.shieldMaskCanvas.height = CONST.CANVAS_HEIGHT;
+      this.shieldMaskCtx = this.shieldMaskCanvas.getContext('2d');
     }
-    this.ctx.drawImage(
+    const offCtx = this.shieldMaskCtx!;
+    offCtx.clearRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
+
+    offCtx.save();
+    if (rotation !== 0) {
+      offCtx.translate(centerX, centerY);
+      offCtx.rotate(rotation);
+      offCtx.translate(-centerX, -centerY);
+    }
+    offCtx.drawImage(
       sprite.image,
       sprite.x, sprite.y, sprite.width, sprite.height,
       centerX - size / 2, centerY - size / 2,
       size, size,
     );
-    this.ctx.restore();
+    offCtx.restore();
+
+    // Erase shield pixels that fall on solid terrain.
+    const terrainY = Math.floor(
+      CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
+    );
+    const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
+    const endX = Math.min(CONST.TERRAIN_WIDTH, Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH));
+    offCtx.globalCompositeOperation = 'destination-out';
+    offCtx.fillStyle = 'rgba(0,0,0,1)';
+    this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 1);
+    offCtx.globalCompositeOperation = 'source-over';
+
+    this.ctx.drawImage(this.shieldMaskCanvas, 0, 0);
   }
 
   // Shared tank rendering core: transform, shadow, barrel, body, restore.
@@ -1678,11 +1725,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw pause/game over message
     if (this.gameService.currentState === GameState.PAUSED) {
-      this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.font = '32px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText('Paused', CONST.CANVAS_WIDTH / 2, CONST.CANVAS_HEIGHT / 2);
-      this.ctx.textAlign = 'left';
+      this.drawSpriteTextCentered('Paused', CONST.CANVAS_HEIGHT / 2 - 35, 70, 0.42);
     } else if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
       this.gameService.currentState === GameState.GAME_OVER ||
