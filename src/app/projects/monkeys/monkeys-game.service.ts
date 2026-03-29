@@ -241,7 +241,7 @@ export class MonkeysGameService {
         if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
           enemy.health = 0;
           enemy.active = false;
-          this.World.remove(this.world, enemy.body);
+          this.physicsService.removeBody(enemy.body);
         }
       }
     }
@@ -891,7 +891,7 @@ export class MonkeysGameService {
           if (enemy.health <= 0) {
             enemy.active = false;
             if (enemy.body) {
-              this.World.remove(this.world, enemy.body);
+              this.physicsService.removeBody(enemy.body);
             }
           }
         }
@@ -986,6 +986,14 @@ export class MonkeysGameService {
     // Update turn queue (remove inactive enemies)
     this.turnService.updateTurnQueue(deltaTime);
 
+    // End turn when post-bullet timer expires (full cleanup via MonkeysGameService.endTurn)
+    if (this.currentState === GameState.PLAYING) {
+      const postBulletCheck = this.getCurrentTurnEntity()?.entity as any;
+      if (postBulletCheck?.turnState === 'post_bullet' && postBulletCheck.turnTimer <= 0) {
+        this.endTurn(100);
+      }
+    }
+
     // Check for turn timeout (for enemies, since players don't timeout)
     if (
       this.currentState === GameState.PLAYING &&
@@ -998,7 +1006,11 @@ export class MonkeysGameService {
 
   handleInput(keys: { [key: string]: boolean }) {
     if (this.currentState === GameState.PLAYING) {
-      const isOnTerrain = this.getTerrainHeightAt(this.player.x) !== -1;
+      const terrainH = this.getTerrainHeightAt(this.player.x);
+      const isOnTerrain =
+        terrainH !== -1 &&
+        this.player.body != null &&
+        this.player.body.position.y + CONST.TANK_HALF_HEIGHT >= terrainH - 6;
       const oldFacing = this.player.facing;
 
       // Handle facing changes (allowed anytime)
@@ -1191,7 +1203,7 @@ export class MonkeysGameService {
         enemy.health = 0;
         enemy.active = false;
         if (enemy.body) {
-          this.World.remove(this.world, enemy.body);
+          this.physicsService.removeBody(enemy.body);
         }
       }
     }
@@ -1312,15 +1324,11 @@ export class MonkeysGameService {
   }
 
   pausePhysics() {
-    if (this.runner) {
-      this.Runner.stop(this.runner);
-    }
+    this.physicsService.pausePhysics();
   }
 
   resumePhysics() {
-    if (this.runner) {
-      this.Runner.run(this.runner, this.engine);
-    }
+    this.physicsService.resumePhysics();
   }
 
   // Getters for properties moved to services
@@ -1349,8 +1357,6 @@ export class MonkeysGameService {
   }
 
   destroy() {
-    if (this.runner) {
-      this.Runner.stop(this.runner);
-    }
+    this.physicsService.pausePhysics();
   }
 }

@@ -83,9 +83,7 @@ export class TurnService {
       const currentEntity = this._turnQueue[0].entity as any;
       if (currentEntity.turnState === 'post_bullet') {
         currentEntity.turnTimer -= deltaTime;
-        if (currentEntity.turnTimer <= 0) {
-          this.endTurn(100);
-        }
+        // timer expiry handled in MonkeysGameService.update() so full endTurn cleanup runs
       }
     }
   }

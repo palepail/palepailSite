@@ -275,6 +275,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     accessory: 0,
   };
   private isNameEditing = false;
+  private expandedSlot: EquipmentSlot | null = null;
   private frozenTime: number | null = null; // set when paused to freeze sprite animations
   private animationFrameId = 0;
 
@@ -2214,6 +2215,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.loadoutSlotIndices[slot] = idx >= 0 ? idx : 0;
     }
     this.isNameEditing = false;
+    this.expandedSlot = null;
   }
 
   /** Map from slot to the item currently selected in the loadout UI (not necessarily saved). */
@@ -2361,47 +2363,137 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Equipment', mCx, 102);
 
-    const slotStartY = 160;
-    const slotStepY = 72;
+    // Slot boxes
+    const equipSheet = this.spriteService.getSpritesheet('equipment.png');
+    const spriteSize = 32;
+    const slotBoxX = 416;
+    const slotBoxW = 368;
+    const slotBoxH = 50;
+    const slotGap = 6;
+    const slotStartY = 120;
 
     for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
       const slot = this.EQUIPMENT_SLOTS[si];
-      const rowY = slotStartY + si * slotStepY;
-      const items = this.gameService.getItemsForSlot(slot);
+      const rowY = slotStartY + si * (slotBoxH + slotGap);
+      const isExpanded = this.expandedSlot === slot;
       const selItem = this.getLoadoutItem(slot);
-      const isNone =
-        !selItem || selItem.stats === undefined || Object.keys(selItem.stats).length === 0;
+      const isNone = !selItem || selItem.id?.startsWith('none_');
+      const hasSprite =
+        !isNone && selItem?.spriteCol !== undefined && selItem?.spriteRow !== undefined;
 
-      // Slot label
-      this.ctx.fillStyle = '#AABBDD';
-      this.ctx.font = '14px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(this.SLOT_LABELS[slot], mCx, rowY);
+      // Box background
+      this.ctx.fillStyle = isExpanded ? 'rgba(40,55,110,0.95)' : 'rgba(20,20,60,0.85)';
+      this.ctx.fillRect(slotBoxX, rowY, slotBoxW, slotBoxH);
+      this.ctx.strokeStyle = isExpanded ? '#7BBAFF' : 'rgba(80,100,150,0.7)';
+      this.ctx.lineWidth = isExpanded ? 2 : 1;
+      this.ctx.strokeRect(slotBoxX, rowY, slotBoxW, slotBoxH);
 
-      // Left arrow
-      const hasLeft = items.length > 1;
-      const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
-      this.drawButton('<', leftBtn, hasLeft ? '#334' : '#222', hasLeft ? '#556' : '#222');
-
-      // Item name (center)
-      this.ctx.fillStyle = isNone ? '#778899' : '#FFFFFF';
-      this.ctx.font = selItem ? 'bold 16px Arial' : '16px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(selItem?.name ?? 'None', mCx, rowY + 20);
-
-      // Right arrow
-      this.drawButton('>', rightBtn, hasLeft ? '#334' : '#222', hasLeft ? '#556' : '#222');
-
-      // Item description (small, below name)
-      if (selItem?.description && !isNone) {
-        this.ctx.fillStyle = 'rgba(180,190,210,0.7)';
-        this.ctx.font = '12px Arial';
-        this.ctx.fillText(selItem.description, mCx, rowY + 48);
+      // Icon box (left side)
+      const iconPad = 5;
+      const iconBoxSize = slotBoxH - iconPad * 2;
+      const iconX = slotBoxX + iconPad;
+      const iconY = rowY + iconPad;
+      this.ctx.fillStyle = hasSprite ? 'rgba(20,20,60,0.9)' : 'rgba(16,16,32,0.6)';
+      this.ctx.strokeStyle = hasSprite ? '#556688' : '#334455';
+      this.ctx.lineWidth = 1;
+      this.ctx.fillRect(iconX, iconY, iconBoxSize, iconBoxSize);
+      this.ctx.strokeRect(iconX, iconY, iconBoxSize, iconBoxSize);
+      if (hasSprite && equipSheet) {
+        const sx = selItem!.spriteCol! * spriteSize;
+        const sy = selItem!.spriteRow! * spriteSize;
+        const pad = 3;
+        this.ctx.drawImage(
+          equipSheet, sx, sy, spriteSize, spriteSize,
+          iconX + pad, iconY + pad, iconBoxSize - pad * 2, iconBoxSize - pad * 2,
+        );
       }
+
+      // Slot type label + item name
+      const textX = slotBoxX + slotBoxH + 4;
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillStyle = '#778899';
+      this.ctx.font = '12px Arial';
+      this.ctx.fillText(this.SLOT_LABELS[slot], textX, rowY + slotBoxH * 0.3);
+      this.ctx.fillStyle = isNone ? '#556677' : (isExpanded ? '#AADDFF' : '#FFFFFF');
+      this.ctx.font = isNone ? '14px Arial' : 'bold 15px Arial';
+      this.ctx.fillText(selItem?.name ?? 'None', textX, rowY + slotBoxH * 0.72);
     }
 
-    // ── Equipped gear icons ──────────────────────────────────────────────
-    this.drawEquippedIcons(mLeft, mRight);
+    // Item picker (shown when a slot is expanded)
+    if (this.expandedSlot !== null) {
+      const slot = this.expandedSlot;
+      const items = this.gameService.getItemsForSlot(slot);
+      const pickerY =
+        slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
+
+      // Divider
+      this.ctx.strokeStyle = 'rgba(100,130,180,0.5)';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(mLeft + 16, pickerY - 4);
+      this.ctx.lineTo(mRight - 16, pickerY - 4);
+      this.ctx.stroke();
+
+      // 'Select X' label
+      this.ctx.fillStyle = '#AABBDD';
+      this.ctx.font = 'bold 14px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(`Select ${this.SLOT_LABELS[slot]}`, mCx, pickerY + 11);
+
+      const CELL_W = 72;
+      const CELL_GAP = 12;
+      const NAME_H = 14;
+      const ROW_GAP = 12;
+      const CELLS_PER_ROW = 3;
+      const totalPickerW = CELLS_PER_ROW * CELL_W + (CELLS_PER_ROW - 1) * CELL_GAP;
+      const pickerStartX = Math.round(mCx - totalPickerW / 2);
+      const iconStartY = pickerY + 26;
+
+      for (let ii = 0; ii < items.length; ii++) {
+        const item = items[ii];
+        const col = ii % CELLS_PER_ROW;
+        const row = Math.floor(ii / CELLS_PER_ROW);
+        const cx = pickerStartX + col * (CELL_W + CELL_GAP);
+        const cy = iconStartY + row * (CELL_W + NAME_H + ROW_GAP);
+        const isSelected = this.getLoadoutItem(slot)?.id === item.id;
+        const isNoneItem = item.id.startsWith('none_');
+        const hasSprite2 =
+          !isNoneItem && item.spriteCol !== undefined && item.spriteRow !== undefined;
+
+        // Cell background
+        this.ctx.fillStyle = isSelected ? 'rgba(40,80,160,0.95)' : 'rgba(20,20,60,0.8)';
+        this.ctx.fillRect(cx, cy, CELL_W, CELL_W);
+        this.ctx.strokeStyle = isSelected ? '#7BBAFF' : '#334466';
+        this.ctx.lineWidth = isSelected ? 2 : 1;
+        this.ctx.strokeRect(cx, cy, CELL_W, CELL_W);
+
+        if (hasSprite2 && equipSheet) {
+          const sx = item.spriteCol! * spriteSize;
+          const sy = item.spriteRow! * spriteSize;
+          const pad = 8;
+          this.ctx.drawImage(
+            equipSheet, sx, sy, spriteSize, spriteSize,
+            cx + pad, cy + pad, CELL_W - pad * 2, CELL_W - pad * 2,
+          );
+        } else {
+          this.ctx.fillStyle = '#334455';
+          this.ctx.font = '18px Arial';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText('—', cx + CELL_W / 2, cy + CELL_W / 2);
+        }
+
+        // Item name
+        this.ctx.fillStyle = isSelected ? '#AADDFF' : '#778899';
+        this.ctx.font = '11px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        const shortName = item.name.length > 10 ? item.name.substring(0, 9) + '\u2026' : item.name;
+        this.ctx.fillText(shortName, cx + CELL_W / 2, cy + CELL_W + NAME_H / 2);
+      }
+    }
 
     // ── Right panel: stats ───────────────────────────────────────────────
     const rLeft = 816;
@@ -2766,24 +2858,49 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // Slot arrow clicks
-    const slotStartY = 160;
-    const slotStepY = 72;
+    // Slot box clicks
+    const slotBoxX = 416;
+    const slotBoxW = 368;
+    const slotBoxH = 50;
+    const slotGap = 6;
+    const slotStartY = 120;
     for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
       const slot = this.EQUIPMENT_SLOTS[si];
-      const rowY = slotStartY + si * slotStepY;
-      const items = this.gameService.getItemsForSlot(slot);
-      if (items.length < 2) continue;
-
-      const { left: leftBtn, right: rightBtn } = this.equipSlotArrowBtns(si);
-      if (this.isPointInsideButton(x, y, leftBtn)) {
-        this.cycleSlot(slot, -1);
+      const rowY = slotStartY + si * (slotBoxH + slotGap);
+      if (x >= slotBoxX && x <= slotBoxX + slotBoxW && y >= rowY && y <= rowY + slotBoxH) {
+        this.expandedSlot = this.expandedSlot === slot ? null : slot;
         return;
       }
+    }
 
-      if (this.isPointInsideButton(x, y, rightBtn)) {
-        this.cycleSlot(slot, 1);
-        return;
+    // Item picker clicks
+    if (this.expandedSlot !== null) {
+      const slot = this.expandedSlot;
+      const items = this.gameService.getItemsForSlot(slot);
+      const pickerY =
+        slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
+      const CELL_W = 72;
+      const CELL_GAP = 12;
+      const NAME_H = 14;
+      const ROW_GAP = 12;
+      const CELLS_PER_ROW = 3;
+      const totalPickerW = CELLS_PER_ROW * CELL_W + (CELLS_PER_ROW - 1) * CELL_GAP;
+      const pickerStartX = Math.round((400 + 800) / 2 - totalPickerW / 2);
+      const iconStartY = pickerY + 26;
+
+      for (let ii = 0; ii < items.length; ii++) {
+        const item = items[ii];
+        const col = ii % CELLS_PER_ROW;
+        const row = Math.floor(ii / CELLS_PER_ROW);
+        const cx = pickerStartX + col * (CELL_W + CELL_GAP);
+        const cy = iconStartY + row * (CELL_W + NAME_H + ROW_GAP);
+        if (x >= cx && x <= cx + CELL_W && y >= cy && y <= cy + CELL_W + NAME_H) {
+          this.loadoutSlotIndices[slot] = ii;
+          this.gameService.equipped[slot] = item.id.startsWith('none_') ? null : item;
+          this.expandedSlot = null;
+          this.gameService.saveLoadout();
+          return;
+        }
       }
     }
   }
@@ -3489,7 +3606,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   /** Returns the left/right arrow button rects for equipment slot index si. */
   private equipSlotArrowBtns(si: number) {
-    const rowY = 160 + si * 72;
+    const rowY = 128 + si * 58;
     return {
       left: this.mkBtn(505, rowY + 20, 44, 36),
       right: this.mkBtn(696, rowY + 20, 44, 36),
