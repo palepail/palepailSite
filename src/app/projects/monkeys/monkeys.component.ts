@@ -2403,8 +2403,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         const sy = selItem!.spriteRow! * spriteSize;
         const pad = 3;
         this.ctx.drawImage(
-          equipSheet, sx, sy, spriteSize, spriteSize,
-          iconX + pad, iconY + pad, iconBoxSize - pad * 2, iconBoxSize - pad * 2,
+          equipSheet,
+          sx,
+          sy,
+          spriteSize,
+          spriteSize,
+          iconX + pad,
+          iconY + pad,
+          iconBoxSize - pad * 2,
+          iconBoxSize - pad * 2,
         );
       }
 
@@ -2415,7 +2422,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.fillStyle = '#778899';
       this.ctx.font = '12px Arial';
       this.ctx.fillText(this.SLOT_LABELS[slot], textX, rowY + slotBoxH * 0.3);
-      this.ctx.fillStyle = isNone ? '#556677' : (isExpanded ? '#AADDFF' : '#FFFFFF');
+      this.ctx.fillStyle = isNone ? '#556677' : isExpanded ? '#AADDFF' : '#FFFFFF';
       this.ctx.font = isNone ? '14px Arial' : 'bold 15px Arial';
       this.ctx.fillText(selItem?.name ?? 'None', textX, rowY + slotBoxH * 0.72);
     }
@@ -2424,8 +2431,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.expandedSlot !== null) {
       const slot = this.expandedSlot;
       const items = this.gameService.getItemsForSlot(slot);
-      const pickerY =
-        slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
+      const pickerY = slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
 
       // Divider
       this.ctx.strokeStyle = 'rgba(100,130,180,0.5)';
@@ -2474,8 +2480,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           const sy = item.spriteRow! * spriteSize;
           const pad = 8;
           this.ctx.drawImage(
-            equipSheet, sx, sy, spriteSize, spriteSize,
-            cx + pad, cy + pad, CELL_W - pad * 2, CELL_W - pad * 2,
+            equipSheet,
+            sx,
+            sy,
+            spriteSize,
+            spriteSize,
+            cx + pad,
+            cy + pad,
+            CELL_W - pad * 2,
+            CELL_W - pad * 2,
           );
         } else {
           this.ctx.fillStyle = '#334455';
@@ -2877,8 +2890,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.expandedSlot !== null) {
       const slot = this.expandedSlot;
       const items = this.gameService.getItemsForSlot(slot);
-      const pickerY =
-        slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
+      const pickerY = slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
       const CELL_W = 72;
       const CELL_GAP = 12;
       const NAME_H = 14;

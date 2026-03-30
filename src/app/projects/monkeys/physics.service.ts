@@ -154,23 +154,30 @@ export class PhysicsService {
     const pushDistance =
       maxPushDistance * (1 - normalizedDist) * Math.abs(pushMultiplier) * weightFactor;
     if (pushDistance <= 0) return;
-    const distance = Math.hypot(dx, dy);
-    const awayX = distance > 0.001 ? dx / distance : 0;
-    const awayY = distance > 0.001 ? dy / distance : -1;
-    const sign = pushMultiplier < 0 ? -1 : 1;
-    const dirX = awayX * sign;
-    const dirY = awayY * sign;
-    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + dirX * pushDistance));
-    const targetY = target.y + dirY * pushDistance;
-    this.Body.setPosition(target.body, { x: targetX, y: targetY });
+
+    // Push is ground-relative: only move the entity horizontally along the terrain.
+    // Use the horizontal sign of dx (away from explosion center) scaled by the slope.
+    const hSign = (dx !== 0 ? Math.sign(dx) : 0) * (pushMultiplier < 0 ? -1 : 1);
+
+    // Reduce push when being shoved into a steep uphill slope.
+    // target.terrainAngle is atan(slope) in radians; positive = terrain rises to the right.
+    const slopeInPushDir = hSign * target.terrainAngle;
+    let xFactor = 1.0;
+    if (slopeInPushDir > 0) {
+      const slopeAngleDeg = Math.abs(target.terrainAngle) * (180 / Math.PI);
+      xFactor = slopeAngleDeg >= 60 ? 0 : Math.max(0, 1 - slopeAngleDeg / 60);
+    }
+
+    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + hSign * pushDistance * xFactor));
+    // Keep Y unchanged — terrain collision will snap the entity back to the surface next frame.
+    this.Body.setPosition(target.body, { x: targetX, y: target.y });
     if (target.body.velocity) {
       this.Body.setVelocity(target.body, {
-        x: target.body.velocity.x + dirX * pushDistance * 0.05,
-        y: target.body.velocity.y + dirY * pushDistance * 0.05,
+        x: hSign * pushDistance * xFactor * 0.05,
+        y: target.body.velocity.y,
       });
     }
     target.x = targetX;
-    target.y = targetY;
   }
 
   pausePhysics() {
