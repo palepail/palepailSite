@@ -240,6 +240,8 @@ export class AIService {
                 simAngleRad,
                 pow,
                 enemy.vehicle.bullet,
+                this.physicsService.windSpeed,
+                this.physicsService.windAngle,
               );
               for (const pos of positions) {
                 const distToTarget = Math.hypot(pos.x - target.x, pos.y - target.y);

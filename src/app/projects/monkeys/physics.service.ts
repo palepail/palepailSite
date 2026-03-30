@@ -26,6 +26,9 @@ export class PhysicsService {
     { positions: { x: number; y: number }[]; endReason: string }
   > = new Map();
 
+  windSpeed: number = 0;
+  windAngle: number = 0;
+
   private readonly VEHICLE_NO_COLLISION_GROUP = -1;
 
   setMatterJS(matter: any) {
@@ -53,8 +56,10 @@ export class PhysicsService {
     angleRad: number,
     power: number,
     bullet: any,
+    windSpeed = 0,
+    windAngle = 0,
   ): { positions: { x: number; y: number }[]; endReason: string } {
-    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}`;
+    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}_${windSpeed.toFixed(0)}_${windAngle.toFixed(2)}`;
     if (this.trajectoryCache.has(cacheKey)) {
       return this.trajectoryCache.get(cacheKey)!;
     }
@@ -83,8 +88,11 @@ export class PhysicsService {
       // Record position
       positions.push({ x: projectile.position.x, y: projectile.position.y });
 
-      // Apply wind force
-      this.Body.applyForce(projectile, projectile.position, { x: CONST.WIND_STRENGTH, y: 0 });
+      // Apply wind force (horizontal only)
+      this.Body.applyForce(projectile, projectile.position, {
+        x: windSpeed * CONST.WIND_BULLET_FORCE_SCALE * Math.cos(windAngle) / bullet.weight,
+        y: 0,
+      });
 
       // Update simulation
       this.Engine.update(tempEngine, 16.666); // ~60 FPS
@@ -131,6 +139,12 @@ export class PhysicsService {
       if (entity.targetAngle !== undefined) {
         const diff = entity.targetAngle - entity.angle;
         entity.angle += diff * 0.1; // 10% interpolation per frame
+      }
+      if (this.windSpeed > 0 && Math.abs(entity.body.velocity.y) > 1.0) {
+        this.Body.applyForce(entity.body, entity.body.position, {
+          x: this.windSpeed * CONST.WIND_VEHICLE_FORCE_SCALE * Math.cos(this.windAngle) / (entity.vehicle?.weight ?? 10),
+          y: 0,
+        });
       }
     }
   }

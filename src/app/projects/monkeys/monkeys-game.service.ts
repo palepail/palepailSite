@@ -141,6 +141,7 @@ export class MonkeysGameService {
     await this.terrainService.loadTerrainMetadata();
     this.terrainService.generateTerrain();
     this.physicsService.initPhysics();
+    this.rollWind();
     this.initPlayer();
     this.spawnEnemies();
     this.turnService.initTurnQueue(this.player, this.enemies);
@@ -647,6 +648,8 @@ export class MonkeysGameService {
                 simAngleRad,
                 pow,
                 enemy.vehicle.bullet,
+                this.physicsService.windSpeed,
+                this.physicsService.windAngle,
               );
               for (const pos of positions) {
                 const distToTarget = Math.hypot(pos.x - target.x, pos.y - target.y);
@@ -737,6 +740,8 @@ export class MonkeysGameService {
       angleRad,
       power,
       bullet,
+      this.physicsService.windSpeed,
+      this.physicsService.windAngle,
     );
 
     this.projectileService.projectile = {
@@ -779,6 +784,8 @@ export class MonkeysGameService {
     // Resort queue by entity.delay
     this.turnService._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
+    if (Math.random() < CONST.WIND_CHANGE_CHANCE) { this.rollWind(); }
+
     // Reset turn time
     this.turnService.turnTime = 0;
 
@@ -814,6 +821,15 @@ export class MonkeysGameService {
     }
 
     this.panToEntity = nextEntity;
+  }
+
+  private rollWind(): void {
+    const r = Math.random();
+    this.physicsService.windSpeed = Math.random() < 0.02
+      ? 76 + Math.round(Math.random() * 24)
+      : Math.round(Math.pow(r, 4) * 75);
+    this.physicsService.windAngle = Math.random() * Math.PI * 2;
+    this.physicsService.clearTrajectoryCache();
   }
 
   private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
@@ -1112,6 +1128,8 @@ export class MonkeysGameService {
       angleRad,
       this.player.power,
       bullet,
+      this.physicsService.windSpeed,
+      this.physicsService.windAngle,
     );
 
     this.projectileService.projectile = {
@@ -1284,6 +1302,9 @@ export class MonkeysGameService {
   get hasAimGuide() {
     return this.projectileService.projectile !== null;
   }
+
+  get windSpeed(): number { return this.physicsService.windSpeed; }
+  get windAngle(): number { return this.physicsService.windAngle; }
 
   simulateTrajectory(
     barrelEndX: number,

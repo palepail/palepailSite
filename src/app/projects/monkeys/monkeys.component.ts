@@ -1736,6 +1736,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const now = this.renderTime;
       const remaining = Math.max(0, Math.floor(45 - (now - this.gameService.turnStartTime) / 1000));
       this.drawArenaNumber(String(remaining), CONST.CANVAS_WIDTH - 20, 8, 64);
+      this.drawWindIndicator();
     }
 
     // Draw turn message
@@ -3596,6 +3597,60 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
   // Falls back to plain text for any character without a sprite.
+  private drawWindIndicator(): void {
+    const windSpeed = this.gameService.windSpeed;
+    const windAngle = this.gameService.windAngle;
+    const cx = CONST.CANVAS_WIDTH / 2;
+    const panelW = 110, panelH = 54;
+    const panelX = cx - panelW / 2, panelY = 6;
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    this.ctx.fillRect(panelX, panelY, panelW, panelH);
+    this.ctx.strokeStyle = 'rgba(100, 140, 200, 0.6)';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    this.ctx.fillStyle = '#AABBCC';
+    this.ctx.font = 'bold 10px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText('WIND', cx, panelY + 10);
+
+    const arrowCy = panelY + 31;
+    if (windSpeed === 0) {
+      this.ctx.fillStyle = '#88AACC';
+      this.ctx.font = 'bold 16px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('—', cx, arrowCy);
+    } else {
+      const arrowLen = 8 + (windSpeed / 100) * 20;
+      this.ctx.save();
+      this.ctx.translate(cx, arrowCy);
+      this.ctx.rotate(windAngle);
+      this.ctx.strokeStyle = '#FFE066';
+      this.ctx.fillStyle = '#FFE066';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(-arrowLen / 2, 0);
+      this.ctx.lineTo(arrowLen / 2 - 5, 0);
+      this.ctx.stroke();
+      this.ctx.beginPath();
+      this.ctx.moveTo(arrowLen / 2, 0);
+      this.ctx.lineTo(arrowLen / 2 - 7, -4);
+      this.ctx.lineTo(arrowLen / 2 - 7, 4);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
+    this.ctx.fillStyle = '#DDEEFF';
+    this.ctx.font = 'bold 11px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(String(Math.round(windSpeed)), cx, panelY + panelH - 8);
+  }
+
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
     const chars = text.split('');

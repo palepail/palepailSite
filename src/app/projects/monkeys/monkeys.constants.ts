@@ -13,7 +13,9 @@ export const TERRAIN_WIDTH = 2400;
 export const TERRAIN_HEIGHT = 800;
 export const TERRAIN_STRIP_HEIGHT = 500;
 export const GRAVITY_STRENGTH = 2;
-export const WIND_STRENGTH = 0;
+export const WIND_BULLET_FORCE_SCALE = 0.0000024;
+export const WIND_VEHICLE_FORCE_SCALE = 0.0003;
+export const WIND_CHANGE_CHANCE = 0.2;
 export const TERRAIN_BASE_Y_OFFSET = 380;
 export const PLAYER_HOVER_HEIGHT = 10;
 export const TERRAIN_SLOPE_SAMPLE_DISTANCE = 10;
@@ -75,6 +77,8 @@ export const PLAYER_VEHICLE: Vehicle = {
   maxAimAngle: 60,
   shotDelay: 100,
   bullet: {
+    name: 'banana',
+    weight: 1,
     damage: 100,
     shape: 'circle',
     explosionShape: 'horizontal_oval',
@@ -127,27 +131,6 @@ export const SELECTABLE_VEHICLES: SelectableVehicle[] = [
   },
 ];
 
-export const ENEMY_VEHICLE: Vehicle = {
-  name: 'Enemy',
-  speed: 95.0,
-  power: 200,
-  shape: 'enemy_tank',
-  spritesheet: 'Lupin.png',
-  climbAngle: 45,
-  fuel: 75,
-  health: 300,
-  minAimAngle: 20,
-  maxAimAngle: 75,
-  shotDelay: 100,
-  bullet: {
-    damage: 40,
-    shape: 'circle',
-    explosionShape: 'circle',
-    explosionRadius: 40,
-    craterRadius: 30,
-    speed: 20,
-  },
-};
 export const DAMAGE_TEXT_LIFETIME = 60; // frames
 export const DAMAGE_TEXT_RISE_SPEED = 1;
 export const DAMAGE_TEXT_COLOR = '#FF2222';

@@ -201,6 +201,8 @@ export interface Projectile {
 }
 
 export interface Bullet {
+  name: string;
+  weight: number;
   damage: number;
   shape: string;
   explosionShape: string;
