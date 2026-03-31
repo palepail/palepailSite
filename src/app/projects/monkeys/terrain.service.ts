@@ -7,6 +7,8 @@ import * as CONST from './monkeys.constants';
 })
 export class TerrainService {
   terrain: number[][] = [];
+  depthTerrain: number[][] = [];
+  innerTerrainTileIndex = 0;
   terrainChunkPlacements: TerrainChunkPlacement[] = [];
   terrainInteriorPlacements: TerrainChunkPlacement[] = [];
   terrainBottomPlacements: TerrainChunkPlacement[] = [];
@@ -55,6 +57,8 @@ export class TerrainService {
       bottomProfileResult.profile,
       this.terrainBottomPlacements,
     );
+    this.depthTerrain = this.terrain.map(col => [...col]);
+    this.innerTerrainTileIndex = Math.floor(Math.random() * 9);
   }
 
   private buildTopChunkPlan(): TerrainChunkPlacement[] {

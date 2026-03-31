@@ -38,6 +38,7 @@ export class MonkeysSpriteService {
   private readonly BACKGROUND_METADATA_PATH = 'assets/monkeys/background-metadata.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
+  readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
   private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
@@ -86,6 +87,10 @@ export class MonkeysSpriteService {
     this.loadProgress = 1;
     this.loadLabel = 'Done';
     return result;
+  }
+
+  async loadInnerTerrainSpritesheet(): Promise<HTMLImageElement | HTMLCanvasElement> {
+    return this.loadRawSpritesheet(this.INNER_TERRAIN_SPRITESHEET);
   }
 
   async loadTerrainMetadata(): Promise<TerrainMetadataFile> {

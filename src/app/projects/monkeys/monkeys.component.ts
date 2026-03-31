@@ -64,6 +64,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private ctx!: CanvasRenderingContext2D;
   private terrainSpriteCanvas: HTMLCanvasElement | null = null;
   private terrainSpriteCtx: CanvasRenderingContext2D | null = null;
+  private depthTerrainCanvas: HTMLCanvasElement | null = null;
+  private depthTerrainCtx: CanvasRenderingContext2D | null = null;
   private shieldMaskCanvas: HTMLCanvasElement | null = null;
   private shieldMaskCtx: CanvasRenderingContext2D | null = null;
   private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
@@ -377,7 +379,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gameService.currentState = GameState.LOADING;
     this.isLoading = true;
     try {
-      await Promise.all([this.gameService.initGame(), this.spriteService.loadTerrainSpritesheet()]);
+      await Promise.all([
+        this.gameService.initGame(),
+        this.spriteService.loadTerrainSpritesheet(),
+        this.spriteService.loadInnerTerrainSpritesheet().catch(() => {}),
+      ]);
     } catch (error) {
       console.error('Failed to start game:', error);
       this.gameService.currentState = GameState.MENU;
@@ -709,12 +715,84 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 0);
     offCtx.globalCompositeOperation = 'source-over';
 
+    // Draw depth terrain layer (behind main terrain sprites, same Z position)
+    this.drawDepthTerrainLayer(terrainY, startX, endX);
+
     // Brown fallback fill — visible through carved holes where sprites were erased
     this.ctx.fillStyle = CONST.TERRAIN_COLOR;
     this.scanlineTerrainFill(this.ctx, terrainY, startX, endX, 1);
 
     // Composite masked sprites over the colour fill
     this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
+  }
+
+  private drawDepthTerrainLayer(terrainY: number, startX: number, endX: number): void {
+    if (!this.gameService.depthTerrain?.length) return;
+
+    const sheet = this.spriteService.getSpritesheet(this.spriteService.INNER_TERRAIN_SPRITESHEET);
+    if (!sheet) return;
+
+    if (
+      !this.depthTerrainCanvas ||
+      this.depthTerrainCanvas.width !== CONST.CANVAS_WIDTH ||
+      this.depthTerrainCanvas.height !== CONST.CANVAS_HEIGHT
+    ) {
+      this.depthTerrainCanvas = document.createElement('canvas');
+      this.depthTerrainCanvas.width = CONST.CANVAS_WIDTH;
+      this.depthTerrainCanvas.height = CONST.CANVAS_HEIGHT;
+      this.depthTerrainCtx = this.depthTerrainCanvas.getContext('2d');
+    }
+
+    const dCtx = this.depthTerrainCtx!;
+    dCtx.clearRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
+
+    // Build a 256×256 tile canvas from the chosen inner terrain tile
+    const TILE_SIZE = 256;
+    const tileIndex = this.gameService.innerTerrainTileIndex;
+    const tileCol = tileIndex % 3;
+    const tileRow = Math.floor(tileIndex / 3);
+    const tileCanvas = document.createElement('canvas');
+    tileCanvas.width = TILE_SIZE;
+    tileCanvas.height = TILE_SIZE;
+    const tileCtx = tileCanvas.getContext('2d')!;
+    tileCtx.drawImage(sheet, tileCol * TILE_SIZE, tileRow * TILE_SIZE, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE);
+
+    // Tile the pattern across the full canvas, offset by camera for parallax-free scroll
+    const pattern = dCtx.createPattern(tileCanvas, 'repeat')!;
+    const offsetX = -(this.cameraController.camera.x % TILE_SIZE);
+    const offsetY = terrainY % TILE_SIZE;
+    dCtx.save();
+    dCtx.translate(offsetX, offsetY);
+    dCtx.fillStyle = pattern;
+    dCtx.fillRect(-offsetX, terrainY - offsetY, CONST.CANVAS_WIDTH + TILE_SIZE, CONST.TERRAIN_STRIP_HEIGHT + TILE_SIZE);
+    dCtx.restore();
+
+    // Mask: erase air cells using depthTerrain
+    dCtx.globalCompositeOperation = 'destination-out';
+    dCtx.fillStyle = 'rgba(0,0,0,1)';
+    const depthTerrain = this.gameService.depthTerrain;
+    for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
+      let segStart = -1;
+      for (let x = startX; x < endX; x++) {
+        if ((depthTerrain[x]?.[y] ?? 0) !== 1) {
+          if (segStart === -1) segStart = x;
+        } else if (segStart !== -1) {
+          const sx = Math.floor(segStart - this.cameraController.camera.x);
+          const ex = Math.floor(x - this.cameraController.camera.x);
+          dCtx.fillRect(sx, terrainY + y, ex - sx, 1);
+          segStart = -1;
+        }
+      }
+      if (segStart !== -1) {
+        const sx = Math.floor(segStart - this.cameraController.camera.x);
+        const ex = Math.floor(endX - this.cameraController.camera.x);
+        dCtx.fillRect(sx, terrainY + y, ex - sx, 1);
+      }
+    }
+    dCtx.globalCompositeOperation = 'source-over';
+
+    // Composite onto main canvas (opaque)
+    this.ctx.drawImage(this.depthTerrainCanvas, 0, 0);
   }
 
   private drawTerrainSpritePlacements(
@@ -1905,12 +1983,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.gameService.currentState = GameState.MENU;
       }
       event.preventDefault();
-    }
-
-    // Debug: keys 1–9 set wind to 10–90, key 0 sets wind to 100
-    if (/^[0-9]$/.test(event.key)) {
-      const intensity = event.key === '0' ? 100 : parseInt(event.key, 10) * 10;
-      this.gameService.setWindSpeed(intensity);
     }
 
     // Name editing in equipment menu
@@ -3667,8 +3739,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Empty arrow as base
     this.ctx.drawImage(
       emptySprite.image,
-      emptySprite.x, emptySprite.y, emptySprite.width, emptySprite.height,
-      -drawW / 2, -drawH / 2, drawW, drawH,
+      emptySprite.x,
+      emptySprite.y,
+      emptySprite.width,
+      emptySprite.height,
+      -drawW / 2,
+      -drawH / 2,
+      drawW,
+      drawH,
     );
 
     // Full arrow clipped behind a wavy boundary — left (tail) side revealed proportional to fill
@@ -3698,8 +3776,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       this.ctx.drawImage(
         fullSprite.image,
-        fullSprite.x, fullSprite.y, fullSprite.width, fullSprite.height,
-        -drawW / 2, -drawH / 2, drawW, drawH,
+        fullSprite.x,
+        fullSprite.y,
+        fullSprite.width,
+        fullSprite.height,
+        -drawW / 2,
+        -drawH / 2,
+        drawW,
+        drawH,
       );
       this.ctx.restore();
     }

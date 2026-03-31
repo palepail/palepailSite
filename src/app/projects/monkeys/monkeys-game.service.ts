@@ -294,14 +294,25 @@ export class MonkeysGameService {
 
     const moveSpeed = CONST.PLAYER_MOVE_SPEED;
     const vx = direction * moveSpeed;
-    const targetX = entity.x + vx;
-    const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
-    const angle = this.getTerrainAngleAt(targetX);
+
+    // Use forward-only slope sample so explosion craters behind the entity
+    // don't produce a false steep angle that blocks forward movement.
+    const lookAheadDist = CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE;
+    const lookAheadX = entity.x + direction * lookAheadDist;
+    const hasTerrain = this.getTerrainHeightAt(lookAheadX) !== -1;
+    const hCurrent = this.getTerrainHeightAt(entity.x);
+    const hAhead = this.getTerrainHeightAt(lookAheadX);
+    const forwardAngle =
+      hCurrent !== -1 && hAhead !== -1
+        ? Math.atan((hAhead - hCurrent) / lookAheadDist)
+        : 0;
     const canMove =
-      !hasTerrain || (vx < 0 ? angle <= CONST.MAX_CLIMB_ANGLE : angle >= -CONST.MAX_CLIMB_ANGLE);
+      !hasTerrain ||
+      (direction < 0 ? forwardAngle <= CONST.MAX_CLIMB_ANGLE : forwardAngle >= -CONST.MAX_CLIMB_ANGLE);
+
     if (canMove) {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
-      entity.movementFuel! -= 0.5; // Deplete fuel at same rate
+      entity.movementFuel! -= 0.5;
       entity.facing = direction;
       return true;
     } else {
@@ -814,6 +825,7 @@ export class MonkeysGameService {
           this.player,
           this.enemies,
           this.physicsService,
+          this.terrainService.depthTerrain,
         );
       }
       this.projectileService.explodedProjectiles =
@@ -980,6 +992,7 @@ export class MonkeysGameService {
         this.physicsService,
         this.player,
         this.enemies,
+        this.terrainService.depthTerrain,
       );
     }
 
@@ -1047,39 +1060,22 @@ export class MonkeysGameService {
           this.player.body &&
           !this.isCharging &&
           !this.projectile &&
-          this.player.turnState === 'idle'
+          this.player.turnState === 'idle' &&
+          this.player.movementFuel > 0 &&
+          this.isPlayerTurn()
         ) {
-          const targetX = this.player.x - 2.0;
-          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
-          const angle = this.getTerrainAngleAt(targetX);
-          const isTurningAround = oldFacing !== this.player.facing;
-          if (
-            this.player.movementFuel > 0 &&
-            (!hasTerrain || angle <= CONST.MAX_CLIMB_ANGLE || isTurningAround) &&
-            this.isPlayerTurn()
-          ) {
-            this.moveEntity(this.player, -1);
-          }
+          this.moveEntity(this.player, -1);
         }
         if (
           keys['ArrowRight'] &&
           this.player.body &&
           !this.isCharging &&
           !this.projectile &&
-          this.player.turnState === 'idle'
+          this.player.turnState === 'idle' &&
+          this.player.movementFuel > 0 &&
+          this.isPlayerTurn()
         ) {
-          const targetX = this.player.x + 2.0;
-          const hasTerrain = this.getTerrainHeightAt(targetX) !== -1;
-          const isTurningAround = oldFacing !== this.player.facing;
-          if (
-            this.player.movementFuel > 0 &&
-            (!hasTerrain ||
-              this.getTerrainAngleAt(targetX) >= -CONST.MAX_CLIMB_ANGLE ||
-              isTurningAround) &&
-            this.isPlayerTurn()
-          ) {
-            this.moveEntity(this.player, 1);
-          }
+          this.moveEntity(this.player, 1);
         }
 
         if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
@@ -1200,13 +1196,23 @@ export class MonkeysGameService {
     const sign = pushMultiplier < 0 ? -1 : 1;
     const dirX = awayX * sign;
     const dirY = awayY * sign;
-    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + dirX * pushDistance));
-    const targetY = target.y + dirY * pushDistance;
+
+    // Dampen horizontal push by the steepness of the terrain in the push direction.
+    // cos(terrainAngle) = 1 on flat ground, 0 on a vertical wall.
+    // We only dampen the horizontal component — a blast from below still launches
+    // the entity upward regardless of slope.
+    const terrainAngle = this.getTerrainAngleAt(target.x);
+    const slopeDampen = Math.cos(Math.abs(terrainAngle));
+    const effectiveDirX = dirX * slopeDampen;
+    const effectiveDirY = dirY; // vertical component unaffected
+
+    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + effectiveDirX * pushDistance));
+    const targetY = target.y + effectiveDirY * pushDistance;
     this.Body.setPosition(target.body, { x: targetX, y: targetY });
     if (target.body.velocity) {
       this.Body.setVelocity(target.body, {
-        x: target.body.velocity.x + dirX * pushDistance * 0.05,
-        y: target.body.velocity.y + dirY * pushDistance * 0.05,
+        x: target.body.velocity.x + effectiveDirX * pushDistance * 0.05,
+        y: target.body.velocity.y + effectiveDirY * pushDistance * 0.05,
       });
     }
     target.x = targetX;
@@ -1301,6 +1307,14 @@ export class MonkeysGameService {
 
   get terrain() {
     return this.terrainService.terrain;
+  }
+
+  get depthTerrain() {
+    return this.terrainService.depthTerrain;
+  }
+
+  get innerTerrainTileIndex() {
+    return this.terrainService.innerTerrainTileIndex;
   }
 
   get hasAimGuide() {

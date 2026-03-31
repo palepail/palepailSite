@@ -18,7 +18,7 @@ export class ProjectileService {
   explodedProjectiles: ExplodedProjectile[] = [];
   damageTexts: DamageText[] = [];
 
-  updateTrajectoryProjectile(terrain: number[][], physicsService: any, player: Player, enemies: Enemy[]) {
+  updateTrajectoryProjectile(terrain: number[][], physicsService: any, player: Player, enemies: Enemy[], depthTerrain?: number[][]) {
     if (
       !this.projectile ||
       !this.projectile.trajectory ||
@@ -30,7 +30,7 @@ export class ProjectileService {
     const positions = this.projectile.trajectory;
 
     if (index >= positions.length) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
 
@@ -45,7 +45,7 @@ export class ProjectileService {
       this.projectile.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
       this.projectile.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
     ) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
 
@@ -62,7 +62,7 @@ export class ProjectileService {
       terrainLocalY < terrain[px]?.length &&
       terrain[px][terrainLocalY] === 1
     ) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
 
@@ -91,7 +91,7 @@ export class ProjectileService {
       }
     }
     if (collided) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
 
@@ -115,14 +115,14 @@ export class ProjectileService {
         this.projectile.y = entity.y + sdy * scale;
         entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
         entity.shieldHitAngle = Math.atan2(sdy, sdx);
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
         return;
       }
     }
 
     // Check collision with entities
     if (this.checkEntityCollisions(this.projectile, player, enemies)) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService);
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
 
@@ -135,6 +135,7 @@ export class ProjectileService {
     player: Player,
     enemies: Enemy[],
     physicsService: any,
+    depthTerrain?: number[][],
   ) {
     if (!this.projectile) return;
 
@@ -155,6 +156,9 @@ export class ProjectileService {
 
     // Create crater
     this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
+    if (depthTerrain) {
+      this.createCrater(explosionX, explosionY, depthTerrain, projectileSnapshot.bullet, 0.3);
+    }
 
     this.explodedProjectiles.push({
       position: { x: explosionX, y: explosionY },
@@ -249,14 +253,14 @@ export class ProjectileService {
     }
   }
 
-  createCrater(centerX: number, centerY: number, terrain: number[][], bullet: any): void {
+  createCrater(centerX: number, centerY: number, terrain: number[][], bullet: any, radiusScale = 1): void {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    let craterRadiusX = bullet.craterRadius;
-    let craterRadiusY = bullet.craterRadius;
+    let craterRadiusX = bullet.craterRadius * radiusScale;
+    let craterRadiusY = bullet.craterRadius * radiusScale;
     if (bullet.explosionShape === 'horizontal_oval') {
-      craterRadiusX = bullet.craterRadius * 1.5;
+      craterRadiusX = bullet.craterRadius * 1.5 * radiusScale;
     } else if (bullet.explosionShape === 'vertical_oval') {
-      craterRadiusY = bullet.craterRadius * 1.5;
+      craterRadiusY = bullet.craterRadius * 1.5 * radiusScale;
     }
 
     for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
