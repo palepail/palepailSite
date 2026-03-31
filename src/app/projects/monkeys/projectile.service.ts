@@ -18,7 +18,13 @@ export class ProjectileService {
   explodedProjectiles: ExplodedProjectile[] = [];
   damageTexts: DamageText[] = [];
 
-  updateTrajectoryProjectile(terrain: number[][], physicsService: any, player: Player, enemies: Enemy[], depthTerrain?: number[][]) {
+  updateTrajectoryProjectile(
+    terrain: number[][],
+    physicsService: any,
+    player: Player,
+    enemies: Enemy[],
+    depthTerrain?: number[][],
+  ) {
     if (
       !this.projectile ||
       !this.projectile.trajectory ||
@@ -152,12 +158,19 @@ export class ProjectileService {
       shape: this.projectile.bullet.explosionShape,
     });
 
-    this.calculateExplosionDamage(explosionX, explosionY, projectileSnapshot, player, enemies, physicsService);
+    this.calculateExplosionDamage(
+      explosionX,
+      explosionY,
+      projectileSnapshot,
+      player,
+      enemies,
+      physicsService,
+    );
 
     // Create crater
     this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
-      this.createCrater(explosionX, explosionY, depthTerrain, projectileSnapshot.bullet, 0.3);
+      this.createCrater(explosionX, explosionY, depthTerrain, projectileSnapshot.bullet, 0.45);
     }
 
     this.explodedProjectiles.push({
@@ -206,7 +219,14 @@ export class ProjectileService {
           damage: actualDamage,
           life: CONST.DAMAGE_TEXT_LIFETIME,
         });
-        physicsService.applyExplosionKnockback(player, explosionX, explosionY, projectile, radiusX, radiusY);
+        physicsService.applyExplosionKnockback(
+          player,
+          explosionX,
+          explosionY,
+          projectile,
+          radiusX,
+          radiusY,
+        );
       }
     }
 
@@ -228,7 +248,14 @@ export class ProjectileService {
             damage: damage,
             life: CONST.DAMAGE_TEXT_LIFETIME,
           });
-          physicsService.applyExplosionKnockback(enemy, explosionX, explosionY, projectile, radiusX, radiusY);
+          physicsService.applyExplosionKnockback(
+            enemy,
+            explosionX,
+            explosionY,
+            projectile,
+            radiusX,
+            radiusY,
+          );
           if (projectile.owner === player && player.vehicle.lifesteal && damage > 0) {
             const heal = Math.round(damage * (player.vehicle.lifesteal / 100));
             if (heal > 0) {
@@ -253,7 +280,13 @@ export class ProjectileService {
     }
   }
 
-  createCrater(centerX: number, centerY: number, terrain: number[][], bullet: any, radiusScale = 1): void {
+  createCrater(
+    centerX: number,
+    centerY: number,
+    terrain: number[][],
+    bullet: any,
+    radiusScale = 1,
+  ): void {
     const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     let craterRadiusX = bullet.craterRadius * radiusScale;
     let craterRadiusY = bullet.craterRadius * radiusScale;
