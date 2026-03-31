@@ -147,6 +147,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Loading flag
   private isLoading = false;
 
+  // Wind indicator animation state
+  private windAnim = {
+    displayAngle: 0,
+    displayFill: 0,
+    fromAngle: 0,
+    fromFill: 0,
+    toAngle: 0,
+    toFill: 0,
+    startTime: 0,
+    duration: 600,
+  };
+
   // Player movement tracking
   private playerMovementStarted = false;
 
@@ -1736,6 +1748,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const now = this.renderTime;
       const remaining = Math.max(0, Math.floor(45 - (now - this.gameService.turnStartTime) / 1000));
       this.drawArenaNumber(String(remaining), CONST.CANVAS_WIDTH - 20, 8, 64);
+    }
+    if (
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.PAUSED ||
+      this.gameService.currentState === GameState.SETUP
+    ) {
       this.drawWindIndicator();
     }
 
@@ -1887,6 +1905,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.gameService.currentState = GameState.MENU;
       }
       event.preventDefault();
+    }
+
+    // Debug: keys 1–9 set wind to 10–90, key 0 sets wind to 100
+    if (/^[0-9]$/.test(event.key)) {
+      const intensity = event.key === '0' ? 100 : parseInt(event.key, 10) * 10;
+      this.gameService.setWindSpeed(intensity);
     }
 
     // Name editing in equipment menu
@@ -3598,57 +3622,96 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Draws a string of digits (and '/') right-aligned using arena number sprites.
   // Falls back to plain text for any character without a sprite.
   private drawWindIndicator(): void {
-    const windSpeed = this.gameService.windSpeed;
-    const windAngle = this.gameService.windAngle;
+    const targetSpeed = this.gameService.windSpeed;
+    const targetAngle = this.gameService.windAngle;
+    const now = Date.now();
+    const wa = this.windAnim;
+
+    // Detect wind change and kick off a new transition
+    const targetFill = targetSpeed / 100;
+    if (targetAngle !== wa.toAngle || targetFill !== wa.toFill) {
+      wa.fromAngle = wa.displayAngle;
+      wa.fromFill = wa.displayFill;
+      wa.toAngle = targetAngle;
+      wa.toFill = targetFill;
+      wa.startTime = now;
+    }
+
+    // Step the animation
+    const elapsed = now - wa.startTime;
+    const t = wa.duration > 0 ? Math.min(1, elapsed / wa.duration) : 1;
+    // Ease in-out cubic
+    const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    // Interpolate angle via shortest arc
+    let angleDiff = wa.toAngle - wa.fromAngle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    wa.displayAngle = wa.fromAngle + angleDiff * ease;
+    wa.displayFill = wa.fromFill + (wa.toFill - wa.fromFill) * ease;
+
     const cx = CONST.CANVAS_WIDTH / 2;
-    const panelW = 110, panelH = 54;
-    const panelX = cx - panelW / 2, panelY = 6;
+    const arrowCy = 50;
+    const drawW = 90;
+    const emptySprite = this.spriteService.getSprite('tank_arrowEmpty');
+    const fullSprite = this.spriteService.getSprite('tank_arrowFull');
+    if (!emptySprite) return;
+    const drawH = Math.round((drawW * emptySprite.height) / emptySprite.width);
 
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    this.ctx.fillRect(panelX, panelY, panelW, panelH);
-    this.ctx.strokeStyle = 'rgba(100, 140, 200, 0.6)';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(panelX, panelY, panelW, panelH);
+    this.ctx.save();
+    this.ctx.translate(cx, arrowCy);
+    if (wa.displayFill > 0) {
+      this.ctx.rotate(wa.displayAngle);
+    }
 
-    this.ctx.fillStyle = '#AABBCC';
-    this.ctx.font = 'bold 10px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText('WIND', cx, panelY + 10);
+    // Empty arrow as base
+    this.ctx.drawImage(
+      emptySprite.image,
+      emptySprite.x, emptySprite.y, emptySprite.width, emptySprite.height,
+      -drawW / 2, -drawH / 2, drawW, drawH,
+    );
 
-    const arrowCy = panelY + 31;
-    if (windSpeed === 0) {
-      this.ctx.fillStyle = '#88AACC';
-      this.ctx.font = 'bold 16px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText('—', cx, arrowCy);
-    } else {
-      const arrowLen = 8 + (windSpeed / 100) * 20;
+    // Full arrow clipped behind a wavy boundary — left (tail) side revealed proportional to fill
+    if (fullSprite && wa.displayFill > 0) {
+      const fillX = -drawW / 2 + drawW * wa.displayFill; // x of the clip boundary
+      const waveAmp = 3;
+      const waveFreq = 0.06;
+      const wavePhase = (now / 400) % (Math.PI * 2);
+
       this.ctx.save();
-      this.ctx.translate(cx, arrowCy);
-      this.ctx.rotate(windAngle);
-      this.ctx.strokeStyle = '#FFE066';
-      this.ctx.fillStyle = '#FFE066';
-      this.ctx.lineWidth = 2;
       this.ctx.beginPath();
-      this.ctx.moveTo(-arrowLen / 2, 0);
-      this.ctx.lineTo(arrowLen / 2 - 5, 0);
-      this.ctx.stroke();
-      this.ctx.beginPath();
-      this.ctx.moveTo(arrowLen / 2, 0);
-      this.ctx.lineTo(arrowLen / 2 - 7, -4);
-      this.ctx.lineTo(arrowLen / 2 - 7, 4);
+      // Start top-left
+      this.ctx.moveTo(-drawW / 2, -drawH / 2);
+      // Top edge straight to the wavy boundary
+      this.ctx.lineTo(fillX, -drawH / 2);
+      // Wavy right edge top to bottom
+      const steps = 12;
+      for (let i = 0; i <= steps; i++) {
+        const fy = -drawH / 2 + (drawH * i) / steps;
+        const wx = fillX + Math.sin(fy * waveFreq + wavePhase) * waveAmp;
+        this.ctx.lineTo(wx, fy);
+      }
+      // Bottom edge back to left
+      this.ctx.lineTo(-drawW / 2, drawH / 2);
       this.ctx.closePath();
-      this.ctx.fill();
+      this.ctx.clip();
+
+      this.ctx.drawImage(
+        fullSprite.image,
+        fullSprite.x, fullSprite.y, fullSprite.width, fullSprite.height,
+        -drawW / 2, -drawH / 2, drawW, drawH,
+      );
       this.ctx.restore();
     }
 
+    this.ctx.restore();
+
+    // Speed number below the arrow (screen space, unrotated)
     this.ctx.fillStyle = '#DDEEFF';
     this.ctx.font = 'bold 11px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(String(Math.round(windSpeed)), cx, panelY + panelH - 8);
+    this.ctx.textBaseline = 'top';
+    this.ctx.fillText(String(Math.round(targetSpeed)), cx, arrowCy + drawH / 2 + 2);
   }
 
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {

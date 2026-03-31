@@ -88,9 +88,9 @@ export class PhysicsService {
       // Record position
       positions.push({ x: projectile.position.x, y: projectile.position.y });
 
-      // Apply wind force (horizontal only)
+      // Apply wind force (horizontal only, capped at 75% effective strength)
       this.Body.applyForce(projectile, projectile.position, {
-        x: windSpeed * CONST.WIND_BULLET_FORCE_SCALE * Math.cos(windAngle) / bullet.weight,
+        x: windSpeed * 0.75 * CONST.WIND_BULLET_FORCE_SCALE * Math.cos(windAngle) / bullet.weight,
         y: 0,
       });
 
@@ -142,7 +142,7 @@ export class PhysicsService {
       }
       if (this.windSpeed > 0 && Math.abs(entity.body.velocity.y) > 1.0) {
         this.Body.applyForce(entity.body, entity.body.position, {
-          x: this.windSpeed * CONST.WIND_VEHICLE_FORCE_SCALE * Math.cos(this.windAngle) / (entity.vehicle?.weight ?? 10),
+          x: this.windSpeed * 0.75 * CONST.WIND_VEHICLE_FORCE_SCALE * Math.cos(this.windAngle) / (entity.vehicle?.weight ?? 10),
           y: 0,
         });
       }

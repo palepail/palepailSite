@@ -832,6 +832,11 @@ export class MonkeysGameService {
     this.physicsService.clearTrajectoryCache();
   }
 
+  setWindSpeed(speed: number): void {
+    this.physicsService.windSpeed = speed;
+    this.physicsService.clearTrajectoryCache();
+  }
+
   private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
     const maxDamage = projectile.bullet.damage;
     const damageRadius = projectile.bullet.explosionRadius ?? 50;
@@ -1010,10 +1015,9 @@ export class MonkeysGameService {
       }
     }
 
-    // Check for turn timeout (for enemies, since players don't timeout)
+    // Check for turn timeout
     if (
       this.currentState === GameState.PLAYING &&
-      !this.isPlayerTurn() &&
       this.turnService.turnTime > this.turnService.TIMEOUT_MS
     ) {
       this.endTurn(150);
