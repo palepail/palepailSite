@@ -247,9 +247,6 @@ export class MonkeysGameService {
       }
     }
 
-    // Handle enemy AI turns
-    this.handleEnemyTurns();
-
     this.collisionService.checkEnemiesTerrainCollision(
       this.enemies,
       this.terrainService.terrain,
@@ -257,36 +254,46 @@ export class MonkeysGameService {
     );
   }
 
-  private handleEnemyTurns() {
+  private handleTurns() {
     if (this.currentState !== GameState.PLAYING) return;
 
     const currentTurn = this.getCurrentTurnEntity();
-    if (!currentTurn || currentTurn.type !== 'enemy') return;
+    if (!currentTurn) return;
+    const entity = currentTurn.entity;
+    if (!entity.active) return;
 
-    const enemy = currentTurn.entity as Enemy;
-    if (!enemy.active) return;
-
-    // Check for timeout
-    if (this.turnService.turnTime > this.turnService.TIMEOUT_MS) {
+    if (
+      this.turnService.turnTime > this.turnService.TIMEOUT_MS &&
+      entity.turnState !== 'bullet_in_flight' &&
+      entity.turnState !== 'post_bullet'
+    ) {
       this.endTurn();
       return;
     }
 
-    // Use local performEnemyAction which has full movement/charging/shooting logic
-    this.performEnemyAction(enemy);
+    if (currentTurn.type === 'player') {
+      this.performPlayerAction(entity as Player);
+    } else {
+      this.performEnemyAction(entity as Enemy);
+    }
   }
 
-  private handlePlayerTurns() {
-    if (this.currentState !== GameState.PLAYING) return;
-
-    const currentTurn = this.getCurrentTurnEntity();
-    if (!currentTurn || currentTurn.type !== 'player') return;
-
-    const player = currentTurn.entity as Player;
-    if (!player.active) return;
-
-    // Handle player turn states
-    this.performPlayerAction(player);
+  private performSharedTurnStates(entity: Player | Enemy): boolean {
+    switch (entity.turnState) {
+      case 'charging':
+        this.performCharging(entity);
+        return true;
+      case 'bullet_in_flight':
+        if (!this.projectile) {
+          entity.turnState = 'post_bullet';
+          entity.turnTimer = 1.0;
+        }
+        return true;
+      case 'post_bullet':
+        return true;
+      default:
+        return false;
+    }
   }
 
   private moveEntity(entity: Player | Enemy, direction: number): boolean {
@@ -306,9 +313,7 @@ export class MonkeysGameService {
       hCurrent !== -1 && hAhead !== -1
         ? Math.atan((hAhead - hCurrent) / lookAheadDist)
         : 0;
-    const canMove =
-      !hasTerrain ||
-      (direction < 0 ? forwardAngle <= CONST.MAX_CLIMB_ANGLE : forwardAngle >= -CONST.MAX_CLIMB_ANGLE);
+    const canMove = !hasTerrain || forwardAngle >= -CONST.MAX_CLIMB_ANGLE;
 
     if (canMove) {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
@@ -370,12 +375,10 @@ export class MonkeysGameService {
   }
 
   private performPlayerAction(player: Player) {
+    if (this.performSharedTurnStates(player)) return;
+
     // Check for skip
-    if (
-      this.keys['S'] &&
-      player.turnState !== 'bullet_in_flight' &&
-      player.turnState !== 'post_bullet'
-    ) {
+    if (this.keys['S']) {
       this.endTurn();
       return;
     }
@@ -406,25 +409,12 @@ export class MonkeysGameService {
       case 'aiming':
         // Player is aiming - handled in input
         break;
-
-      case 'charging':
-        this.performCharging(player);
-        break;
-
-      case 'bullet_in_flight':
-        if (!this.projectile && player.turnState === 'bullet_in_flight') {
-          player.turnState = 'post_bullet';
-          player.turnTimer = 1.0;
-        }
-        break;
-
-      case 'post_bullet':
-        // Timer handled in updateTurnQueue
-        break;
     }
   }
 
   private performEnemyAction(enemy: Enemy) {
+    if (this.performSharedTurnStates(enemy)) return;
+
     const target: Player | Enemy = enemy.target ?? this.player;
     switch (enemy.turnState) {
       case 'turn_start':
@@ -719,20 +709,6 @@ export class MonkeysGameService {
         }
         break;
 
-      case 'charging':
-        this.performCharging(enemy);
-        break;
-
-      case 'bullet_in_flight':
-        if (!this.projectile) {
-          enemy.turnState = 'post_bullet';
-          enemy.turnTimer = 1.0;
-        }
-        break;
-
-      case 'post_bullet':
-        // Timer handled in updateTurnQueue
-        break;
     }
   }
 
@@ -982,8 +958,8 @@ export class MonkeysGameService {
     // Update enemies
     this.updateEnemies();
 
-    // Handle player turns
-    this.handlePlayerTurns();
+    // Handle turns
+    this.handleTurns();
 
     // Update projectile if exists
     if (this.projectileService.projectile) {

@@ -41,6 +41,8 @@ export class ProjectileService {
     }
 
     // Set position to current trajectory point
+    const prevX = this.projectile.x;
+    const prevY = this.projectile.y;
     this.projectile.x = positions[index].x;
     this.projectile.y = positions[index].y;
 
@@ -55,10 +57,43 @@ export class ProjectileService {
       return;
     }
 
-    // Check terrain collision
+    // Sweep the segment from previous position to current position to catch tunneling
+    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    const segDx = this.projectile.x - prevX;
+    const segDy = this.projectile.y - prevY;
+    const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+    const steps = Math.ceil(segLen);
+    let hitX = this.projectile.x;
+    let hitY = this.projectile.y;
+    let terrainHit = false;
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 1 : s / steps;
+      const sx = Math.floor(prevX + segDx * t);
+      const sy = Math.floor(prevY + segDy * t);
+      const localY = sy - terrainY;
+      if (
+        sx >= 0 &&
+        sx < CONST.TERRAIN_WIDTH &&
+        localY >= 0 &&
+        localY < terrain[sx]?.length &&
+        terrain[sx][localY] === 1
+      ) {
+        hitX = sx;
+        hitY = sy;
+        terrainHit = true;
+        break;
+      }
+    }
+    if (terrainHit) {
+      this.projectile.x = hitX;
+      this.projectile.y = hitY;
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    // Check offset neighbours at current position for near-miss terrain
     const px = Math.floor(this.projectile.x);
     const py = Math.floor(this.projectile.y);
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     const terrainLocalY = py - terrainY;
 
     if (
@@ -170,7 +205,10 @@ export class ProjectileService {
     // Create crater
     this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
-      this.createCrater(explosionX, explosionY, depthTerrain, projectileSnapshot.bullet, 0.45);
+      const depthScale = 0.45 + Math.random() * 0.35; // 0.45x–0.80x random size
+      const offsetX = (Math.random() - 0.5) * 20;   // ±10px random offset
+      const offsetY = (Math.random() - 0.5) * 20;
+      this.createCrater(explosionX + offsetX, explosionY + offsetY, depthTerrain, projectileSnapshot.bullet, depthScale);
     }
 
     this.explodedProjectiles.push({

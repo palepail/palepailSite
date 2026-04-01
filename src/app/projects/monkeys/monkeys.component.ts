@@ -130,7 +130,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       bounce: 0.42,
       minBounceVY: 60,
       advanceRatio: 0.62,
-      targetYFn: () => CONST.CANVAS_HEIGHT / 2 - 48, // CANVAS_HEIGHT/2 - letterSize/2
+      targetYFn: () => CONST.CANVAS_HEIGHT / 3 - 48, // top-third - letterSize/2
     },
     letterY: [],
     letterVY: [],
@@ -715,15 +715,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 0);
     offCtx.globalCompositeOperation = 'source-over';
 
-    // Draw depth terrain layer (behind main terrain sprites, same Z position)
-    this.drawDepthTerrainLayer(terrainY, startX, endX);
-
     // Brown fallback fill — visible through carved holes where sprites were erased
     this.ctx.fillStyle = CONST.TERRAIN_COLOR;
     this.scanlineTerrainFill(this.ctx, terrainY, startX, endX, 1);
 
     // Composite masked sprites over the colour fill
     this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
+
+    // Draw depth terrain layer on top — only visible in the ring where main terrain is
+    // carved away by a large crater but depth terrain still has solid (smaller crater)
+    this.drawDepthTerrainLayer(terrainY, startX, endX);
   }
 
   private drawDepthTerrainLayer(terrainY: number, startX: number, endX: number): void {
@@ -767,14 +768,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     dCtx.fillRect(-offsetX, terrainY - offsetY, CONST.CANVAS_WIDTH + TILE_SIZE, CONST.TERRAIN_STRIP_HEIGHT + TILE_SIZE);
     dCtx.restore();
 
-    // Mask: erase air cells using depthTerrain
+    // Mask: only keep pixels where main terrain is carved (=0) AND depth terrain is solid (=1)
+    // This reveals the inner texture in the ring between the large and small craters
     dCtx.globalCompositeOperation = 'destination-out';
     dCtx.fillStyle = 'rgba(0,0,0,1)';
+    const mainTerrain = this.gameService.terrain;
     const depthTerrain = this.gameService.depthTerrain;
     for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
       let segStart = -1;
       for (let x = startX; x < endX; x++) {
-        if ((depthTerrain[x]?.[y] ?? 0) !== 1) {
+        const inRing = (mainTerrain[x]?.[y] ?? 0) === 0 && (depthTerrain[x]?.[y] ?? 0) === 1;
+        if (!inRing) {
           if (segStart === -1) segStart = x;
         } else if (segStart !== -1) {
           const sx = Math.floor(segStart - this.cameraController.camera.x);
@@ -1846,13 +1850,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
             : this.messageTimer / FADE; // fade out
       this.ctx.save();
       this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-      this.drawSpriteTextCentered(this.turnMessage, CONST.CANVAS_HEIGHT / 2 - 54, 70, 0.42);
+      this.drawSpriteTextCentered(this.turnMessage, CONST.CANVAS_HEIGHT / 3 - 54, 70, 0.42);
       this.ctx.restore();
     }
 
     // Draw pause/game over message
     if (this.gameService.currentState === GameState.PAUSED) {
-      this.drawSpriteTextCentered('Paused', CONST.CANVAS_HEIGHT / 2 - 35, 70, 0.42);
+      this.drawSpriteTextCentered('Paused', CONST.CANVAS_HEIGHT / 3 - 35, 70, 0.42);
     } else if (
       this.gameService.currentState === GameState.GAME_OVER_DELAY ||
       this.gameService.currentState === GameState.GAME_OVER ||
@@ -1882,7 +1886,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       ) {
         this.drawSpriteTextCentered(
           'Press R to return',
-          CONST.CANVAS_HEIGHT / 2 + this.gameOverAnim.cfg.letterSize / 2 + 16,
+          CONST.CANVAS_HEIGHT / 3 + this.gameOverAnim.cfg.letterSize / 2 + 16,
           28,
         );
       }
