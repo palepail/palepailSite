@@ -333,6 +333,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly SLIDER_BG_TRACK_Y = 410;
   private readonly SLIDER_SFX_TRACK_Y = 503;
   private draggingSlider: 'bg' | 'sfx' | null = null;
+  private powerMarkerRatio: number | null = null;
+  private draggingPowerMarker = false;
   private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 48, 220, 44);
   private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 102, 220, 44);
   private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(
@@ -394,6 +396,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
     window.addEventListener('mouseup', () => {
       this.draggingSlider = null;
+      this.draggingPowerMarker = false;
     });
     window.addEventListener('keydown', (event) => this.onKeyDown(event));
     window.addEventListener('keyup', (event) => this.onKeyUp(event));
@@ -638,8 +641,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawTerrain();
 
     // Draw charge bars (behind tanks)
-    if (this.gameService.isCharging) {
-      this.drawChargeBar(this.gameService.player, this.gameService.player.maxPower);
+    if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
+      this.drawChargeBar(
+        this.gameService.player,
+        this.gameService.player.maxPower,
+        this.powerMarkerRatio ?? undefined,
+      );
     }
     for (const enemy of this.gameService.enemies) {
       if (enemy.active && enemy.turnState === 'charging') {
@@ -669,7 +676,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawTurnQueue();
   }
 
-  private drawChargeBar(entity: any, maxPower: number) {
+  private drawChargeBar(entity: any, maxPower: number, markerRatio?: number) {
     const barWidth = CONST.CHARGE_BAR_WIDTH;
     const barHeight = CONST.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
     // Position further behind tank based on facing direction
@@ -703,6 +710,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.strokeStyle = CONST.CHARGE_BAR_BORDER_COLOR;
     this.ctx.lineWidth = CONST.CHARGE_BAR_BORDER_WIDTH;
     this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Target power marker
+    if (markerRatio !== undefined) {
+      const markerY = barY + barHeight * (1 - markerRatio);
+      this.ctx.strokeStyle = '#FF8C00';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(barX - 5, markerY);
+      this.ctx.lineTo(barX + barWidth + 5, markerY);
+      this.ctx.stroke();
+      const markerPct = Math.round(markerRatio * 100);
+      const labelSize = 16;
+      // Centre the label on the side away from the player sprite
+      const labelCentreX =
+        entity.facing === 1
+          ? barX - 20 // bar is left of player — label left of bar
+          : barX + barWidth + 20; // bar is right of player — label right of bar
+      this.drawPowerPercent(markerPct, labelCentreX, markerY - labelSize / 2, '#FF8C00', labelSize);
+    }
 
     // Power percentage
     const pct = Math.round(chargeRatio * 100);
@@ -2105,6 +2131,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (this.gameService.currentState !== GameState.PAUSED) {
         if (this.gameService.isCharging && !this.gameService.projectile) {
           this.gameService.shoot();
+          this.powerMarkerRatio = this.gameService.lastFiredPowerRatio;
         }
         this.gameService.isCharging = false;
       }
@@ -2135,7 +2162,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Handle camera dragging
-    if (this.isDragging) {
+    if (this.isDragging && !this.draggingPowerMarker) {
       const deltaX = (event.clientX - this.lastMouseX) / this.canvasScale;
       const deltaY = (event.clientY - this.lastMouseY) / this.canvasScale;
       this.cameraController.camera.x -= deltaX * 2; // Increased sensitivity
@@ -3122,9 +3149,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawBouncingLetterAnim(this.menuTitleAnim, this.MT_LETTERS, '#FF6622');
 
     // Subtitle lines
-    this.drawSpriteTextCentered('An artillery game', 165, 32);
-    this.drawSpriteTextCentered('inspired by DOS GORILLAS', 207, 32);
-    this.drawSpriteTextCentered('and Gunbound by SOFTNYX', 249, 32);
+    this.drawSpriteTextCentered('Inspired By', 165, 32);
+    this.drawSpriteTextCentered('GORILLAS Gunbound WORMS', 207, 32);
 
     // Draw idle sprite
     const idleSprite = this.spriteService.getSprite('monkey_idle');
@@ -3807,8 +3833,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
-  private drawPowerPercent(pct: number, centreX: number, topY: number) {
-    const size = this.POWER_PERCENT_SPRITE_SIZE;
+  private drawPowerPercent(pct: number, centreX: number, topY: number, tint?: string, size = this.POWER_PERCENT_SPRITE_SIZE) {
     const advance = size * 0.45;
     const chars = `${pct}%`.split('');
     const totalWidth = (chars.length - 1) * advance + size;
@@ -3819,6 +3844,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       topY,
       size,
       advance,
+      tint,
     );
   }
 
@@ -4165,20 +4191,63 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private onCanvasMouseDown(event: MouseEvent) {
-    if (this.gameService.currentState !== GameState.OPTIONS) return;
     const { x, y } = this.getCanvasCoords(event);
-    if (this.sliderHitTest(x, y, this.SLIDER_BG_TRACK_Y)) {
-      this.draggingSlider = 'bg';
-      this.applySliderX(x, 'bg');
-    } else if (this.sliderHitTest(x, y, this.SLIDER_SFX_TRACK_Y)) {
-      this.draggingSlider = 'sfx';
-      this.applySliderX(x, 'sfx');
+    if (this.gameService.currentState === GameState.OPTIONS) {
+      if (this.sliderHitTest(x, y, this.SLIDER_BG_TRACK_Y)) {
+        this.draggingSlider = 'bg';
+        this.applySliderX(x, 'bg');
+      } else if (this.sliderHitTest(x, y, this.SLIDER_SFX_TRACK_Y)) {
+        this.draggingSlider = 'sfx';
+        this.applySliderX(x, 'sfx');
+      }
+      return;
+    }
+    if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
+      const bar = this.getPlayerChargeBarScreenRect();
+      if (
+        bar &&
+        x >= bar.x - 6 &&
+        x <= bar.x + bar.width + 6 &&
+        y >= bar.y &&
+        y <= bar.y + bar.height
+      ) {
+        this.powerMarkerRatio = Math.max(0, Math.min(1, 1 - (y - bar.y) / bar.height));
+        this.draggingPowerMarker = true;
+      }
     }
   }
 
   private onCanvasMouseMove(event: MouseEvent) {
-    if (!this.draggingSlider || this.gameService.currentState !== GameState.OPTIONS) return;
-    const { x } = this.getCanvasCoords(event);
-    this.applySliderX(x, this.draggingSlider);
+    const { x, y } = this.getCanvasCoords(event);
+    if (this.draggingSlider && this.gameService.currentState === GameState.OPTIONS) {
+      this.applySliderX(x, this.draggingSlider);
+      return;
+    }
+    if (this.draggingPowerMarker) {
+      const bar = this.getPlayerChargeBarScreenRect();
+      if (bar) {
+        this.powerMarkerRatio = Math.max(0, Math.min(1, 1 - (y - bar.y) / bar.height));
+      }
+    }
+  }
+
+  private getPlayerChargeBarScreenRect(): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null {
+    const p = this.gameService.player;
+    if (!p.active) return null;
+    const offsetX = p.facing === 1 ? -CONST.CHARGE_BAR_OFFSET_X : CONST.CHARGE_BAR_OFFSET_X;
+    const worldX = p.x + offsetX;
+    const worldY = p.y - CONST.CHARGE_BAR_HEIGHT / 2;
+    const screen = this.cameraController.worldToScreen(worldX, worldY);
+    return {
+      x: screen.x,
+      y: screen.y,
+      width: CONST.CHARGE_BAR_WIDTH,
+      height: CONST.CHARGE_BAR_HEIGHT,
+    };
   }
 }

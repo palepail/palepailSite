@@ -62,6 +62,7 @@ export class MonkeysGameService {
   // Flags
   isCharging = false;
   chargeStartTime = 0;
+  lastFiredPowerRatio: number | null = null;
 
   // Input
   keys: { [key: string]: boolean } = {};
@@ -1075,6 +1076,7 @@ export class MonkeysGameService {
       bullet: bullet,
     };
 
+    this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
     this.isCharging = false;
     this.player.turnState = 'bullet_in_flight';
   }
