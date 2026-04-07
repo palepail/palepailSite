@@ -140,14 +140,8 @@ export class PhysicsService {
         const diff = entity.targetAngle - entity.angle;
         entity.angle += diff * 0.1; // 10% interpolation per frame
       }
-      if (this.windSpeed > 0 && Math.abs(entity.body.velocity.y) > 1.0) {
-        this.Body.applyForce(entity.body, entity.body.position, {
-          x:
-            (this.windSpeed * 0.75 * CONST.WIND_VEHICLE_FORCE_SCALE * Math.cos(this.windAngle)) /
-            (entity.vehicle?.weight ?? 10),
-          y: 0,
-        });
-      }
+      // Wind force for vehicles is applied in MonkeysGameService.applyWindToEntity(),
+      // which has access to CollisionService for slope-aware gating.
     }
   }
 

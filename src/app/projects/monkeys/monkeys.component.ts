@@ -3855,13 +3855,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.ctx.restore();
-
-    // Speed number below the arrow (screen space, unrotated)
-    this.ctx.fillStyle = '#DDEEFF';
-    this.ctx.font = 'bold 11px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'top';
-    this.ctx.fillText(String(Math.round(targetSpeed)), cx, arrowCy + drawH / 2 + 2);
   }
 
   private drawMuteButton(): void {

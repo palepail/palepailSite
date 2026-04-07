@@ -238,6 +238,7 @@ export class MonkeysGameService {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
         this.physicsService.updateEntityPhysics(enemy);
+        this.applyWindToEntity(enemy);
         // Kill enemies that have fallen off the map before AI or terrain-snap runs
         if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
           enemy.health = 0;
@@ -302,16 +303,12 @@ export class MonkeysGameService {
     const moveSpeed = CONST.PLAYER_MOVE_SPEED;
     const vx = direction * moveSpeed;
 
-    // Use forward-only slope sample so explosion craters behind the entity
-    // don't produce a false steep angle that blocks forward movement.
-    const lookAheadDist = CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE;
-    const lookAheadX = entity.x + direction * lookAheadDist;
-    const hasTerrain = this.getTerrainHeightAt(lookAheadX) !== -1;
-    const hCurrent = this.getTerrainHeightAt(entity.x);
-    const hAhead = this.getTerrainHeightAt(lookAheadX);
-    const forwardAngle =
-      hCurrent !== -1 && hAhead !== -1 ? Math.atan((hAhead - hCurrent) / lookAheadDist) : 0;
-    const canMove = !hasTerrain || forwardAngle >= -CONST.MAX_CLIMB_ANGLE;
+    // Delegate slope check to CollisionService — the single source of truth for cliff traversal.
+    const canMove = this.collisionService.canTraverseSlopeInDirection(
+      entity.x,
+      direction,
+      this.terrainService.terrain,
+    );
 
     if (canMove) {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
@@ -370,6 +367,24 @@ export class MonkeysGameService {
         entity.angle += diff * 0.1; // 10% interpolation per frame
       }
     }
+  }
+
+  /**
+   * Apply wind force to vehicles. Lives here rather than PhysicsService so it can use
+   * CollisionService.canTraverseSlopeInDirection() — the same cliff check used by movement.
+   */
+  private applyWindToEntity(entity: Player | Enemy) {
+    if (!entity.body || this.physicsService.windSpeed <= 0) return;
+    if (Math.abs(entity.body.velocity.y) <= 1.0) return; // only push airborne entities
+    this.Body.applyForce(entity.body, entity.body.position, {
+      x:
+        (this.physicsService.windSpeed *
+          0.75 *
+          CONST.WIND_VEHICLE_FORCE_SCALE *
+          Math.cos(this.physicsService.windAngle)) /
+        (entity.vehicle?.weight ?? 10),
+      y: 0,
+    });
   }
 
   private performPlayerAction(player: Player) {
@@ -952,6 +967,7 @@ export class MonkeysGameService {
 
     // Update player physics
     this.physicsService.updateEntityPhysics(this.player);
+    this.applyWindToEntity(this.player);
 
     // Update enemies
     this.updateEnemies();

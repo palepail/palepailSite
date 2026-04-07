@@ -19,15 +19,19 @@ export class CollisionService {
       const GROUNDED_ZONE = 3;
 
       if (tankBottom > terrainHeight - GROUNDED_ZONE) {
-        // Kill downward velocity near/at surface to prevent gravity-snap jitter
-        if (player.body.velocity.y > 0) {
-          physicsService.Body.setVelocity(player.body, { x: player.body.velocity.x, y: 0 });
-        }
-        if (tankBottom > terrainHeight) {
-          // Player is below terrain surface, reposition to surface
-          const targetY = terrainHeight - tankHalfHeight;
-          physicsService.Body.setPosition(player.body, { x: player.x, y: targetY });
-          player.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
+        // Guard: skip snap if terrain surface is above the entity's center (cliff/ledge from wind drift).
+        // Only snap when the terrain is at or below where the entity currently is.
+        if (terrainHeight >= player.body.position.y - tankHalfHeight) {
+          // Kill downward velocity near/at surface to prevent gravity-snap jitter
+          if (player.body.velocity.y > 0) {
+            physicsService.Body.setVelocity(player.body, { x: player.body.velocity.x, y: 0 });
+          }
+          if (tankBottom > terrainHeight) {
+            // Player is below terrain surface, reposition to surface
+            const targetY = terrainHeight - tankHalfHeight;
+            physicsService.Body.setPosition(player.body, { x: player.x, y: targetY });
+            player.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
+          }
         }
         player.terrainAngle = terrainAngle;
       }
@@ -44,21 +48,21 @@ export class CollisionService {
           const tankBottom = enemy.body.position.y + tankHalfHeight;
           const GROUNDED_ZONE = 3;
 
+          enemy.terrainAngle = terrainAngle;
           if (tankBottom > terrainHeight - GROUNDED_ZONE) {
-            // Kill downward velocity near/at surface to prevent gravity-snap jitter
-            if (enemy.body.velocity.y > 0) {
-              physicsService.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+            // Guard: skip snap if terrain surface is above the entity's center (cliff/ledge from wind drift).
+            if (terrainHeight >= enemy.body.position.y - tankHalfHeight) {
+              // Kill downward velocity near/at surface to prevent gravity-snap jitter
+              if (enemy.body.velocity.y > 0) {
+                physicsService.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+              }
+              if (tankBottom > terrainHeight) {
+                // Enemy is below terrain surface, reposition to surface
+                const targetY = terrainHeight - tankHalfHeight;
+                physicsService.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
+                enemy.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
+              }
             }
-            if (tankBottom > terrainHeight) {
-              // Enemy is below terrain surface, reposition to surface
-              const targetY = terrainHeight - tankHalfHeight;
-              physicsService.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
-              enemy.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
-            }
-            enemy.terrainAngle = terrainAngle;
-          } else {
-            // If enemy is above terrain, let gravity pull it down
-            enemy.terrainAngle = terrainAngle;
           }
         }
         // If no terrain at enemy position, let it fall under gravity
@@ -82,6 +86,22 @@ export class CollisionService {
         }
       }
     }
+  }
+
+  /**
+   * Returns true if an entity at `entityX` is able to move in `direction` (+1 right, -1 left)
+   * based on the forward slope. Shared by moveEntity() and wind-force gating so both systems
+   * use identical cliff logic.
+   */
+  canTraverseSlopeInDirection(entityX: number, direction: number, terrain: number[][]): boolean {
+    const lookAheadDist = CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE;
+    const lookAheadX = entityX + direction * lookAheadDist;
+    const hasTerrain = this.getTerrainHeightAt(lookAheadX, terrain) !== -1;
+    const hCurrent = this.getTerrainHeightAt(entityX, terrain);
+    const hAhead = this.getTerrainHeightAt(lookAheadX, terrain);
+    const forwardAngle =
+      hCurrent !== -1 && hAhead !== -1 ? Math.atan((hAhead - hCurrent) / lookAheadDist) : 0;
+    return !hasTerrain || forwardAngle >= -CONST.MAX_CLIMB_ANGLE;
   }
 
   getTerrainHeightAt(x: number, terrain: number[][]): number {
