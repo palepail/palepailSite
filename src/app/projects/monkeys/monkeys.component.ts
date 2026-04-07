@@ -400,6 +400,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     window.addEventListener('blur', this.onWindowBlur);
     window.addEventListener('focus', this.onWindowFocus);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    // Apply initial focus state in case the page loaded without focus or in a background tab
+    this.audioService.setFocusMuted(document.hidden || !document.hasFocus());
     this.renderLoop();
   }
 
@@ -4128,14 +4130,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private handleOptionsClick(x: number, y: number) {
     if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_EASY_BUTTON)) {
       this.gameService.difficulty = 'easy';
+      this.gameService.saveDifficulty();
       return;
     }
     if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_NORMAL_BUTTON)) {
       this.gameService.difficulty = 'normal';
+      this.gameService.saveDifficulty();
       return;
     }
     if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_HARD_BUTTON)) {
       this.gameService.difficulty = 'hard';
+      this.gameService.saveDifficulty();
       return;
     }
     if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
@@ -4156,6 +4161,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.audioService.setSfxVolume(v);
     }
+    this.audioService.saveOptions();
   }
 
   private onCanvasMouseDown(event: MouseEvent) {

@@ -34,6 +34,32 @@ export class MonkeysAudioService {
     }
   }
 
+  private readonly STORAGE_KEY = 'monkeys_options_audio';
+
+  constructor() {
+    this.loadOptions();
+  }
+
+  saveOptions(): void {
+    localStorage.setItem(
+      this.STORAGE_KEY,
+      JSON.stringify({ bgVolume: this.bgVolume, sfxVolume: this.sfxVolume, isMuted: this.isMuted }),
+    );
+  }
+
+  loadOptions(): void {
+    const raw = localStorage.getItem(this.STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw) as { bgVolume?: number; sfxVolume?: number; isMuted?: boolean };
+      if (typeof data.bgVolume === 'number') this.bgVolume = Math.max(0, Math.min(1, data.bgVolume));
+      if (typeof data.sfxVolume === 'number') this.sfxVolume = Math.max(0, Math.min(1, data.sfxVolume));
+      if (typeof data.isMuted === 'boolean') this.isMuted = data.isMuted;
+    } catch {
+      // ignore malformed data
+    }
+  }
+
   setBgVolume(v: number): void {
     this.bgVolume = Math.max(0, Math.min(1, v));
     const active =

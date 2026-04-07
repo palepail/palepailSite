@@ -92,6 +92,24 @@ export class MonkeysGameService {
   ) {
     this.player = this.createInitialPlayer();
     void this.equipmentService.loadEquipmentData();
+    this.loadDifficulty();
+  }
+
+  saveDifficulty(): void {
+    localStorage.setItem('monkeys_options_game', JSON.stringify({ difficulty: this.difficulty }));
+  }
+
+  private loadDifficulty(): void {
+    const raw = localStorage.getItem('monkeys_options_game');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw) as { difficulty?: string };
+      if (data.difficulty === 'easy' || data.difficulty === 'normal' || data.difficulty === 'hard') {
+        this.difficulty = data.difficulty;
+      }
+    } catch {
+      // ignore malformed data
+    }
   }
 
   setMatterJS(matter: any) {
