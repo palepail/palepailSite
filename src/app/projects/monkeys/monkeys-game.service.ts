@@ -192,7 +192,7 @@ export class MonkeysGameService {
         attempts++;
         if (attempts > 100) break; // Prevent infinite loop
       } while ([this.player, ...this.enemies].some((entity) => Math.abs(entity.x - x) < 200));
-      const terrainHeight = this.getTerrainHeightAt(x);
+      const terrainHeight = this.collisionService.getTerrainHeightAt(x, this.terrainService.terrain);
       const y =
         terrainHeight !== -1
           ? terrainHeight - CONST.TANK_HALF_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET
@@ -360,7 +360,7 @@ export class MonkeysGameService {
       entity.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, entity.x));
       this.Body.setPosition(entity.body, { x: entity.x, y: entity.y });
       // Update terrain angle
-      entity.terrainAngle = this.getTerrainAngleAt(entity.x);
+      entity.terrainAngle = this.collisionService.getTerrainAngleAt(entity.x, this.terrainService.terrain);
       // Smoothly interpolate angle toward target
       if (entity.targetAngle !== undefined) {
         const diff = entity.targetAngle - entity.angle;
@@ -838,89 +838,6 @@ export class MonkeysGameService {
     this.physicsService.clearTrajectoryCache();
   }
 
-  private calculateExplosionDamage(explosionX: number, explosionY: number, projectile: any) {
-    const maxDamage = projectile.bullet.damage;
-    const damageRadius = projectile.bullet.explosionRadius ?? 50;
-    let radiusX = damageRadius;
-    let radiusY = damageRadius;
-    if (projectile.bullet.explosionShape === 'horizontal_oval') {
-      radiusX = damageRadius * 1.5;
-    } else if (projectile.bullet.explosionShape === 'vertical_oval') {
-      radiusY = damageRadius * 1.5;
-    }
-    // For 'circle', keep as is
-
-    // Damage player
-    if (this.player.active) {
-      const dx = this.player.x - explosionX;
-      const dy = this.player.y - explosionY;
-      const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-      if (normalizedDist <= 1) {
-        const damage = Math.round(maxDamage * (1 - normalizedDist));
-        const rawDamage = projectile.owner === this.player ? damage * 0.5 : damage;
-        const actualDamage = Math.round(rawDamage * (1 - (this.player.vehicle.armor ?? 0)));
-        this.player.health -= actualDamage;
-        this.player.health = Math.max(0, Math.min(this.player.health, this.player.vehicle.health));
-        this.projectileService.damageTexts.push({
-          x: this.player.x,
-          y: this.player.y - 30,
-          damage: actualDamage,
-          life: CONST.DAMAGE_TEXT_LIFETIME,
-        });
-        this.applyExplosionKnockback(
-          this.player,
-          explosionX,
-          explosionY,
-          projectile,
-          radiusX,
-          radiusY,
-        );
-      }
-    }
-
-    // Damage enemies
-    for (const enemy of this.enemies) {
-      if (enemy.active) {
-        const dx = enemy.x - explosionX;
-        const dy = enemy.y - explosionY;
-        const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-        if (normalizedDist <= 1) {
-          const damage = Math.round(
-            maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)),
-          );
-          enemy.health -= damage;
-          enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
-          this.projectileService.damageTexts.push({
-            x: enemy.x,
-            y: enemy.y - 30,
-            damage: damage,
-            life: CONST.DAMAGE_TEXT_LIFETIME,
-          });
-          this.applyExplosionKnockback(enemy, explosionX, explosionY, projectile, radiusX, radiusY);
-          if (projectile.owner === this.player && this.player.vehicle.lifesteal && damage > 0) {
-            const heal = Math.round(damage * (this.player.vehicle.lifesteal / 100));
-            if (heal > 0) {
-              this.player.health = Math.min(this.player.health + heal, this.player.vehicle.health);
-              this.projectileService.damageTexts.push({
-                x: this.player.x,
-                y: this.player.y - 30,
-                damage: heal,
-                life: CONST.DAMAGE_TEXT_LIFETIME,
-                isHeal: true,
-              });
-            }
-          }
-          if (enemy.health <= 0) {
-            enemy.active = false;
-            if (enemy.body) {
-              this.physicsService.removeBody(enemy.body);
-            }
-          }
-        }
-      }
-    }
-  }
-
   update() {
     const now = Date.now();
     const deltaTime = (now - this.lastUpdateTime) / 1000;
@@ -1029,7 +946,7 @@ export class MonkeysGameService {
 
   handleInput(keys: { [key: string]: boolean }) {
     if (this.currentState === GameState.PLAYING) {
-      const terrainH = this.getTerrainHeightAt(this.player.x);
+      const terrainH = this.collisionService.getTerrainHeightAt(this.player.x, this.terrainService.terrain);
       const isOnTerrain =
         terrainH !== -1 &&
         this.player.body != null &&
@@ -1161,75 +1078,6 @@ export class MonkeysGameService {
     return false;
   }
 
-  private applyExplosionKnockback(
-    target: Player | Enemy,
-    explosionX: number,
-    explosionY: number,
-    projectile: any,
-    radiusX: number,
-    radiusY: number,
-  ) {
-    if (!target.body) return;
-    const dx = target.x - explosionX;
-    const dy = target.y - explosionY;
-    const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-    if (normalizedDist > 1) return;
-    const maxPushDistance = (projectile.bullet.explosionRadius || Math.max(radiusX, radiusY)) * 0.3;
-    const pushMultiplier = projectile.bullet.pushbackMultiplier ?? 1;
-    const weightFactor = 10 / Math.max(1, target.vehicle?.weight ?? 10);
-    const pushDistance =
-      maxPushDistance * (1 - normalizedDist) * Math.abs(pushMultiplier) * weightFactor;
-    if (pushDistance <= 0) return;
-    const distance = Math.hypot(dx, dy);
-    const awayX = distance > 0.001 ? dx / distance : 0;
-    const awayY = distance > 0.001 ? dy / distance : -1;
-    const sign = pushMultiplier < 0 ? -1 : 1;
-    const dirX = awayX * sign;
-    const dirY = awayY * sign;
-
-    // Dampen horizontal push by the steepness of the terrain in the push direction.
-    // cos(terrainAngle) = 1 on flat ground, 0 on a vertical wall.
-    // We only dampen the horizontal component — a blast from below still launches
-    // the entity upward regardless of slope.
-    const terrainAngle = this.getTerrainAngleAt(target.x);
-    const slopeDampen = Math.cos(Math.abs(terrainAngle));
-    const effectiveDirX = dirX * slopeDampen;
-    const effectiveDirY = dirY; // vertical component unaffected
-
-    const targetX = Math.max(
-      0,
-      Math.min(CONST.TERRAIN_WIDTH, target.x + effectiveDirX * pushDistance),
-    );
-    const targetY = target.y + effectiveDirY * pushDistance;
-    this.Body.setPosition(target.body, { x: targetX, y: targetY });
-    if (target.body.velocity) {
-      this.Body.setVelocity(target.body, {
-        x: target.body.velocity.x + effectiveDirX * pushDistance * 0.05,
-        y: target.body.velocity.y + effectiveDirY * pushDistance * 0.05,
-      });
-    }
-    target.x = targetX;
-    target.y = targetY;
-  }
-
-  private checkEntitiesFall() {
-    // Check player fall
-    if (this.player.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-      this.player.health = 0;
-    }
-
-    // Check enemies fall
-    for (const enemy of this.enemies) {
-      if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-        enemy.health = 0;
-        enemy.active = false;
-        if (enemy.body) {
-          this.physicsService.removeBody(enemy.body);
-        }
-      }
-    }
-  }
-
   private updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const explosion = this.explosions[i];
@@ -1252,27 +1100,6 @@ export class MonkeysGameService {
         this.damageTexts.splice(i, 1);
       }
     }
-  }
-
-  getTerrainHeightAt(x: number): number {
-    const ix = Math.floor(x);
-    if (ix < 0 || ix >= CONST.TERRAIN_WIDTH) return -1;
-
-    for (let y = 0; y < CONST.TERRAIN_STRIP_HEIGHT; y++) {
-      if (this.terrainService.terrain[ix] && this.terrainService.terrain[ix][y] === 1) {
-        return CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET + y;
-      }
-    }
-    return -1;
-  }
-
-  getTerrainAngleAt(x: number): number {
-    const h1 = this.getTerrainHeightAt(x - CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE);
-    const h2 = this.getTerrainHeightAt(x + CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE);
-    if (h1 === -1 || h2 === -1) return 0;
-
-    const slope = (h2 - h1) / (2 * CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE);
-    return Math.atan(slope);
   }
 
   getEntityDisplayedAngle(entity: Player | Enemy): number {
