@@ -57,7 +57,7 @@ export class TerrainService {
       bottomProfileResult.profile,
       this.terrainBottomPlacements,
     );
-    this.depthTerrain = this.terrain.map(col => [...col]);
+    this.depthTerrain = this.terrain.map((col) => [...col]);
     this.innerTerrainTileIndex = Math.floor(Math.random() * 9);
   }
 

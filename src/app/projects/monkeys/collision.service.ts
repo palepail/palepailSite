@@ -16,13 +16,19 @@ export class CollisionService {
       const terrainAngle = this.getTerrainAngleAt(player.x, terrain);
       const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
       const tankBottom = player.body.position.y + tankHalfHeight;
+      const GROUNDED_ZONE = 3;
 
-      if (tankBottom > terrainHeight) {
-        // Player is below terrain surface, reposition to surface
-        const targetY = terrainHeight - tankHalfHeight;
-        physicsService.Body.setPosition(player.body, { x: player.x, y: targetY });
-        physicsService.Body.setVelocity(player.body, { x: player.body.velocity.x, y: 0 });
-
+      if (tankBottom > terrainHeight - GROUNDED_ZONE) {
+        // Kill downward velocity near/at surface to prevent gravity-snap jitter
+        if (player.body.velocity.y > 0) {
+          physicsService.Body.setVelocity(player.body, { x: player.body.velocity.x, y: 0 });
+        }
+        if (tankBottom > terrainHeight) {
+          // Player is below terrain surface, reposition to surface
+          const targetY = terrainHeight - tankHalfHeight;
+          physicsService.Body.setPosition(player.body, { x: player.x, y: targetY });
+          player.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
+        }
         player.terrainAngle = terrainAngle;
       }
     }
@@ -36,16 +42,24 @@ export class CollisionService {
           const terrainAngle = this.getTerrainAngleAt(enemy.x, terrain);
           const tankHalfHeight = CONST.TANK_HALF_HEIGHT;
           const tankBottom = enemy.body.position.y + tankHalfHeight;
+          const GROUNDED_ZONE = 3;
 
-          if (tankBottom > terrainHeight) {
-            // Enemy is below terrain surface, reposition to surface
-            const targetY = terrainHeight - tankHalfHeight;
-            physicsService.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
-            physicsService.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+          if (tankBottom > terrainHeight - GROUNDED_ZONE) {
+            // Kill downward velocity near/at surface to prevent gravity-snap jitter
+            if (enemy.body.velocity.y > 0) {
+              physicsService.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });
+            }
+            if (tankBottom > terrainHeight) {
+              // Enemy is below terrain surface, reposition to surface
+              const targetY = terrainHeight - tankHalfHeight;
+              physicsService.Body.setPosition(enemy.body, { x: enemy.x, y: targetY });
+              enemy.y = targetY; // keep entity.y in sync so camera doesn't read stale sunken position
+            }
+            enemy.terrainAngle = terrainAngle;
+          } else {
+            // If enemy is above terrain, let gravity pull it down
+            enemy.terrainAngle = terrainAngle;
           }
-          // If enemy is above terrain, let gravity pull it down
-
-          enemy.terrainAngle = terrainAngle;
         }
         // If no terrain at enemy position, let it fall under gravity
       }

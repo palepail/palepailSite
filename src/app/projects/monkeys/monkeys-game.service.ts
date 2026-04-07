@@ -310,9 +310,7 @@ export class MonkeysGameService {
     const hCurrent = this.getTerrainHeightAt(entity.x);
     const hAhead = this.getTerrainHeightAt(lookAheadX);
     const forwardAngle =
-      hCurrent !== -1 && hAhead !== -1
-        ? Math.atan((hAhead - hCurrent) / lookAheadDist)
-        : 0;
+      hCurrent !== -1 && hAhead !== -1 ? Math.atan((hAhead - hCurrent) / lookAheadDist) : 0;
     const canMove = !hasTerrain || forwardAngle >= -CONST.MAX_CLIMB_ANGLE;
 
     if (canMove) {
@@ -708,7 +706,6 @@ export class MonkeysGameService {
           enemy.turnState = 'charging';
         }
         break;
-
     }
   }
 
@@ -771,7 +768,9 @@ export class MonkeysGameService {
     // Resort queue by entity.delay
     this.turnService._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay);
 
-    if (Math.random() < CONST.WIND_CHANGE_CHANCE) { this.rollWind(); }
+    if (Math.random() < CONST.WIND_CHANGE_CHANCE) {
+      this.rollWind();
+    }
 
     // Reset turn time
     this.turnService.turnTime = 0;
@@ -813,9 +812,8 @@ export class MonkeysGameService {
 
   private rollWind(): void {
     const r = Math.random();
-    this.physicsService.windSpeed = Math.random() < 0.02
-      ? 76 + Math.round(Math.random() * 24)
-      : Math.round(Math.pow(r, 4) * 75);
+    this.physicsService.windSpeed =
+      Math.random() < 0.02 ? 76 + Math.round(Math.random() * 24) : Math.round(Math.pow(r, 4) * 75);
     this.physicsService.windAngle = Math.random() * Math.PI * 2;
     this.physicsService.clearTrajectoryCache();
   }
@@ -1182,7 +1180,10 @@ export class MonkeysGameService {
     const effectiveDirX = dirX * slopeDampen;
     const effectiveDirY = dirY; // vertical component unaffected
 
-    const targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, target.x + effectiveDirX * pushDistance));
+    const targetX = Math.max(
+      0,
+      Math.min(CONST.TERRAIN_WIDTH, target.x + effectiveDirX * pushDistance),
+    );
     const targetY = target.y + effectiveDirY * pushDistance;
     this.Body.setPosition(target.body, { x: targetX, y: targetY });
     if (target.body.velocity) {
@@ -1297,8 +1298,12 @@ export class MonkeysGameService {
     return this.projectileService.projectile !== null;
   }
 
-  get windSpeed(): number { return this.physicsService.windSpeed; }
-  get windAngle(): number { return this.physicsService.windAngle; }
+  get windSpeed(): number {
+    return this.physicsService.windSpeed;
+  }
+  get windAngle(): number {
+    return this.physicsService.windAngle;
+  }
 
   simulateTrajectory(
     barrelEndX: number,

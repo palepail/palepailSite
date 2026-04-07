@@ -581,102 +581,781 @@
       "height": 512
     },
 
-    { "name": "tank_arrowEmpty", "spritesheet": "tanks", "x": 0, "y": 654, "width": 180, "height": 96 },
-    { "name": "tank_arrowFull", "spritesheet": "tanks", "x": 0, "y": 556, "width": 180, "height": 96 },
-    { "name": "tank_bullet1", "spritesheet": "tanks", "x": 426, "y": 797, "width": 34, "height": 28 },
-    { "name": "tank_bullet2", "spritesheet": "tanks", "x": 284, "y": 522, "width": 50, "height": 32 },
-    { "name": "tank_bullet3", "spritesheet": "tanks", "x": 483, "y": 1739, "width": 75, "height": 50 },
-    { "name": "tank_bullet4", "spritesheet": "tanks", "x": 485, "y": 1250, "width": 75, "height": 50 },
-    { "name": "tank_bullet5", "spritesheet": "tanks", "x": 307, "y": 719, "width": 34, "height": 28 },
-    { "name": "tank_bullet6", "spritesheet": "tanks", "x": 486, "y": 904, "width": 50, "height": 32 },
-    { "name": "tank_bulletFly", "spritesheet": "tanks", "x": 182, "y": 719, "width": 123, "height": 28 },
-    { "name": "tank_bulletFly1", "spritesheet": "tanks", "x": 338, "y": 947, "width": 133, "height": 36 },
-    { "name": "tank_bulletFly2", "spritesheet": "tanks", "x": 182, "y": 677, "width": 155, "height": 40 },
-    { "name": "tank_bulletFly3", "spritesheet": "tanks", "x": 0, "y": 752, "width": 179, "height": 50 },
-    { "name": "tank_bulletFly4", "spritesheet": "tanks", "x": 0, "y": 804, "width": 179, "height": 50 },
-    { "name": "tank_bulletFly5", "spritesheet": "tanks", "x": 338, "y": 284, "width": 133, "height": 36 },
-    { "name": "tank_bulletFly6", "spritesheet": "tanks", "x": 186, "y": 242, "width": 155, "height": 40 },
-    { "name": "tank_explosion1", "spritesheet": "tanks", "x": 338, "y": 322, "width": 128, "height": 128 },
-    { "name": "tank_explosion2", "spritesheet": "tanks", "x": 473, "y": 222, "width": 81, "height": 82 },
-    { "name": "tank_explosion3", "spritesheet": "tanks", "x": 345, "y": 677, "width": 119, "height": 118 },
-    { "name": "tank_explosion4", "spritesheet": "tanks", "x": 337, "y": 1100, "width": 148, "height": 148 },
-    { "name": "tank_explosion5", "spritesheet": "tanks", "x": 487, "y": 1402, "width": 28, "height": 28 },
-    { "name": "tank_explosion6", "spritesheet": "tanks", "x": 486, "y": 837, "width": 65, "height": 65 },
-    { "name": "tank_explosion7", "spritesheet": "tanks", "x": 471, "y": 0, "width": 82, "height": 82 },
-    { "name": "tank_explosion8", "spritesheet": "tanks", "x": 346, "y": 452, "width": 119, "height": 118 },
-    { "name": "tank_explosion9", "spritesheet": "tanks", "x": 350, "y": 0, "width": 119, "height": 118 },
-    { "name": "tank_explosion10", "spritesheet": "tanks", "x": 486, "y": 1903, "width": 28, "height": 28 },
-    { "name": "tank_explosion11", "spritesheet": "tanks", "x": 485, "y": 1302, "width": 65, "height": 65 },
-    { "name": "tank_explosion12", "spritesheet": "tanks", "x": 466, "y": 753, "width": 82, "height": 82 },
-    { "name": "tanks_barrelGreen", "spritesheet": "tanks", "x": 484, "y": 1935, "width": 80, "height": 99 },
-    { "name": "tanks_barrelGrey", "spritesheet": "tanks", "x": 485, "y": 1624, "width": 80, "height": 99 },
-    { "name": "tanks_barrelRed", "spritesheet": "tanks", "x": 485, "y": 1523, "width": 80, "height": 99 },
-    { "name": "tanks_crateAmmo", "spritesheet": "tanks", "x": 461, "y": 120, "width": 100, "height": 100 },
-    { "name": "tanks_crateArmor", "spritesheet": "tanks", "x": 468, "y": 322, "width": 100, "height": 100 },
-    { "name": "tanks_crateRepair", "spritesheet": "tanks", "x": 466, "y": 651, "width": 100, "height": 100 },
-    { "name": "tanks_crateWood", "spritesheet": "tanks", "x": 467, "y": 452, "width": 100, "height": 100 },
-    { "name": "tanks_mineOff", "spritesheet": "tanks", "x": 473, "y": 947, "width": 72, "height": 28 },
-    { "name": "tanks_mineOn", "spritesheet": "tanks", "x": 471, "y": 84, "width": 72, "height": 28 },
-    { "name": "tanks_minePressed", "spritesheet": "tanks", "x": 245, "y": 1816, "width": 72, "height": 20 },
-    { "name": "tanks_tankDesert1", "spritesheet": "tanks", "x": 0, "y": 994, "width": 171, "height": 136 },
-    { "name": "tanks_tankDesert2", "spritesheet": "tanks", "x": 173, "y": 992, "width": 162, "height": 119 },
-    { "name": "tanks_tankDesert3", "spritesheet": "tanks", "x": 0, "y": 139, "width": 184, "height": 137 },
-    { "name": "tanks_tankDesert4", "spritesheet": "tanks", "x": 335, "y": 1404, "width": 150, "height": 117 },
-    { "name": "tanks_tankDesert5", "spritesheet": "tanks", "x": 170, "y": 1544, "width": 163, "height": 134 },
-    { "name": "tanks_tankDesert_body1", "spritesheet": "tanks", "x": 0, "y": 1938, "width": 165, "height": 96 },
-    { "name": "tanks_tankDesert_body2", "spritesheet": "tanks", "x": 173, "y": 1113, "width": 162, "height": 95 },
-    { "name": "tanks_tankDesert_body3", "spritesheet": "tanks", "x": 0, "y": 1408, "width": 168, "height": 106 },
-    { "name": "tanks_tankDesert_body4", "spritesheet": "tanks", "x": 337, "y": 992, "width": 148, "height": 106 },
-    { "name": "tanks_tankDesert_body5", "spritesheet": "tanks", "x": 346, "y": 572, "width": 109, "height": 77 },
-    { "name": "tanks_tankGreen1", "spritesheet": "tanks", "x": 0, "y": 1132, "width": 171, "height": 136 },
-    { "name": "tanks_tankGreen2", "spritesheet": "tanks", "x": 182, "y": 556, "width": 162, "height": 119 },
-    { "name": "tanks_tankGreen3", "spritesheet": "tanks", "x": 0, "y": 417, "width": 184, "height": 137 },
-    { "name": "tanks_tankGreen4", "spritesheet": "tanks", "x": 334, "y": 1816, "width": 150, "height": 117 },
-    { "name": "tanks_tankGreen5", "spritesheet": "tanks", "x": 173, "y": 856, "width": 163, "height": 134 },
-    { "name": "tanks_tankGreen_body1", "spritesheet": "tanks", "x": 0, "y": 1840, "width": 165, "height": 96 },
-    { "name": "tanks_tankGreen_body2", "spritesheet": "tanks", "x": 173, "y": 1210, "width": 162, "height": 95 },
-    { "name": "tanks_tankGreen_body3", "spritesheet": "tanks", "x": 0, "y": 1516, "width": 168, "height": 106 },
-    { "name": "tanks_tankGreen_body4", "spritesheet": "tanks", "x": 334, "y": 1935, "width": 148, "height": 106 },
-    { "name": "tanks_tankGreen_body5", "spritesheet": "tanks", "x": 457, "y": 572, "width": 109, "height": 77 },
-    { "name": "tanks_tankGrey1", "spritesheet": "tanks", "x": 0, "y": 856, "width": 171, "height": 136 },
-    { "name": "tanks_tankGrey2", "spritesheet": "tanks", "x": 186, "y": 0, "width": 162, "height": 119 },
-    { "name": "tanks_tankGrey3", "spritesheet": "tanks", "x": 0, "y": 0, "width": 184, "height": 137 },
-    { "name": "tanks_tankGrey4", "spritesheet": "tanks", "x": 186, "y": 284, "width": 150, "height": 117 },
-    { "name": "tanks_tankGrey5", "spritesheet": "tanks", "x": 170, "y": 1680, "width": 163, "height": 134 },
-    { "name": "tanks_tankGrey_body1", "spritesheet": "tanks", "x": 167, "y": 1938, "width": 165, "height": 96 },
-    { "name": "tanks_tankGrey_body2", "spritesheet": "tanks", "x": 181, "y": 752, "width": 162, "height": 95 },
-    { "name": "tanks_tankGrey_body3", "spritesheet": "tanks", "x": 0, "y": 1624, "width": 168, "height": 106 },
-    { "name": "tanks_tankGrey_body4", "spritesheet": "tanks", "x": 335, "y": 1631, "width": 148, "height": 106 },
-    { "name": "tanks_tankGrey_body5", "spritesheet": "tanks", "x": 350, "y": 199, "width": 109, "height": 77 },
-    { "name": "tanks_tankNavy1", "spritesheet": "tanks", "x": 0, "y": 1270, "width": 171, "height": 136 },
-    { "name": "tanks_tankNavy2", "spritesheet": "tanks", "x": 186, "y": 121, "width": 162, "height": 119 },
-    { "name": "tanks_tankNavy3", "spritesheet": "tanks", "x": 0, "y": 278, "width": 184, "height": 137 },
-    { "name": "tanks_tankNavy4", "spritesheet": "tanks", "x": 186, "y": 403, "width": 150, "height": 117 },
-    { "name": "tanks_tankNavy5", "spritesheet": "tanks", "x": 170, "y": 1408, "width": 163, "height": 134 },
-    { "name": "tanks_tankNavy_body1", "spritesheet": "tanks", "x": 167, "y": 1840, "width": 165, "height": 96 },
-    { "name": "tanks_tankNavy_body2", "spritesheet": "tanks", "x": 173, "y": 1307, "width": 162, "height": 95 },
-    { "name": "tanks_tankNavy_body3", "spritesheet": "tanks", "x": 0, "y": 1732, "width": 168, "height": 106 },
-    { "name": "tanks_tankNavy_body4", "spritesheet": "tanks", "x": 335, "y": 1523, "width": 148, "height": 106 },
-    { "name": "tanks_tankNavy_body5", "spritesheet": "tanks", "x": 350, "y": 120, "width": 109, "height": 77 },
-    { "name": "tanks_tankTracks1", "spritesheet": "tanks", "x": 337, "y": 1321, "width": 146, "height": 69 },
-    { "name": "tanks_tankTracks2", "spritesheet": "tanks", "x": 335, "y": 1739, "width": 146, "height": 69 },
-    { "name": "tanks_tankTracks3", "spritesheet": "tanks", "x": 337, "y": 1250, "width": 146, "height": 69 },
-    { "name": "tanks_tankTracks4", "spritesheet": "tanks", "x": 486, "y": 1850, "width": 52, "height": 51 },
-    { "name": "tanks_tankTracks5", "spritesheet": "tanks", "x": 486, "y": 1791, "width": 62, "height": 57 },
-    { "name": "tanks_tankTracks6", "spritesheet": "tanks", "x": 338, "y": 849, "width": 146, "height": 96 },
-    { "name": "tanks_tankTracks7", "spritesheet": "tanks", "x": 485, "y": 1369, "width": 62, "height": 31 },
-    { "name": "tanks_turret1", "spritesheet": "tanks", "x": 345, "y": 797, "width": 79, "height": 24 },
-    { "name": "tanks_turret2", "spritesheet": "tanks", "x": 186, "y": 522, "width": 96, "height": 30 },
-    { "name": "tanks_turret3", "spritesheet": "tanks", "x": 170, "y": 1816, "width": 73, "height": 18 },
-    { "name": "tanks_turret4", "spritesheet": "tanks", "x": 468, "y": 424, "width": 40, "height": 26 },
-    { "name": "inner_terrain_0", "spritesheet": "innerTerrain", "x": 0,   "y": 0,   "width": 256, "height": 256 },
-    { "name": "inner_terrain_1", "spritesheet": "innerTerrain", "x": 256, "y": 0,   "width": 256, "height": 256 },
-    { "name": "inner_terrain_2", "spritesheet": "innerTerrain", "x": 512, "y": 0,   "width": 256, "height": 256 },
-    { "name": "inner_terrain_3", "spritesheet": "innerTerrain", "x": 0,   "y": 256, "width": 256, "height": 256 },
-    { "name": "inner_terrain_4", "spritesheet": "innerTerrain", "x": 256, "y": 256, "width": 256, "height": 256 },
-    { "name": "inner_terrain_5", "spritesheet": "innerTerrain", "x": 512, "y": 256, "width": 256, "height": 256 },
-    { "name": "inner_terrain_6", "spritesheet": "innerTerrain", "x": 0,   "y": 512, "width": 256, "height": 256 },
-    { "name": "inner_terrain_7", "spritesheet": "innerTerrain", "x": 256, "y": 512, "width": 256, "height": 256 },
-    { "name": "inner_terrain_8", "spritesheet": "innerTerrain", "x": 512, "y": 512, "width": 256, "height": 256 }
+    {
+      "name": "tank_arrowEmpty",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 654,
+      "width": 180,
+      "height": 96
+    },
+    {
+      "name": "tank_arrowFull",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 556,
+      "width": 180,
+      "height": 96
+    },
+    {
+      "name": "tank_bullet1",
+      "spritesheet": "tanks",
+      "x": 426,
+      "y": 797,
+      "width": 34,
+      "height": 28
+    },
+    {
+      "name": "tank_bullet2",
+      "spritesheet": "tanks",
+      "x": 284,
+      "y": 522,
+      "width": 50,
+      "height": 32
+    },
+    {
+      "name": "tank_bullet3",
+      "spritesheet": "tanks",
+      "x": 483,
+      "y": 1739,
+      "width": 75,
+      "height": 50
+    },
+    {
+      "name": "tank_bullet4",
+      "spritesheet": "tanks",
+      "x": 485,
+      "y": 1250,
+      "width": 75,
+      "height": 50
+    },
+    {
+      "name": "tank_bullet5",
+      "spritesheet": "tanks",
+      "x": 307,
+      "y": 719,
+      "width": 34,
+      "height": 28
+    },
+    {
+      "name": "tank_bullet6",
+      "spritesheet": "tanks",
+      "x": 486,
+      "y": 904,
+      "width": 50,
+      "height": 32
+    },
+    {
+      "name": "tank_bulletFly",
+      "spritesheet": "tanks",
+      "x": 182,
+      "y": 719,
+      "width": 123,
+      "height": 28
+    },
+    {
+      "name": "tank_bulletFly1",
+      "spritesheet": "tanks",
+      "x": 338,
+      "y": 947,
+      "width": 133,
+      "height": 36
+    },
+    {
+      "name": "tank_bulletFly2",
+      "spritesheet": "tanks",
+      "x": 182,
+      "y": 677,
+      "width": 155,
+      "height": 40
+    },
+    {
+      "name": "tank_bulletFly3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 752,
+      "width": 179,
+      "height": 50
+    },
+    {
+      "name": "tank_bulletFly4",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 804,
+      "width": 179,
+      "height": 50
+    },
+    {
+      "name": "tank_bulletFly5",
+      "spritesheet": "tanks",
+      "x": 338,
+      "y": 284,
+      "width": 133,
+      "height": 36
+    },
+    {
+      "name": "tank_bulletFly6",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 242,
+      "width": 155,
+      "height": 40
+    },
+    {
+      "name": "tank_explosion1",
+      "spritesheet": "tanks",
+      "x": 338,
+      "y": 322,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "name": "tank_explosion2",
+      "spritesheet": "tanks",
+      "x": 473,
+      "y": 222,
+      "width": 81,
+      "height": 82
+    },
+    {
+      "name": "tank_explosion3",
+      "spritesheet": "tanks",
+      "x": 345,
+      "y": 677,
+      "width": 119,
+      "height": 118
+    },
+    {
+      "name": "tank_explosion4",
+      "spritesheet": "tanks",
+      "x": 337,
+      "y": 1100,
+      "width": 148,
+      "height": 148
+    },
+    {
+      "name": "tank_explosion5",
+      "spritesheet": "tanks",
+      "x": 487,
+      "y": 1402,
+      "width": 28,
+      "height": 28
+    },
+    {
+      "name": "tank_explosion6",
+      "spritesheet": "tanks",
+      "x": 486,
+      "y": 837,
+      "width": 65,
+      "height": 65
+    },
+    {
+      "name": "tank_explosion7",
+      "spritesheet": "tanks",
+      "x": 471,
+      "y": 0,
+      "width": 82,
+      "height": 82
+    },
+    {
+      "name": "tank_explosion8",
+      "spritesheet": "tanks",
+      "x": 346,
+      "y": 452,
+      "width": 119,
+      "height": 118
+    },
+    {
+      "name": "tank_explosion9",
+      "spritesheet": "tanks",
+      "x": 350,
+      "y": 0,
+      "width": 119,
+      "height": 118
+    },
+    {
+      "name": "tank_explosion10",
+      "spritesheet": "tanks",
+      "x": 486,
+      "y": 1903,
+      "width": 28,
+      "height": 28
+    },
+    {
+      "name": "tank_explosion11",
+      "spritesheet": "tanks",
+      "x": 485,
+      "y": 1302,
+      "width": 65,
+      "height": 65
+    },
+    {
+      "name": "tank_explosion12",
+      "spritesheet": "tanks",
+      "x": 466,
+      "y": 753,
+      "width": 82,
+      "height": 82
+    },
+    {
+      "name": "tanks_barrelGreen",
+      "spritesheet": "tanks",
+      "x": 484,
+      "y": 1935,
+      "width": 80,
+      "height": 99
+    },
+    {
+      "name": "tanks_barrelGrey",
+      "spritesheet": "tanks",
+      "x": 485,
+      "y": 1624,
+      "width": 80,
+      "height": 99
+    },
+    {
+      "name": "tanks_barrelRed",
+      "spritesheet": "tanks",
+      "x": 485,
+      "y": 1523,
+      "width": 80,
+      "height": 99
+    },
+    {
+      "name": "tanks_crateAmmo",
+      "spritesheet": "tanks",
+      "x": 461,
+      "y": 120,
+      "width": 100,
+      "height": 100
+    },
+    {
+      "name": "tanks_crateArmor",
+      "spritesheet": "tanks",
+      "x": 468,
+      "y": 322,
+      "width": 100,
+      "height": 100
+    },
+    {
+      "name": "tanks_crateRepair",
+      "spritesheet": "tanks",
+      "x": 466,
+      "y": 651,
+      "width": 100,
+      "height": 100
+    },
+    {
+      "name": "tanks_crateWood",
+      "spritesheet": "tanks",
+      "x": 467,
+      "y": 452,
+      "width": 100,
+      "height": 100
+    },
+    {
+      "name": "tanks_mineOff",
+      "spritesheet": "tanks",
+      "x": 473,
+      "y": 947,
+      "width": 72,
+      "height": 28
+    },
+    {
+      "name": "tanks_mineOn",
+      "spritesheet": "tanks",
+      "x": 471,
+      "y": 84,
+      "width": 72,
+      "height": 28
+    },
+    {
+      "name": "tanks_minePressed",
+      "spritesheet": "tanks",
+      "x": 245,
+      "y": 1816,
+      "width": 72,
+      "height": 20
+    },
+    {
+      "name": "tanks_tankDesert1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 994,
+      "width": 171,
+      "height": 136
+    },
+    {
+      "name": "tanks_tankDesert2",
+      "spritesheet": "tanks",
+      "x": 173,
+      "y": 992,
+      "width": 162,
+      "height": 119
+    },
+    {
+      "name": "tanks_tankDesert3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 139,
+      "width": 184,
+      "height": 137
+    },
+    {
+      "name": "tanks_tankDesert4",
+      "spritesheet": "tanks",
+      "x": 335,
+      "y": 1404,
+      "width": 150,
+      "height": 117
+    },
+    {
+      "name": "tanks_tankDesert5",
+      "spritesheet": "tanks",
+      "x": 170,
+      "y": 1544,
+      "width": 163,
+      "height": 134
+    },
+    {
+      "name": "tanks_tankDesert_body1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1938,
+      "width": 165,
+      "height": 96
+    },
+    {
+      "name": "tanks_tankDesert_body2",
+      "spritesheet": "tanks",
+      "x": 173,
+      "y": 1113,
+      "width": 162,
+      "height": 95
+    },
+    {
+      "name": "tanks_tankDesert_body3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1408,
+      "width": 168,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankDesert_body4",
+      "spritesheet": "tanks",
+      "x": 337,
+      "y": 992,
+      "width": 148,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankDesert_body5",
+      "spritesheet": "tanks",
+      "x": 346,
+      "y": 572,
+      "width": 109,
+      "height": 77
+    },
+    {
+      "name": "tanks_tankGreen1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1132,
+      "width": 171,
+      "height": 136
+    },
+    {
+      "name": "tanks_tankGreen2",
+      "spritesheet": "tanks",
+      "x": 182,
+      "y": 556,
+      "width": 162,
+      "height": 119
+    },
+    {
+      "name": "tanks_tankGreen3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 417,
+      "width": 184,
+      "height": 137
+    },
+    {
+      "name": "tanks_tankGreen4",
+      "spritesheet": "tanks",
+      "x": 334,
+      "y": 1816,
+      "width": 150,
+      "height": 117
+    },
+    {
+      "name": "tanks_tankGreen5",
+      "spritesheet": "tanks",
+      "x": 173,
+      "y": 856,
+      "width": 163,
+      "height": 134
+    },
+    {
+      "name": "tanks_tankGreen_body1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1840,
+      "width": 165,
+      "height": 96
+    },
+    {
+      "name": "tanks_tankGreen_body2",
+      "spritesheet": "tanks",
+      "x": 173,
+      "y": 1210,
+      "width": 162,
+      "height": 95
+    },
+    {
+      "name": "tanks_tankGreen_body3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1516,
+      "width": 168,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankGreen_body4",
+      "spritesheet": "tanks",
+      "x": 334,
+      "y": 1935,
+      "width": 148,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankGreen_body5",
+      "spritesheet": "tanks",
+      "x": 457,
+      "y": 572,
+      "width": 109,
+      "height": 77
+    },
+    {
+      "name": "tanks_tankGrey1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 856,
+      "width": 171,
+      "height": 136
+    },
+    {
+      "name": "tanks_tankGrey2",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 0,
+      "width": 162,
+      "height": 119
+    },
+    {
+      "name": "tanks_tankGrey3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 0,
+      "width": 184,
+      "height": 137
+    },
+    {
+      "name": "tanks_tankGrey4",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 284,
+      "width": 150,
+      "height": 117
+    },
+    {
+      "name": "tanks_tankGrey5",
+      "spritesheet": "tanks",
+      "x": 170,
+      "y": 1680,
+      "width": 163,
+      "height": 134
+    },
+    {
+      "name": "tanks_tankGrey_body1",
+      "spritesheet": "tanks",
+      "x": 167,
+      "y": 1938,
+      "width": 165,
+      "height": 96
+    },
+    {
+      "name": "tanks_tankGrey_body2",
+      "spritesheet": "tanks",
+      "x": 181,
+      "y": 752,
+      "width": 162,
+      "height": 95
+    },
+    {
+      "name": "tanks_tankGrey_body3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1624,
+      "width": 168,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankGrey_body4",
+      "spritesheet": "tanks",
+      "x": 335,
+      "y": 1631,
+      "width": 148,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankGrey_body5",
+      "spritesheet": "tanks",
+      "x": 350,
+      "y": 199,
+      "width": 109,
+      "height": 77
+    },
+    {
+      "name": "tanks_tankNavy1",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1270,
+      "width": 171,
+      "height": 136
+    },
+    {
+      "name": "tanks_tankNavy2",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 121,
+      "width": 162,
+      "height": 119
+    },
+    {
+      "name": "tanks_tankNavy3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 278,
+      "width": 184,
+      "height": 137
+    },
+    {
+      "name": "tanks_tankNavy4",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 403,
+      "width": 150,
+      "height": 117
+    },
+    {
+      "name": "tanks_tankNavy5",
+      "spritesheet": "tanks",
+      "x": 170,
+      "y": 1408,
+      "width": 163,
+      "height": 134
+    },
+    {
+      "name": "tanks_tankNavy_body1",
+      "spritesheet": "tanks",
+      "x": 167,
+      "y": 1840,
+      "width": 165,
+      "height": 96
+    },
+    {
+      "name": "tanks_tankNavy_body2",
+      "spritesheet": "tanks",
+      "x": 173,
+      "y": 1307,
+      "width": 162,
+      "height": 95
+    },
+    {
+      "name": "tanks_tankNavy_body3",
+      "spritesheet": "tanks",
+      "x": 0,
+      "y": 1732,
+      "width": 168,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankNavy_body4",
+      "spritesheet": "tanks",
+      "x": 335,
+      "y": 1523,
+      "width": 148,
+      "height": 106
+    },
+    {
+      "name": "tanks_tankNavy_body5",
+      "spritesheet": "tanks",
+      "x": 350,
+      "y": 120,
+      "width": 109,
+      "height": 77
+    },
+    {
+      "name": "tanks_tankTracks1",
+      "spritesheet": "tanks",
+      "x": 337,
+      "y": 1321,
+      "width": 146,
+      "height": 69
+    },
+    {
+      "name": "tanks_tankTracks2",
+      "spritesheet": "tanks",
+      "x": 335,
+      "y": 1739,
+      "width": 146,
+      "height": 69
+    },
+    {
+      "name": "tanks_tankTracks3",
+      "spritesheet": "tanks",
+      "x": 337,
+      "y": 1250,
+      "width": 146,
+      "height": 69
+    },
+    {
+      "name": "tanks_tankTracks4",
+      "spritesheet": "tanks",
+      "x": 486,
+      "y": 1850,
+      "width": 52,
+      "height": 51
+    },
+    {
+      "name": "tanks_tankTracks5",
+      "spritesheet": "tanks",
+      "x": 486,
+      "y": 1791,
+      "width": 62,
+      "height": 57
+    },
+    {
+      "name": "tanks_tankTracks6",
+      "spritesheet": "tanks",
+      "x": 338,
+      "y": 849,
+      "width": 146,
+      "height": 96
+    },
+    {
+      "name": "tanks_tankTracks7",
+      "spritesheet": "tanks",
+      "x": 485,
+      "y": 1369,
+      "width": 62,
+      "height": 31
+    },
+    {
+      "name": "tanks_turret1",
+      "spritesheet": "tanks",
+      "x": 345,
+      "y": 797,
+      "width": 79,
+      "height": 24
+    },
+    {
+      "name": "tanks_turret2",
+      "spritesheet": "tanks",
+      "x": 186,
+      "y": 522,
+      "width": 96,
+      "height": 30
+    },
+    {
+      "name": "tanks_turret3",
+      "spritesheet": "tanks",
+      "x": 170,
+      "y": 1816,
+      "width": 73,
+      "height": 18
+    },
+    {
+      "name": "tanks_turret4",
+      "spritesheet": "tanks",
+      "x": 468,
+      "y": 424,
+      "width": 40,
+      "height": 26
+    },
+    {
+      "name": "inner_terrain_0",
+      "spritesheet": "innerTerrain",
+      "x": 0,
+      "y": 0,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_1",
+      "spritesheet": "innerTerrain",
+      "x": 256,
+      "y": 0,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_2",
+      "spritesheet": "innerTerrain",
+      "x": 512,
+      "y": 0,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_3",
+      "spritesheet": "innerTerrain",
+      "x": 0,
+      "y": 256,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_4",
+      "spritesheet": "innerTerrain",
+      "x": 256,
+      "y": 256,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_5",
+      "spritesheet": "innerTerrain",
+      "x": 512,
+      "y": 256,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_6",
+      "spritesheet": "innerTerrain",
+      "x": 0,
+      "y": 512,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_7",
+      "spritesheet": "innerTerrain",
+      "x": 256,
+      "y": 512,
+      "width": 256,
+      "height": 256
+    },
+    {
+      "name": "inner_terrain_8",
+      "spritesheet": "innerTerrain",
+      "x": 512,
+      "y": 512,
+      "width": 256,
+      "height": 256
+    }
   ]
 }

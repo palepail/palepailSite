@@ -30,6 +30,7 @@ import {
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
+import { MonkeysAudioService } from './monkeys-audio.service';
 import { CameraController } from './camera-controller';
 import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
@@ -148,6 +149,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Loading flag
   private isLoading = false;
+  private loadingContext: 'menu' | 'game' = 'menu';
+
+  // State tracking for audio transitions
+  private previousGameState: GameState | null = null;
 
   // Wind indicator animation state
   private windAnim = {
@@ -301,6 +306,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly MENU_LOADOUT_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 460, 200, 50);
   private readonly MENU_OPTIONS_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 530, 200, 50);
   private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 600, 200, 50);
+  // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
+  private readonly MUTE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 12, 12, 24, 24);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
   private readonly OPTIONS_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 385, 200, 50);
   private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(
@@ -335,9 +342,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private gameService: MonkeysGameService,
     private spriteService: MonkeysSpriteService,
+    private audioService: MonkeysAudioService,
   ) {}
 
   ngOnInit() {
+    this.loadingContext = 'menu';
     this.gameService.currentState = GameState.LOADING;
     Promise.all([
       this.spriteService.loadSprites(),
@@ -350,6 +359,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.spriteService
         .loadRawSpritesheet('equipment.png')
         .catch((err) => console.warn('Failed to load equipment sprites:', err)),
+      this.audioService
+        .loadMenuAudio()
+        .catch((err) => console.warn('Failed to load menu audio:', err)),
+      // Pre-create the game audio element now so it exists when startGame() is clicked
+      this.audioService.loadGameAudio().catch(() => {}),
     ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
@@ -371,13 +385,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy() {
     cancelAnimationFrame(this.animationFrameId);
     this.gameService.destroy();
+    this.audioService.destroy();
   }
 
   async startGame() {
     this.gameService.setMatterJS(Matter);
     this.canvas.nativeElement.focus();
+    this.loadingContext = 'game';
     this.gameService.currentState = GameState.LOADING;
     this.isLoading = true;
+    // Start game audio synchronously here, within the user-gesture tick, before any await.
+    // This is the only reliable way to satisfy browser autoplay policy across async loads.
+    this.audioService.startGameAudioOnGesture();
     try {
       await Promise.all([
         this.gameService.initGame(),
@@ -386,6 +405,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       ]);
     } catch (error) {
       console.error('Failed to start game:', error);
+      this.loadingContext = 'menu';
       this.gameService.currentState = GameState.MENU;
       this.isLoading = false;
       return;
@@ -438,6 +458,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private render() {
+    this.renderFrame();
+    // Mute button overlays every screen (terrain dev tool excluded)
+    if (this.gameService.currentState !== GameState.TERRAIN_TOOL) {
+      this.drawMuteButton();
+    }
+  }
+
+  private renderFrame() {
     if (this.gameService.currentState === GameState.LOADING) {
       this.drawLoadingScreen();
       return;
@@ -756,7 +784,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     tileCanvas.width = TILE_SIZE;
     tileCanvas.height = TILE_SIZE;
     const tileCtx = tileCanvas.getContext('2d')!;
-    tileCtx.drawImage(sheet, tileCol * TILE_SIZE, tileRow * TILE_SIZE, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE);
+    tileCtx.drawImage(
+      sheet,
+      tileCol * TILE_SIZE,
+      tileRow * TILE_SIZE,
+      TILE_SIZE,
+      TILE_SIZE,
+      0,
+      0,
+      TILE_SIZE,
+      TILE_SIZE,
+    );
 
     // Tile the pattern across the full canvas, offset by camera for parallax-free scroll
     const pattern = dCtx.createPattern(tileCanvas, 'repeat')!;
@@ -765,7 +803,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     dCtx.save();
     dCtx.translate(offsetX, offsetY);
     dCtx.fillStyle = pattern;
-    dCtx.fillRect(-offsetX, terrainY - offsetY, CONST.CANVAS_WIDTH + TILE_SIZE, CONST.TERRAIN_STRIP_HEIGHT + TILE_SIZE);
+    dCtx.fillRect(
+      -offsetX,
+      terrainY - offsetY,
+      CONST.CANVAS_WIDTH + TILE_SIZE,
+      CONST.TERRAIN_STRIP_HEIGHT + TILE_SIZE,
+    );
     dCtx.restore();
 
     // Mask: only keep pixels where main terrain is carved (=0) AND depth terrain is solid (=1)
@@ -1931,16 +1974,30 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private renderLoop() {
+    const currState = this.gameService.currentState;
+    if (this.previousGameState !== currState) {
+      this.handleStateTransitionAudio(currState);
+      this.previousGameState = currState;
+    }
+
     if (
-      this.gameService.currentState !== GameState.MENU &&
-      this.gameService.currentState !== GameState.OPTIONS &&
-      this.gameService.currentState !== GameState.TERRAIN_TOOL &&
-      this.gameService.currentState !== GameState.EQUIPMENT_MENU
+      currState !== GameState.MENU &&
+      currState !== GameState.OPTIONS &&
+      currState !== GameState.TERRAIN_TOOL &&
+      currState !== GameState.EQUIPMENT_MENU
     ) {
       this.gameService.update();
     }
     this.render();
     this.animationFrameId = requestAnimationFrame(() => this.renderLoop());
+  }
+
+  private handleStateTransitionAudio(newState: GameState): void {
+    if (newState === GameState.MENU) {
+      this.loadingContext = 'menu';
+      this.audioService.playMenu();
+    }
+    // Game audio is started synchronously in startGame() — no state-transition hook needed.
   }
 
   onKeyDown(event: KeyboardEvent) {
@@ -2106,6 +2163,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const barX = cx - barW / 2;
     const barY = cy + 20;
     const progress = this.spriteService.loadProgress;
+    const isGameLoad = this.loadingContext === 'game';
 
     this.ctx.fillStyle = '#1a1a2e';
     this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
@@ -2113,11 +2171,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillStyle = '#FFFFFF';
     this.ctx.font = 'bold 36px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Monkeys', cx, cy - 40);
+    this.ctx.fillText(isGameLoad ? 'Loading Game' : 'Monkeys', cx, cy - 40);
 
     this.ctx.font = '18px Arial';
     this.ctx.fillStyle = '#AAAAAA';
-    this.ctx.fillText(this.spriteService.loadLabel, cx, cy - 10);
+    this.ctx.fillText(
+      isGameLoad ? this.spriteService.loadLabel : this.spriteService.loadLabel,
+      cx,
+      cy - 10,
+    );
 
     // Bar background
     this.ctx.fillStyle = '#333355';
@@ -2126,7 +2188,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fill();
 
     // Bar fill
-    this.ctx.fillStyle = '#4CAF50';
+    this.ctx.fillStyle = isGameLoad ? '#4A90E2' : '#4CAF50';
     this.ctx.beginPath();
     this.ctx.roundRect(barX, barY, barW * Math.max(0.02, progress), barH, barH / 2);
     this.ctx.fill();
@@ -3802,6 +3864,30 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText(String(Math.round(targetSpeed)), cx, arrowCy + drawH / 2 + 2);
   }
 
+  private drawMuteButton(): void {
+    const { x, y, width, height } = this.MUTE_BUTTON;
+    const left = x - width / 2;
+    const top = y - height / 2;
+    const r = 6;
+
+    // Background pill
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.55;
+    this.ctx.fillStyle = '#111122';
+    this.ctx.beginPath();
+    this.ctx.roundRect(left, top, width, height, r);
+    this.ctx.fill();
+    this.ctx.globalAlpha = 1;
+
+    // Icon
+    this.ctx.font = '14px serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(this.audioService.isMuted ? '\uD83D\uDD07' : '\uD83D\uDD0A', x, y);
+    this.ctx.textBaseline = 'alphabetic';
+    this.ctx.restore();
+  }
+
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
     const chars = text.split('');
@@ -3855,6 +3941,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private onCanvasClick(event: MouseEvent) {
+    // Unblock any autoplay-gated audio on the first user gesture
+    this.audioService.unlockAudio();
+
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     const cs = getComputedStyle(this.canvas.nativeElement);
     const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
@@ -3865,6 +3954,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const contentHeight = rect.height - borderTop - borderBottom;
     const x = (event.clientX - rect.left - borderLeft) * (CONST.CANVAS_WIDTH / contentWidth);
     const y = (event.clientY - rect.top - borderTop) * (CONST.CANVAS_HEIGHT / contentHeight);
+
+    // Mute button is active on every screen except terrain tool and loading
+    if (
+      this.gameService.currentState !== GameState.TERRAIN_TOOL &&
+      this.gameService.currentState !== GameState.LOADING &&
+      !this.isLoading &&
+      this.isPointInsideButton(x, y, this.MUTE_BUTTON)
+    ) {
+      this.audioService.toggleMute();
+      return;
+    }
 
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);

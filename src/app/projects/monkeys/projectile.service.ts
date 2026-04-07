@@ -206,9 +206,15 @@ export class ProjectileService {
     this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35; // 0.45x–0.80x random size
-      const offsetX = (Math.random() - 0.5) * 20;   // ±10px random offset
+      const offsetX = (Math.random() - 0.5) * 20; // ±10px random offset
       const offsetY = (Math.random() - 0.5) * 20;
-      this.createCrater(explosionX + offsetX, explosionY + offsetY, depthTerrain, projectileSnapshot.bullet, depthScale);
+      this.createCrater(
+        explosionX + offsetX,
+        explosionY + offsetY,
+        depthTerrain,
+        projectileSnapshot.bullet,
+        depthScale,
+      );
     }
 
     this.explodedProjectiles.push({
