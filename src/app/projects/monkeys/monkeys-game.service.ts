@@ -192,7 +192,10 @@ export class MonkeysGameService {
         attempts++;
         if (attempts > 100) break; // Prevent infinite loop
       } while ([this.player, ...this.enemies].some((entity) => Math.abs(entity.x - x) < 200));
-      const terrainHeight = this.collisionService.getTerrainHeightAt(x, this.terrainService.terrain);
+      const terrainHeight = this.collisionService.getTerrainHeightAt(
+        x,
+        this.terrainService.terrain,
+      );
       const y =
         terrainHeight !== -1
           ? terrainHeight - CONST.TANK_HALF_HEIGHT - CONST.SPAWN_HEIGHT_OFFSET
@@ -360,7 +363,10 @@ export class MonkeysGameService {
       entity.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, entity.x));
       this.Body.setPosition(entity.body, { x: entity.x, y: entity.y });
       // Update terrain angle
-      entity.terrainAngle = this.collisionService.getTerrainAngleAt(entity.x, this.terrainService.terrain);
+      entity.terrainAngle = this.collisionService.getTerrainAngleAt(
+        entity.x,
+        this.terrainService.terrain,
+      );
       // Smoothly interpolate angle toward target
       if (entity.targetAngle !== undefined) {
         const diff = entity.targetAngle - entity.angle;
@@ -946,7 +952,10 @@ export class MonkeysGameService {
 
   handleInput(keys: { [key: string]: boolean }) {
     if (this.currentState === GameState.PLAYING) {
-      const terrainH = this.collisionService.getTerrainHeightAt(this.player.x, this.terrainService.terrain);
+      const terrainH = this.collisionService.getTerrainHeightAt(
+        this.player.x,
+        this.terrainService.terrain,
+      );
       const isOnTerrain =
         terrainH !== -1 &&
         this.player.body != null &&

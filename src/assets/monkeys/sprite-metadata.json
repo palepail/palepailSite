@@ -5,7 +5,8 @@
     "text": "Text.png",
     "shield": "Shield Round Hex.png",
     "tanks": "tanks_spritesheetRetina.png",
-    "innerTerrain": "InnerTerrain.png"
+    "innerTerrain": "InnerTerrain.png",
+    "frames": "Frames.png"
   },
   "sprites": [
     { "name": "arena_G", "spritesheet": "text", "x": 0, "y": 0, "width": 64, "height": 64 },
@@ -1357,5 +1358,31 @@
       "width": 256,
       "height": 256
     }
+  ],
+  "panels": [
+    { "name": "panel_grey_3d", "spritesheet": "frames", "x": 0, "y": 0, "sectionSize": 16 },
+    { "name": "panel_grey_light", "spritesheet": "frames", "x": 48, "y": 0, "sectionSize": 16 },
+    { "name": "panel_grey_dark", "spritesheet": "frames", "x": 96, "y": 0, "sectionSize": 16 },
+    { "name": "panel_wood_1", "spritesheet": "frames", "x": 144, "y": 0, "sectionSize": 16 },
+    { "name": "panel_wood_1_nail", "spritesheet": "frames", "x": 192, "y": 0, "sectionSize": 16 },
+    { "name": "panel_brown_light_3d", "spritesheet": "frames", "x": 0, "y": 48, "sectionSize": 16 },
+    { "name": "panel_brown_1_light", "spritesheet": "frames", "x": 48, "y": 48, "sectionSize": 16 },
+    { "name": "panel_brown_1_dark", "spritesheet": "frames", "x": 96, "y": 48, "sectionSize": 16 },
+    { "name": "panel_wood_2", "spritesheet": "frames", "x": 144, "y": 48, "sectionSize": 16 },
+    { "name": "panel_wood_2_nail", "spritesheet": "frames", "x": 192, "y": 48, "sectionSize": 16 },
+    { "name": "panel_brown_2_3d", "spritesheet": "frames", "x": 0, "y": 96, "sectionSize": 16 },
+    { "name": "panel_brown_2_light", "spritesheet": "frames", "x": 48, "y": 96, "sectionSize": 16 },
+    { "name": "panel_brown_2_dark", "spritesheet": "frames", "x": 96, "y": 96, "sectionSize": 16 },
+    { "name": "panel_wood_3", "spritesheet": "frames", "x": 144, "y": 96, "sectionSize": 16 },
+    { "name": "panel_wood_3_nail", "spritesheet": "frames", "x": 192, "y": 96, "sectionSize": 16 },
+    { "name": "panel_brown_3_3d", "spritesheet": "frames", "x": 0, "y": 144, "sectionSize": 16 },
+    {
+      "name": "panel_brown_3_light",
+      "spritesheet": "frames",
+      "x": 48,
+      "y": 144,
+      "sectionSize": 16
+    },
+    { "name": "panel_brown_3_dark", "spritesheet": "frames", "x": 96, "y": 144, "sectionSize": 16 }
   ]
 }

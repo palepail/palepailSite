@@ -23,9 +23,18 @@ export interface SpriteData {
   height: number;
 }
 
+export interface PanelDefinition {
+  name: string;
+  spritesheet: string;
+  x: number;
+  y: number;
+  sectionSize: number;
+}
+
 interface SpriteMetadataFile {
   spritesheets: Record<string, string>;
   sprites: SpriteDefinition[];
+  panels?: Array<{ name: string; spritesheet: string; x: number; y: number; sectionSize: number }>;
 }
 
 @Injectable({
@@ -41,6 +50,7 @@ export class MonkeysSpriteService {
   readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
   private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
+  private panelDefinitions: Map<string, PanelDefinition> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
   private spriteDefinitions: SpriteDefinition[] = [];
   private metadataLoadPromise: Promise<void> | null = null;
@@ -59,7 +69,9 @@ export class MonkeysSpriteService {
     this.loadLabel = 'Loading sprite metadata...';
     await this.ensureSpriteMetadataLoaded();
 
-    const spritesheetPaths = [...new Set(this.spriteDefinitions.map((def) => def.spritesheet))];
+    const spritePaths = this.spriteDefinitions.map((def) => def.spritesheet);
+    const panelPaths = Array.from(this.panelDefinitions.values()).map((p) => p.spritesheet);
+    const spritesheetPaths = [...new Set([...spritePaths, ...panelPaths])];
     const total = spritesheetPaths.length;
     let done = 0;
 
@@ -164,6 +176,12 @@ export class MonkeysSpriteService {
       ...definition,
       spritesheet: this.resolveSpritesheetPath(definition.spritesheet, metadata.spritesheets),
     }));
+    for (const p of metadata.panels ?? []) {
+      this.panelDefinitions.set(p.name, {
+        ...p,
+        spritesheet: this.resolveSpritesheetPath(p.spritesheet, metadata.spritesheets),
+      });
+    }
   }
 
   private resolveSpritesheetPath(
@@ -280,6 +298,10 @@ export class MonkeysSpriteService {
 
   getSprite(name: string): SpriteData | null {
     return this.sprites.get(name) || null;
+  }
+
+  getPanel(name: string): PanelDefinition | null {
+    return this.panelDefinitions.get(name) ?? null;
   }
 
   getSpritesheet(path: string): HTMLImageElement | HTMLCanvasElement | null {

@@ -302,32 +302,37 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.frozenTime ?? Date.now();
   }
 
-  private readonly MENU_START_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 390, 200, 50);
-  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 460, 200, 50);
-  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 530, 200, 50);
-  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 600, 200, 50);
+  private readonly MENU_START_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 395, 200, 50);
+  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 465, 200, 50);
+  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 535, 200, 50);
+  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 680, 200, 50);
   // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
   private readonly MUTE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 12, 12, 24, 24);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
-  private readonly OPTIONS_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 385, 200, 50);
+  private readonly OPTIONS_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 590, 200, 50);
   private readonly OPTIONS_DIFFICULTY_EASY_BUTTON = this.mkBtn(
-    CONST.CANVAS_WIDTH / 2,
-    200,
+    CONST.CANVAS_WIDTH / 2 - 200,
+    280,
     160,
-    44,
+    50,
   );
   private readonly OPTIONS_DIFFICULTY_NORMAL_BUTTON = this.mkBtn(
     CONST.CANVAS_WIDTH / 2,
-    255,
+    280,
     160,
-    44,
+    50,
   );
   private readonly OPTIONS_DIFFICULTY_HARD_BUTTON = this.mkBtn(
-    CONST.CANVAS_WIDTH / 2,
-    310,
+    CONST.CANVAS_WIDTH / 2 + 200,
+    280,
     160,
-    44,
+    50,
   );
+  private readonly SLIDER_TRACK_LEFT = CONST.CANVAS_WIDTH / 2 - 220;
+  private readonly SLIDER_TRACK_WIDTH = 440;
+  private readonly SLIDER_BG_TRACK_Y = 410;
+  private readonly SLIDER_SFX_TRACK_Y = 503;
+  private draggingSlider: 'bg' | 'sfx' | null = null;
   private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 48, 220, 44);
   private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 102, 220, 44);
   private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(
@@ -374,16 +379,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       });
   }
 
+  private readonly onWindowBlur = () => this.audioService.setFocusMuted(true);
+  private readonly onWindowFocus = () => this.audioService.setFocusMuted(false);
+  private readonly onVisibilityChange = () => this.audioService.setFocusMuted(document.hidden);
+
   ngAfterViewInit() {
     this.initCanvas();
     this.canvas.nativeElement.addEventListener('click', (event) => this.onCanvasClick(event));
+    this.canvas.nativeElement.addEventListener('mousedown', (event) =>
+      this.onCanvasMouseDown(event),
+    );
+    this.canvas.nativeElement.addEventListener('mousemove', (event) =>
+      this.onCanvasMouseMove(event),
+    );
+    window.addEventListener('mouseup', () => {
+      this.draggingSlider = null;
+    });
     window.addEventListener('keydown', (event) => this.onKeyDown(event));
     window.addEventListener('keyup', (event) => this.onKeyUp(event));
+    window.addEventListener('blur', this.onWindowBlur);
+    window.addEventListener('focus', this.onWindowFocus);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.renderLoop();
   }
 
   ngOnDestroy() {
     cancelAnimationFrame(this.animationFrameId);
+    window.removeEventListener('blur', this.onWindowBlur);
+    window.removeEventListener('focus', this.onWindowFocus);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.gameService.destroy();
     this.audioService.destroy();
   }
@@ -2794,7 +2818,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // ── Back button ──────────────────────────────────────────────────────
-    this.drawButton('Back', this.EQUIP_BACK_BUTTON, '#445', '#667');
+    this.drawButton('Back', this.EQUIP_BACK_BUTTON, '#445', '#667', 'panel_wood_1');
   }
 
   private drawVehicleGrid(panelLeft: number, panelCx: number) {
@@ -3116,12 +3140,21 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       );
     }
 
+    // Backdrop panel behind buttons
+    this.drawNineSlicePanel('panel_wood_3_nail', 460, 350, 280, 230);
+
     // Draw buttons
-    this.drawButton('Start Game', this.MENU_START_BUTTON, '#4CAF50', '#45a049');
-    this.drawButton('Loadout', this.MENU_LOADOUT_BUTTON, '#E67C22', '#D35400');
-    this.drawButton('Options', this.MENU_OPTIONS_BUTTON, '#2196F3', '#1976D2');
+    this.drawButton('Start Game', this.MENU_START_BUTTON, '#4CAF50', '#45a049', 'panel_wood_1');
+    this.drawButton('Loadout', this.MENU_LOADOUT_BUTTON, '#E67C22', '#D35400', 'panel_wood_1');
+    this.drawButton('Options', this.MENU_OPTIONS_BUTTON, '#2196F3', '#1976D2', 'panel_wood_1');
     if (this.TERRAIN_TOOL_ENABLED) {
-      this.drawButton('Terrain Tool', this.MENU_TERRAIN_TOOL_BUTTON, '#9C6ADE', '#7C4DCC');
+      this.drawButton(
+        'Terrain Tool',
+        this.MENU_TERRAIN_TOOL_BUTTON,
+        '#9C6ADE',
+        '#7C4DCC',
+        'panel_wood_1',
+      );
     }
   }
 
@@ -3131,14 +3164,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(0);
 
+    // Backdrop panel behind all options content
+    this.drawNineSlicePanel('panel_wood_3_nail', 280, 60, 640, 578);
+
     // Title
     this.drawSpriteTextCentered('Options', 80, 48);
 
     // Difficulty label
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 22px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('Difficulty', CONST.CANVAS_WIDTH / 2, 180);
+    this.drawSpriteTextCentered('Difficulty', 185, 36);
 
     const diff = this.gameService.difficulty;
     const easyActive = diff === 'easy';
@@ -3150,22 +3183,65 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.OPTIONS_DIFFICULTY_EASY_BUTTON,
       easyActive ? '#66BB6A' : '#388E3C',
       easyActive ? '#81C784' : '#2E7D32',
+      easyActive ? 'panel_wood_1' : 'panel_brown_2_dark',
     );
     this.drawButton(
       'Normal',
       this.OPTIONS_DIFFICULTY_NORMAL_BUTTON,
       normalActive ? '#29B6F6' : '#0288D1',
       normalActive ? '#4FC3F7' : '#01579B',
+      normalActive ? 'panel_wood_1' : 'panel_brown_2_dark',
     );
     this.drawButton(
       'Hard',
       this.OPTIONS_DIFFICULTY_HARD_BUTTON,
       hardActive ? '#EF5350' : '#C62828',
       hardActive ? '#E57373' : '#B71C1C',
+      hardActive ? 'panel_wood_1' : 'panel_brown_2_dark',
     );
 
     // Back button
-    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON, '#FF9800', '#F57C00');
+    this.drawButton('Back to Menu', this.OPTIONS_BACK_BUTTON, '#FF9800', '#F57C00', 'panel_wood_1');
+
+    // Volume sliders
+    this.drawSpriteTextCentered('Volume', 342, 28);
+    this.drawVolumeSlider('Background', this.audioService.bgVolume, this.SLIDER_BG_TRACK_Y);
+    this.drawVolumeSlider('Effects', this.audioService.sfxVolume, this.SLIDER_SFX_TRACK_Y);
+  }
+
+  private drawVolumeSlider(label: string, value: number, trackY: number) {
+    const left = this.SLIDER_TRACK_LEFT;
+    const width = this.SLIDER_TRACK_WIDTH;
+    const thumbX = left + value * width;
+    const trackH = 6;
+    const thumbR = 12;
+
+    // Label above the track
+    this.drawSpriteTextCentered(label, trackY - 44, 22);
+
+    // Track background
+    this.ctx.fillStyle = '#444';
+    this.ctx.beginPath();
+    this.ctx.roundRect(left, trackY - trackH / 2, width, trackH, 3);
+    this.ctx.fill();
+
+    // Track fill (left portion)
+    this.ctx.fillStyle = '#4FC3F7';
+    this.ctx.beginPath();
+    this.ctx.roundRect(left, trackY - trackH / 2, thumbX - left, trackH, 3);
+    this.ctx.fill();
+
+    // Thumb
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.beginPath();
+    this.ctx.arc(thumbX, trackY, thumbR, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Percentage label to the right of the track
+    this.ctx.fillStyle = '#CCCCCC';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`${Math.round(value * 100)}%`, left + width + 14, trackY + 6);
   }
 
   private drawTerrainTool() {
@@ -3915,28 +3991,70 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     btn: { x: number; y: number; width: number; height: number },
     color: string,
     hoverColor: string,
+    panelName?: string,
   ) {
     const { x, y, width, height } = btn;
-    // Button background
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(x - width / 2, y - height / 2, width, height);
+    const left = x - width / 2;
+    const top = y - height / 2;
 
-    // Button border
-    this.ctx.strokeStyle = '#ffffff';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(x - width / 2, y - height / 2, width, height);
+    if (panelName) {
+      this.drawNineSlicePanel(panelName, left, top, width, height);
+    } else {
+      // Button background
+      this.ctx.fillStyle = color;
+      this.ctx.fillRect(left, top, width, height);
+
+      // Button border
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeRect(left, top, width, height);
+    }
 
     // Button text
     this.ctx.fillStyle = '#ffffff';
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(text, x, y + 6);
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(text, x, y);
+    this.ctx.textBaseline = 'alphabetic';
   }
 
-  private onCanvasClick(event: MouseEvent) {
-    // Unblock any autoplay-gated audio on the first user gesture
-    this.audioService.unlockAudio();
+  private drawNineSlicePanel(
+    panelName: string,
+    destX: number,
+    destY: number,
+    destW: number,
+    destH: number,
+  ): void {
+    const panel = this.spriteService.getPanel(panelName);
+    if (!panel) return;
+    const sheet = this.spriteService.getSpritesheet(panel.spritesheet);
+    if (!sheet) return;
 
+    const s = panel.sectionSize;
+    const px = panel.x;
+    const py = panel.y;
+
+    // prettier-ignore
+    const slices: [number, number, number, number, number, number, number, number][] = [
+      // [srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH]
+      [px,       py,       s, s, destX,              destY,              s,          s         ], // TL
+      [px + s,   py,       s, s, destX + s,          destY,    destW - 2 * s,        s         ], // TC
+      [px + 2*s, py,       s, s, destX + destW - s,  destY,              s,          s         ], // TR
+      [px,       py + s,   s, s, destX,              destY + s,          s, destH - 2 * s      ], // ML
+      [px + s,   py + s,   s, s, destX + s,          destY + s, destW - 2 * s, destH - 2 * s  ], // MC
+      [px + 2*s, py + s,   s, s, destX + destW - s,  destY + s,          s, destH - 2 * s      ], // MR
+      [px,       py + 2*s, s, s, destX,              destY + destH - s,  s,          s         ], // BL
+      [px + s,   py + 2*s, s, s, destX + s,          destY + destH - s, destW - 2 * s, s       ], // BC
+      [px + 2*s, py + 2*s, s, s, destX + destW - s,  destY + destH - s,  s,          s         ], // BR
+    ];
+
+    for (const [sx, sy, sw, sh, dx, dy, dw, dh] of slices) {
+      this.ctx.drawImage(sheet, sx, sy, sw, sh, dx, dy, dw, dh);
+    }
+  }
+
+  private getCanvasCoords(event: MouseEvent): { x: number; y: number } {
     const rect = this.canvas.nativeElement.getBoundingClientRect();
     const cs = getComputedStyle(this.canvas.nativeElement);
     const borderLeft = parseFloat(cs.borderLeftWidth) || 0;
@@ -3945,8 +4063,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
     const contentWidth = rect.width - borderLeft - borderRight;
     const contentHeight = rect.height - borderTop - borderBottom;
-    const x = (event.clientX - rect.left - borderLeft) * (CONST.CANVAS_WIDTH / contentWidth);
-    const y = (event.clientY - rect.top - borderTop) * (CONST.CANVAS_HEIGHT / contentHeight);
+    return {
+      x: (event.clientX - rect.left - borderLeft) * (CONST.CANVAS_WIDTH / contentWidth),
+      y: (event.clientY - rect.top - borderTop) * (CONST.CANVAS_HEIGHT / contentHeight),
+    };
+  }
+
+  private onCanvasClick(event: MouseEvent) {
+    // Unblock any autoplay-gated audio on the first user gesture
+    this.audioService.unlockAudio();
+
+    const { x, y } = this.getCanvasCoords(event);
 
     // Mute button is active on every screen except terrain tool and loading
     if (
@@ -4014,5 +4141,38 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
       this.gameService.currentState = GameState.MENU;
     }
+  }
+
+  private sliderHitTest(x: number, y: number, trackY: number): boolean {
+    const left = this.SLIDER_TRACK_LEFT;
+    const right = left + this.SLIDER_TRACK_WIDTH;
+    return x >= left - 12 && x <= right + 12 && y >= trackY - 16 && y <= trackY + 16;
+  }
+
+  private applySliderX(x: number, which: 'bg' | 'sfx') {
+    const v = Math.max(0, Math.min(1, (x - this.SLIDER_TRACK_LEFT) / this.SLIDER_TRACK_WIDTH));
+    if (which === 'bg') {
+      this.audioService.setBgVolume(v);
+    } else {
+      this.audioService.setSfxVolume(v);
+    }
+  }
+
+  private onCanvasMouseDown(event: MouseEvent) {
+    if (this.gameService.currentState !== GameState.OPTIONS) return;
+    const { x, y } = this.getCanvasCoords(event);
+    if (this.sliderHitTest(x, y, this.SLIDER_BG_TRACK_Y)) {
+      this.draggingSlider = 'bg';
+      this.applySliderX(x, 'bg');
+    } else if (this.sliderHitTest(x, y, this.SLIDER_SFX_TRACK_Y)) {
+      this.draggingSlider = 'sfx';
+      this.applySliderX(x, 'sfx');
+    }
+  }
+
+  private onCanvasMouseMove(event: MouseEvent) {
+    if (!this.draggingSlider || this.gameService.currentState !== GameState.OPTIONS) return;
+    const { x } = this.getCanvasCoords(event);
+    this.applySliderX(x, this.draggingSlider);
   }
 }

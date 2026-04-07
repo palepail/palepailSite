@@ -12,7 +12,45 @@ export class MonkeysAudioService {
   // Track which track should be playing so we can retry after a blocked autoplay
   private activeTrack: 'menu' | 'game' | 'none' = 'none';
 
+  bgVolume = 0.5;
+  sfxVolume = 0.5;
   isMuted = false;
+  private focusMuted = false;
+
+  private get effectiveVolume(): number {
+    return this.isMuted || this.focusMuted ? 0 : this.bgVolume;
+  }
+
+  setFocusMuted(muted: boolean): void {
+    this.focusMuted = muted;
+    const active =
+      this.activeTrack === 'menu'
+        ? this.menuAudio
+        : this.activeTrack === 'game'
+          ? this.gameAudio
+          : null;
+    if (active) {
+      active.volume = this.effectiveVolume;
+    }
+  }
+
+  setBgVolume(v: number): void {
+    this.bgVolume = Math.max(0, Math.min(1, v));
+    const active =
+      this.activeTrack === 'menu'
+        ? this.menuAudio
+        : this.activeTrack === 'game'
+          ? this.gameAudio
+          : null;
+    if (active) {
+      active.volume = this.effectiveVolume;
+    }
+  }
+
+  setSfxVolume(v: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+    // Sound effects not yet implemented; stored for future use.
+  }
 
   toggleMute(): void {
     this.isMuted = !this.isMuted;
@@ -23,7 +61,7 @@ export class MonkeysAudioService {
           ? this.gameAudio
           : null;
     if (active) {
-      active.volume = this.isMuted ? 0 : 0.5;
+      active.volume = this.effectiveVolume;
     }
   }
 
@@ -32,7 +70,7 @@ export class MonkeysAudioService {
     return new Promise((resolve) => {
       const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('Menu.wav'));
       audio.loop = true;
-      audio.volume = 0.5;
+      audio.volume = this.bgVolume;
       const onReady = () => {
         this.menuAudio = audio;
         resolve();
@@ -56,7 +94,7 @@ export class MonkeysAudioService {
     // play() synchronously within the same user-gesture tick, before any await.
     const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('New Road Loop.wav'));
     audio.loop = true;
-    audio.volume = 0.5;
+    audio.volume = this.bgVolume;
     this.gameAudio = audio;
     return new Promise((resolve) => {
       audio.addEventListener('canplaythrough', () => resolve(), { once: true });
@@ -82,7 +120,7 @@ export class MonkeysAudioService {
       this.menuAudio.pause();
     }
     if (this.gameAudio) {
-      this.gameAudio.volume = this.isMuted ? 0 : 0.5;
+      this.gameAudio.volume = this.effectiveVolume;
       this.gameAudio.currentTime = 0;
       this.gameAudio.play().catch(() => {});
     }
@@ -94,7 +132,7 @@ export class MonkeysAudioService {
       this.gameAudio.pause();
     }
     if (this.menuAudio) {
-      this.menuAudio.volume = this.isMuted ? 0 : 0.5;
+      this.menuAudio.volume = this.effectiveVolume;
       this.menuAudio.currentTime = 0;
       this.menuAudio.play().catch(() => {
         // Autoplay may be blocked until user interacts; unlockAudio() will retry
@@ -146,5 +184,6 @@ export class MonkeysAudioService {
     }
     this.activeTrack = 'none';
     this.isMuted = false;
+    this.focusMuted = false;
   }
 }
