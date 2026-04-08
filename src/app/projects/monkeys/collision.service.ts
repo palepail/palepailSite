@@ -122,6 +122,7 @@ export class CollisionService {
     if (h1 === -1 || h2 === -1) return 0;
 
     const slope = (h2 - h1) / (2 * CONST.TERRAIN_SLOPE_SAMPLE_DISTANCE);
-    return Math.atan(slope);
+    const MAX_ANGLE = Math.PI / 4; // 45° — clamp out crater-edge sampling artifacts
+    return Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, Math.atan(slope)));
   }
 }

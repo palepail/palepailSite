@@ -1965,37 +1965,68 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const queue = [...this.gameService.turnQueue].sort((a, b) => a.entity.delay - b.entity.delay);
     if (queue.length === 0) return;
 
-    this.ctx.fillStyle = CONST.TURN_QUEUE_BG_COLOR;
-    this.ctx.fillRect(10, 10, 200, queue.length * 25 + 10);
+    const CHAR_SIZE = 24;
+    const ADVANCE = CHAR_SIZE * 0.55;
+    const ROW_H = CHAR_SIZE + 7;
+    const PAD = 30;
+    const PANEL_W = 250;
+    const PANEL_H = queue.length * ROW_H + PAD * 2;
 
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '14px Arial';
-    this.ctx.textAlign = 'left';
+    this.drawNineSlicePanel('panel_wood_3_nail', 10, 10, PANEL_W, PANEL_H);
 
     const currentEntity = this.gameService.getCurrentTurnEntity();
 
     queue.forEach((turnEntity, index) => {
-      const y = 30 + index * 25;
+      const topY = 10 + PAD + index * ROW_H;
       const isCurrent = turnEntity.id === currentEntity?.id;
 
-      if (isCurrent) {
-        this.ctx.fillStyle = CONST.TURN_QUEUE_CURRENT_COLOR; // Yellow for current turn
-      } else if (turnEntity.type === 'player') {
-        this.ctx.fillStyle = CONST.TURN_QUEUE_PLAYER_COLOR; // Green for player
-      } else {
-        this.ctx.fillStyle = CONST.TURN_QUEUE_ENEMY_COLOR; // Red for enemies
-      }
+      const tint = isCurrent
+        ? CONST.TURN_QUEUE_CURRENT_COLOR
+        : turnEntity.type === 'player'
+          ? CONST.TURN_QUEUE_PLAYER_COLOR
+          : CONST.TURN_QUEUE_ENEMY_COLOR;
 
-      const name =
+      const rawName =
         turnEntity.type === 'player'
           ? this.gameService.playerName
           : `Enemy ${turnEntity.id.split('_')[1]}`;
-      const timeStr = isCurrent ? '0' : Math.round(turnEntity.entity.delay);
+      const timeStr = isCurrent ? '0' : String(Math.round(turnEntity.entity.delay));
 
-      this.ctx.fillText(`${name}: ${timeStr}`, 20, y);
+      const nameChars = rawName.split('');
+      this.drawSpriteChars(
+        nameChars,
+        this.buildQueueCharMap(),
+        10 + PAD,
+        topY,
+        CHAR_SIZE,
+        ADVANCE,
+        tint,
+        true,
+      );
+
+      const timeChars = timeStr.split('');
+      const timeWidth = timeChars.length * ADVANCE;
+      const timeX = 10 + PANEL_W - PAD - timeWidth;
+      this.drawSpriteChars(
+        timeChars,
+        this.buildQueueCharMap(),
+        timeX,
+        topY,
+        CHAR_SIZE,
+        ADVANCE,
+        tint,
+        true,
+      );
     });
+  }
 
-    this.ctx.textAlign = 'left'; // Reset text alignment
+  private buildQueueCharMap(): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (let c = 65; c <= 90; c++) map[String.fromCharCode(c)] = `text_${String.fromCharCode(c)}`;
+    for (let c = 97; c <= 122; c++) map[String.fromCharCode(c)] = `text_${String.fromCharCode(c)}`;
+    for (let d = 0; d <= 9; d++) map[String(d)] = `arena_${d}`;
+    map[' '] = '';
+    return map;
   }
 
   private renderLoop() {
@@ -2077,7 +2108,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isNameEditing = false;
       } else if (event.key === 'Backspace') {
         this.gameService.playerName = this.gameService.playerName.slice(0, -1);
-      } else if (event.key.length === 1 && this.gameService.playerName.length < 12) {
+      } else if (event.key.length === 1 && this.gameService.playerName.length < 10) {
         const ch = event.key;
         if (/^[a-zA-Z0-9 _-]$/.test(ch)) {
           this.gameService.playerName += ch;
