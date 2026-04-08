@@ -150,6 +150,7 @@ export class MonkeysGameService {
       turnState: 'turn_start',
       turnTimer: 0,
       delay: 0,
+      entityState: 'idle',
     };
   }
 
@@ -250,6 +251,7 @@ export class MonkeysGameService {
         lastY: y,
         movementFuel: enemyVehicle.fuel,
         currentShieldHealth: enemyVehicle.shieldHealth ?? 0,
+        entityState: 'idle',
       };
       this.createEntity(enemy, x, y);
       this.enemies.push(enemy);
@@ -1037,6 +1039,7 @@ export class MonkeysGameService {
           this.chargeStartTime = Date.now();
           this.player.power = CONST.MIN_POWER;
           this.player.turnState = 'charging';
+          this.player.entityState = 'charging';
         }
       }
     }

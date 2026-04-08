@@ -69,17 +69,20 @@ export class AIService {
           }
           enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
           enemy.turnState = 'moving';
+          enemy.entityState = 'moving';
         } else if (!forceShot && distance < moveAwayThreshold && enemy.movementFuel! > 5) {
           // Too close, move away
           enemy.moveDirection = dx > 0 ? -1 : 1; // Away from player
           enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
           enemy.turnState = 'moving';
+          enemy.entityState = 'moving';
         } else {
           // Good distance (or forced after too many reassessments), aim and shoot
           enemy.facing = dx > 0 ? 1 : -1; // Face toward player
           enemy.targetAngle = undefined;
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
+          enemy.entityState = 'idle';
           enemy.turnTimer = 0;
         }
         break;
@@ -102,11 +105,13 @@ export class AIService {
           const maxReassess = (enemy.reassessCount ?? 0) >= 3;
           if (!maxReassess && (newDistance > 500 || newDistance < 100)) {
             enemy.turnState = 'assess'; // Reassess if still not ideal
+            enemy.entityState = 'idle';
           } else {
             enemy.facing = newDx > 0 ? 1 : -1;
             enemy.targetAngle = undefined;
             enemy.targetPower = undefined;
             enemy.turnState = 'aiming';
+            enemy.entityState = 'idle';
             enemy.turnTimer = 0;
           }
         }
@@ -124,6 +129,7 @@ export class AIService {
             return;
           }
           enemy.turnState = 'aiming';
+          enemy.entityState = 'idle';
           enemy.targetAngle = undefined;
           enemy.targetPower = undefined;
           enemy.turnTimer = 0;
@@ -168,6 +174,7 @@ export class AIService {
               enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
             enemy.turnState = 'charging';
+            enemy.entityState = 'charging';
             return;
           }
 
@@ -195,6 +202,7 @@ export class AIService {
               enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
             enemy.turnState = 'charging';
+            enemy.entityState = 'charging';
             return;
           }
 
@@ -297,6 +305,7 @@ export class AIService {
           enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
           enemy.chargeStartTime = Date.now();
           enemy.turnState = 'charging';
+          enemy.entityState = 'charging';
         }
         break;
 
@@ -321,6 +330,7 @@ export class AIService {
     enemy.targetPower = undefined;
     enemy.forceTerrainClearingShot = true;
     enemy.turnState = 'aiming';
+    enemy.entityState = 'idle';
     enemy.turnTimer = 0;
     enemy.stuckCounter = 0;
   }

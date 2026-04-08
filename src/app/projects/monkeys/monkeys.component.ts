@@ -191,6 +191,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
+  private readonly PUSHBACK_DURATION_MS = 300;
   private readonly SHIELD_IDLE_FRAME_MS = 80;
   private readonly SHIELD_IDLE_FRAMES = 14;
   private readonly SHIELD_IDLE_HOLD_MS = 3000;
@@ -1173,7 +1174,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     afterFacingFlip?: (cx: number, cy: number) => void,
     beforeBody?: (cx: number, cy: number) => void,
   ): { centerX: number; centerY: number } {
-    const screenPos = this.cameraController.worldToScreen(entity.x, entity.y);
+    let displayX = entity.x;
+    if (entity.entityState === 'pushback' && entity.pushbackStartMs !== undefined) {
+      const elapsed = Date.now() - entity.pushbackStartMs;
+      if (elapsed < this.PUSHBACK_DURATION_MS) {
+        const t = elapsed / this.PUSHBACK_DURATION_MS;
+        const eased = 1 - (1 - t) ** 3;
+        displayX = entity.pushbackFromX + (entity.pushbackToX - entity.pushbackFromX) * eased;
+      } else {
+        entity.entityState = 'idle';
+      }
+    }
+    const screenPos = this.cameraController.worldToScreen(displayX, entity.y);
     const centerX = screenPos.x;
     const centerY = screenPos.y;
     const bodyRadius = CONST.TANK_BODY_RADIUS;
@@ -1586,7 +1598,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       } else {
         this.hurtSpriteUntilByEntity.set(key, now + this.HURT_SPRITE_DURATION_MS);
+        entity.entityState = 'hurting';
       }
+    }
+
+    // Clear hurting state when the timer has expired
+    if (entity.entityState === 'hurting' && (this.hurtSpriteUntilByEntity.get(key) ?? 0) <= now) {
+      entity.entityState = 'idle';
     }
 
     this.previousHealthByEntity.set(key, currentHealth);

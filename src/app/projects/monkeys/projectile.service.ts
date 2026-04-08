@@ -315,6 +315,7 @@ export class ProjectileService {
           }
           if (enemy.health <= 0) {
             enemy.active = false;
+            enemy.entityState = 'dead';
             if (enemy.body) {
               physicsService.removeBody(enemy.body);
             }

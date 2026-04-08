@@ -1,6 +1,16 @@
 // monkeys.types.ts
 // Types and interfaces for the Monkeys game component
 
+export type EntityState =
+  | 'idle'
+  | 'moving'
+  | 'charging'
+  | 'shooting'
+  | 'hurting'
+  | 'pushback'
+  | 'falling'
+  | 'dead';
+
 export interface Player {
   body: any; // Matter.js body
   x: number;
@@ -21,6 +31,10 @@ export interface Player {
   targetAngle?: number;
   currentShieldHealth?: number;
   shieldHitAngle?: number;
+  entityState: EntityState;
+  pushbackFromX?: number;
+  pushbackToX?: number;
+  pushbackStartMs?: number;
 }
 
 export interface Enemy {
@@ -61,6 +75,10 @@ export interface Enemy {
   target?: Player | Enemy;
   currentShieldHealth?: number;
   shieldHitAngle?: number;
+  entityState: EntityState;
+  pushbackFromX?: number;
+  pushbackToX?: number;
+  pushbackStartMs?: number;
 }
 
 export enum GameState {

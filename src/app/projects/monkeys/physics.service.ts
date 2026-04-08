@@ -178,6 +178,7 @@ export class PhysicsService {
       xFactor = slopeAngleDeg >= 60 ? 0 : Math.max(0, 1 - slopeAngleDeg / 60);
     }
 
+    const fromX = target.x;
     const targetX = Math.max(
       0,
       Math.min(CONST.TERRAIN_WIDTH, target.x + hSign * pushDistance * xFactor),
@@ -191,6 +192,10 @@ export class PhysicsService {
       });
     }
     target.x = targetX;
+    target.pushbackFromX = fromX;
+    target.pushbackToX = targetX;
+    target.pushbackStartMs = Date.now();
+    target.entityState = 'pushback';
   }
 
   pausePhysics() {
