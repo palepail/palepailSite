@@ -536,7 +536,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState === GameState.PLAYING &&
       currentTurnEntity &&
       !this.gameService.projectile &&
-      this.gameService.explodedProjectiles.length === 0 &&
       !this.gameService.isCharging
     ) {
       this.cameraController.enableIdleMode();
@@ -573,7 +572,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState,
       this.gameService.player.body,
       currentTurnEntity,
-      this.gameService.explodedProjectiles,
+      this.gameService.aftermathImpactPos,
     );
 
     // Pan to entity if requested
@@ -1732,10 +1731,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
       }
       this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite);
-    } else if (this.gameService.explodedProjectiles.length > 0) {
-      const ep = this.gameService.explodedProjectiles[0];
+    } else if (this.gameService.aftermathImpactPos) {
+      const impactPos = this.gameService.aftermathImpactPos;
       this.drawBulletAt(
-        this.cameraController.worldToScreen(ep.position.x, ep.position.y),
+        this.cameraController.worldToScreen(impactPos.x, impactPos.y),
         bulletSprite,
       );
     }

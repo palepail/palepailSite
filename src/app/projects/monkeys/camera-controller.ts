@@ -36,7 +36,6 @@ class CameraController {
   public isFollowing = false;
   private isTrackingProjectile = false;
   private lastTrackedType: 'projectile' | 'explosion' | null = null;
-  private trackedExplosion: any = null;
   private isIdleMode = false;
   private idleModeActivityTime = Date.now();
   private isLocked = false;
@@ -145,24 +144,21 @@ class CameraController {
 
   private trackProjectileIfNeeded(
     projectile: any,
-    explodedProjectiles: any[],
+    aftermathImpactPos: { x: number; y: number } | null,
     playerX: number,
     playerY: number,
   ): { targetX: number; targetY: number; type: 'projectile' | 'explosion' } | null {
     let trackPos = null;
     if (projectile) {
       trackPos = projectile.position || { x: projectile.x, y: projectile.y };
-    } else if (explodedProjectiles.length > 0) {
-      trackPos = explodedProjectiles[0].position;
+    } else if (aftermathImpactPos) {
+      trackPos = aftermathImpactPos;
     }
     if (!trackPos) return null;
 
-    const screenX = trackPos.x - this.camera.x;
-    const screenY = trackPos.y - this.camera.y;
-    const margin = this.TRACKING_MARGIN;
     const distFromPlayer = Math.hypot(trackPos.x - playerX, trackPos.y - playerY);
 
-    if (distFromPlayer > this.MIN_TRACK_DISTANCE || projectile || explodedProjectiles.length > 0) {
+    if (distFromPlayer > this.MIN_TRACK_DISTANCE || projectile || aftermathImpactPos) {
       if (projectile) {
         let targetX, targetY;
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
@@ -188,7 +184,7 @@ class CameraController {
         }
         return { targetX, targetY, type: 'projectile' };
       } else {
-        // For exploded, just center without prediction
+        // For impact pos, center without prediction
         const targetX = trackPos.x - this.camera.width / 2;
         const targetY = trackPos.y - this.camera.height * (2 / 3);
         return { targetX, targetY, type: 'explosion' };
@@ -238,7 +234,7 @@ class CameraController {
     currentState: GameState,
     playerBody: any,
     currentTurnEntity: any,
-    explodedProjectiles: any[],
+    aftermathImpactPos: { x: number; y: number } | null,
   ) {
     // When locked only drag is allowed (drag is handled directly in the component).
     if (this.isLocked) return;
@@ -274,7 +270,7 @@ class CameraController {
     // Follow player when falling at game start
     if (
       !this.hasLanded &&
-      (currentState === GameState.SETUP || currentState === GameState.PLAYING) &&
+      (currentState === GameState.SETUP || currentState === GameState.PLAYING || currentState === GameState.AFTERMATH) &&
       !isDragging &&
       !projectile
     ) {
@@ -302,31 +298,19 @@ class CameraController {
     // Projectile/explosion tracking takes priority over panning, but don't cancel the
     // pending pan — just suppress it until tracking ends so the camera returns to the
     // turn entity once the explosion clears.
-    const hasActiveTracking = !!(projectile || explodedProjectiles.length > 0);
+    const hasActiveTracking = !!(projectile || aftermathImpactPos);
 
-    // If we're already tracking an explosion and it still exists, continue tracking it
-    if (this.trackedExplosion && explodedProjectiles.includes(this.trackedExplosion)) {
-      const trackPos = this.trackedExplosion.position;
+    // If we have an impact position (aftermath), track it directly
+    if (!projectile && aftermathImpactPos) {
       projectileTargets = {
-        targetX: trackPos.x - this.camera.width / 2,
-        targetY: trackPos.y - this.camera.height * (2 / 3),
-        type: 'explosion',
-      };
-    } else if (explodedProjectiles.length > 0) {
-      // Start tracking a new explosion
-      this.trackedExplosion = explodedProjectiles[0];
-      const trackPos = this.trackedExplosion.position;
-      projectileTargets = {
-        targetX: trackPos.x - this.camera.width / 2,
-        targetY: trackPos.y - this.camera.height * (2 / 3),
+        targetX: aftermathImpactPos.x - this.camera.width / 2,
+        targetY: aftermathImpactPos.y - this.camera.height * (2 / 3),
         type: 'explosion',
       };
     } else {
-      // No explosions, check for projectile
-      this.trackedExplosion = null;
       projectileTargets = this.trackProjectileIfNeeded(
         projectile,
-        explodedProjectiles,
+        aftermathImpactPos,
         playerX,
         playerY,
       );
@@ -343,7 +327,6 @@ class CameraController {
       if (this.isTrackingProjectile) {
         this.isTrackingProjectile = false;
         this.lastTrackedType = null;
-        this.trackedExplosion = null; // Reset when stopping
       }
     }
 
@@ -375,7 +358,7 @@ class CameraController {
       !isDragging &&
       !this.isPanning &&
       !projectile &&
-      explodedProjectiles.length === 0 &&
+      !aftermathImpactPos &&
       Date.now() - this.idleModeActivityTime >= this.IDLE_MODE_AUTO_FOCUS_MS
     ) {
       const focusEntityX = currentTurnEntity?.x ?? playerX;
@@ -393,11 +376,8 @@ class CameraController {
     let lerpFactor = this.DEFAULT_LERP; // Default smooth lerp
     if (projectile) {
       lerpFactor = this.PROJECTILE_LERP; // Smooth lerp for projectile tracking
-    } else if (explodedProjectiles.length > 0) {
-      lerpFactor = this.EXPLODED_LERP; // Slower lerp for exploded projectile tracking
-      if (this.lastTrackedType === 'projectile') {
-        lerpFactor = Math.max(lerpFactor, 0.15); // Boost when switching from projectile to explosion
-      }
+    } else if (aftermathImpactPos) {
+      lerpFactor = this.EXPLODED_LERP; // Slower lerp for aftermath impact tracking
     } else if (this.isPanning) {
       lerpFactor = this.RECENTER_LERP; // Smooth lerp for panning
     } else if (isRecentering) {

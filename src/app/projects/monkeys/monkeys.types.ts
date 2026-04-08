@@ -25,8 +25,7 @@ export interface Player {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight' | 'post_bullet';
-  turnTimer: number;
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight';
   delay: number;
   targetAngle?: number;
   currentShieldHealth?: number;
@@ -57,9 +56,7 @@ export interface Enemy {
     | 'turn_start'
     | 'assess'
     | 'aiming'
-    | 'bullet_in_flight'
-    | 'post_bullet';
-  turnTimer: number;
+    | 'bullet_in_flight';
   targetPower?: number;
   power: number;
   delay: number;
@@ -95,6 +92,7 @@ export enum GameState {
   TERRAIN_TOOL = 'terrain_tool',
   SETUP = 'setup',
   PLAYING = 'playing',
+  AFTERMATH = 'aftermath',
   PAUSED = 'paused',
   EQUIPMENT_MENU = 'equipment_menu',
   GAME_OVER_DELAY = 'game_over_delay',
@@ -196,11 +194,10 @@ export interface Explosion {
   shape: string;
 }
 
-export interface ExplodedProjectile {
-  position: { x: number; y: number };
-  bullet: Bullet;
-  removalTime: number;
-  owner: any;
+export interface AftermathCallout {
+  text: string;
+  subtext?: string;
+  startMs: number;
 }
 
 export interface DamageText {

@@ -8,8 +8,8 @@ import {
   GameState,
   Explosion,
   DamageText,
+  AftermathCallout,
   TurnEntity,
-  ExplodedProjectile,
   Projectile,
   TerrainChunkPlacement,
   TerrainSpriteMetadata,
@@ -63,6 +63,12 @@ export class MonkeysGameService {
   isCharging = false;
   chargeStartTime = 0;
   lastFiredPowerRatio: number | null = null;
+
+  // Aftermath
+  private readonly MIN_AFTERMATH_MS = 1500;
+  aftermathStartMs = 0;
+  aftermathImpactPos: { x: number; y: number } | null = null;
+  aftermathCallouts: AftermathCallout[] = [];
 
   // Input
   keys: { [key: string]: boolean } = {};
@@ -148,7 +154,6 @@ export class MonkeysGameService {
       terrainAngle: CONST.PLAYER_START_TERRAIN_ANGLE,
       vehicle: null as any, // Will be assigned in initPlayer
       turnState: 'turn_start',
-      turnTimer: 0,
       delay: 0,
       entityState: 'idle',
     };
@@ -241,7 +246,6 @@ export class MonkeysGameService {
         terrainAngle: 0, // Will be set in createEntity
         vehicle: enemyVehicle,
         turnState: 'turn_start',
-        turnTimer: 0,
         targetPower: 0,
         power: 0,
         delay: 0,
@@ -289,8 +293,7 @@ export class MonkeysGameService {
 
     if (
       this.turnService.turnTime > this.turnService.TIMEOUT_MS &&
-      entity.turnState !== 'bullet_in_flight' &&
-      entity.turnState !== 'post_bullet'
+      entity.turnState !== 'bullet_in_flight'
     ) {
       this.endTurn();
       return;
@@ -311,11 +314,11 @@ export class MonkeysGameService {
     switch (entity.turnState) {
       case 'bullet_in_flight':
         if (!this.projectile) {
-          entity.turnState = 'post_bullet';
-          entity.turnTimer = 1.0;
+          this.aftermathImpactPos = this.projectileService.lastImpactPos;
+          this.aftermathStartMs = Date.now();
+          this.aftermathCallouts = [];
+          this.currentState = GameState.AFTERMATH;
         }
-        return true;
-      case 'post_bullet':
         return true;
       default:
         return false;
@@ -354,7 +357,6 @@ export class MonkeysGameService {
     enemy.forceTerrainClearingShot = true;
     enemy.turnState = 'aiming';
     enemy.entityState = 'idle';
-    enemy.turnTimer = 0;
     enemy.stuckCounter = 0;
   }
 
@@ -488,7 +490,6 @@ export class MonkeysGameService {
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.entityState = 'idle';
-          enemy.turnTimer = 0;
         }
       }
       // Check for stuck
@@ -507,7 +508,6 @@ export class MonkeysGameService {
         enemy.entityState = 'idle';
         enemy.targetAngle = undefined;
         enemy.targetPower = undefined;
-        enemy.turnTimer = 0;
         enemy.stuckCounter = 0;
       }
       enemy.lastX = enemy.x;
@@ -585,7 +585,6 @@ export class MonkeysGameService {
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.entityState = 'idle';
-          enemy.turnTimer = 0;
         }
         break;
 
@@ -840,7 +839,6 @@ export class MonkeysGameService {
     if (nextEntity) {
       const nextEntityObj = nextEntity.entity as any;
       nextEntityObj.turnState = 'turn_start';
-      nextEntityObj.turnTimer = 0;
     }
 
     // Clean up projectiles owned by previous entity
@@ -856,8 +854,6 @@ export class MonkeysGameService {
           this.terrainService.depthTerrain,
         );
       }
-      this.projectileService.explodedProjectiles =
-        this.projectileService.explodedProjectiles.filter((ep) => ep.owner !== prevEntity.entity);
     }
 
     this.panToEntity = nextEntity;
@@ -916,6 +912,23 @@ export class MonkeysGameService {
       return;
     }
 
+    // AFTERMATH: run physics + effects only, then exit
+    if (this.currentState === GameState.AFTERMATH) {
+      this.physicsService.updateEntityPhysics(this.player);
+      this.updateEnemies();
+      this.collisionService.checkPlayerTerrainCollision(
+        this.player,
+        this.terrainService.terrain,
+        this.physicsService,
+      );
+      this.collisionService.checkEntitiesFall(this.player, this.enemies);
+      this.projectileService.updateExplosions();
+      this.projectileService.updateDamageTexts();
+      this.turnService.updateTurnQueue(deltaTime);
+      this.handleAftermath();
+      return;
+    }
+
     this.handleInput(this.keys);
 
     this.turnService.turnTime = now - this.turnService.turnStartTime;
@@ -957,21 +970,8 @@ export class MonkeysGameService {
     // Update damage texts
     this.projectileService.updateDamageTexts();
 
-    // Remove expired exploded projectiles
-    this.projectileService.explodedProjectiles = this.projectileService.explodedProjectiles.filter(
-      (ep) => Date.now() < ep.removalTime,
-    );
-
     // Update turn queue (remove inactive enemies)
     this.turnService.updateTurnQueue(deltaTime);
-
-    // End turn when post-bullet timer expires (full cleanup via MonkeysGameService.endTurn)
-    if (this.currentState === GameState.PLAYING) {
-      const postBulletCheck = this.getCurrentTurnEntity()?.entity as any;
-      if (postBulletCheck?.turnState === 'post_bullet' && postBulletCheck.turnTimer <= 0) {
-        this.endTurn(100);
-      }
-    }
 
     // Check for turn timeout
     if (
@@ -1245,8 +1245,8 @@ export class MonkeysGameService {
     return this.projectileService.projectile;
   }
 
-  get explodedProjectiles() {
-    return this.projectileService.explodedProjectiles;
+  get lastImpactPos() {
+    return this.projectileService.lastImpactPos;
   }
 
   get explosions() {
@@ -1263,6 +1263,19 @@ export class MonkeysGameService {
 
   startTurn() {
     this.turnService.startTurn();
+  }
+
+  private handleAftermath() {
+    const elapsed = Date.now() - this.aftermathStartMs;
+    const effectsDone =
+      this.projectileService.explosions.length === 0 &&
+      this.projectileService.damageTexts.length === 0;
+    if (effectsDone && elapsed >= this.MIN_AFTERMATH_MS) {
+      this.aftermathImpactPos = null;
+      this.aftermathCallouts = [];
+      this.currentState = GameState.PLAYING;
+      this.endTurn(100);
+    }
   }
 
   destroy() {

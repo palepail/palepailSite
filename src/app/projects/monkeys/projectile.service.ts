@@ -4,7 +4,6 @@ import {
   Enemy,
   Projectile,
   Explosion,
-  ExplodedProjectile,
   DamageText,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
@@ -15,7 +14,7 @@ import * as CONST from './monkeys.constants';
 export class ProjectileService {
   projectile: Projectile | null = null;
   explosions: Explosion[] = [];
-  explodedProjectiles: ExplodedProjectile[] = [];
+  lastImpactPos: { x: number; y: number } | null = null;
   damageTexts: DamageText[] = [];
 
   updateTrajectoryProjectile(
@@ -217,13 +216,7 @@ export class ProjectileService {
       );
     }
 
-    this.explodedProjectiles.push({
-      position: { x: explosionX, y: explosionY },
-      bullet: projectileSnapshot.bullet,
-      removalTime: Date.now() + 2000,
-      owner: projectileSnapshot.owner,
-    });
-
+    this.lastImpactPos = { x: explosionX, y: explosionY };
     this.projectile = null;
   }
 
