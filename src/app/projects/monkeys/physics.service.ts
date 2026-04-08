@@ -184,15 +184,15 @@ export class PhysicsService {
       0,
       Math.min(CONST.TERRAIN_WIDTH, target.x + hSign * pushDistance * xFactor),
     );
-    // Keep Y unchanged — terrain collision will snap the entity back to the surface next frame.
-    this.Body.setPosition(target.body, { x: targetX, y: target.y });
+
+    // Drive with velocity — no teleport. Terrain collision naturally prevents phasing.
+    // Small upward impulse lets the entity crest crater walls instead of burrowing into them.
     if (target.body.velocity) {
       this.Body.setVelocity(target.body, {
-        x: hSign * pushDistance * xFactor * 0.05,
-        y: target.body.velocity.y,
+        x: hSign * pushDistance * xFactor * 0.055,
+        y: -pushDistance * xFactor * 0.04,
       });
     }
-    target.x = targetX;
     target.pushbackFromX = fromX;
     target.pushbackToX = targetX;
     target.pushbackStartMs = Date.now();

@@ -1900,6 +1900,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (
       this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.AFTERMATH ||
       this.gameService.currentState === GameState.PAUSED ||
       this.gameService.currentState === GameState.SETUP
     ) {
