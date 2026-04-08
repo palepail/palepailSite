@@ -96,7 +96,7 @@ export class MonkeysAudioService {
   loadMenuAudio(): Promise<void> {
     if (this.menuAudio) return Promise.resolve();
     return new Promise((resolve) => {
-      const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('Menu.wav'));
+      const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('Menu.ogg'));
       audio.loop = true;
       audio.volume = this.bgVolume;
       const onReady = () => {
@@ -107,7 +107,7 @@ export class MonkeysAudioService {
       audio.addEventListener(
         'error',
         () => {
-          console.warn('[MonkeysAudio] Failed to load Menu.wav');
+          console.warn('[MonkeysAudio] Failed to load Menu.ogg');
           resolve();
         },
         { once: true },
@@ -120,7 +120,7 @@ export class MonkeysAudioService {
     if (this.gameAudio) return Promise.resolve();
     // Create and store the element immediately so startGameAudioOnGesture() can call
     // play() synchronously within the same user-gesture tick, before any await.
-    const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('New Road Loop.wav'));
+    const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('New Road Loop.ogg'));
     audio.loop = true;
     audio.volume = this.bgVolume;
     this.gameAudio = audio;
@@ -129,7 +129,7 @@ export class MonkeysAudioService {
       audio.addEventListener(
         'error',
         () => {
-          console.warn('[MonkeysAudio] Failed to load New Road Loop.wav');
+          console.warn('[MonkeysAudio] Failed to load New Road Loop.ogg');
           resolve();
         },
         { once: true },
