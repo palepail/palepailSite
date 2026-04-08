@@ -52,11 +52,7 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState:
-    | 'turn_start'
-    | 'assess'
-    | 'aiming'
-    | 'bullet_in_flight';
+  turnState: 'turn_start' | 'assess' | 'aiming' | 'bullet_in_flight';
   targetPower?: number;
   power: number;
   delay: number;

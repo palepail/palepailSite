@@ -80,11 +80,7 @@ export class TurnService {
     }
 
     if (this._turnQueue.length > 0) {
-      const currentEntity = this._turnQueue[0].entity as any;
-      if (currentEntity.turnState === 'post_bullet') {
-        currentEntity.turnTimer -= deltaTime;
-        // timer expiry handled in MonkeysGameService.update() so full endTurn cleanup runs
-      }
+      // entity state transitions are handled in MonkeysGameService.update()
     }
   }
 
@@ -113,7 +109,6 @@ export class TurnService {
     if (nextEntity) {
       const nextEntityObj = nextEntity.entity as any;
       nextEntityObj.turnState = 'turn_start';
-      nextEntityObj.turnTimer = 0;
     }
 
     // Clean up projectiles owned by previous entity

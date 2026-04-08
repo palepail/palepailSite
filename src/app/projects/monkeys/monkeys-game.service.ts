@@ -111,7 +111,11 @@ export class MonkeysGameService {
     if (!raw) return;
     try {
       const data = JSON.parse(raw) as { difficulty?: string };
-      if (data.difficulty === 'easy' || data.difficulty === 'normal' || data.difficulty === 'hard') {
+      if (
+        data.difficulty === 'easy' ||
+        data.difficulty === 'normal' ||
+        data.difficulty === 'hard'
+      ) {
         this.difficulty = data.difficulty;
       }
     } catch {

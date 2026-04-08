@@ -1,11 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  Player,
-  Enemy,
-  Projectile,
-  Explosion,
-  DamageText,
-} from './monkeys.types';
+import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 
 @Injectable({

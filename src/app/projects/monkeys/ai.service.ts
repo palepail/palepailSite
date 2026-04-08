@@ -35,7 +35,6 @@ export class AIService {
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.entityState = 'idle';
-          enemy.turnTimer = 0;
         }
       }
       // Check for stuck
@@ -54,7 +53,6 @@ export class AIService {
         enemy.entityState = 'idle';
         enemy.targetAngle = undefined;
         enemy.targetPower = undefined;
-        enemy.turnTimer = 0;
         enemy.stuckCounter = 0;
       }
       enemy.lastX = enemy.x;
@@ -132,7 +130,6 @@ export class AIService {
           enemy.targetPower = undefined;
           enemy.turnState = 'aiming';
           enemy.entityState = 'idle';
-          enemy.turnTimer = 0;
         }
         break;
 
@@ -306,10 +303,6 @@ export class AIService {
       case 'bullet_in_flight':
         // Handled in main service
         break;
-
-      case 'post_bullet':
-        // Handled in main service
-        break;
     }
   }
 
@@ -321,7 +314,6 @@ export class AIService {
     enemy.forceTerrainClearingShot = true;
     enemy.turnState = 'aiming';
     enemy.entityState = 'idle';
-    enemy.turnTimer = 0;
     enemy.stuckCounter = 0;
   }
 

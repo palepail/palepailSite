@@ -1437,7 +1437,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.SHOOT_CHARGE_FRAME_COUNT + releaseFrameIndex;
   }
 
-
   private getDeathAnimationState(entity: any, now: number = Date.now()) {
     if (!this.hasEntitySprites(entity)) {
       return null;
@@ -1491,10 +1490,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           ? `shoot_${this.getShootReleaseFrameIndex(entity, now) ?? 0}`
           : entity.entityState === 'charging'
             ? `shoot_${this.getShootChargeFrameIndex(entity, now) ?? 0}`
-            : (entity.entityState === 'moving' ||
-                  (entity.entityState === 'idle' &&
-                    entity.body &&
-                    Math.abs(entity.body.velocity.x) > 0.1))
+            : entity.entityState === 'moving' ||
+                (entity.entityState === 'idle' &&
+                  entity.body &&
+                  Math.abs(entity.body.velocity.x) > 0.1)
               ? `move_${this.getMoveFrameIndex(now)}`
               : 'idle';
     const sprite = this.spriteService.getEntitySprite(animName, spritesheet);
@@ -2839,7 +2838,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const previewSize = 80;
     const previewY = 204;
 
-    const idleSprite = this.spriteService.getEntitySprite('idle', selEntry?.vehicle?.spritesheet ?? 'Lupin.png');
+    const idleSprite = this.spriteService.getEntitySprite(
+      'idle',
+      selEntry?.vehicle?.spritesheet ?? 'Lupin.png',
+    );
     if (idleSprite && !selEntry?.locked) {
       this.ctx.drawImage(
         idleSprite.image,
@@ -2907,7 +2909,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.strokeRect(bx, by, cellBoxW, cellBoxH);
 
       if (!isLocked) {
-        const idleSprite = this.spriteService.getEntitySprite('idle', entry.vehicle?.spritesheet ?? 'Lupin.png');
+        const idleSprite = this.spriteService.getEntitySprite(
+          'idle',
+          entry.vehicle?.spritesheet ?? 'Lupin.png',
+        );
         if (idleSprite) {
           const pad = 7;
           this.ctx.drawImage(
@@ -3806,7 +3811,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
-  private drawPowerPercent(pct: number, centreX: number, topY: number, tint?: string, size = this.POWER_PERCENT_SPRITE_SIZE) {
+  private drawPowerPercent(
+    pct: number,
+    centreX: number,
+    topY: number,
+    tint?: string,
+    size = this.POWER_PERCENT_SPRITE_SIZE,
+  ) {
     const advance = size * 0.45;
     const chars = `${pct}%`.split('');
     const totalWidth = (chars.length - 1) * advance + size;

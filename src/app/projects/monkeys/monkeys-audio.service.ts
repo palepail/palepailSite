@@ -52,8 +52,10 @@ export class MonkeysAudioService {
     if (!raw) return;
     try {
       const data = JSON.parse(raw) as { bgVolume?: number; sfxVolume?: number; isMuted?: boolean };
-      if (typeof data.bgVolume === 'number') this.bgVolume = Math.max(0, Math.min(1, data.bgVolume));
-      if (typeof data.sfxVolume === 'number') this.sfxVolume = Math.max(0, Math.min(1, data.sfxVolume));
+      if (typeof data.bgVolume === 'number')
+        this.bgVolume = Math.max(0, Math.min(1, data.bgVolume));
+      if (typeof data.sfxVolume === 'number')
+        this.sfxVolume = Math.max(0, Math.min(1, data.sfxVolume));
       if (typeof data.isMuted === 'boolean') this.isMuted = data.isMuted;
     } catch {
       // ignore malformed data

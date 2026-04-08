@@ -270,7 +270,9 @@ class CameraController {
     // Follow player when falling at game start
     if (
       !this.hasLanded &&
-      (currentState === GameState.SETUP || currentState === GameState.PLAYING || currentState === GameState.AFTERMATH) &&
+      (currentState === GameState.SETUP ||
+        currentState === GameState.PLAYING ||
+        currentState === GameState.AFTERMATH) &&
       !isDragging &&
       !projectile
     ) {
