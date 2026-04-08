@@ -25,7 +25,7 @@ export interface Player {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'idle' | 'aiming' | 'charging' | 'bullet_in_flight' | 'post_bullet';
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight' | 'post_bullet';
   turnTimer: number;
   delay: number;
   targetAngle?: number;
@@ -56,9 +56,7 @@ export interface Enemy {
   turnState:
     | 'turn_start'
     | 'assess'
-    | 'moving'
     | 'aiming'
-    | 'charging'
     | 'bullet_in_flight'
     | 'post_bullet';
   turnTimer: number;
@@ -98,15 +96,11 @@ export enum GameState {
   SETUP = 'setup',
   PLAYING = 'playing',
   PAUSED = 'paused',
-  AIMING = 'aiming',
-  BULLET_IN_FLIGHT = 'bullet_in_flight',
   EQUIPMENT_MENU = 'equipment_menu',
   GAME_OVER_DELAY = 'game_over_delay',
   GAME_OVER = 'game_over',
   WIN_DELAY = 'win_delay',
   WIN = 'win',
-  LEADERBOARD = 'leaderboard',
-  LEADERBOARD_NAME_INPUT = 'leaderboard_name_input',
 }
 
 export interface TurnEntity {

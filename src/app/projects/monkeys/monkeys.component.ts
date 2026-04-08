@@ -638,7 +638,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       );
     }
     for (const enemy of this.gameService.enemies) {
-      if (enemy.active && enemy.turnState === 'charging') {
+      if (enemy.active && enemy.entityState === 'charging') {
         this.drawChargeBar(enemy, enemy.vehicle.power);
       }
     }
@@ -1021,7 +1021,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     );
 
     // Draw prediction path if enabled
-    if (this.showPrediction && enemy.turnState === 'charging') {
+    if (this.showPrediction && enemy.entityState === 'charging') {
       const baseAngleRad = (enemy.angle * Math.PI) / 180;
       const angleRad =
         -enemy.terrainAngle + (enemy.facing === -1 ? Math.PI - baseAngleRad : baseAngleRad);

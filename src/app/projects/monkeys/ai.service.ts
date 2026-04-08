@@ -10,6 +10,57 @@ export class AIService {
   constructor(private physicsService: PhysicsService) {}
   performEnemyAction(enemy: Enemy, player: Player, enemies: Enemy[]) {
     const target: Player | Enemy = this.pickEnemyTarget(enemy, player, enemies);
+    if (enemy.entityState === 'moving') {
+      if (enemy.lastX === undefined) {
+        enemy.lastX = enemy.x;
+        enemy.lastY = enemy.y;
+      }
+      if (enemy.movementTimer! > 0) {
+        // Movement logic will be handled in main service
+        enemy.movementTimer! -= 16;
+      } else {
+        // Stop moving and assess again or aim
+        enemy.moveDirection = 0;
+        enemy.movementTimer = 0;
+        // After moving, reassess or go to aiming
+        const newDx = target.x - enemy.x;
+        const newDistance = Math.abs(newDx);
+        const maxReassess = (enemy.reassessCount ?? 0) >= 3;
+        if (!maxReassess && (newDistance > 500 || newDistance < 100)) {
+          enemy.turnState = 'assess'; // Reassess if still not ideal
+          enemy.entityState = 'idle';
+        } else {
+          enemy.facing = newDx > 0 ? 1 : -1;
+          enemy.targetAngle = undefined;
+          enemy.targetPower = undefined;
+          enemy.turnState = 'aiming';
+          enemy.entityState = 'idle';
+          enemy.turnTimer = 0;
+        }
+      }
+      // Check for stuck
+      const moved = Math.hypot(enemy.x - enemy.lastX!, enemy.y - enemy.lastY!);
+      if (moved < 1) {
+        enemy.stuckCounter += 16;
+      } else {
+        enemy.stuckCounter = 0;
+      }
+      if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
+        if (enemy.behavior === 'aggressive') {
+          this.prepareAggressiveTerrainClearingShot(enemy);
+          return;
+        }
+        enemy.turnState = 'aiming';
+        enemy.entityState = 'idle';
+        enemy.targetAngle = undefined;
+        enemy.targetPower = undefined;
+        enemy.turnTimer = 0;
+        enemy.stuckCounter = 0;
+      }
+      enemy.lastX = enemy.x;
+      enemy.lastY = enemy.y;
+      return;
+    }
     switch (enemy.turnState) {
       case 'turn_start':
         // Reset fuel at turn start
@@ -68,13 +119,11 @@ export class AIService {
             enemy.moveDirection = dx > 0 ? 1 : -1; // Toward player
           }
           enemy.movementTimer = 1000 + Math.random() * 1000; // 1-2 seconds
-          enemy.turnState = 'moving';
           enemy.entityState = 'moving';
         } else if (!forceShot && distance < moveAwayThreshold && enemy.movementFuel! > 5) {
           // Too close, move away
           enemy.moveDirection = dx > 0 ? -1 : 1; // Away from player
           enemy.movementTimer = 800 + Math.random() * 600; // 0.8-1.4 seconds
-          enemy.turnState = 'moving';
           enemy.entityState = 'moving';
         } else {
           // Good distance (or forced after too many reassessments), aim and shoot
@@ -85,58 +134,6 @@ export class AIService {
           enemy.entityState = 'idle';
           enemy.turnTimer = 0;
         }
-        break;
-
-      case 'moving':
-        if (enemy.lastX === undefined) {
-          enemy.lastX = enemy.x;
-          enemy.lastY = enemy.y;
-        }
-        if (enemy.movementTimer! > 0) {
-          // Movement logic will be handled in main service
-          enemy.movementTimer! -= 16;
-        } else {
-          // Stop moving and assess again or aim
-          enemy.moveDirection = 0;
-          enemy.movementTimer = 0;
-          // After moving, reassess or go to aiming
-          const newDx = target.x - enemy.x;
-          const newDistance = Math.abs(newDx);
-          const maxReassess = (enemy.reassessCount ?? 0) >= 3;
-          if (!maxReassess && (newDistance > 500 || newDistance < 100)) {
-            enemy.turnState = 'assess'; // Reassess if still not ideal
-            enemy.entityState = 'idle';
-          } else {
-            enemy.facing = newDx > 0 ? 1 : -1;
-            enemy.targetAngle = undefined;
-            enemy.targetPower = undefined;
-            enemy.turnState = 'aiming';
-            enemy.entityState = 'idle';
-            enemy.turnTimer = 0;
-          }
-        }
-
-        // Check for stuck
-        const moved = Math.hypot(enemy.x - enemy.lastX!, enemy.y - enemy.lastY!);
-        if (moved < 1) {
-          enemy.stuckCounter += 16;
-        } else {
-          enemy.stuckCounter = 0;
-        }
-        if (enemy.stuckCounter > CONST.ENEMY_STUCK_THRESHOLD) {
-          if (enemy.behavior === 'aggressive') {
-            this.prepareAggressiveTerrainClearingShot(enemy);
-            return;
-          }
-          enemy.turnState = 'aiming';
-          enemy.entityState = 'idle';
-          enemy.targetAngle = undefined;
-          enemy.targetPower = undefined;
-          enemy.turnTimer = 0;
-          enemy.stuckCounter = 0;
-        }
-        enemy.lastX = enemy.x;
-        enemy.lastY = enemy.y;
         break;
 
       case 'aiming':
@@ -173,7 +170,6 @@ export class AIService {
             enemy.angle =
               enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
-            enemy.turnState = 'charging';
             enemy.entityState = 'charging';
             return;
           }
@@ -201,7 +197,6 @@ export class AIService {
             enemy.angle =
               enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
             enemy.chargeStartTime = Date.now();
-            enemy.turnState = 'charging';
             enemy.entityState = 'charging';
             return;
           }
@@ -304,13 +299,8 @@ export class AIService {
 
           enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
           enemy.chargeStartTime = Date.now();
-          enemy.turnState = 'charging';
           enemy.entityState = 'charging';
         }
-        break;
-
-      case 'charging':
-        // Charging logic handled in main service
         break;
 
       case 'bullet_in_flight':
