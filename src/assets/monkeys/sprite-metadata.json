@@ -203,7 +203,7 @@
       "height": 64
     },
     {
-      "name": "monkey_death_0",
+      "name": "death_0",
       "spritesheet": "lupin",
       "x": 0,
       "y": 192,
@@ -211,7 +211,7 @@
       "height": 64
     },
     {
-      "name": "monkey_death_1",
+      "name": "death_1",
       "spritesheet": "lupin",
       "x": 64,
       "y": 192,
@@ -219,7 +219,7 @@
       "height": 64
     },
     {
-      "name": "monkey_death_2",
+      "name": "death_2",
       "spritesheet": "lupin",
       "x": 128,
       "y": 192,
@@ -227,7 +227,7 @@
       "height": 64
     },
     {
-      "name": "monkey_hurt",
+      "name": "hurt",
       "spritesheet": "lupin",
       "x": 0,
       "y": 256,
@@ -235,7 +235,7 @@
       "height": 64
     },
     {
-      "name": "monkey_idle",
+      "name": "idle",
       "spritesheet": "lupin",
       "x": 0,
       "y": 128,
@@ -243,7 +243,7 @@
       "height": 64
     },
     {
-      "name": "monkey_move_0",
+      "name": "move_0",
       "spritesheet": "lupin",
       "x": 0,
       "y": 0,
@@ -251,7 +251,7 @@
       "height": 64
     },
     {
-      "name": "monkey_move_1",
+      "name": "move_1",
       "spritesheet": "lupin",
       "x": 64,
       "y": 0,
@@ -259,7 +259,7 @@
       "height": 64
     },
     {
-      "name": "monkey_move_2",
+      "name": "move_2",
       "spritesheet": "lupin",
       "x": 128,
       "y": 0,
@@ -267,7 +267,7 @@
       "height": 64
     },
     {
-      "name": "monkey_move_3",
+      "name": "move_3",
       "spritesheet": "lupin",
       "x": 192,
       "y": 0,
@@ -275,7 +275,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_0",
+      "name": "shoot_0",
       "spritesheet": "lupin",
       "x": 0,
       "y": 64,
@@ -283,7 +283,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_1",
+      "name": "shoot_1",
       "spritesheet": "lupin",
       "x": 64,
       "y": 64,
@@ -291,7 +291,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_2",
+      "name": "shoot_2",
       "spritesheet": "lupin",
       "x": 128,
       "y": 64,
@@ -299,7 +299,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_3",
+      "name": "shoot_3",
       "spritesheet": "lupin",
       "x": 192,
       "y": 64,
@@ -307,7 +307,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_4",
+      "name": "shoot_4",
       "spritesheet": "lupin",
       "x": 256,
       "y": 64,
@@ -315,7 +315,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_5",
+      "name": "shoot_5",
       "spritesheet": "lupin",
       "x": 320,
       "y": 64,
@@ -323,7 +323,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_6",
+      "name": "shoot_6",
       "spritesheet": "lupin",
       "x": 384,
       "y": 64,
@@ -331,7 +331,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_7",
+      "name": "shoot_7",
       "spritesheet": "lupin",
       "x": 448,
       "y": 64,
@@ -339,7 +339,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_8",
+      "name": "shoot_8",
       "spritesheet": "lupin",
       "x": 512,
       "y": 64,
@@ -347,7 +347,7 @@
       "height": 64
     },
     {
-      "name": "monkey_shoot_9",
+      "name": "shoot_9",
       "spritesheet": "lupin",
       "x": 576,
       "y": 64,

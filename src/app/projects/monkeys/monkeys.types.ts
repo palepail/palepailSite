@@ -35,6 +35,11 @@ export interface Player {
   pushbackFromX?: number;
   pushbackToX?: number;
   pushbackStartMs?: number;
+  chargeStartTime?: number;
+  shotReleaseStartMs?: number;
+  deathAnimStartMs?: number;
+  hurtUntilMs?: number;
+  prevHealth?: number;
 }
 
 export interface Enemy {
@@ -79,6 +84,10 @@ export interface Enemy {
   pushbackFromX?: number;
   pushbackToX?: number;
   pushbackStartMs?: number;
+  shotReleaseStartMs?: number;
+  deathAnimStartMs?: number;
+  hurtUntilMs?: number;
+  prevHealth?: number;
 }
 
 export enum GameState {

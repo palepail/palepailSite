@@ -286,18 +286,24 @@ export class MonkeysSpriteService {
     );
 
     for (const def of relevantSprites) {
-      this.sprites.set(def.name, {
+      const data: SpriteData = {
         image: spritesheet,
         x: def.x,
         y: def.y,
         width: def.width,
         height: def.height,
-      });
+      };
+      this.sprites.set(def.name, data);
+      this.sprites.set(`${spritesheetPath}:${def.name}`, data);
     }
   }
 
   getSprite(name: string): SpriteData | null {
     return this.sprites.get(name) || null;
+  }
+
+  getEntitySprite(animName: string, spritesheet: string): SpriteData | null {
+    return this.sprites.get(`${spritesheet}:${animName}`) || null;
   }
 
   getPanel(name: string): PanelDefinition | null {
