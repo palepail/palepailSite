@@ -1,0 +1,32 @@
+{
+  "categories": {
+    "explosion": {
+      "files": [
+        { "file": "Explosion1.ogg", "volume": 1.0 },
+        { "file": "Explosion2.ogg", "volume": 1.0 },
+        { "file": "Explosion3.ogg", "volume": 1.0 }
+      ]
+    },
+    "fire": {
+      "files": [
+        { "file": "swing1.ogg", "volume": 2 },
+        { "file": "swing2.ogg", "volume": 2 },
+        { "file": "swing3.ogg", "volume": 2 }
+      ]
+    },
+    "walk": {
+      "files": [{ "file": "walk.ogg", "volume": 2 }]
+    },
+    "shield_break": {
+      "files": [{ "file": "ShieldDown.ogg", "volume": 1.0 }]
+    },
+    "wind_gust": {
+      "files": [
+        { "file": "Wind_Gust1.ogg", "volume": 1.5 },
+        { "file": "Wind_Gust2.ogg", "volume": 1.5 },
+        { "file": "Wind_Gust3.ogg", "volume": 1.5 },
+        { "file": "Wind_Gust4.ogg", "volume": 1.5 }
+      ]
+    }
+  }
+}

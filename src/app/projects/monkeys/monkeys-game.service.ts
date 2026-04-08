@@ -29,6 +29,7 @@ import { TurnService } from './turn.service';
 import { EquipmentService } from './equipment.service';
 import { ProjectileService } from './projectile.service';
 import { CollisionService } from './collision.service';
+import { MonkeysSfxService } from './monkeys-sfx.service';
 
 @Injectable({
   providedIn: 'root',
@@ -96,6 +97,7 @@ export class MonkeysGameService {
     private equipmentService: EquipmentService,
     private projectileService: ProjectileService,
     private collisionService: CollisionService,
+    private sfxService: MonkeysSfxService,
   ) {
     this.player = this.createInitialPlayer();
     void this.equipmentService.loadEquipmentData();
@@ -346,9 +348,11 @@ export class MonkeysGameService {
       this.Body.setVelocity(entity.body, { x: vx, y: entity.body.velocity.y });
       entity.movementFuel! -= 0.5;
       entity.facing = direction;
+      this.sfxService.ensureWalkLoop(entity, { category: entity.vehicle?.sfxWalk ?? 'walk' });
       return true;
     } else {
       this.Body.setVelocity(entity.body, { x: 0, y: entity.body.velocity.y });
+      this.sfxService.stopWalkLoop(entity);
       return false;
     }
   }
@@ -362,9 +366,11 @@ export class MonkeysGameService {
     enemy.turnState = 'aiming';
     enemy.entityState = 'idle';
     enemy.stuckCounter = 0;
+    this.sfxService.stopWalkLoop(enemy);
   }
 
   private performCharging(entity: Player | Enemy) {
+    this.sfxService.stopWalkLoop(entity);
     const chargeTime =
       Date.now() -
       (entity === this.player ? this.chargeStartTime : (entity as Enemy).chargeStartTime!);
@@ -481,6 +487,7 @@ export class MonkeysGameService {
         this.Body.setVelocity(enemy.body, { x: 0, y: enemy.body.velocity.y });
         enemy.moveDirection = 0;
         enemy.movementTimer = 0;
+        this.sfxService.stopWalkLoop(enemy);
         // After moving, reassess or go to aiming
         const newDx = target.x - enemy.x;
         const newDistance = Math.abs(newDx);
@@ -513,6 +520,7 @@ export class MonkeysGameService {
         enemy.targetAngle = undefined;
         enemy.targetPower = undefined;
         enemy.stuckCounter = 0;
+        this.sfxService.stopWalkLoop(enemy);
       }
       enemy.lastX = enemy.x;
       enemy.lastY = enemy.y;
@@ -789,6 +797,7 @@ export class MonkeysGameService {
     enemy.chargeStartTime = 0;
     enemy.entityState = 'shooting';
     enemy.shotReleaseStartMs = Date.now();
+    this.sfxService.play({ category: enemy.vehicle.sfxFire ?? 'fire' });
   }
 
   private pickEnemyTarget(enemy: Enemy): Player | Enemy {
@@ -823,10 +832,17 @@ export class MonkeysGameService {
 
     if (Math.random() < CONST.WIND_CHANGE_CHANCE) {
       this.rollWind();
+      this.sfxService.play({ category: 'wind_gust' });
     }
 
     // Reset turn time
     this.turnService.turnTime = 0;
+
+    // Stop any walk loops from the previous turn
+    this.sfxService.stopWalkLoop(this.player);
+    for (const e of this.enemies) {
+      this.sfxService.stopWalkLoop(e);
+    }
 
     // Reset player-specific flags
     if (this.isPlayerTurn()) {
@@ -1018,8 +1034,7 @@ export class MonkeysGameService {
         ) {
           this.moveEntity(this.player, -1);
         }
-        if (
-          keys['ArrowRight'] &&
+        if (keys['ArrowRight'] &&
           this.player.body &&
           !this.isCharging &&
           !this.projectile &&
@@ -1028,6 +1043,10 @@ export class MonkeysGameService {
           this.isPlayerTurn()
         ) {
           this.moveEntity(this.player, 1);
+        }
+
+        if (!keys['ArrowLeft'] && !keys['ArrowRight']) {
+          this.sfxService.stopWalkLoop(this.player);
         }
 
         if (keys['ArrowUp'] && !this.isCharging && !this.projectile) {
@@ -1100,6 +1119,7 @@ export class MonkeysGameService {
     this.player.entityState = 'shooting';
     this.player.shotReleaseStartMs = Date.now();
     this.player.turnState = 'bullet_in_flight';
+    this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
   }
 
   private checkEntityCollisions(projectile: Projectile): boolean {

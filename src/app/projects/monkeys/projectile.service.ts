@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
 import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.types';
 import * as CONST from './monkeys.constants';
+import { MonkeysSfxService } from './monkeys-sfx.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProjectileService {
+  constructor(private sfxService: MonkeysSfxService) {}
+
   projectile: Projectile | null = null;
   explosions: Explosion[] = [];
   lastImpactPos: { x: number; y: number } | null = null;
@@ -149,6 +152,11 @@ export class ProjectileService {
         this.projectile.y = entity.y + sdy * scale;
         entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
         entity.shieldHitAngle = Math.atan2(sdy, sdx);
+        if ((entity.currentShieldHealth ?? 0) <= 0) {
+          this.sfxService.play({ category: 'shield_break' });
+        } else {
+          this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
+        }
         this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
         return;
       }
@@ -176,6 +184,8 @@ export class ProjectileService {
     const explosionX = this.projectile.x;
     const explosionY = this.projectile.y;
     const projectileSnapshot = this.projectile;
+
+    this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
 
     this.explosions.push({
       x: explosionX,

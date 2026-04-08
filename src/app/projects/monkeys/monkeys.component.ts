@@ -31,6 +31,7 @@ import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
 import { MonkeysAudioService } from './monkeys-audio.service';
+import { MonkeysSfxService } from './monkeys-sfx.service';
 import { CameraController } from './camera-controller';
 import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
@@ -370,11 +371,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     private gameService: MonkeysGameService,
     private spriteService: MonkeysSpriteService,
     private audioService: MonkeysAudioService,
+    private sfxService: MonkeysSfxService,
   ) {}
 
   ngOnInit() {
     this.loadingContext = 'menu';
     this.gameService.currentState = GameState.LOADING;
+    this.sfxService.setVolume(this.audioService.sfxVolume);
+    this.sfxService.setMuted(this.audioService.isMuted);
     Promise.all([
       this.spriteService.loadSprites(),
       this.spriteService
@@ -391,6 +395,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         .catch((err) => console.warn('Failed to load menu audio:', err)),
       // Pre-create the game audio element now so it exists when startGame() is clicked
       this.audioService.loadGameAudio().catch(() => {}),
+      this.sfxService.loadBank().catch((err) => console.warn('Failed to load SFX bank:', err)),
     ])
       .then(() => {
         this.gameService.currentState = GameState.MENU;
@@ -4152,6 +4157,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.isPointInsideButton(x, y, this.MUTE_BUTTON)
     ) {
       this.audioService.toggleMute();
+      this.sfxService.setMuted(this.audioService.isMuted);
       return;
     }
 
@@ -4227,6 +4233,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.audioService.setBgVolume(v);
     } else {
       this.audioService.setSfxVolume(v);
+      this.sfxService.setVolume(v);
     }
     this.audioService.saveOptions();
   }

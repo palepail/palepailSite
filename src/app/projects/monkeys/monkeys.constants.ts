@@ -78,6 +78,8 @@ export const PLAYER_VEHICLE: Vehicle = {
   minAimAngle: 25,
   maxAimAngle: 60,
   shotDelay: 100,
+  sfxWalk: 'walk',
+  sfxFire: 'fire',
   bullet: {
     name: 'banana',
     weight: 1,
@@ -87,6 +89,7 @@ export const PLAYER_VEHICLE: Vehicle = {
     explosionRadius: 50,
     craterRadius: 40,
     speed: 20,
+    sfxImpact: 'explosion',
   },
 };
 

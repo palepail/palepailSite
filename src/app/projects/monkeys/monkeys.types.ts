@@ -224,6 +224,7 @@ export interface Bullet {
   craterRadius: number;
   speed: number;
   pushbackMultiplier?: number; // >1 increases knockback, defaults to 1
+  sfxImpact?: string; // sfx-bank category to play on impact
 }
 
 export interface Vehicle {
@@ -245,6 +246,9 @@ export interface Vehicle {
   shieldRadius?: number; // radius of the hit-absorbing shield in px
   shieldHealth?: number; // number of hits the shield can absorb before breaking
   aimGuide?: string; // set bonus from Scout set; activates trajectory arc preview
+  sfxWalk?: string; // sfx-bank category for movement loop
+  sfxFire?: string; // sfx-bank category played when firing
+  sfxCharge?: string; // sfx-bank category played while charging
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
