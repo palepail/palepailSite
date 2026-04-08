@@ -186,16 +186,7 @@ export class ProjectileService {
       shape: this.projectile.bullet.explosionShape,
     });
 
-    this.calculateExplosionDamage(
-      explosionX,
-      explosionY,
-      projectileSnapshot,
-      player,
-      enemies,
-      physicsService,
-    );
-
-    // Create crater
+    // Create crater first so the knockback wall-check uses post-explosion terrain.
     this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35; // 0.45x–0.80x random size
@@ -210,6 +201,16 @@ export class ProjectileService {
       );
     }
 
+    this.calculateExplosionDamage(
+      explosionX,
+      explosionY,
+      projectileSnapshot,
+      player,
+      enemies,
+      physicsService,
+      terrain,
+    );
+
     this.lastImpactPos = { x: explosionX, y: explosionY };
     this.projectile = null;
   }
@@ -221,6 +222,7 @@ export class ProjectileService {
     player: Player,
     enemies: Enemy[],
     physicsService: any,
+    terrain: number[][],
   ) {
     const maxDamage = projectile.bullet.damage;
     const damageRadius = projectile.bullet.explosionRadius ?? 50;
@@ -257,6 +259,7 @@ export class ProjectileService {
           projectile,
           radiusX,
           radiusY,
+          terrain,
         );
       }
     }
@@ -286,6 +289,7 @@ export class ProjectileService {
             projectile,
             radiusX,
             radiusY,
+            terrain,
           );
           if (projectile.owner === player && player.vehicle.lifesteal && damage > 0) {
             const heal = Math.round(damage * (player.vehicle.lifesteal / 100));

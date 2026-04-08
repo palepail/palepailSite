@@ -152,6 +152,7 @@ export class PhysicsService {
     projectile: any,
     radiusX: number,
     radiusY: number,
+    terrain?: number[][],
   ) {
     if (!target.body) return;
     const dx = target.x - explosionX;
@@ -185,16 +186,44 @@ export class PhysicsService {
       Math.min(CONST.TERRAIN_WIDTH, target.x + hSign * pushDistance * xFactor),
     );
 
+    // Wall-check: scan columns in push direction to prevent phasing into terrain.
+    // Crater is already dug before this call, so blast-opened paths are traversable.
+    let allowedDist = Math.abs(targetX - fromX);
+    if (terrain && allowedDist > 0) {
+      const entityCenterY = target.y;
+      const STEP = 4;
+      const totalDist = allowedDist;
+      for (let d = STEP; d <= totalDist; d += STEP) {
+        const cx = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - 1, Math.floor(fromX + hSign * d)));
+        const col = terrain[cx];
+        if (col) {
+          for (let iy = 0; iy < col.length; iy++) {
+            if (col[iy] === 1) {
+              const th = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET + iy;
+              if (th < entityCenterY) {
+                allowedDist = Math.max(0, d - STEP);
+              }
+              break;
+            }
+          }
+        }
+        if (allowedDist < totalDist) break;
+      }
+    }
+
+    const totalDelta = Math.abs(targetX - fromX);
+    const wallRatio = totalDelta > 0 ? allowedDist / totalDelta : 0;
     // Drive with velocity — no teleport. Terrain collision naturally prevents phasing.
+    // Multipliers are calibrated against frictionAir (0.15) so total travel ≈ pushDistance pixels.
     // Small upward impulse lets the entity crest crater walls instead of burrowing into them.
     if (target.body.velocity) {
       this.Body.setVelocity(target.body, {
-        x: hSign * pushDistance * xFactor * 0.055,
-        y: -pushDistance * xFactor * 0.04,
+        x: hSign * pushDistance * xFactor * CONST.KNOCKBACK_VELOCITY_SCALE * wallRatio,
+        y: -pushDistance * xFactor * CONST.KNOCKBACK_UPWARD_SCALE * wallRatio,
       });
     }
     target.pushbackFromX = fromX;
-    target.pushbackToX = targetX;
+    target.pushbackToX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, fromX + hSign * allowedDist));
     target.pushbackStartMs = Date.now();
     target.entityState = 'pushback';
   }
