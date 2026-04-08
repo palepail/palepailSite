@@ -175,7 +175,8 @@ export class PhysicsService {
     let xFactor = 1.0;
     if (slopeInPushDir > 0) {
       const slopeAngleDeg = Math.abs(target.terrainAngle) * (180 / Math.PI);
-      xFactor = slopeAngleDeg >= 60 ? 0 : Math.max(0, 1 - slopeAngleDeg / 60);
+      // Full push up to 45°; linear falloff from 45°→80°; zero at 80°+
+      xFactor = slopeAngleDeg >= 80 ? 0 : Math.max(0, 1 - Math.max(0, slopeAngleDeg - 45) / 35);
     }
 
     const fromX = target.x;
