@@ -297,10 +297,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.frozenTime ?? Date.now();
   }
 
-  private readonly MENU_START_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 395, 200, 50);
-  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 465, 200, 50);
-  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 535, 200, 50);
-  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH / 2, 680, 200, 50);
+  private readonly MENU_BTN_CX = CONST.CANVAS_WIDTH / 2;
+  private readonly MENU_BTN_W = 200;
+  private readonly MENU_BTN_H = 50;
+  private readonly MENU_BTN_FIRST_Y = 415;
+  private readonly MENU_BTN_GAP = 50;
+  private readonly MENU_START_BUTTON = this.mkBtn(
+    this.MENU_BTN_CX,
+    this.MENU_BTN_FIRST_Y,
+    this.MENU_BTN_W,
+    this.MENU_BTN_H,
+  );
+  private readonly MENU_LOADOUT_BUTTON = this.mkBtn(
+    this.MENU_BTN_CX,
+    this.MENU_BTN_FIRST_Y + this.MENU_BTN_GAP,
+    this.MENU_BTN_W,
+    this.MENU_BTN_H,
+  );
+  private readonly MENU_OPTIONS_BUTTON = this.mkBtn(
+    this.MENU_BTN_CX,
+    this.MENU_BTN_FIRST_Y + this.MENU_BTN_GAP * 2,
+    this.MENU_BTN_W,
+    this.MENU_BTN_H,
+  );
+  private readonly MENU_TERRAIN_TOOL_BUTTON = this.mkBtn(
+    this.MENU_BTN_CX,
+    this.MENU_BTN_FIRST_Y + this.MENU_BTN_GAP * 3,
+    this.MENU_BTN_W,
+    this.MENU_BTN_H,
+  );
   // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
   private readonly MUTE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 12, 12, 24, 24);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
