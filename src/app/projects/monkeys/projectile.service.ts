@@ -269,7 +269,6 @@ export class ProjectileService {
           projectile,
           radiusX,
           radiusY,
-          terrain,
         );
       }
     }
@@ -299,7 +298,6 @@ export class ProjectileService {
             projectile,
             radiusX,
             radiusY,
-            terrain,
           );
           if (projectile.owner === player && player.vehicle.lifesteal && damage > 0) {
             const heal = Math.round(damage * (player.vehicle.lifesteal / 100));

@@ -374,13 +374,16 @@ export class MonkeysGameService {
     const chargeTime =
       Date.now() -
       (entity === this.player ? this.chargeStartTime : (entity as Enemy).chargeStartTime!);
+    const maxPower = entity === this.player ? entity.maxPower : entity.vehicle.power;
     const chargeRatio = Math.min(chargeTime / CONST.MAX_CHARGE_TIME, 1);
-    if (entity === this.player) {
-      entity.power = CONST.MIN_POWER + (entity.maxPower - CONST.MIN_POWER) * chargeRatio;
-    } else {
-      entity.power = chargeRatio * ((entity as Enemy).targetPower || 0);
-    }
-    if (chargeTime >= CONST.MAX_CHARGE_TIME) {
+    entity.power = CONST.MIN_POWER + (maxPower - CONST.MIN_POWER) * chargeRatio;
+
+    const shouldFire =
+      entity === this.player
+        ? chargeTime >= CONST.MAX_CHARGE_TIME
+        : entity.power >= ((entity as Enemy).targetPower ?? maxPower);
+
+    if (shouldFire) {
       if (entity === this.player) {
         this.shoot();
       } else {
@@ -397,6 +400,14 @@ export class MonkeysGameService {
       // Clamp horizontal position to terrain bounds
       entity.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, entity.x));
       this.Body.setPosition(entity.body, { x: entity.x, y: entity.y });
+      // Transition out of pushback once the body has settled
+      if (
+        entity.entityState === 'pushback' &&
+        Math.abs(entity.body.velocity.x) < 0.5 &&
+        Math.abs(entity.body.velocity.y) < 0.5
+      ) {
+        entity.entityState = 'idle';
+      }
       // Update terrain angle
       entity.terrainAngle = this.collisionService.getTerrainAngleAt(
         entity.x,
@@ -1034,7 +1045,8 @@ export class MonkeysGameService {
         ) {
           this.moveEntity(this.player, -1);
         }
-        if (keys['ArrowRight'] &&
+        if (
+          keys['ArrowRight'] &&
           this.player.body &&
           !this.isCharging &&
           !this.projectile &&

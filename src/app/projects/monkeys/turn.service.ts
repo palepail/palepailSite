@@ -29,7 +29,9 @@ export class TurnService {
   }
 
   areAllEntitiesSettled(entities: (Player | Enemy)[]): boolean {
-    return entities.every((e) => e.body && Math.abs(e.body.velocity.y) <= 0.5);
+    return entities.every(
+      (e) => e.body && Math.abs(e.body.velocity.x) <= 0.5 && Math.abs(e.body.velocity.y) <= 0.5,
+    );
   }
 
   initTurnQueue(player: Player, enemies: Enemy[]) {

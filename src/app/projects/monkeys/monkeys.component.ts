@@ -192,7 +192,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
-  private readonly PUSHBACK_DURATION_MS = 300;
   private readonly SHIELD_IDLE_FRAME_MS = 80;
   private readonly SHIELD_IDLE_FRAMES = 14;
   private readonly SHIELD_IDLE_HOLD_MS = 3000;
@@ -1235,18 +1234,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     afterFacingFlip?: (cx: number, cy: number) => void,
     beforeBody?: (cx: number, cy: number) => void,
   ): { centerX: number; centerY: number } {
-    let displayX = entity.x;
-    if (entity.entityState === 'pushback' && entity.pushbackStartMs !== undefined) {
-      const elapsed = Date.now() - entity.pushbackStartMs;
-      if (elapsed < this.PUSHBACK_DURATION_MS) {
-        const t = elapsed / this.PUSHBACK_DURATION_MS;
-        const eased = 1 - (1 - t) ** 3;
-        displayX = entity.pushbackFromX + (entity.pushbackToX - entity.pushbackFromX) * eased;
-      } else {
-        entity.entityState = 'idle';
-      }
-    }
-    const screenPos = this.cameraController.worldToScreen(displayX, entity.y);
+    const screenPos = this.cameraController.worldToScreen(entity.x, entity.y);
     const centerX = screenPos.x;
     const centerY = screenPos.y;
     const bodyRadius = CONST.TANK_BODY_RADIUS;
@@ -1901,7 +1889,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawSpriteChars(
-    chars: string[],
+    text: string,
     map: Record<string, string>,
     startX: number,
     topY: number,
@@ -1911,7 +1899,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     plainFallback = false,
   ): void {
     let x = startX;
-    for (const ch of chars) {
+    for (const ch of text) {
       const spriteName = map[ch];
       const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
       if (sprite) {
@@ -1947,10 +1935,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const tint = text.isHeal ? '#22FF55' : CONST.DAMAGE_TEXT_COLOR;
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
       this.ctx.globalAlpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
-      const chars = String(text.damage).split('');
-      const totalWidth = (chars.length - 1) * advance + size;
+      const damageStr = String(text.damage);
+      const totalWidth = (damageStr.length - 1) * advance + size;
       this.drawSpriteChars(
-        chars,
+        damageStr,
         this.ANGLE_CHAR_TO_SPRITE,
         screenPos.x - totalWidth / 2,
         screenPos.y - size,
@@ -2066,10 +2054,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           : `Enemy ${turnEntity.id.split('_')[1]}`;
       const timeStr = isCurrent ? '0' : String(Math.round(turnEntity.entity.delay));
 
-      const nameChars = rawName.split('');
       this.drawSpriteChars(
-        nameChars,
-        this.buildQueueCharMap(),
+        rawName,
+        this.TEXT_CHAR_TO_SPRITE,
         10 + PAD,
         topY,
         CHAR_SIZE,
@@ -2078,12 +2065,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         true,
       );
 
-      const timeChars = timeStr.split('');
-      const timeWidth = timeChars.length * ADVANCE;
+      const timeWidth = timeStr.length * ADVANCE;
       const timeX = 10 + PANEL_W - PAD - timeWidth;
       this.drawSpriteChars(
-        timeChars,
-        this.buildQueueCharMap(),
+        timeStr,
+        this.TEXT_CHAR_TO_SPRITE,
         timeX,
         topY,
         CHAR_SIZE,
@@ -2092,10 +2078,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         true,
       );
     });
-  }
-
-  private buildQueueCharMap(): Record<string, string> {
-    return this.TEXT_CHAR_TO_SPRITE;
   }
 
   private renderLoop() {
@@ -3879,30 +3861,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return c;
   }
 
-  // Renders a line of text centred horizontally using text_ sprites (uppercase A-Z) and arena_ digits.
+  // Renders a line of text centred horizontally on the canvas.
   private drawSpriteTextCentered(text: string, topY: number, size: number, advanceRatio = 0.55) {
     const advance = size * advanceRatio;
-    const chars = text.split('');
-    const totalWidth = (chars.length - 1) * advance + size;
-    let x = CONST.CANVAS_WIDTH / 2 - totalWidth / 2;
-    for (const ch of chars) {
-      const spriteName = this.TEXT_CHAR_TO_SPRITE[ch];
-      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
-      if (sprite) {
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          x,
-          topY,
-          size,
-          size,
-        );
-      }
-      x += advance;
-    }
+    const startX = CONST.CANVAS_WIDTH / 2 - ((text.length - 1) * advance + size) / 2;
+    this.drawSpriteChars(text, this.TEXT_CHAR_TO_SPRITE, startX, topY, size, advance);
   }
 
   // Draws a power percentage (digits + % symbol) centred on (centreX, topY) using row-2 sprites.
@@ -3914,10 +3877,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     size = this.POWER_PERCENT_SPRITE_SIZE,
   ) {
     const advance = size * 0.45;
-    const chars = `${pct}%`.split('');
-    const totalWidth = (chars.length - 1) * advance + size;
+    const pctStr = `${pct}%`;
+    const totalWidth = (pctStr.length - 1) * advance + size;
     this.drawSpriteChars(
-      chars,
+      pctStr,
       this.ANGLE_CHAR_TO_SPRITE,
       centreX - totalWidth / 2,
       topY,
@@ -3931,7 +3894,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawAngleText(angleDeg: number, leftX: number, centerY: number, size: number) {
     const advance = size * 0.45;
     this.drawSpriteChars(
-      `${angleDeg}°`.split(''),
+      `${angleDeg}°`,
       this.ANGLE_CHAR_TO_SPRITE,
       leftX,
       centerY - size / 2,
@@ -4066,11 +4029,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawArenaNumber(text: string, rightX: number, topY: number, size: number) {
     const advance = size * 0.6; // tighter kerning — glyphs don't fill full cell
-    const chars = text.split('');
     this.drawSpriteChars(
-      chars,
+      text,
       this.ARENA_CHAR_TO_SPRITE,
-      rightX - chars.length * advance,
+      rightX - text.length * advance,
       topY,
       size,
       advance,

@@ -31,9 +31,6 @@ export interface Player {
   currentShieldHealth?: number;
   shieldHitAngle?: number;
   entityState: EntityState;
-  pushbackFromX?: number;
-  pushbackToX?: number;
-  pushbackStartMs?: number;
   chargeStartTime?: number;
   shotReleaseStartMs?: number;
   deathAnimStartMs?: number;
@@ -72,9 +69,6 @@ export interface Enemy {
   currentShieldHealth?: number;
   shieldHitAngle?: number;
   entityState: EntityState;
-  pushbackFromX?: number;
-  pushbackToX?: number;
-  pushbackStartMs?: number;
   shotReleaseStartMs?: number;
   deathAnimStartMs?: number;
   hurtUntilMs?: number;
