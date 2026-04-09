@@ -231,6 +231,50 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     '%': 'angle_percent',
     '°': 'angle_degree',
   };
+
+  // Full character → sprite map used by drawSpriteTextCentered and buildQueueCharMap.
+  private readonly TEXT_CHAR_TO_SPRITE: Record<string, string> = (() => {
+    const m: Record<string, string> = {};
+    for (let i = 0; i < 26; i++) {
+      m[String.fromCharCode(65 + i)] = `text_${String.fromCharCode(65 + i)}`;
+      m[String.fromCharCode(97 + i)] = `text_${String.fromCharCode(97 + i)}`;
+    }
+    for (let d = 0; d <= 9; d++) m[String(d)] = `arena_${d}`;
+    // Math symbols (row 3)
+    m['+'] = 'angle_plus';
+    m['-'] = 'angle_minus';
+    m['×'] = 'angle_multiply';
+    m['÷'] = 'angle_divide';
+    m['='] = 'angle_equals';
+    m['/'] = 'angle_slash';
+    m['\\'] = 'angle_backslash';
+    m['$'] = 'angle_dollar';
+    // Punctuation row
+    m['&'] = 'text_ampersand';
+    m['('] = 'text_lparen';
+    m[')'] = 'text_rparen';
+    m['\u300c'] = 'text_jp_open';
+    m['\u300d'] = 'text_jp_close';
+    m['\u3001'] = 'text_jp_comma';
+    m['\u3002'] = 'text_jp_period';
+    m[','] = 'text_comma';
+    m['.'] = 'text_period';
+    m['\u00b7'] = 'text_middledot';
+    m['~'] = 'text_tilde';
+    m[':'] = 'text_colon';
+    m[';'] = 'text_semicolon';
+    m['\u02bb'] = 'text_okina';
+    m["'"] = 'text_apostrophe';
+    m['\u201c'] = 'text_openquote';
+    m['\u201d'] = 'text_closequote';
+    m['<'] = 'text_lt';
+    m['>'] = 'text_gt';
+    m['?'] = 'text_question';
+    m['!'] = 'text_exclaim';
+    m[' '] = '';
+    return m;
+  })();
+
   private readonly ARENA_CHAR_TO_SPRITE: Record<string, string> = {
     '0': 'arena_0',
     '1': 'arena_1',
@@ -2051,12 +2095,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private buildQueueCharMap(): Record<string, string> {
-    const map: Record<string, string> = {};
-    for (let c = 65; c <= 90; c++) map[String.fromCharCode(c)] = `text_${String.fromCharCode(c)}`;
-    for (let c = 97; c <= 122; c++) map[String.fromCharCode(c)] = `text_${String.fromCharCode(c)}`;
-    for (let d = 0; d <= 9; d++) map[String(d)] = `arena_${d}`;
-    map[' '] = '';
-    return map;
+    return this.TEXT_CHAR_TO_SPRITE;
   }
 
   private renderLoop() {
@@ -3847,13 +3886,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const totalWidth = (chars.length - 1) * advance + size;
     let x = CONST.CANVAS_WIDTH / 2 - totalWidth / 2;
     for (const ch of chars) {
-      const code = ch.charCodeAt(0);
-      let spriteName: string | null = null;
-      if (code >= 65 && code <= 90)
-        spriteName = `text_${ch}`; // uppercase A-Z
-      else if (code >= 97 && code <= 122)
-        spriteName = `text_${ch}`; // lowercase a-z
-      else if (code >= 48 && code <= 57) spriteName = `arena_${ch}`; // digits 0-9
+      const spriteName = this.TEXT_CHAR_TO_SPRITE[ch];
       const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
       if (sprite) {
         this.ctx.drawImage(
