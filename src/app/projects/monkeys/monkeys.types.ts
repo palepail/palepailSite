@@ -182,6 +182,7 @@ export interface Explosion {
   maxRadius: number;
   life: number;
   shape: string;
+  spriteName?: string; // sprite prefix for animated overlay; undefined falls back to 'explosion'
 }
 
 export interface AftermathCallout {
@@ -206,6 +207,7 @@ export interface Projectile {
   trajectoryIndex?: number; // Current index in trajectory
   owner: Player | Enemy;
   bullet: Bullet;
+  spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
 }
 
 export interface Bullet {
@@ -219,6 +221,11 @@ export interface Bullet {
   speed: number;
   pushbackMultiplier?: number; // >1 increases knockback, defaults to 1
   sfxImpact?: string; // sfx-bank category to play on impact
+  tier?: number; // 1 = primary, 2 = child, 3+ = cascade; default 1
+  bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
+  explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
+  childBullet?: Bullet; // recursive child definition spawned on impact
+  childCount?: number; // how many children to spawn; default 1
 }
 
 export interface Vehicle {
@@ -243,6 +250,7 @@ export interface Vehicle {
   sfxWalk?: string; // sfx-bank category for movement loop
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
+  bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';

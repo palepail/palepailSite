@@ -10,6 +10,7 @@ export class ProjectileService {
   constructor(private sfxService: MonkeysSfxService) {}
 
   projectile: Projectile | null = null;
+  childProjectiles: Projectile[] = [];
   explosions: Explosion[] = [];
   lastImpactPos: { x: number; y: number } | null = null;
   damageTexts: DamageText[] = [];
@@ -194,6 +195,7 @@ export class ProjectileService {
       maxRadius: CONST.EXPLOSION_MAX_RADIUS,
       life: CONST.EXPLOSION_LIFETIME_FRAMES,
       shape: this.projectile.bullet.explosionShape,
+      spriteName: projectileSnapshot.bullet.explosionSprite,
     });
 
     // Create crater first so the knockback wall-check uses post-explosion terrain.
@@ -222,6 +224,18 @@ export class ProjectileService {
     );
 
     this.lastImpactPos = { x: explosionX, y: explosionY };
+
+    // Spawn child projectiles if this bullet has a child tier
+    if (projectileSnapshot.bullet.childBullet && (projectileSnapshot.bullet.childCount ?? 0) > 0) {
+      this.spawnChildProjectiles(
+        explosionX,
+        explosionY,
+        projectileSnapshot.owner,
+        projectileSnapshot.bullet,
+        physicsService,
+      );
+    }
+
     this.projectile = null;
   }
 
@@ -359,29 +373,252 @@ export class ProjectileService {
   }
 
   checkEntityCollisions(projectile: Projectile, player: Player, enemies: Enemy[]): boolean {
-    // Check collision with player
-    if (player.active) {
-      const dx = player.x - projectile.x;
-      const dy = player.y - projectile.y;
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+
+    for (const entity of entities) {
+      if (!entity.active) continue;
+
+      const dx = entity.x - projectile.x;
+      const dy = entity.y - projectile.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < CONST.PROJECTILE_RADIUS + 15) {
+
+      // Check direct body hit (use actual tank body radius so fast-moving fragments don't skip through)
+      if (distance < CONST.PROJECTILE_RADIUS + CONST.TANK_BODY_RADIUS) {
+        return true;
+      }
+
+      // Check shield hit (skip owner and shields with no health)
+      const shield = entity.vehicle?.shieldRadius;
+      if (
+        shield &&
+        (entity.currentShieldHealth ?? 0) > 0 &&
+        (entity as object) !== (projectile.owner as object) &&
+        distance < shield
+      ) {
         return true;
       }
     }
 
-    // Check collision with enemies
-    for (const enemy of enemies) {
-      if (enemy.active) {
-        const dx = enemy.x - projectile.x;
-        const dy = enemy.y - projectile.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < CONST.PROJECTILE_RADIUS + 15) {
-          return true;
+    return false;
+  }
+
+  spawnChildProjectiles(
+    impactX: number,
+    impactY: number,
+    owner: Player | Enemy,
+    parentBullet: any,
+    physicsService: any,
+  ): void {
+    const childBullet = parentBullet.childBullet;
+    const childCount: number = parentBullet.childCount ?? 1;
+    if (!childBullet) return;
+
+    // Spread childCount angles evenly from -60° to +60° from straight up
+    for (let i = 0; i < childCount; i++) {
+      const spreadFraction = childCount === 1 ? 0 : i / (childCount - 1) - 0.5;
+      const spreadAngleDeg = spreadFraction * 120; // -60° to +60°
+      const angleRad = -Math.PI / 2 + (spreadAngleDeg * Math.PI) / 180;
+
+      const speed = childBullet.speed * 0.4;
+      const vx = Math.cos(angleRad) * speed;
+      const vy = Math.sin(angleRad) * speed;
+
+      const body = physicsService.Bodies.circle(impactX, impactY, CONST.PROJECTILE_RADIUS, {
+        frictionAir: 0,
+        restitution: 0,
+        friction: CONST.PROJECTILE_FRICTION,
+      });
+      physicsService.Body.setVelocity(body, { x: vx, y: vy });
+      physicsService.World.add(physicsService.world, body);
+
+      this.childProjectiles.push({
+        body,
+        x: impactX,
+        y: impactY,
+        owner,
+        bullet: childBullet,
+        spawnTimeMs: Date.now(),
+      });
+    }
+  }
+
+  updateChildProjectiles(
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    const terrainBaseY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+
+    for (let i = this.childProjectiles.length - 1; i >= 0; i--) {
+      const child = this.childProjectiles[i];
+      if (!child.body) continue;
+
+      // Apply wind force (mirrors simulateTrajectory wind formula)
+      physicsService.Body.applyForce(child.body, child.body.position, {
+        x:
+          (physicsService.windSpeed *
+            0.75 *
+            CONST.WIND_BULLET_FORCE_SCALE *
+            Math.cos(physicsService.windAngle)) /
+          child.bullet.weight,
+        y: 0,
+      });
+
+      // Sync world-space position
+      child.x = child.body.position.x;
+      child.y = child.body.position.y;
+
+      // Out-of-bounds check
+      if (
+        child.x < -CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+        child.x > CONST.TERRAIN_WIDTH + CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+        child.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
+        child.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
+      ) {
+        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+        continue;
+      }
+
+      // Timer fuse: explode after 1.8 seconds
+      if (Date.now() - (child.spawnTimeMs ?? 0) >= 1800) {
+        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+        continue;
+      }
+
+      // Terrain hit check — test bottom edge, center, and lateral edges
+      const r = CONST.PROJECTILE_RADIUS;
+      const tbY = Math.floor(terrainBaseY);
+      const isTerrainAt = (wx: number, wy: number): boolean => {
+        const col = Math.floor(wx);
+        const ly = Math.floor(wy) - tbY;
+        return (
+          col >= 0 &&
+          col < CONST.TERRAIN_WIDTH &&
+          ly >= 0 &&
+          ly < (terrain[col]?.length ?? 0) &&
+          terrain[col][ly] === 1
+        );
+      };
+      const terrainHit =
+        isTerrainAt(child.x, child.y + r) || // bottom edge
+        isTerrainAt(child.x, child.y) || // center (already embedded)
+        isTerrainAt(child.x + r, child.y) || // right edge
+        isTerrainAt(child.x - r, child.y); // left edge
+
+      if (terrainHit) {
+        const px = Math.floor(child.x);
+
+        // Find topmost solid pixel in this column to get the real surface Y
+        const colData = terrain[px];
+        let surfaceWorldY = child.y - r; // fallback: don't change Y
+        if (colData) {
+          for (let ly = 0; ly < colData.length; ly++) {
+            if (colData[ly] === 1) {
+              surfaceWorldY = tbY + ly;
+              break;
+            }
+          }
         }
+
+        // Compute terrain slope from neighbouring columns for proper reflection normal
+        const getSY = (col: number): number => {
+          if (col < 0 || col >= CONST.TERRAIN_WIDTH) return surfaceWorldY;
+          const cd = terrain[col];
+          if (!cd) return surfaceWorldY;
+          for (let ly = 0; ly < cd.length; ly++) {
+            if (cd[ly] === 1) return tbY + ly;
+          }
+          return surfaceWorldY;
+        };
+        const span = 4;
+        const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
+        // Normal = perpendicular to surface tangent, pointing upward (negative Y in screen coords)
+        let nx = slope;
+        let ny = -1;
+        const nLen = Math.sqrt(nx * nx + 1); // ny² = 1
+        nx /= nLen;
+        ny /= nLen;
+
+        // Reflect velocity across normal with restitution
+        const vel = child.body.velocity;
+        const dot = vel.x * nx + vel.y * ny;
+        const restitution = 0.35;
+        physicsService.Body.setVelocity(child.body, {
+          x: (vel.x - 2 * dot * nx) * restitution,
+          y: (vel.y - 2 * dot * ny) * restitution,
+        });
+
+        // Snap fragment to sit on the terrain surface
+        physicsService.Body.setPosition(child.body, {
+          x: child.x,
+          y: surfaceWorldY - r - 1,
+        });
+        continue;
+      }
+
+      // Entity collision check — explode immediately
+      if (this.checkEntityCollisions(child, player, enemies)) {
+        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+        continue;
       }
     }
+  }
 
-    return false;
+  private destroyChildProjectile(
+    index: number,
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    const child = this.childProjectiles[index];
+    physicsService.World.remove(physicsService.world, child.body);
+
+    this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
+
+    this.explosions.push({
+      x: child.x,
+      y: child.y,
+      radius: CONST.EXPLOSION_INITIAL_RADIUS,
+      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
+      life: CONST.EXPLOSION_LIFETIME_FRAMES,
+      shape: child.bullet.explosionShape,
+      spriteName: child.bullet.explosionSprite,
+    });
+
+    this.createCrater(child.x, child.y, terrain, child.bullet);
+    if (depthTerrain) {
+      const depthScale = 0.45 + Math.random() * 0.35;
+      const offsetX = (Math.random() - 0.5) * 20;
+      const offsetY = (Math.random() - 0.5) * 20;
+      this.createCrater(
+        child.x + offsetX,
+        child.y + offsetY,
+        depthTerrain,
+        child.bullet,
+        depthScale,
+      );
+    }
+
+    this.calculateExplosionDamage(
+      child.x,
+      child.y,
+      child,
+      player,
+      enemies,
+      physicsService,
+      terrain,
+    );
+
+    // Cascade to next tier if child also has children
+    if (child.bullet.childBullet && (child.bullet.childCount ?? 0) > 0) {
+      this.spawnChildProjectiles(child.x, child.y, child.owner, child.bullet, physicsService);
+    }
+
+    this.childProjectiles.splice(index, 1);
   }
 
   updateExplosions() {

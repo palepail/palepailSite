@@ -6,6 +6,7 @@ import {
   EquipmentStats,
   Vehicle,
 } from './monkeys.types';
+import * as CONST from './monkeys.constants';
 
 @Injectable({
   providedIn: 'root',
@@ -86,8 +87,8 @@ export class EquipmentService {
       if (
         typeof data.selectedVehicleIndex === 'number' &&
         data.selectedVehicleIndex >= 0 &&
-        data.selectedVehicleIndex < 5 && // Assuming 5 vehicles
-        true // No lock check here
+        data.selectedVehicleIndex < CONST.SELECTABLE_VEHICLES.length &&
+        !CONST.SELECTABLE_VEHICLES[data.selectedVehicleIndex]?.locked
       ) {
         this.selectedVehicleIndex = data.selectedVehicleIndex;
       }

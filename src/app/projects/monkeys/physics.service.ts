@@ -17,8 +17,12 @@ export class PhysicsService {
 
   // Game state
   private engine: any;
-  private world: any;
+  private _world: any;
   private runner: any;
+
+  get world(): any {
+    return this._world;
+  }
 
   // Trajectory cache
   private trajectoryCache: Map<
@@ -43,7 +47,7 @@ export class PhysicsService {
 
   initPhysics() {
     this.engine = this.Engine.create();
-    this.world = this.engine.world;
+    this._world = this.engine.world;
     this.engine.world.gravity.y = CONST.GRAVITY_STRENGTH;
 
     this.runner = this.Runner.create();

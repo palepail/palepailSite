@@ -1,7 +1,7 @@
 // monkeys.constants.ts
 // Constants for the Monkeys game component
 
-import { Vehicle } from './monkeys.types';
+import { Bullet, Vehicle } from './monkeys.types';
 
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 720;
@@ -93,6 +93,55 @@ export const PLAYER_VEHICLE: Vehicle = {
   },
 };
 
+const CLUSTER_FRAGMENT: Bullet = {
+  name: 'cluster_fragment',
+  tier: 2,
+  weight: 1,
+  damage: 50,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 40,
+  craterRadius: 24,
+  speed: 18,
+  bulletSprite: 'bullet',
+  explosionSprite: 'cluster_explosion',
+  sfxImpact: 'explosion',
+};
+
+export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
+  name: 'Zombie Monkey',
+  speed: 100.0,
+  power: 200,
+  shape: 'tank',
+  spritesheet: 'Zombie Lupin.png',
+  climbAngle: 45,
+  fuel: 75,
+  health: 275,
+  weight: 8,
+  minAimAngle: 25,
+  maxAimAngle: 60,
+  shotDelay: 100,
+  sfxWalk: 'walk',
+  sfxFire: 'fire',
+  bulletStyle: 'cluster',
+  bullet: {
+    name: 'cluster_bomb',
+    tier: 1,
+    weight: 1,
+    damage: 20,
+    shape: 'circle',
+    explosionShape: 'circle',
+    explosionRadius: 50,
+    craterRadius: 40,
+    speed: 20,
+    bulletSprite: 'cluster_bullet',
+    explosionSprite: 'cluster_explosion',
+    sfxImpact: 'explosion',
+    childCount: 5,
+    childBullet: CLUSTER_FRAGMENT,
+  },
+};
+
 export interface SelectableVehicle {
   vehicle: Vehicle;
   locked: boolean;
@@ -107,8 +156,9 @@ export const SELECTABLE_VEHICLES: SelectableVehicle[] = [
     description: 'A balanced fighter with good all-round stats and a reliable blast.',
   },
   {
-    vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },
-    locked: true,
+    vehicle: ZOMBIE_LUPIN_VEHICLE,
+    locked: false,
+    description: 'A lighter zombie fighter with a cluster bomb—wide area, multiple impacts.',
   },
   {
     vehicle: { ...PLAYER_VEHICLE, bullet: { ...PLAYER_VEHICLE.bullet }, name: '????' },

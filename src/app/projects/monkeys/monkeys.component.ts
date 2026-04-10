@@ -725,6 +725,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.gameService.projectile) {
       this.drawProjectile();
     }
+    this.drawChildProjectiles();
 
     // Draw explosions
     this.drawExplosions();
@@ -1782,7 +1783,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawProjectile() {
     const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
-    const bulletSprite = this.spriteService.getSprite(`bullet_${bulletFrameIndex}`);
+    const bulletPrefix = this.gameService.projectile?.bullet.bulletSprite ?? 'bullet';
+    const bulletSprite = this.spriteService.getSprite(`${bulletPrefix}_${bulletFrameIndex}`);
 
     if (this.gameService.projectile) {
       let pos: { x: number; y: number };
@@ -1803,7 +1805,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawExplosions() {
     const explosionFrameIndex = this.getExplosionFrameIndex(this.renderTime);
-    const explosionSprite = this.spriteService.getSprite(`explosion_${explosionFrameIndex}`);
 
     for (let i = this.gameService.explosions.length - 1; i >= 0; i--) {
       const explosion = this.gameService.explosions[i];
@@ -1863,6 +1864,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.lineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
       this.ctx.stroke();
 
+      const spritePrefix = explosion.spriteName ?? 'explosion';
+      const explosionSprite = this.spriteService.getSprite(`${spritePrefix}_${explosionFrameIndex}`);
+
       if (explosionSprite) {
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
         let spriteHeight = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
@@ -1885,6 +1889,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           spriteHeight,
         );
       }
+    }
+  }
+
+  private drawChildProjectiles(): void {
+    const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
+    for (const child of this.gameService.childProjectiles) {
+      const prefix = child.bullet.bulletSprite ?? 'bullet';
+      const sprite = this.spriteService.getSprite(`${prefix}_${bulletFrameIndex}`);
+      const screenPos = this.cameraController.worldToScreen(child.x, child.y);
+      this.drawBulletAt(screenPos, sprite);
     }
   }
 

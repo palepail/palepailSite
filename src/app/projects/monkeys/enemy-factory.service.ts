@@ -116,8 +116,16 @@ export class EnemyFactoryService {
     items: EquipmentItem[],
     sets: EquipmentSet[],
   ): { vehicle: Vehicle; loadout: Loadout } {
-    const base = CONST.PLAYER_VEHICLE;
-    const vehicle: Vehicle = { ...base, bullet: { ...base.bullet } };
+    // ~35% chance to use Zombie Lupin as the base vehicle
+    const useZombie = Math.random() < 0.35;
+    const base = useZombie ? CONST.ZOMBIE_LUPIN_VEHICLE : CONST.PLAYER_VEHICLE;
+    const vehicle: Vehicle = {
+      ...base,
+      bullet: {
+        ...base.bullet,
+        ...(base.bullet.childBullet ? { childBullet: { ...base.bullet.childBullet } } : {}),
+      },
+    };
     const loadout = this.buildEnemyLoadout(difficulty, items, sets);
     this.applyLoadoutToVehicle(vehicle, loadout, sets);
     return { vehicle, loadout };

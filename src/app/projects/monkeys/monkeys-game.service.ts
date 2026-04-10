@@ -319,7 +319,7 @@ export class MonkeysGameService {
     }
     switch (entity.turnState) {
       case 'bullet_in_flight':
-        if (!this.projectile) {
+        if (!this.projectile && this.projectileService.childProjectiles.length === 0) {
           this.aftermathImpactPos = this.projectileService.lastImpactPos;
           this.aftermathStartMs = Date.now();
           this.aftermathCallouts = [];
@@ -985,6 +985,17 @@ export class MonkeysGameService {
       );
     }
 
+    // Update child projectiles (cluster fragments etc.)
+    if (this.projectileService.childProjectiles.length > 0) {
+      this.projectileService.updateChildProjectiles(
+        this.terrainService.terrain,
+        this.player,
+        this.enemies,
+        this.physicsService,
+        this.terrainService.depthTerrain,
+      );
+    }
+
     // Check player collision with terrain
     this.collisionService.checkPlayerTerrainCollision(
       this.player,
@@ -1291,6 +1302,10 @@ export class MonkeysGameService {
 
   get damageTexts() {
     return this.projectileService.damageTexts;
+  }
+
+  get childProjectiles() {
+    return this.projectileService.childProjectiles;
   }
 
   areAllEntitiesSettled(): boolean {
