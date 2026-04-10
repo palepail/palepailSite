@@ -210,6 +210,21 @@ export interface Projectile {
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
 }
 
+/**
+ * Discriminant for bullet modifier effects.
+ * Extend this union with string literals when implementing new modifiers.
+ * Example: export type BulletModifierType = 'bounce' | 'poison' | 'fire';
+ */
+export type BulletModifierType = string;
+
+/**
+ * A modifier attached to a bullet that triggers a special effect.
+ * Specific modifiers will extend this via discriminated union subtypes.
+ */
+export interface BulletModifier {
+  type: BulletModifierType;
+}
+
 export interface Bullet {
   name: string;
   weight: number;
@@ -226,6 +241,7 @@ export interface Bullet {
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
   childBullet?: Bullet; // recursive child definition spawned on impact
   childCount?: number; // how many children to spawn; default 1
+  modifiers?: BulletModifier[]; // optional collection of effect modifiers
 }
 
 export interface Vehicle {
