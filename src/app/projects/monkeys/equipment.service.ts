@@ -107,7 +107,7 @@ export class EquipmentService {
   applyEquipmentToVehicle(vehicle: Vehicle): void {
     for (const item of Object.values(this.equipped)) {
       if (!item?.stats) continue;
-      if (item.stats.attack) vehicle.bullet.damage += item.stats.attack;
+      if (item.stats.attack) vehicle.bullet.damage *= (1 + item.stats.attack / 100);
       if (item.stats.health) vehicle.health += item.stats.health;
       if (item.stats.armor)
         vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);

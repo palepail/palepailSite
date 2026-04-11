@@ -173,6 +173,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Prediction path toggle
   private showPrediction: boolean = true;
 
+  // Combat log
+  private combatLogMinimized: boolean = false;
+  private combatLogToggleBtn = { x: 0, y: 0, width: 0, height: 0 };
+
   // Turn message
   private turnMessage: string = '';
   private messageTimer: number = 0;
@@ -736,6 +740,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw UI
     this.drawUI();
     this.drawTurnQueue();
+    this.drawCombatLog();
   }
 
   private drawChargeBar(entity: any, maxPower: number, markerRatio?: number) {
@@ -2065,7 +2070,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const rawName =
         turnEntity.type === 'player'
           ? this.gameService.playerName
-          : `Enemy ${turnEntity.id.split('_')[1]}`;
+          : `Enemy ${Number(turnEntity.id.split('_')[1]) + 1}`;
       const timeStr = isCurrent ? '0' : String(Math.round(turnEntity.entity.delay));
 
       this.drawSpriteChars(
@@ -2092,6 +2097,96 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         true,
       );
     });
+  }
+
+  private drawCombatLog(): void {
+    const CHAR_SIZE = 17;
+    const ADVANCE = CHAR_SIZE * 0.53;
+    const ROW_H = CHAR_SIZE + 9;
+    const PAD_X = 20;
+    const PAD_Y = 20;
+    const MAX_ROWS = 6;
+    const PANEL_W = 380;
+    const BTN_W = 28;
+    const BTN_H = 20;
+    const PANEL_X = 10;
+    // Bottom anchor — button always sits here
+    const BOTTOM_Y = CONST.CANVAS_HEIGHT - 10;
+    const FULL_PANEL_H = MAX_ROWS * ROW_H + PAD_Y * 2;
+
+    const log = this.gameService.combatLog.slice(-MAX_ROWS);
+
+    // Toggle button pinned to bottom-right of max footprint
+    const btnCX = PANEL_X + PANEL_W - BTN_W / 2 - 4;
+    const btnCY = BOTTOM_Y - BTN_H / 2 - 4;
+    this.combatLogToggleBtn = this.mkBtn(btnCX, btnCY, BTN_W, BTN_H);
+
+    if (this.combatLogMinimized) {
+      // Just the mini strip
+      const MINI_H = BTN_H + 8;
+      this.drawNineSlicePanel('panel_wood_2_nail', PANEL_X, BOTTOM_Y - MINI_H, PANEL_W, MINI_H);
+    } else {
+      // Panel grows from bottom up — height based on actual entry count (min 1 row so panel always visible)
+      const rowCount = Math.max(1, log.length);
+      const PANEL_H = rowCount * ROW_H + PAD_Y * 2;
+      const PANEL_Y = BOTTOM_Y - PANEL_H;
+      this.drawNineSlicePanel('panel_wood_2_nail', PANEL_X, PANEL_Y, PANEL_W, PANEL_H);
+
+      for (let i = 0; i < log.length; i++) {
+        const entry = log[i];
+        const rowTopY = PANEL_Y + PAD_Y + i * ROW_H;
+
+        let text: string;
+        let tint: string;
+
+        if (entry.type === 'fall') {
+          if (entry.attackerName) {
+            text = `${entry.targetName}: pushed off cliff`;
+            tint = '#FF8844';
+          } else {
+            text = `${entry.targetName}: fell off map`;
+            tint = '#AAAAAA';
+          }
+        } else if (entry.type === 'miss') {
+          text = `${entry.attackerName}: missed!`;
+          tint = '#AAAAAA';
+        } else if (entry.type === 'pass') {
+          text = `${entry.attackerName}: passed their turn`;
+          tint = '#AAAAFF';
+        } else if (entry.type === 'timeout') {
+          text = `${entry.attackerName}: timed out`;
+          tint = '#FFAA44';
+        } else {
+          const weapon = entry.weaponName.replace(/_/g, ' ');
+          text = `${entry.attackerName}: ${entry.totalDamage} > ${entry.targetName} (${weapon})`;
+          tint = entry.wasFatal ? '#FF4444' : '#EEEEEE';
+        }
+
+        this.drawSpriteChars(
+          text,
+          this.TEXT_CHAR_TO_SPRITE,
+          PANEL_X + PAD_X,
+          rowTopY,
+          CHAR_SIZE,
+          ADVANCE,
+          tint,
+          true,
+        );
+      }
+    }
+
+    // Draw toggle button on top
+    this.ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    this.ctx.fillRect(btnCX - BTN_W / 2, btnCY - BTN_H / 2, BTN_W, BTN_H);
+    this.ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(btnCX - BTN_W / 2, btnCY - BTN_H / 2, BTN_W, BTN_H);
+    this.ctx.fillStyle = '#EEEEEE';
+    this.ctx.font = 'bold 14px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(this.combatLogMinimized ? '+' : '\u2212', btnCX, btnCY);
+    this.ctx.textBaseline = 'alphabetic';
   }
 
   private renderLoop() {
@@ -4178,6 +4273,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.handleOptionsClick(x, y);
     } else if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
       this.handleTerrainToolClick(x, y);
+    } else if (
+      this.gameService.currentState === GameState.PLAYING ||
+      this.gameService.currentState === GameState.PAUSED ||
+      this.gameService.currentState === GameState.AFTERMATH
+    ) {
+      if (this.isPointInsideButton(x, y, this.combatLogToggleBtn)) {
+        this.combatLogMinimized = !this.combatLogMinimized;
+      }
     }
   }
 

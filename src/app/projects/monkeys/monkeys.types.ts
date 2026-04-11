@@ -36,6 +36,7 @@ export interface Player {
   deathAnimStartMs?: number;
   hurtUntilMs?: number;
   prevHealth?: number;
+  displayName?: string; // "You" or "Enemy N" — set at game start for combat log
 }
 
 export interface Enemy {
@@ -73,6 +74,7 @@ export interface Enemy {
   deathAnimStartMs?: number;
   hurtUntilMs?: number;
   prevHealth?: number;
+  displayName?: string; // "Enemy N" — set at game start for combat log
 }
 
 export enum GameState {
@@ -204,12 +206,23 @@ export type DamageSource = 'explosion' | 'fall';
 export interface DamageEvent {
   amount: number;
   source: DamageSource;
+  attackerName?: string;
+  weaponName?: string;
 }
 
 export interface DamageResult {
   actualAmount: number;
   wasKilled: boolean;
   source: DamageSource;
+}
+
+export interface CombatLogEntry {
+  type: 'damage' | 'fall' | 'miss' | 'pass' | 'timeout';
+  attackerName: string;
+  targetName: string;
+  weaponName: string;
+  totalDamage: number;
+  wasFatal: boolean;
 }
 
 export interface Projectile {
@@ -220,6 +233,7 @@ export interface Projectile {
   trajectoryIndex?: number; // Current index in trajectory
   owner: Player | Enemy;
   bullet: Bullet;
+  rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
 }
 

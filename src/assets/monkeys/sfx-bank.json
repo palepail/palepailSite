@@ -30,157 +30,203 @@
       ]
     },
 
-    "aiai_bump": { "files": [
-      { "file": "VO/Aiai/aiai_bump1.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump2.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump3.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump4.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump5.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump6.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_bump7.wav", "volume": 1.0 }
-    ]},
-    "aiai_fall": { "files": [
-      { "file": "VO/Aiai/aiai_fall1.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_fall2.wav", "volume": 1.0 }
-    ]},
-    "aiai_lose": { "files": [
-      { "file": "VO/Aiai/aiai_lose1.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_lose2.wav", "volume": 1.0 }
-    ]},
-    "aiai_ochisou": { "files": [
-      { "file": "VO/Aiai/aiai_ochisou1.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_ochisou2.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_ochisou3.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_ochisou4.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_ochisou5.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_ochisou6.wav", "volume": 1.0 }
-    ]},
-    "aiai_win": { "files": [
-      { "file": "VO/Aiai/aiai_win1.wav", "volume": 1.0 },
-      { "file": "VO/Aiai/aiai_win2.wav", "volume": 1.0 }
-    ]},
+    "aiai_bump": {
+      "files": [
+        { "file": "VO/Aiai/aiai_bump1.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump2.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump3.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump4.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump5.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump6.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_bump7.wav", "volume": 1.0 }
+      ]
+    },
+    "aiai_fall": {
+      "files": [
+        { "file": "VO/Aiai/aiai_fall1.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_fall2.wav", "volume": 1.0 }
+      ]
+    },
+    "aiai_lose": {
+      "files": [
+        { "file": "VO/Aiai/aiai_lose1.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_lose2.wav", "volume": 1.0 }
+      ]
+    },
+    "aiai_ochisou": {
+      "files": [
+        { "file": "VO/Aiai/aiai_ochisou1.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_ochisou2.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_ochisou3.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_ochisou4.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_ochisou5.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_ochisou6.wav", "volume": 1.0 }
+      ]
+    },
+    "aiai_win": {
+      "files": [
+        { "file": "VO/Aiai/aiai_win1.wav", "volume": 1.0 },
+        { "file": "VO/Aiai/aiai_win2.wav", "volume": 1.0 }
+      ]
+    },
 
-    "gongon_bump": { "files": [
-      { "file": "VO/Gongon/gongon_bump1.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump2.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump3.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump4.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump5.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump6.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_bump7.wav", "volume": 1.0 }
-    ]},
-    "gongon_fall": { "files": [
-      { "file": "VO/Gongon/gongon_fall1.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_fall2.wav", "volume": 1.0 }
-    ]},
-    "gongon_lose": { "files": [
-      { "file": "VO/Gongon/gongon_lose1.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_lose2.wav", "volume": 1.0 }
-    ]},
-    "gongon_ochisou": { "files": [
-      { "file": "VO/Gongon/gongon_ochisou1.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou2.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou3.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou4.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou5.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou6.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou7.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_ochisou8.wav", "volume": 1.0 }
-    ]},
-    "gongon_win": { "files": [
-      { "file": "VO/Gongon/gongon_win1.wav", "volume": 1.0 },
-      { "file": "VO/Gongon/gongon_win2.wav", "volume": 1.0 }
-    ]},
+    "gongon_bump": {
+      "files": [
+        { "file": "VO/Gongon/gongon_bump1.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump2.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump3.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump4.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump5.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump6.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_bump7.wav", "volume": 1.0 }
+      ]
+    },
+    "gongon_fall": {
+      "files": [
+        { "file": "VO/Gongon/gongon_fall1.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_fall2.wav", "volume": 1.0 }
+      ]
+    },
+    "gongon_lose": {
+      "files": [
+        { "file": "VO/Gongon/gongon_lose1.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_lose2.wav", "volume": 1.0 }
+      ]
+    },
+    "gongon_ochisou": {
+      "files": [
+        { "file": "VO/Gongon/gongon_ochisou1.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou2.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou3.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou4.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou5.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou6.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou7.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_ochisou8.wav", "volume": 1.0 }
+      ]
+    },
+    "gongon_win": {
+      "files": [
+        { "file": "VO/Gongon/gongon_win1.wav", "volume": 1.0 },
+        { "file": "VO/Gongon/gongon_win2.wav", "volume": 1.0 }
+      ]
+    },
 
-    "jam_bump": { "files": [
-      { "file": "VO/Jam/jam_bump1.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump2.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump3.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump4.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump5.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump6.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_bump7.wav", "volume": 1.0 }
-    ]},
-    "jam_fall": { "files": [
-      { "file": "VO/Jam/jam_fall1.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_fall2.wav", "volume": 1.0 }
-    ]},
-    "jam_lose": { "files": [
-      { "file": "VO/Jam/jam_lose1.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_lose2.wav", "volume": 1.0 }
-    ]},
-    "jam_ochisou": { "files": [
-      { "file": "VO/Jam/jam_ochisou1.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_ochisou2.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_ochisou3.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_ochisou4.wav", "volume": 1.0 }
-    ]},
-    "jam_win": { "files": [
-      { "file": "VO/Jam/jam_win1.wav", "volume": 1.0 },
-      { "file": "VO/Jam/jam_win2.wav", "volume": 1.0 }
-    ]},
+    "jam_bump": {
+      "files": [
+        { "file": "VO/Jam/jam_bump1.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump2.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump3.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump4.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump5.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump6.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_bump7.wav", "volume": 1.0 }
+      ]
+    },
+    "jam_fall": {
+      "files": [
+        { "file": "VO/Jam/jam_fall1.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_fall2.wav", "volume": 1.0 }
+      ]
+    },
+    "jam_lose": {
+      "files": [
+        { "file": "VO/Jam/jam_lose1.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_lose2.wav", "volume": 1.0 }
+      ]
+    },
+    "jam_ochisou": {
+      "files": [
+        { "file": "VO/Jam/jam_ochisou1.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_ochisou2.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_ochisou3.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_ochisou4.wav", "volume": 1.0 }
+      ]
+    },
+    "jam_win": {
+      "files": [
+        { "file": "VO/Jam/jam_win1.wav", "volume": 1.0 },
+        { "file": "VO/Jam/jam_win2.wav", "volume": 1.0 }
+      ]
+    },
 
-    "meemee_bump": { "files": [
-      { "file": "VO/Meemee/meemee_bump1.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_bump2.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_bump3.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_bump4.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_bump5.wav", "volume": 1.0 }
-    ]},
-    "meemee_fall": { "files": [
-      { "file": "VO/Meemee/meemee_fall1.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_fall2.wav", "volume": 1.0 }
-    ]},
-    "meemee_lose": { "files": [
-      { "file": "VO/Meemee/meemee_lose_01.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_lose_02.wav", "volume": 1.0 }
-    ]},
-    "meemee_ochisou": { "files": [
-      { "file": "VO/Meemee/meemee_ochisou1.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_ochisou2.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_ochisou3.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_ochisou4.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_ochisou5.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_ochisou6.wav", "volume": 1.0 }
-    ]},
-    "meemee_power_peg": { "files": [
-      { "file": "VO/Meemee/meemee_power_peg_01.wav", "volume": 1.0 }
-    ]},
-    "meemee_win": { "files": [
-      { "file": "VO/Meemee/meemee_win_01.wav", "volume": 1.0 },
-      { "file": "VO/Meemee/meemee_win_02.wav", "volume": 1.0 }
-    ]},
+    "meemee_bump": {
+      "files": [
+        { "file": "VO/Meemee/meemee_bump1.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_bump2.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_bump3.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_bump4.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_bump5.wav", "volume": 1.0 }
+      ]
+    },
+    "meemee_fall": {
+      "files": [
+        { "file": "VO/Meemee/meemee_fall1.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_fall2.wav", "volume": 1.0 }
+      ]
+    },
+    "meemee_lose": {
+      "files": [
+        { "file": "VO/Meemee/meemee_lose_01.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_lose_02.wav", "volume": 1.0 }
+      ]
+    },
+    "meemee_ochisou": {
+      "files": [
+        { "file": "VO/Meemee/meemee_ochisou1.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_ochisou2.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_ochisou3.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_ochisou4.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_ochisou5.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_ochisou6.wav", "volume": 1.0 }
+      ]
+    },
+    "meemee_power_peg": {
+      "files": [{ "file": "VO/Meemee/meemee_power_peg_01.wav", "volume": 1.0 }]
+    },
+    "meemee_win": {
+      "files": [
+        { "file": "VO/Meemee/meemee_win_01.wav", "volume": 1.0 },
+        { "file": "VO/Meemee/meemee_win_02.wav", "volume": 1.0 }
+      ]
+    },
 
-    "yanyan_bump": { "files": [
-      { "file": "VO/Yanyan/yanyan_bump1.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_bump2.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_bump3.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_bump4.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_bump5.wav", "volume": 1.0 }
-    ]},
-    "yanyan_fall": { "files": [
-      { "file": "VO/Yanyan/yanyan_fall.wav", "volume": 1.0 }
-    ]},
-    "yanyan_lose": { "files": [
-      { "file": "VO/Yanyan/yanyan_lose_01.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_lose_02.wav", "volume": 1.0 }
-    ]},
-    "yanyan_ochisou": { "files": [
-      { "file": "VO/Yanyan/yanyan_ochisou1.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou2.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou3.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou4.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou5.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou6.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou7.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_ochisou8.wav", "volume": 1.0 }
-    ]},
-    "yanyan_power_peg": { "files": [
-      { "file": "VO/Yanyan/yanyan_power_peg_01.wav", "volume": 1.0 }
-    ]},
-    "yanyan_win": { "files": [
-      { "file": "VO/Yanyan/yanyan_win_01.wav", "volume": 1.0 },
-      { "file": "VO/Yanyan/yanyan_win_02.wav", "volume": 1.0 }
-    ]}
+    "yanyan_bump": {
+      "files": [
+        { "file": "VO/Yanyan/yanyan_bump1.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_bump2.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_bump3.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_bump4.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_bump5.wav", "volume": 1.0 }
+      ]
+    },
+    "yanyan_fall": { "files": [{ "file": "VO/Yanyan/yanyan_fall.wav", "volume": 1.0 }] },
+    "yanyan_lose": {
+      "files": [
+        { "file": "VO/Yanyan/yanyan_lose_01.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_lose_02.wav", "volume": 1.0 }
+      ]
+    },
+    "yanyan_ochisou": {
+      "files": [
+        { "file": "VO/Yanyan/yanyan_ochisou1.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou2.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou3.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou4.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou5.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou6.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou7.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_ochisou8.wav", "volume": 1.0 }
+      ]
+    },
+    "yanyan_power_peg": {
+      "files": [{ "file": "VO/Yanyan/yanyan_power_peg_01.wav", "volume": 1.0 }]
+    },
+    "yanyan_win": {
+      "files": [
+        { "file": "VO/Yanyan/yanyan_win_01.wav", "volume": 1.0 },
+        { "file": "VO/Yanyan/yanyan_win_02.wav", "volume": 1.0 }
+      ]
+    }
   }
 }

@@ -65,6 +65,7 @@ export class MonkeysGameService {
   isCharging = false;
   chargeStartTime = 0;
   lastFiredPowerRatio: number | null = null;
+  private playerShotThisTurn = false;
 
   // Aftermath
   private readonly MIN_AFTERMATH_MS = 1500;
@@ -170,6 +171,7 @@ export class MonkeysGameService {
   async initGame() {
     this.gameOverTimer = 0;
     this.winTimer = 0;
+    this.damageService.resetLog();
     this.physicsService.clearTrajectoryCache();
     await this.terrainService.loadTerrainMetadata();
     this.terrainService.generateTerrain();
@@ -201,6 +203,7 @@ export class MonkeysGameService {
     };
     this.equipmentService.applyEquipmentToVehicle(vehicle);
     this.player.vehicle = vehicle;
+    this.player.displayName = this.playerName || 'You';
     this.player.x = Math.random() * (CONST.TERRAIN_WIDTH - 200) + 100;
     this.player.y =
       CONST.CANVAS_HEIGHT -
@@ -277,6 +280,7 @@ export class MonkeysGameService {
         currentShieldHealth: enemyVehicle.shieldHealth ?? 0,
         entityState: 'idle',
       };
+      enemy.displayName = `Enemy ${i + 1}`;
       this.createEntity(enemy, x, y);
       this.enemies.push(enemy);
     }
@@ -314,6 +318,16 @@ export class MonkeysGameService {
       this.turnService.turnTime > this.turnService.TIMEOUT_MS &&
       entity.turnState !== 'bullet_in_flight'
     ) {
+      if (currentTurn.type === 'player') {
+        this.damageService.addToLog({
+          type: 'timeout',
+          attackerName: this.player.displayName ?? 'You',
+          targetName: '',
+          weaponName: '',
+          totalDamage: 0,
+          wasFatal: false,
+        });
+      }
       this.endTurn();
       return;
     }
@@ -457,6 +471,14 @@ export class MonkeysGameService {
 
     // Check for skip
     if (this.keys['S']) {
+      this.damageService.addToLog({
+        type: 'pass',
+        attackerName: this.player.displayName ?? 'You',
+        targetName: '',
+        weaponName: '',
+        totalDamage: 0,
+        wasFatal: false,
+      });
       this.endTurn();
       return;
     }
@@ -820,6 +842,7 @@ export class MonkeysGameService {
       trajectoryIndex: 0,
       owner: enemy,
       bullet: bullet,
+      rootBulletName: bullet.name,
     };
     enemy.chargeStartTime = 0;
     enemy.entityState = 'shooting';
@@ -864,6 +887,7 @@ export class MonkeysGameService {
 
     // Reset turn time
     this.turnService.turnTime = 0;
+    this.playerShotThisTurn = false;
 
     // Stop any walk loops from the previous turn
     this.sfxService.stopWalkLoop(this.player);
@@ -1153,6 +1177,7 @@ export class MonkeysGameService {
       trajectoryIndex: 0,
       owner: this.player,
       bullet: bullet,
+      rootBulletName: bullet.name,
     };
 
     this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
@@ -1161,6 +1186,7 @@ export class MonkeysGameService {
     this.player.entityState = 'shooting';
     this.player.shotReleaseStartMs = Date.now();
     this.player.turnState = 'bullet_in_flight';
+    this.playerShotThisTurn = true;
     this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
   }
 
@@ -1323,6 +1349,10 @@ export class MonkeysGameService {
     return this.damageService.damageTexts;
   }
 
+  get combatLog() {
+    return this.damageService.combatLog;
+  }
+
   get childProjectiles() {
     return this.projectileService.childProjectiles;
   }
@@ -1338,12 +1368,22 @@ export class MonkeysGameService {
   private handleAftermath() {
     const elapsed = Date.now() - this.aftermathStartMs;
     const effectsDone =
-      this.projectileService.explosions.length === 0 &&
-      this.damageService.damageTexts.length === 0;
+      this.projectileService.explosions.length === 0 && this.damageService.damageTexts.length === 0;
     if (effectsDone && elapsed >= this.MIN_AFTERMATH_MS) {
       this.aftermathImpactPos = null;
       this.aftermathCallouts = [];
       this.currentState = GameState.PLAYING;
+      if (this.playerShotThisTurn && !this.damageService.anyDamageAppliedThisTurn) {
+        this.damageService.addToLog({
+          type: 'miss',
+          attackerName: this.player.displayName ?? 'You',
+          targetName: '',
+          weaponName: '',
+          totalDamage: 0,
+          wasFatal: false,
+        });
+      }
+      this.damageService.flushBatch();
       this.endTurn(100);
     }
   }

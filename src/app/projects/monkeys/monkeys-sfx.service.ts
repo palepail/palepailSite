@@ -61,8 +61,7 @@ export class MonkeysSfxService {
 
   private cacheAudio(file: string): void {
     if (this.audioCache.has(file)) return;
-    const url =
-      this.AUDIO_BASE_PATH + file.split('/').map(encodeURIComponent).join('/');
+    const url = this.AUDIO_BASE_PATH + file.split('/').map(encodeURIComponent).join('/');
     const audio = new Audio(url);
     audio.preload = 'auto';
     this.audioCache.set(file, audio);

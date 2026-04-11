@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Player, Enemy, DamageText, DamageEvent, DamageResult } from './monkeys.types';
+import { Player, Enemy, DamageText, DamageEvent, DamageResult, CombatLogEntry } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 
@@ -10,6 +10,11 @@ export class DamageService {
   constructor(private sfxService: MonkeysSfxService) {}
 
   damageTexts: DamageText[] = [];
+  combatLog: CombatLogEntry[] = [];
+  anyDamageAppliedThisTurn = false;
+
+  /** Accumulates all explosion damage for a single turn; flushed to combatLog at aftermath end. */
+  private batchAccumulator = new Map<string, CombatLogEntry>();
 
   applyDamage(
     entity: Player | Enemy,
@@ -32,12 +37,55 @@ export class DamageService {
 
     const wasKilled = entity.health <= 0;
 
+    if (actualAmount > 0) {
+      this.anyDamageAppliedThisTurn = true;
+    }
+
+    // --- Combat log accumulation ---
+    if (event.source === 'explosion' && actualAmount > 0 && event.attackerName) {
+      const targetName = entity.displayName ?? 'Unknown';
+      const key = `${event.attackerName}|${targetName}|${event.weaponName ?? ''}`;
+      const existing = this.batchAccumulator.get(key);
+      if (existing) {
+        existing.totalDamage += actualAmount;
+        if (wasKilled) existing.wasFatal = true;
+      } else {
+        this.batchAccumulator.set(key, {
+          type: 'damage',
+          attackerName: event.attackerName,
+          targetName,
+          weaponName: event.weaponName ?? '',
+          totalDamage: actualAmount,
+          wasFatal: wasKilled,
+        });
+      }
+    }
+
+    if (event.source === 'fall' && actualAmount > 0) {
+      // Attribute to last attacker only if they damaged this entity this same turn (still in batch)
+      const targetName = entity.displayName ?? 'Unknown';
+      const batchEntry = [...this.batchAccumulator.values()]
+        .find(e => e.targetName === targetName);
+      const attackerName = batchEntry?.attackerName ?? '';
+      this.addToLog({
+        type: 'fall',
+        attackerName,
+        targetName,
+        weaponName: '',
+        totalDamage: actualAmount,
+        wasFatal: wasKilled,
+      });
+    }
+
+    // --- VO ---
     if (entity.vehicle.voicePack) {
       if (wasKilled) {
-        // Fall death overrides normal death VO
-        this.sfxService.playVo(entity, entity.vehicle.voicePack, event.source === 'fall' ? 'fall' : 'ochisou');
+        this.sfxService.playVo(
+          entity,
+          entity.vehicle.voicePack,
+          event.source === 'fall' ? 'fall' : 'ochisou',
+        );
       } else if (actualAmount > 0) {
-        // Living hit — play bump (single-at-a-time guard is inside playVo)
         this.sfxService.playVo(entity, entity.vehicle.voicePack, 'bump');
       }
     }
@@ -49,6 +97,27 @@ export class DamageService {
     }
 
     return { actualAmount, wasKilled, source: event.source };
+  }
+
+  /** Called at the end of each aftermath — pushes accumulated batch entries to the log. */
+  flushBatch(): void {
+    for (const entry of this.batchAccumulator.values()) {
+      this.addToLog(entry);
+    }
+    this.batchAccumulator.clear();
+    this.anyDamageAppliedThisTurn = false;
+  }
+
+  /** Called at game start to wipe the log. */
+  resetLog(): void {
+    this.combatLog = [];
+    this.batchAccumulator.clear();
+    this.anyDamageAppliedThisTurn = false;
+  }
+
+  addToLog(entry: CombatLogEntry): void {
+    this.combatLog.push(entry);
+    if (this.combatLog.length > 12) this.combatLog.shift();
   }
 
   updateDamageTexts(): void {

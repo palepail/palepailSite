@@ -240,6 +240,7 @@ export class ProjectileService {
         projectileSnapshot.owner,
         projectileSnapshot.bullet,
         physicsService,
+        projectileSnapshot.rootBulletName,
       );
     }
 
@@ -266,6 +267,9 @@ export class ProjectileService {
     }
     // For 'circle', keep as is
 
+    const attackerName = (projectile.owner as Player | Enemy).displayName ?? 'Unknown';
+    const weaponName = projectile.rootBulletName;
+
     // Damage player
     if (player.active) {
       const dx = player.x - explosionX;
@@ -275,7 +279,11 @@ export class ProjectileService {
         const damage = Math.round(maxDamage * (1 - normalizedDist));
         const rawDamage = projectile.owner === player ? damage * 0.5 : damage;
         const actualDamage = Math.round(rawDamage * (1 - (player.vehicle.armor ?? 0)));
-        this.damageService.applyDamage(player, { amount: actualDamage, source: 'explosion' }, 'player');
+        this.damageService.applyDamage(
+          player,
+          { amount: actualDamage, source: 'explosion', attackerName, weaponName },
+          'player',
+        );
         physicsService.applyExplosionKnockback(
           player,
           explosionX,
@@ -299,7 +307,7 @@ export class ProjectileService {
           );
           const result = this.damageService.applyDamage(
             enemy,
-            { amount: damage, source: 'explosion' },
+            { amount: damage, source: 'explosion', attackerName, weaponName },
             'enemy',
           );
           physicsService.applyExplosionKnockback(
@@ -401,6 +409,7 @@ export class ProjectileService {
     owner: Player | Enemy,
     parentBullet: any,
     physicsService: any,
+    rootBulletName: string = '',
   ): void {
     const childBullet = parentBullet.childBullet;
     const childCount: number = parentBullet.childCount ?? 1;
@@ -436,6 +445,7 @@ export class ProjectileService {
         y: spawnY,
         owner,
         bullet: childBullet,
+        rootBulletName: rootBulletName || parentBullet.name || '',
         spawnTimeMs: Date.now(),
       });
     }
@@ -508,10 +518,10 @@ export class ProjectileService {
       };
       const bottomHit =
         isTerrainAt(child.x, child.y + r) || // bottom edge
-        isTerrainAt(child.x, child.y);        // center (already embedded)
+        isTerrainAt(child.x, child.y); // center (already embedded)
       const lateralHit =
         isTerrainAt(child.x + r, child.y) || // right edge
-        isTerrainAt(child.x - r, child.y);   // left edge
+        isTerrainAt(child.x - r, child.y); // left edge
       const terrainHit = bottomHit || lateralHit;
 
       if (terrainHit) {
@@ -634,7 +644,7 @@ export class ProjectileService {
 
     // Cascade to next tier if child also has children
     if (child.bullet.childBullet && (child.bullet.childCount ?? 0) > 0) {
-      this.spawnChildProjectiles(child.x, child.y, child.owner, child.bullet, physicsService);
+      this.spawnChildProjectiles(child.x, child.y, child.owner, child.bullet, physicsService, child.rootBulletName);
     }
 
     this.childProjectiles.splice(index, 1);

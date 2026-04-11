@@ -4,7 +4,7 @@
     { "id": "berserker", "name": "Berserker", "bonus": { "lifesteal": 20 } },
     { "id": "fortress", "name": "Fortress", "bonus": { "shieldRadius": 120, "shieldHealth": 2 } },
     { "id": "scout", "name": "Scout", "bonus": { "aimGuide": "extended" } },
-    { "id": "miner", "name": "Miner", "bonus": { "pushbackMultiplier": -2 } }
+    { "id": "miner", "name": "Miner", "bonus": { "pushbackMultiplier": -1.5 } }
   ],
   "items": [
     { "id": "none_headgear", "name": "None", "slot": "headgear", "stats": {} },
@@ -295,7 +295,7 @@
       "setId": "miner",
       "spriteCol": 4,
       "spriteRow": 3,
-      "stats": { "blastRadius": 23, "attack": -40 },
+      "stats": { "blastRadius": 23, "attack": -30 },
       "description": "Precision detonator — massive blast, minimal firepower"
     }
   ]
