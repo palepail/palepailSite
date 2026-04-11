@@ -66,6 +66,7 @@ export class MonkeysGameService {
   chargeStartTime = 0;
   lastFiredPowerRatio: number | null = null;
   private playerShotThisTurn = false;
+  private shooterThisTurn: Player | Enemy | null = null;
 
   // Aftermath
   private readonly MIN_AFTERMATH_MS = 1500;
@@ -847,6 +848,7 @@ export class MonkeysGameService {
     enemy.chargeStartTime = 0;
     enemy.entityState = 'shooting';
     enemy.shotReleaseStartMs = Date.now();
+    this.shooterThisTurn = enemy;
     this.sfxService.play({ category: enemy.vehicle.sfxFire ?? 'fire' });
   }
 
@@ -888,6 +890,7 @@ export class MonkeysGameService {
     // Reset turn time
     this.turnService.turnTime = 0;
     this.playerShotThisTurn = false;
+    this.shooterThisTurn = null;
 
     // Stop any walk loops from the previous turn
     this.sfxService.stopWalkLoop(this.player);
@@ -1187,6 +1190,7 @@ export class MonkeysGameService {
     this.player.shotReleaseStartMs = Date.now();
     this.player.turnState = 'bullet_in_flight';
     this.playerShotThisTurn = true;
+    this.shooterThisTurn = this.player;
     this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
   }
 
@@ -1347,10 +1351,10 @@ export class MonkeysGameService {
       this.aftermathImpactPos = null;
       this.aftermathCallouts = [];
       this.currentState = GameState.PLAYING;
-      if (this.playerShotThisTurn && !this.damageService.anyDamageAppliedThisTurn) {
+      if (this.shooterThisTurn && !this.damageService.anyDamageAppliedThisTurn) {
         this.damageService.addToLog({
           type: 'miss',
-          attackerName: this.player.displayName ?? 'You',
+          attackerName: this.shooterThisTurn.displayName ?? 'Unknown',
           targetName: '',
           weaponName: '',
           totalDamage: 0,

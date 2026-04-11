@@ -104,7 +104,7 @@ const CLUSTER_FRAGMENT: Bullet = {
   explosionRadius: 30,
   craterRadius: 24,
   speed: 18,
-  bulletSprite: 'cluster_bullet',
+  bulletSprite: 'cluster_fragment',
   explosionSprite: 'cluster_explosion',
   sfxImpact: 'explosion',
 };
@@ -136,7 +136,7 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
     explosionRadius: 50,
     craterRadius: 40,
     speed: 20,
-    bulletSprite: 'cluster_bullet',
+    bulletSprite: 'cluster_bomb',
     explosionSprite: 'cluster_explosion',
     sfxImpact: 'explosion',
     childCount: 5,
