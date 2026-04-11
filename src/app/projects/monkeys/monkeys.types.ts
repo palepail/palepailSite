@@ -199,6 +199,19 @@ export interface DamageText {
   isHeal?: boolean;
 }
 
+export type DamageSource = 'explosion' | 'fall';
+
+export interface DamageEvent {
+  amount: number;
+  source: DamageSource;
+}
+
+export interface DamageResult {
+  actualAmount: number;
+  wasKilled: boolean;
+  source: DamageSource;
+}
+
 export interface Projectile {
   body?: any; // Matter.js body (for physics mode)
   x: number;
@@ -267,6 +280,7 @@ export interface Vehicle {
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
   bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
+  voicePack?: string; // VO character pack assigned at game start
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';

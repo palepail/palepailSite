@@ -97,7 +97,7 @@ const CLUSTER_FRAGMENT: Bullet = {
   name: 'cluster_fragment',
   tier: 2,
   weight: 1,
-  damage: 50,
+  damage: 75,
   shape: 'circle',
   explosionShape: 'circle',
   explosionRadius: 40,
@@ -189,6 +189,10 @@ export const SELECTABLE_VEHICLES: SelectableVehicle[] = [
 export const DAMAGE_TEXT_LIFETIME = 60; // frames
 export const DAMAGE_TEXT_RISE_SPEED = 1;
 export const DAMAGE_TEXT_COLOR = '#FF2222';
+
+// TODO: Fix voice pack assignment to specific vehicles once enough unique vehicles exist.
+// For now, packs are scrambled at game start so all VO can be tested during development.
+export const VOICE_PACK_NAMES = ['aiai', 'gongon', 'jam', 'meemee', 'yanyan'] as const;
 
 // UI and Rendering Constants
 export const CHARGE_BAR_WIDTH = 18;

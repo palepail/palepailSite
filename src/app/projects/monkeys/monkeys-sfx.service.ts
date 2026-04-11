@@ -10,6 +10,7 @@ interface SfxBankCategory {
 }
 
 interface SfxBank {
+  voiceCharacters?: string[];
   categories: Record<string, SfxBankCategory>;
 }
 
@@ -27,6 +28,7 @@ export class MonkeysSfxService {
   private bank: SfxBank | null = null;
   private audioCache = new Map<string, HTMLAudioElement>();
   private entityWalkAudio = new WeakMap<object, HTMLAudioElement>();
+  private entityBumpAudio = new WeakMap<object, HTMLAudioElement>();
 
   sfxVolume = 0.5;
   isMuted = false;
@@ -35,15 +37,35 @@ export class MonkeysSfxService {
     const resp = await fetch('assets/monkeys/sfx-bank.json');
     if (!resp.ok) throw new Error(`Failed to load sfx-bank.json: ${resp.status}`);
     this.bank = (await resp.json()) as SfxBank;
-    for (const cat of Object.values(this.bank.categories)) {
+    const voiceChars = this.bank.voiceCharacters ?? [];
+    const isVoiceCategory = (name: string) =>
+      voiceChars.some((char) => name.startsWith(char + '_'));
+    for (const [catName, cat] of Object.entries(this.bank.categories)) {
+      if (isVoiceCategory(catName)) continue;
       for (const entry of cat.files) {
-        if (!this.audioCache.has(entry.file)) {
-          const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent(entry.file));
-          audio.preload = 'auto';
-          this.audioCache.set(entry.file, audio);
-        }
+        this.cacheAudio(entry.file);
       }
     }
+  }
+
+  async loadVoiceAssets(characters: string[]): Promise<void> {
+    if (!this.bank) return;
+    const lc = characters.map((c) => c.toLowerCase());
+    for (const [catName, cat] of Object.entries(this.bank.categories)) {
+      if (!lc.some((char) => catName.startsWith(char + '_'))) continue;
+      for (const entry of cat.files) {
+        this.cacheAudio(entry.file);
+      }
+    }
+  }
+
+  private cacheAudio(file: string): void {
+    if (this.audioCache.has(file)) return;
+    const url =
+      this.AUDIO_BASE_PATH + file.split('/').map(encodeURIComponent).join('/');
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+    this.audioCache.set(file, audio);
   }
 
   private get effectiveVolume(): number {
@@ -101,5 +123,32 @@ export class MonkeysSfxService {
 
   setMuted(muted: boolean): void {
     this.isMuted = muted;
+  }
+
+  playVo(entity: object, voicePack: string, event: string): void {
+    const categoryKey = `${voicePack}_${event}`;
+    if (!this.bank?.categories[categoryKey]) return;
+    const entry = this.bank.categories[categoryKey];
+    if (!entry || entry.files.length === 0) return;
+    const file = entry.files[Math.floor(Math.random() * entry.files.length)];
+    const cached = this.audioCache.get(file.file);
+    if (!cached) return;
+
+    // For bump VO, stop any currently-playing bump for this entity first
+    if (event === 'bump') {
+      const prev = this.entityBumpAudio.get(entity);
+      if (prev) {
+        prev.pause();
+        prev.currentTime = 0;
+      }
+    }
+
+    const clone = cached.cloneNode(true) as HTMLAudioElement;
+    clone.volume = Math.min(1, file.volume * this.effectiveVolume);
+    clone.play().catch(() => {});
+
+    if (event === 'bump') {
+      this.entityBumpAudio.set(entity, clone);
+    }
   }
 }

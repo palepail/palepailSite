@@ -30,6 +30,7 @@ import { EquipmentService } from './equipment.service';
 import { ProjectileService } from './projectile.service';
 import { CollisionService } from './collision.service';
 import { MonkeysSfxService } from './monkeys-sfx.service';
+import { DamageService } from './damage.service';
 
 @Injectable({
   providedIn: 'root',
@@ -98,6 +99,7 @@ export class MonkeysGameService {
     private projectileService: ProjectileService,
     private collisionService: CollisionService,
     private sfxService: MonkeysSfxService,
+    private damageService: DamageService,
   ) {
     this.player = this.createInitialPlayer();
     void this.equipmentService.loadEquipmentData();
@@ -175,6 +177,7 @@ export class MonkeysGameService {
     this.rollWind();
     this.initPlayer();
     this.spawnEnemies();
+    this.assignVoicePacks();
     this.turnService.initTurnQueue(this.player, this.enemies);
     this.turnService.startTurn();
     this.currentState = GameState.SETUP;
@@ -210,6 +213,17 @@ export class MonkeysGameService {
     this.player.movementFuel = this.player.vehicle.fuel;
 
     this.createEntity(this.player, this.player.x, this.player.y);
+  }
+
+  private assignVoicePacks(): void {
+    // Shuffle pack names then assign one per entity (cycles if more entities than packs)
+    const packs = [...CONST.VOICE_PACK_NAMES].sort(() => Math.random() - 0.5);
+    const allEntities = [this.player, ...this.enemies];
+    allEntities.forEach((entity, i) => {
+      entity.vehicle.voicePack = packs[i % packs.length];
+    });
+    const activePacks = [...new Set(allEntities.map((e) => e.vehicle.voicePack!))];
+    void this.sfxService.loadVoiceAssets(activePacks);
   }
 
   private spawnEnemies() {
@@ -275,8 +289,7 @@ export class MonkeysGameService {
         this.applyWindToEntity(enemy);
         // Kill enemies that have fallen off the map before AI or terrain-snap runs
         if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-          enemy.health = 0;
-          enemy.active = false;
+          this.damageService.applyDamage(enemy, { amount: enemy.health, source: 'fall' }, 'enemy');
           this.physicsService.removeBody(enemy.body);
         }
       }
@@ -460,6 +473,9 @@ export class MonkeysGameService {
           this.winTimer = 1.5;
           this.keys = {};
           this.isCharging = false;
+          if (this.player.vehicle.voicePack) {
+            this.sfxService.playVo(this.player, this.player.vehicle.voicePack, 'win');
+          }
           break;
         }
         // Reset fuel at turn start
@@ -918,6 +934,9 @@ export class MonkeysGameService {
       this.gameOverTimer = 2.0;
       this.keys = {};
       this.isCharging = false;
+      if (this.player.vehicle.voicePack) {
+        this.sfxService.playVo(this.player, this.player.vehicle.voicePack, 'lose');
+      }
     }
 
     if (this.currentState === GameState.GAME_OVER_DELAY) {
@@ -954,7 +973,7 @@ export class MonkeysGameService {
       );
       this.collisionService.checkEntitiesFall(this.player, this.enemies);
       this.projectileService.updateExplosions();
-      this.projectileService.updateDamageTexts();
+      this.damageService.updateDamageTexts();
       this.turnService.updateTurnQueue(deltaTime);
       this.handleAftermath();
       return;
@@ -1010,7 +1029,7 @@ export class MonkeysGameService {
     this.projectileService.updateExplosions();
 
     // Update damage texts
-    this.projectileService.updateDamageTexts();
+    this.damageService.updateDamageTexts();
 
     // Update turn queue (remove inactive enemies)
     this.turnService.updateTurnQueue(deltaTime);
@@ -1301,7 +1320,7 @@ export class MonkeysGameService {
   }
 
   get damageTexts() {
-    return this.projectileService.damageTexts;
+    return this.damageService.damageTexts;
   }
 
   get childProjectiles() {
@@ -1320,7 +1339,7 @@ export class MonkeysGameService {
     const elapsed = Date.now() - this.aftermathStartMs;
     const effectsDone =
       this.projectileService.explosions.length === 0 &&
-      this.projectileService.damageTexts.length === 0;
+      this.damageService.damageTexts.length === 0;
     if (effectsDone && elapsed >= this.MIN_AFTERMATH_MS) {
       this.aftermathImpactPos = null;
       this.aftermathCallouts = [];

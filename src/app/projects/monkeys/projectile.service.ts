@@ -2,18 +2,25 @@ import { Injectable } from '@angular/core';
 import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
+import { DamageService } from './damage.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProjectileService {
-  constructor(private sfxService: MonkeysSfxService) {}
+  constructor(
+    private sfxService: MonkeysSfxService,
+    private damageService: DamageService,
+  ) {}
 
   projectile: Projectile | null = null;
   childProjectiles: Projectile[] = [];
   explosions: Explosion[] = [];
   lastImpactPos: { x: number; y: number } | null = null;
-  damageTexts: DamageText[] = [];
+
+  get damageTexts(): DamageText[] {
+    return this.damageService.damageTexts;
+  }
 
   updateTrajectoryProjectile(
     terrain: number[][],
@@ -268,14 +275,7 @@ export class ProjectileService {
         const damage = Math.round(maxDamage * (1 - normalizedDist));
         const rawDamage = projectile.owner === player ? damage * 0.5 : damage;
         const actualDamage = Math.round(rawDamage * (1 - (player.vehicle.armor ?? 0)));
-        player.health -= actualDamage;
-        player.health = Math.max(0, Math.min(player.health, player.vehicle.health));
-        this.damageTexts.push({
-          x: player.x,
-          y: player.y - 30,
-          damage: actualDamage,
-          life: CONST.DAMAGE_TEXT_LIFETIME,
-        });
+        this.damageService.applyDamage(player, { amount: actualDamage, source: 'explosion' }, 'player');
         physicsService.applyExplosionKnockback(
           player,
           explosionX,
@@ -297,14 +297,11 @@ export class ProjectileService {
           const damage = Math.round(
             maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)),
           );
-          enemy.health -= damage;
-          enemy.health = Math.max(0, Math.min(enemy.health, enemy.vehicle.health));
-          this.damageTexts.push({
-            x: enemy.x,
-            y: enemy.y - 30,
-            damage: damage,
-            life: CONST.DAMAGE_TEXT_LIFETIME,
-          });
+          const result = this.damageService.applyDamage(
+            enemy,
+            { amount: damage, source: 'explosion' },
+            'enemy',
+          );
           physicsService.applyExplosionKnockback(
             enemy,
             explosionX,
@@ -313,11 +310,11 @@ export class ProjectileService {
             radiusX,
             radiusY,
           );
-          if (projectile.owner === player && player.vehicle.lifesteal && damage > 0) {
-            const heal = Math.round(damage * (player.vehicle.lifesteal / 100));
+          if (projectile.owner === player && player.vehicle.lifesteal && result.actualAmount > 0) {
+            const heal = Math.round(result.actualAmount * (player.vehicle.lifesteal / 100));
             if (heal > 0) {
               player.health = Math.min(player.health + heal, player.vehicle.health);
-              this.damageTexts.push({
+              this.damageService.damageTexts.push({
                 x: player.x,
                 y: player.y - 30,
                 damage: heal,
@@ -326,12 +323,8 @@ export class ProjectileService {
               });
             }
           }
-          if (enemy.health <= 0) {
-            enemy.active = false;
-            enemy.entityState = 'dead';
-            if (enemy.body) {
-              physicsService.removeBody(enemy.body);
-            }
+          if (result.wasKilled && enemy.body) {
+            physicsService.removeBody(enemy.body);
           }
         }
       }
@@ -413,6 +406,12 @@ export class ProjectileService {
     const childCount: number = parentBullet.childCount ?? 1;
     if (!childBullet) return;
 
+    // Spawn fragments raised above the impact point so they start outside the
+    // entity's collision radius (PROJECTILE_RADIUS + TANK_BODY_RADIUS) and don't
+    // detonate on the very first update tick.
+    const spawnOffsetY = -(CONST.PROJECTILE_RADIUS + CONST.TANK_BODY_RADIUS + 2);
+    const spawnY = impactY + spawnOffsetY;
+
     // Spread childCount angles evenly from -60° to +60° from straight up
     for (let i = 0; i < childCount; i++) {
       const spreadFraction = childCount === 1 ? 0 : i / (childCount - 1) - 0.5;
@@ -423,7 +422,7 @@ export class ProjectileService {
       const vx = Math.cos(angleRad) * speed;
       const vy = Math.sin(angleRad) * speed;
 
-      const body = physicsService.Bodies.circle(impactX, impactY, CONST.PROJECTILE_RADIUS, {
+      const body = physicsService.Bodies.circle(impactX, spawnY, CONST.PROJECTILE_RADIUS, {
         frictionAir: 0,
         restitution: 0,
         friction: CONST.PROJECTILE_FRICTION,
@@ -434,7 +433,7 @@ export class ProjectileService {
       this.childProjectiles.push({
         body,
         x: impactX,
-        y: impactY,
+        y: spawnY,
         owner,
         bullet: childBullet,
         spawnTimeMs: Date.now(),
@@ -487,6 +486,12 @@ export class ProjectileService {
         continue;
       }
 
+      // Entity collision check — must run before terrain so rolling fragments can detonate
+      if (this.checkEntityCollisions(child, player, enemies)) {
+        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+        continue;
+      }
+
       // Terrain hit check — test bottom edge, center, and lateral edges
       const r = CONST.PROJECTILE_RADIUS;
       const tbY = Math.floor(terrainBaseY);
@@ -501,11 +506,13 @@ export class ProjectileService {
           terrain[col][ly] === 1
         );
       };
-      const terrainHit =
+      const bottomHit =
         isTerrainAt(child.x, child.y + r) || // bottom edge
-        isTerrainAt(child.x, child.y) || // center (already embedded)
+        isTerrainAt(child.x, child.y);        // center (already embedded)
+      const lateralHit =
         isTerrainAt(child.x + r, child.y) || // right edge
-        isTerrainAt(child.x - r, child.y); // left edge
+        isTerrainAt(child.x - r, child.y);   // left edge
+      const terrainHit = bottomHit || lateralHit;
 
       if (terrainHit) {
         const px = Math.floor(child.x);
@@ -541,26 +548,38 @@ export class ProjectileService {
         nx /= nLen;
         ny /= nLen;
 
-        // Reflect velocity across normal with restitution
         const vel = child.body.velocity;
         const dot = vel.x * nx + vel.y * ny;
-        const restitution = 0.35;
-        physicsService.Body.setVelocity(child.body, {
-          x: (vel.x - 2 * dot * nx) * restitution,
-          y: (vel.y - 2 * dot * ny) * restitution,
-        });
 
-        // Snap fragment to sit on the terrain surface
-        physicsService.Body.setPosition(child.body, {
-          x: child.x,
-          y: surfaceWorldY - r - 1,
-        });
-        continue;
-      }
+        if (dot < 0) {
+          // Compute what a full bounce would produce
+          const restitution = 0.35;
+          const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
+          const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
+          const bouncedSpeed = Math.sqrt(bouncedVx * bouncedVx + bouncedVy * bouncedVy);
 
-      // Entity collision check — explode immediately
-      if (this.checkEntityCollisions(child, player, enemies)) {
-        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+          if (bouncedSpeed > 1.5) {
+            // True bounce — reflect with restitution
+            physicsService.Body.setVelocity(child.body, { x: bouncedVx, y: bouncedVy });
+          } else {
+            // Rolling / resting — zero only the into-surface component, keep tangential.
+            // Gravity's tangential projection accumulates each frame, rolling downhill naturally.
+            const ROLLING_FRICTION = 0.97;
+            physicsService.Body.setVelocity(child.body, {
+              x: (vel.x - dot * nx) * ROLLING_FRICTION,
+              y: (vel.y - dot * ny) * ROLLING_FRICTION,
+            });
+          }
+
+          // Only snap to surface on floor contact — lateral cliff-face hits must not
+          // reposition Y or the fragment teleports to the cliff top/bottom.
+          if (bottomHit) {
+            physicsService.Body.setPosition(child.body, {
+              x: child.x,
+              y: surfaceWorldY - r - 1,
+            });
+          }
+        }
         continue;
       }
     }
@@ -634,14 +653,6 @@ export class ProjectileService {
   }
 
   updateDamageTexts() {
-    for (let i = this.damageTexts.length - 1; i >= 0; i--) {
-      const text = this.damageTexts[i];
-      text.y -= CONST.DAMAGE_TEXT_RISE_SPEED;
-      text.life--;
-
-      if (text.life <= 0) {
-        this.damageTexts.splice(i, 1);
-      }
-    }
+    this.damageService.updateDamageTexts();
   }
 }

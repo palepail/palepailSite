@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Player, Enemy } from './monkeys.types';
 import * as CONST from './monkeys.constants';
+import { DamageService } from './damage.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CollisionService {
-  constructor() {}
+  constructor(private damageService: DamageService) {}
 
   checkPlayerTerrainCollision(player: Player, terrain: number[][], physicsService: any) {
     if (!player.body) return;
@@ -73,17 +74,14 @@ export class CollisionService {
   checkEntitiesFall(player: Player, enemies: Enemy[]) {
     // Check player fall
     if (player.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-      player.health = 0;
+      this.damageService.applyDamage(player, { amount: player.health, source: 'fall' }, 'player');
     }
 
     // Check enemies fall
     for (const enemy of enemies) {
       if (enemy.active && enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
-        enemy.health = 0;
-        enemy.active = false;
-        if (enemy.body) {
-          // Remove body handled in main service
-        }
+        this.damageService.applyDamage(enemy, { amount: enemy.health, source: 'fall' }, 'enemy');
+        // Body removal handled in monkeys-game.service.ts updateEnemies
       }
     }
   }
