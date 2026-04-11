@@ -1870,7 +1870,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.stroke();
 
       const spritePrefix = explosion.spriteName ?? 'explosion';
-      const explosionSprite = this.spriteService.getSprite(`${spritePrefix}_${explosionFrameIndex}`);
+      const explosionSprite = this.spriteService.getSprite(
+        `${spritePrefix}_${explosionFrameIndex}`,
+      );
 
       if (explosionSprite) {
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
@@ -2658,7 +2660,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawParallaxBackground(0);
 
     // Dark overlay
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+    this.ctx.fillStyle = 'rgba(20, 8, 2, 0.82)';
     this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
     // Page title (sprite text, auto-centred on canvas)
@@ -2667,16 +2669,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Panels
     const panelY = 68;
     const panelH = 634;
-    this.ctx.fillStyle = 'rgba(12, 12, 30, 0.92)';
-    this.ctx.strokeStyle = 'rgba(80, 100, 150, 0.85)';
-    this.ctx.lineWidth = 1;
     for (const [px, pw] of [
       [18, 366],
       [400, 400],
       [816, 366],
     ] as [number, number][]) {
-      this.ctx.fillRect(px, panelY, pw, panelH);
-      this.ctx.strokeRect(px, panelY, pw, panelH);
+      this.drawNineSlicePanel('panel_wood_3_nail', px, panelY, pw, panelH);
     }
 
     this.ctx.textAlign = 'left';
@@ -2686,19 +2684,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const lCx = 18 + 183; // centre-x of left panel
 
     // Name section header
-    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.fillStyle = '#FFD700';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Name', lCx, 100);
 
     // Name input box
-    const nameBoxX = 28;
+    const nameBoxX = 38;
     const nameBoxY = 114;
-    const nameBoxW = 352;
+    const nameBoxW = 325;
     const nameBoxH = 34;
-    this.ctx.strokeStyle = this.isNameEditing ? '#7BBAFF' : 'rgba(80,100,150,0.7)';
+    this.ctx.strokeStyle = this.isNameEditing ? '#FFD700' : 'rgba(120,72,30,0.7)';
     this.ctx.lineWidth = this.isNameEditing ? 2 : 1;
-    this.ctx.fillStyle = 'rgba(30, 30, 60, 0.9)';
+    this.ctx.fillStyle = 'rgba(25, 10, 4, 0.85)';
     this.ctx.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
     this.ctx.strokeRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
 
@@ -2706,7 +2704,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const cursorVisible =
       this.isNameEditing &&
       performance.now() % this.CURSOR_BLINK_PERIOD_MS < this.CURSOR_ON_DURATION_MS;
-    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.fillStyle = '#F5DEB3';
     this.ctx.font = 'bold 16px Arial';
     this.ctx.textAlign = 'left';
     this.ctx.fillText(
@@ -2717,7 +2715,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Click-to-edit hint
     if (!this.isNameEditing) {
-      this.ctx.fillStyle = 'rgba(150,170,200,0.6)';
+      this.ctx.fillStyle = 'rgba(200,170,120,0.6)';
       this.ctx.font = '13px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText('Click to edit name', lCx, 162);
@@ -2726,7 +2724,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Vehicle section header — shows selected vehicle name
     const selVehicleName =
       CONST.SELECTABLE_VEHICLES[this.gameService.selectedVehicleIndex]?.vehicle.name ?? 'Vehicle';
-    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.fillStyle = '#FFD700';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(selVehicleName, lCx, 188);
@@ -2738,7 +2736,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const mRight = 800;
     const mCx = (mLeft + mRight) / 2;
 
-    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.fillStyle = '#FFD700';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Equipment', mCx, 102);
@@ -2750,7 +2748,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const slotBoxW = 368;
     const slotBoxH = 50;
     const slotGap = 6;
-    const slotStartY = 120;
+    const slotStartY = 115;
 
     for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
       const slot = this.EQUIPMENT_SLOTS[si];
@@ -2762,19 +2760,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         !isNone && selItem?.spriteCol !== undefined && selItem?.spriteRow !== undefined;
 
       // Box background
-      this.ctx.fillStyle = isExpanded ? 'rgba(40,55,110,0.95)' : 'rgba(20,20,60,0.85)';
-      this.ctx.fillRect(slotBoxX, rowY, slotBoxW, slotBoxH);
-      this.ctx.strokeStyle = isExpanded ? '#7BBAFF' : 'rgba(80,100,150,0.7)';
-      this.ctx.lineWidth = isExpanded ? 2 : 1;
-      this.ctx.strokeRect(slotBoxX, rowY, slotBoxW, slotBoxH);
+      if (isExpanded) {
+        this.drawNineSlicePanel('panel_brown_2_3d', slotBoxX, rowY, slotBoxW, slotBoxH);
+      } else {
+        this.drawNineSlicePanel('panel_wood_2_nail', slotBoxX, rowY, slotBoxW, slotBoxH);
+      }
 
       // Icon box (left side)
       const iconPad = 5;
       const iconBoxSize = slotBoxH - iconPad * 2;
       const iconX = slotBoxX + iconPad;
       const iconY = rowY + iconPad;
-      this.ctx.fillStyle = hasSprite ? 'rgba(20,20,60,0.9)' : 'rgba(16,16,32,0.6)';
-      this.ctx.strokeStyle = hasSprite ? '#556688' : '#334455';
+      this.ctx.fillStyle = hasSprite ? 'rgba(30,14,4,0.7)' : 'rgba(20,10,2,0.45)';
+      this.ctx.strokeStyle = hasSprite ? '#6B3A1F' : '#4A2A10';
       this.ctx.lineWidth = 1;
       this.ctx.fillRect(iconX, iconY, iconBoxSize, iconBoxSize);
       this.ctx.strokeRect(iconX, iconY, iconBoxSize, iconBoxSize);
@@ -2799,12 +2797,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const textX = slotBoxX + slotBoxH + 4;
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillStyle = '#778899';
+      this.ctx.fillStyle = '#C8A06A';
       this.ctx.font = '12px Arial';
-      this.ctx.fillText(this.SLOT_LABELS[slot], textX, rowY + slotBoxH * 0.3);
-      this.ctx.fillStyle = isNone ? '#556677' : isExpanded ? '#AADDFF' : '#FFFFFF';
+      this.ctx.fillText(this.SLOT_LABELS[slot], textX, rowY - slotBoxH);
+      this.ctx.fillStyle = isNone ? '#8B6347' : isExpanded ? '#FFE880' : '#F5DEB3';
       this.ctx.font = isNone ? '14px Arial' : 'bold 15px Arial';
-      this.ctx.fillText(selItem?.name ?? 'None', textX, rowY + slotBoxH * 0.72);
+      this.ctx.fillText(selItem?.name ?? 'None', textX, rowY + slotBoxH * 0.55);
     }
 
     // Item picker (shown when a slot is expanded)
@@ -2814,7 +2812,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const pickerY = slotStartY + this.EQUIPMENT_SLOTS.length * (slotBoxH + slotGap) - slotGap + 8;
 
       // Divider
-      this.ctx.strokeStyle = 'rgba(100,130,180,0.5)';
+      this.ctx.strokeStyle = 'rgba(160,82,45,0.6)';
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
       this.ctx.moveTo(mLeft + 16, pickerY - 4);
@@ -2822,7 +2820,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.stroke();
 
       // 'Select X' label
-      this.ctx.fillStyle = '#AABBDD';
+      this.ctx.fillStyle = '#DEC68A';
       this.ctx.font = 'bold 14px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
@@ -2849,11 +2847,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           !isNoneItem && item.spriteCol !== undefined && item.spriteRow !== undefined;
 
         // Cell background
-        this.ctx.fillStyle = isSelected ? 'rgba(40,80,160,0.95)' : 'rgba(20,20,60,0.8)';
-        this.ctx.fillRect(cx, cy, CELL_W, CELL_W);
-        this.ctx.strokeStyle = isSelected ? '#7BBAFF' : '#334466';
-        this.ctx.lineWidth = isSelected ? 2 : 1;
-        this.ctx.strokeRect(cx, cy, CELL_W, CELL_W);
+        if (isSelected) {
+          this.drawNineSlicePanel('panel_brown_2_3d', cx, cy, CELL_W, CELL_W);
+        } else {
+          this.drawNineSlicePanel('panel_wood_1', cx, cy, CELL_W, CELL_W);
+        }
 
         if (hasSprite2 && equipSheet) {
           const sx = item.spriteCol! * spriteSize;
@@ -2879,7 +2877,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         // Item name
-        this.ctx.fillStyle = isSelected ? '#AADDFF' : '#778899';
+        this.ctx.fillStyle = isSelected ? '#FFE880' : '#C8A06A';
         this.ctx.font = '11px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
@@ -2896,7 +2894,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       CONST.SELECTABLE_VEHICLES[this.gameService.selectedVehicleIndex]?.vehicle ??
       CONST.PLAYER_VEHICLE;
 
-    this.ctx.fillStyle = '#BBCCFF';
+    this.ctx.fillStyle = '#FFD700';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Stats', rCx, 102);
@@ -2922,8 +2920,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const statStartY = 138;
     const statStepY = 50;
-    const statLabelX = rLeft + 16;
-    const statValueX = rRight - 16;
+    const statLabelX = rLeft + 21;
+    const statValueX = rRight - 21;
 
     const invertedStats = new Set(['minAimAngle']);
 
@@ -2931,7 +2929,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const { label, base: bv, bonus } = statDefs[ri];
       const rowY = statStartY + ri * statStepY;
 
-      this.ctx.fillStyle = '#CCDDFF';
+      this.ctx.fillStyle = '#C8A06A';
       this.ctx.font = '15px Arial';
       this.ctx.textAlign = 'left';
       this.ctx.fillText(label, statLabelX, rowY);
@@ -2959,17 +2957,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.ctx.fillStyle = isGood ? '#55EE77' : '#FF6655';
         this.ctx.fillText(bonusStr, statValueX, rowY);
         const bonusWidth = this.ctx.measureText(bonusStr).width + 6;
-        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillStyle = '#F5DEB3';
         this.ctx.fillText(baseStr, statValueX - bonusWidth, rowY);
       } else {
-        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillStyle = '#F5DEB3';
         this.ctx.fillText(baseStr, statValueX, rowY);
       }
     }
 
     // ── Set bonus section ────────────────────────────────────────────────
     const setBonusDivY = statStartY + statDefs.length * statStepY + 12;
-    this.ctx.strokeStyle = 'rgba(100, 120, 180, 0.45)';
+    this.ctx.strokeStyle = 'rgba(140,80,30,0.5)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.moveTo(rLeft + 16, setBonusDivY);
@@ -2977,7 +2975,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.stroke();
 
     this.ctx.textAlign = 'center';
-    this.ctx.fillStyle = '#8899CC';
+    this.ctx.fillStyle = '#C8A06A';
     this.ctx.font = 'bold 12px Arial';
     this.ctx.fillText('SET BONUS', rCx, setBonusDivY + 18);
 
@@ -2988,7 +2986,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (setInfo) {
       const setName =
         this.gameService.equipmentSets.find((s) => s.id === setInfo.setId)?.name ?? setInfo.setId;
-      this.ctx.fillStyle = isFullSet ? '#55EE77' : '#888888';
+      this.ctx.fillStyle = isFullSet ? '#55EE77' : '#8B6347';
       this.ctx.font = 'bold 14px Arial';
       this.ctx.fillText(
         `${setInfo.count} / ${this.EQUIPMENT_SLOTS.length}  ${setName}`,
@@ -3000,12 +2998,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.font = '13px Arial';
       if (!isFullSet) this.ctx.globalAlpha = 0.4;
       for (let li = 0; li < bonusLines.length; li++) {
-        this.ctx.fillStyle = isFullSet ? '#55EE77' : '#AABBDD';
+        this.ctx.fillStyle = isFullSet ? '#55EE77' : '#C8A06A';
         this.ctx.fillText(bonusLines[li], rCx, setCountY + 24 + li * 22);
       }
       this.ctx.globalAlpha = 1;
     } else {
-      this.ctx.fillStyle = '#555566';
+      this.ctx.fillStyle = '#8B6347';
       this.ctx.font = '14px Arial';
       this.ctx.fillText('—', rCx, setCountY);
     }
@@ -3050,7 +3048,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Vehicle description
     if (selEntry?.description) {
-      this.ctx.fillStyle = 'rgba(170, 190, 220, 0.75)';
+      this.ctx.fillStyle = 'rgba(200,170,120,0.75)';
       this.ctx.font = '12px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
@@ -3076,7 +3074,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Selector label
-    this.ctx.fillStyle = '#AABBDD';
+    this.ctx.fillStyle = '#DEC68A';
     this.ctx.font = '13px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
@@ -3092,13 +3090,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const isLocked = entry.locked;
 
       // Box background
-      this.ctx.fillStyle = isSelected ? 'rgba(30, 50, 110, 0.95)' : 'rgba(16, 16, 36, 0.85)';
-      this.ctx.fillRect(bx, by, cellBoxW, cellBoxH);
-
-      // Box border
-      this.ctx.strokeStyle = isSelected ? '#88CCFF' : 'rgba(60, 80, 120, 0.7)';
-      this.ctx.lineWidth = isSelected ? 2 : 1;
-      this.ctx.strokeRect(bx, by, cellBoxW, cellBoxH);
+      if (isSelected) {
+        this.drawNineSlicePanel('panel_brown_2_3d', bx, by, cellBoxW, cellBoxH);
+      } else {
+        this.drawNineSlicePanel('panel_wood_1', bx, by, cellBoxW, cellBoxH);
+      }
 
       if (!isLocked) {
         const idleSprite = this.spriteService.getEntitySprite(
@@ -3121,9 +3117,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       } else {
         // Silhouette for locked vehicle
-        this.ctx.fillStyle = 'rgba(8, 8, 20, 0.75)';
+        this.ctx.fillStyle = 'rgba(20,8,2,0.75)';
         this.ctx.fillRect(bx + 2, by + 2, cellBoxW - 4, cellBoxH - 4);
-        this.ctx.fillStyle = 'rgba(60, 80, 100, 0.8)';
+        this.ctx.fillStyle = 'rgba(120,70,30,0.8)';
         this.ctx.font = 'bold 26px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
@@ -3134,7 +3130,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.font = isSelected ? 'bold 12px Arial' : '11px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillStyle = isLocked ? 'rgba(70, 90, 110, 0.7)' : isSelected ? '#AADDFF' : '#778899';
+      this.ctx.fillStyle = isLocked ? 'rgba(100,70,40,0.7)' : isSelected ? '#FFE880' : '#C8A06A';
       this.ctx.fillText(entry.vehicle.name, bx + cellBoxW / 2, by + cellBoxH + 9);
     }
   }
@@ -3150,7 +3146,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const labelY = 510;
     const iconsY = 526;
 
-    this.ctx.fillStyle = '#AABBDD';
+    this.ctx.fillStyle = '#DEC68A';
     this.ctx.font = 'bold 13px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Active Gear', (panelLeft + panelRight) / 2, labelY);
@@ -3162,8 +3158,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         !!item?.setId && item.spriteCol !== undefined && item.spriteRow !== undefined;
       const bx = startX + i * (boxSize + gap);
 
-      this.ctx.fillStyle = hasSprite ? 'rgba(20, 20, 60, 0.85)' : 'rgba(16, 16, 32, 0.6)';
-      this.ctx.strokeStyle = hasSprite ? '#6677AA' : '#334455';
+      this.ctx.fillStyle = hasSprite ? 'rgba(30,14,4,0.7)' : 'rgba(20,10,2,0.45)';
+      this.ctx.strokeStyle = hasSprite ? '#6B3A1F' : '#4A2A10';
       this.ctx.lineWidth = 1;
       this.ctx.fillRect(bx, iconsY, boxSize, boxSize);
       this.ctx.strokeRect(bx, iconsY, boxSize, boxSize);
@@ -3184,13 +3180,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           boxSize - pad * 2,
         );
       } else {
-        this.ctx.fillStyle = '#334455';
+        this.ctx.fillStyle = '#4A2A10';
         this.ctx.font = '20px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText('—', bx + boxSize / 2, iconsY + boxSize / 2 + 7);
       }
 
-      this.ctx.fillStyle = '#667788';
+      this.ctx.fillStyle = '#C8A06A';
       this.ctx.font = '11px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(
@@ -3219,9 +3215,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Name box click → start editing
-    const nameBoxX = 28;
+    const nameBoxX = 38;
     const nameBoxY = 114;
-    const nameBoxW = 352;
+    const nameBoxW = 332;
     const nameBoxH = 34;
     if (x >= nameBoxX && x <= nameBoxX + nameBoxW && y >= nameBoxY && y <= nameBoxY + nameBoxH) {
       this.isNameEditing = true;
@@ -3262,7 +3258,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const slotBoxW = 368;
     const slotBoxH = 50;
     const slotGap = 6;
-    const slotStartY = 120;
+    const slotStartY = 115;
     for (let si = 0; si < this.EQUIPMENT_SLOTS.length; si++) {
       const slot = this.EQUIPMENT_SLOTS[si];
       const rowY = slotStartY + si * (slotBoxH + slotGap);
