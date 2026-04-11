@@ -1,5 +1,12 @@
 import { Injectable } from '@angular/core';
-import { Player, Enemy, DamageText, DamageEvent, DamageResult, CombatLogEntry } from './monkeys.types';
+import {
+  Player,
+  Enemy,
+  DamageText,
+  DamageEvent,
+  DamageResult,
+  CombatLogEntry,
+} from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 
@@ -64,8 +71,9 @@ export class DamageService {
     if (event.source === 'fall' && actualAmount > 0) {
       // Attribute to last attacker only if they damaged this entity this same turn (still in batch)
       const targetName = entity.displayName ?? 'Unknown';
-      const batchEntry = [...this.batchAccumulator.values()]
-        .find(e => e.targetName === targetName);
+      const batchEntry = [...this.batchAccumulator.values()].find(
+        (e) => e.targetName === targetName,
+      );
       const attackerName = batchEntry?.attackerName ?? '';
       this.addToLog({
         type: 'fall',

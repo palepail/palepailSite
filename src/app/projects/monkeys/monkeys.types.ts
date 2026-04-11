@@ -285,6 +285,7 @@ export interface Vehicle {
   shotDelay: number;
   spritesheet: string;
   armor?: number; // computed DR multiplier (0–1); set by applyEquipmentToVehicle, never set directly
+  attack?: number; // base attack power (100 = default); scales bullet.damage as a % multiplier
   lifesteal?: number; // % of damage dealt healed back to player; set by applyEquipmentToVehicle
   weight?: number; // pushback resistance; base 10; higher = less knockback, lower = more
   shieldRadius?: number; // radius of the hit-absorbing shield in px

@@ -2906,7 +2906,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         bonus: this.getTotalEquipBonus('health'),
       },
       { label: 'Armor', base: 0, bonus: this.getTotalEquipBonus('armor') },
-      { label: 'Attack', base: base.bullet.damage, bonus: this.getTotalEquipBonus('attack') },
+      { label: 'Attack', base: base.attack ?? 100, bonus: this.getTotalEquipBonus('attack') },
       {
         label: 'Blast Rad',
         base: base.bullet.explosionRadius,

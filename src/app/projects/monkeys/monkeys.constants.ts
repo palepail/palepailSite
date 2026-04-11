@@ -75,6 +75,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   climbAngle: 45,
   fuel: 75,
   health: 300,
+  attack: 100,
   minAimAngle: 25,
   maxAimAngle: 60,
   shotDelay: 100,
@@ -97,7 +98,7 @@ const CLUSTER_FRAGMENT: Bullet = {
   name: 'banana_fragment',
   tier: 2,
   weight: 1,
-  damage: 50,
+  damage: 30,
   shape: 'circle',
   explosionShape: 'circle',
   explosionRadius: 30,
@@ -117,6 +118,7 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
   climbAngle: 45,
   fuel: 75,
   health: 275,
+  attack: 90,
   weight: 8,
   minAimAngle: 25,
   maxAimAngle: 60,
@@ -128,7 +130,7 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
     name: 'banana_bunch',
     tier: 1,
     weight: 1,
-    damage: 20,
+    damage: 50,
     shape: 'circle',
     explosionShape: 'circle',
     explosionRadius: 50,
@@ -224,6 +226,7 @@ export const PREDICTION_ENEMY_COLOR = '#FF0000';
 // Enemy fallback body colour
 export const ENEMY_FALLBACK_COLOR = '#FF6B6B';
 export const TANK_BODY_RADIUS = 27;
+export const TANK_COLLISION_RADIUS = 22; // gameplay hitbox radius (trims sprite dead space); smaller than TANK_BODY_RADIUS which is used for rendering
 export const CANNON_ARC_RADIUS = 72;
 export const CANNON_ARC_COLOR = '#00ff44';
 export const AIM_GUIDE_COLOR = '#666666';

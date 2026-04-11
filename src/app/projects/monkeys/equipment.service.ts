@@ -105,9 +105,18 @@ export class EquipmentService {
   }
 
   applyEquipmentToVehicle(vehicle: Vehicle): void {
+    // Apply vehicle's base attack scaling before any equipment modifiers
+    if (vehicle.attack !== undefined) {
+      vehicle.bullet.damage = Math.round((vehicle.bullet.damage * vehicle.attack) / 100);
+      if (vehicle.bullet.childBullet) {
+        vehicle.bullet.childBullet.damage = Math.round(
+          (vehicle.bullet.childBullet.damage * vehicle.attack) / 100,
+        );
+      }
+    }
     for (const item of Object.values(this.equipped)) {
       if (!item?.stats) continue;
-      if (item.stats.attack) vehicle.bullet.damage *= (1 + item.stats.attack / 100);
+      if (item.stats.attack) vehicle.bullet.damage *= 1 + item.stats.attack / 100;
       if (item.stats.health) vehicle.health += item.stats.health;
       if (item.stats.armor)
         vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);

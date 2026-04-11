@@ -274,9 +274,11 @@ export class ProjectileService {
     if (player.active) {
       const dx = player.x - explosionX;
       const dy = player.y - explosionY;
+      const distToCenter = Math.sqrt(dx * dx + dy * dy);
+      const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
       const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
       if (normalizedDist <= 1) {
-        const damage = Math.round(maxDamage * (1 - normalizedDist));
+        const damage = Math.round(maxDamage * Math.max(0, 1 - effectiveDist / radiusX));
         const rawDamage = projectile.owner === player ? damage * 0.5 : damage;
         const actualDamage = Math.round(rawDamage * (1 - (player.vehicle.armor ?? 0)));
         this.damageService.applyDamage(
@@ -300,10 +302,12 @@ export class ProjectileService {
       if (enemy.active) {
         const dx = enemy.x - explosionX;
         const dy = enemy.y - explosionY;
+        const distToCenter = Math.sqrt(dx * dx + dy * dy);
+        const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
         const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
         if (normalizedDist <= 1) {
           const damage = Math.round(
-            maxDamage * (1 - normalizedDist) * (1 - (enemy.vehicle.armor ?? 0)),
+            maxDamage * Math.max(0, 1 - effectiveDist / radiusX) * (1 - (enemy.vehicle.armor ?? 0)),
           );
           const result = this.damageService.applyDamage(
             enemy,
@@ -383,8 +387,8 @@ export class ProjectileService {
       const dy = entity.y - projectile.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Check direct body hit (use actual tank body radius so fast-moving fragments don't skip through)
-      if (distance < CONST.PROJECTILE_RADIUS + CONST.TANK_BODY_RADIUS) {
+      // Check direct body hit using gameplay collision radius (tighter than visual TANK_BODY_RADIUS)
+      if (distance < CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS) {
         return true;
       }
 
@@ -416,9 +420,9 @@ export class ProjectileService {
     if (!childBullet) return;
 
     // Spawn fragments raised above the impact point so they start outside the
-    // entity's collision radius (PROJECTILE_RADIUS + TANK_BODY_RADIUS) and don't
+    // entity's collision radius (PROJECTILE_RADIUS + TANK_COLLISION_RADIUS) and don't
     // detonate on the very first update tick.
-    const spawnOffsetY = -(CONST.PROJECTILE_RADIUS + CONST.TANK_BODY_RADIUS + 2);
+    const spawnOffsetY = -(CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS + 2);
     const spawnY = impactY + spawnOffsetY;
 
     // Spread childCount angles evenly from -60° to +60° from straight up
@@ -644,7 +648,14 @@ export class ProjectileService {
 
     // Cascade to next tier if child also has children
     if (child.bullet.childBullet && (child.bullet.childCount ?? 0) > 0) {
-      this.spawnChildProjectiles(child.x, child.y, child.owner, child.bullet, physicsService, child.rootBulletName);
+      this.spawnChildProjectiles(
+        child.x,
+        child.y,
+        child.owner,
+        child.bullet,
+        physicsService,
+        child.rootBulletName,
+      );
     }
 
     this.childProjectiles.splice(index, 1);

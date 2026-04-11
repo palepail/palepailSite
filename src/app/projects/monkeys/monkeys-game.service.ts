@@ -1190,32 +1190,6 @@ export class MonkeysGameService {
     this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
   }
 
-  private checkEntityCollisions(projectile: Projectile): boolean {
-    // Check collision with player
-    if (this.player.active) {
-      const dx = this.player.x - projectile.x;
-      const dy = this.player.y - projectile.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < CONST.PROJECTILE_RADIUS + 15) {
-        return true;
-      }
-    }
-
-    // Check collision with enemies
-    for (const enemy of this.enemies) {
-      if (enemy.active) {
-        const dx = enemy.x - projectile.x;
-        const dy = enemy.y - projectile.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < CONST.PROJECTILE_RADIUS + 15) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
   private updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
       const explosion = this.explosions[i];
