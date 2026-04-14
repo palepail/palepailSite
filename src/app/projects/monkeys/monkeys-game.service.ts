@@ -456,7 +456,12 @@ export class MonkeysGameService {
    */
   private applyWindToEntity(entity: Player | Enemy) {
     if (!entity.body || this.physicsService.windSpeed <= 0) return;
-    if (Math.abs(entity.body.velocity.y) <= 1.0) return; // only push airborne entities
+    // Skip if entity is on the ground — use terrain proximity, same threshold as collision service.
+    const terrainH = this.collisionService.getTerrainHeightAt(entity.x, this.terrainService.terrain);
+    if (terrainH !== -1) {
+      const tankBottom = entity.body.position.y + CONST.TANK_HALF_HEIGHT;
+      if (tankBottom >= terrainH - 3) return; // grounded
+    }
     this.Body.applyForce(entity.body, entity.body.position, {
       x:
         (this.physicsService.windSpeed *
