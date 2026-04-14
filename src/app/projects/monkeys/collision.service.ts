@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Player, Enemy } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { DamageService } from './damage.service';
@@ -7,7 +7,7 @@ import { DamageService } from './damage.service';
   providedIn: 'root',
 })
 export class CollisionService {
-  constructor(private damageService: DamageService) {}
+  private damageService = inject(DamageService);
 
   checkPlayerTerrainCollision(player: Player, terrain: number[][], physicsService: any) {
     if (!player.body) return;

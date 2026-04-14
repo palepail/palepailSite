@@ -92,6 +92,8 @@ export const PLAYER_VEHICLE: Vehicle = {
     speed: 20,
     heldItemSprite: 'item_banana',
     overlaySprite: 'overlay_banana',
+    bulletSprite: 'item_banana',
+    rotatesToVelocity: true,
     sfxImpact: 'explosion',
   },
 };

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
@@ -8,10 +8,9 @@ import { DamageService } from './damage.service';
   providedIn: 'root',
 })
 export class ProjectileService {
-  constructor(
-    private sfxService: MonkeysSfxService,
-    private damageService: DamageService,
-  ) {}
+  private damageService = inject(DamageService);
+
+  constructor(private sfxService: MonkeysSfxService) {}
 
   projectile: Projectile | null = null;
   childProjectiles: Projectile[] = [];

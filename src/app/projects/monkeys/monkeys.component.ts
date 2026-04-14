@@ -1922,20 +1922,38 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawBulletAt(screenPos: { x: number; y: number }, bulletSprite: SpriteData | null): void {
+  private drawBulletAt(screenPos: { x: number; y: number }, bulletSprite: SpriteData | null, angle?: number): void {
     if (bulletSprite) {
       const drawSize = CONST.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
-      this.ctx.drawImage(
-        bulletSprite.image,
-        bulletSprite.x,
-        bulletSprite.y,
-        bulletSprite.width,
-        bulletSprite.height,
-        screenPos.x - drawSize / 2,
-        screenPos.y - drawSize / 2,
-        drawSize,
-        drawSize,
-      );
+      if (angle !== undefined) {
+        this.ctx.save();
+        this.ctx.translate(screenPos.x, screenPos.y);
+        this.ctx.rotate(angle);
+        this.ctx.drawImage(
+          bulletSprite.image,
+          bulletSprite.x,
+          bulletSprite.y,
+          bulletSprite.width,
+          bulletSprite.height,
+          -drawSize / 2,
+          -drawSize / 2,
+          drawSize,
+          drawSize,
+        );
+        this.ctx.restore();
+      } else {
+        this.ctx.drawImage(
+          bulletSprite.image,
+          bulletSprite.x,
+          bulletSprite.y,
+          bulletSprite.width,
+          bulletSprite.height,
+          screenPos.x - drawSize / 2,
+          screenPos.y - drawSize / 2,
+          drawSize,
+          drawSize,
+        );
+      }
     } else {
       this.ctx.fillStyle = CONST.PROJECTILE_COLOR;
       this.ctx.beginPath();
@@ -1956,7 +1974,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       } else {
         pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
       }
-      this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite);
+      let angle: number | undefined;
+      if (this.gameService.projectile.bullet.rotatesToVelocity && this.gameService.projectile.body?.velocity) {
+        const vel = this.gameService.projectile.body.velocity;
+        angle = Math.atan2(vel.y, vel.x);
+      }
+      this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite, angle);
     } else if (this.gameService.aftermathImpactPos) {
       const impactPos = this.gameService.aftermathImpactPos;
       this.drawBulletAt(

@@ -1,7 +1,7 @@
 // monkeys-game.service.ts
 // Service handling core game logic for Monkeys
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   Player,
   Enemy,
@@ -90,6 +90,8 @@ export class MonkeysGameService {
     this.equipmentService.playerName = value;
   }
 
+  private damageService = inject(DamageService);
+
   constructor(
     private spriteService: MonkeysSpriteService,
     private enemyFactory: EnemyFactoryService,
@@ -101,7 +103,6 @@ export class MonkeysGameService {
     private projectileService: ProjectileService,
     private collisionService: CollisionService,
     private sfxService: MonkeysSfxService,
-    private damageService: DamageService,
   ) {
     this.player = this.createInitialPlayer();
     void this.equipmentService.loadEquipmentData();
