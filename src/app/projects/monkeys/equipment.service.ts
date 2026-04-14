@@ -132,6 +132,16 @@ export class EquipmentService {
           5,
           vehicle.bullet.craterRadius + Math.round(item.stats.blastRadius * 0.8),
         );
+        if (vehicle.bullet.childBullet) {
+          vehicle.bullet.childBullet.explosionRadius = Math.max(
+            5,
+            vehicle.bullet.childBullet.explosionRadius + Math.round(item.stats.blastRadius * 0.5),
+          );
+          vehicle.bullet.childBullet.craterRadius = Math.max(
+            5,
+            vehicle.bullet.childBullet.craterRadius + Math.round(item.stats.blastRadius * 0.4),
+          );
+        }
       }
       if (item.stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + item.stats.fuel);
       if (item.stats.climbAngle)

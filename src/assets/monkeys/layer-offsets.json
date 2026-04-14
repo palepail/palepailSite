@@ -1,0 +1,93 @@
+{
+  "explosionScale": 1.0,
+  "fruitConfig": {
+    "item_banana": { "scale": 1.0, "overlayZ": 3 },
+    "item_apple": { "scale": 1.0, "overlayZ": 1 },
+    "item_peanut": { "scale": 1.0, "overlayZ": 1 }
+  },
+  "frames": {
+    "idle": {
+      "hand": { "x": 11, "y": 19 },
+      "fruit": { "x": 5, "y": 12 },
+      "overlay": { "x": 6, "y": 12 }
+    },
+    "move_0": {
+      "hand": { "x": 11, "y": 19 },
+      "fruit": { "x": 5, "y": 12 },
+      "overlay": { "x": 6, "y": 12 }
+    },
+    "move_1": {
+      "hand": { "x": 8, "y": 24 },
+      "fruit": { "x": 2, "y": 18 },
+      "overlay": { "x": 3, "y": 18 }
+    },
+    "move_2": {
+      "hand": { "x": 4, "y": 19 },
+      "fruit": { "x": -3, "y": 13 },
+      "overlay": { "x": -2, "y": 13 }
+    },
+    "move_3": {
+      "hand": { "x": 4, "y": 19 },
+      "fruit": { "x": -3, "y": 13 },
+      "overlay": { "x": -2, "y": 13 }
+    },
+    "shoot_0": {
+      "hand": { "x": 11, "y": 20 },
+      "fruit": { "x": 5, "y": 14 },
+      "overlay": { "x": 6, "y": 14 }
+    },
+    "shoot_1": {
+      "hand": { "x": 11, "y": 20 },
+      "fruit": { "x": 4, "y": 15 },
+      "overlay": { "x": 5, "y": 15 },
+      "aboveFruitSpriteName": "head_eat"
+    },
+    "shoot_2": {
+      "hand": { "x": 11, "y": 19 },
+      "fruit": { "x": 5, "y": 12 },
+      "overlay": { "x": 6, "y": 12 },
+      "hideLayers": ["fruit"]
+    },
+    "shoot_3": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 29, "y": -4 },
+      "hideLayers": ["hand", "fruit"]
+    },
+    "shoot_4": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 28, "y": -7 },
+      "hideLayers": ["hand", "fruit"]
+    },
+    "shoot_5": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 0, "y": 0 },
+      "hideLayers": ["hand", "fruit", "overlay"]
+    },
+    "shoot_6": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 0, "y": 0 },
+      "hideLayers": ["hand", "fruit", "overlay"]
+    },
+    "shoot_7": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 0, "y": 0 },
+      "hideLayers": ["hand", "fruit", "overlay"]
+    },
+    "shoot_8": {
+      "hand": { "x": 0, "y": 0 },
+      "fruit": { "x": 0, "y": 0 },
+      "overlay": { "x": 0, "y": 0 },
+      "hideLayers": ["hand", "fruit", "overlay"]
+    },
+    "shoot_9": {
+      "hand": { "x": 11, "y": 19 },
+      "fruit": { "x": 5, "y": 12 },
+      "overlay": { "x": 6, "y": 12 }
+    }
+  }
+}

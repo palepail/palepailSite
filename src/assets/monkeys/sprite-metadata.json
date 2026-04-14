@@ -1,6 +1,7 @@
 {
   "spritesheets": {
     "lupin": "Lupin.png",
+    "lupin_composite": "Lupin Composite.png",
     "zombie_lupin": "Zombie Lupin.png",
     "cursors": "Cursors.png",
     "text": "Text.png",
@@ -511,6 +512,30 @@
       "width": 64,
       "height": 64
     },
+
+    { "name": "idle",    "spritesheet": "lupin_composite", "x": 0,   "y": 128, "width": 64, "height": 64 },
+    { "name": "move_0",  "spritesheet": "lupin_composite", "x": 0,   "y": 0,   "width": 64, "height": 64 },
+    { "name": "move_1",  "spritesheet": "lupin_composite", "x": 64,  "y": 0,   "width": 64, "height": 64 },
+    { "name": "move_2",  "spritesheet": "lupin_composite", "x": 128, "y": 0,   "width": 64, "height": 64 },
+    { "name": "move_3",  "spritesheet": "lupin_composite", "x": 192, "y": 0,   "width": 64, "height": 64 },
+    { "name": "shoot_0", "spritesheet": "lupin_composite", "x": 0,   "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_1", "spritesheet": "lupin_composite", "x": 64,  "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_2", "spritesheet": "lupin_composite", "x": 128, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_3", "spritesheet": "lupin_composite", "x": 192, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_4", "spritesheet": "lupin_composite", "x": 256, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_5", "spritesheet": "lupin_composite", "x": 320, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_6", "spritesheet": "lupin_composite", "x": 384, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_7", "spritesheet": "lupin_composite", "x": 448, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_8", "spritesheet": "lupin_composite", "x": 512, "y": 64,  "width": 64, "height": 64 },
+    { "name": "shoot_9", "spritesheet": "lupin_composite", "x": 576, "y": 64,  "width": 64, "height": 64 },
+    { "name": "hand",           "spritesheet": "lupin_composite", "x": 64,  "y": 128, "width": 64, "height": 64 },
+    { "name": "head_eat",       "spritesheet": "lupin_composite", "x": 128, "y": 128, "width": 64, "height": 64 },
+    { "name": "item_banana",    "spritesheet": "lupin_composite", "x": 0,   "y": 512, "width": 64, "height": 64 },
+    { "name": "item_apple",     "spritesheet": "lupin_composite", "x": 64,  "y": 512, "width": 64, "height": 64 },
+    { "name": "item_peanut",    "spritesheet": "lupin_composite", "x": 128, "y": 512, "width": 64, "height": 64 },
+    { "name": "overlay_banana", "spritesheet": "lupin_composite", "x": 0,   "y": 576, "width": 64, "height": 64 },
+    { "name": "overlay_apple",  "spritesheet": "lupin_composite", "x": 64,  "y": 576, "width": 64, "height": 64 },
+    { "name": "overlay_peanut", "spritesheet": "lupin_composite", "x": 128, "y": 576, "width": 64, "height": 64 },
 
     { "name": "move_0", "spritesheet": "zombie_lupin", "x": 0, "y": 0, "width": 64, "height": 64 },
     { "name": "move_1", "spritesheet": "zombie_lupin", "x": 64, "y": 0, "width": 64, "height": 64 },

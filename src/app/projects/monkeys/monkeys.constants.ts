@@ -71,7 +71,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   speed: 100.0,
   power: 200,
   shape: 'tank',
-  spritesheet: 'Lupin.png',
+  spritesheet: 'Lupin Composite.png',
   climbAngle: 45,
   fuel: 75,
   health: 300,
@@ -90,6 +90,8 @@ export const PLAYER_VEHICLE: Vehicle = {
     explosionRadius: 50,
     craterRadius: 40,
     speed: 20,
+    heldItemSprite: 'item_banana',
+    overlaySprite: 'overlay_banana',
     sfxImpact: 'explosion',
   },
 };

@@ -26,6 +26,8 @@ import {
   EquipmentSlot,
   EquipmentItem,
   EquipmentStats,
+  LayerOffsetData,
+  LayerFrameOffset,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
@@ -213,7 +215,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly TERRAIN_TOOL_ALPHA_THRESHOLD = 96;
   private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
   private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
-  private readonly TERRAIN_TOOL_ENABLED = false; // set true for development only
+  private readonly TERRAIN_TOOL_ENABLED = true;
+  private readonly DEV_MODE = true;
+  private readonly LAYER_EDITOR_FRAMES = [
+    'idle',
+    'move_0', 'move_1', 'move_2', 'move_3',
+    'shoot_0', 'shoot_1', 'shoot_2', 'shoot_3', 'shoot_4',
+    'shoot_5', 'shoot_6', 'shoot_7', 'shoot_8', 'shoot_9',
+  ] as const;
+  private readonly LAYER_EDITOR_FRUITS = ['item_banana', 'item_apple', 'item_peanut'] as const;
+  private readonly COMPOSITE_SPRITESHEET = 'Lupin Composite.png';
   private readonly POWER_PERCENT_SPRITE_SIZE = 26;
   private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
   private readonly CURSOR_BLINK_PERIOD_MS = 1000;
@@ -374,6 +385,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.MENU_BTN_W,
     this.MENU_BTN_H,
   );
+  private readonly MENU_TOOLS_BUTTON = this.mkBtn(
+    this.MENU_BTN_CX,
+    this.MENU_BTN_FIRST_Y + this.MENU_BTN_GAP * 4,
+    this.MENU_BTN_W,
+    this.MENU_BTN_H,
+  );
+  // Layer offset editor state
+  private editorFrameIndex = 0;
+  private editorFruitIndex = 0;
+  private editorOffsets: LayerOffsetData | null = null;
+  // Hit regions populated each drawLayerTool() frame
+  private layerToolBtns: Map<string, { x: number; y: number; w: number; h: number }> = new Map();
   // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
   private readonly MUTE_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 12, 12, 24, 24);
   private readonly EQUIP_BACK_BUTTON = this.mkBtn(600, 650, 140, 44);
@@ -555,8 +578,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private render() {
     this.renderFrame();
-    // Mute button overlays every screen (terrain dev tool excluded)
-    if (this.gameService.currentState !== GameState.TERRAIN_TOOL) {
+    // Mute button overlays every screen (terrain dev tools excluded)
+    if (
+      this.gameService.currentState !== GameState.TERRAIN_TOOL &&
+      this.gameService.currentState !== GameState.LAYER_TOOL
+    ) {
       this.drawMuteButton();
     }
   }
@@ -580,6 +606,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
       this.drawTerrainTool();
+      return;
+    }
+    if (this.gameService.currentState === GameState.LAYER_TOOL) {
+      this.drawLayerTool();
       return;
     }
 
@@ -1564,7 +1594,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
                   Math.abs(entity.body.velocity.x) > 0.1)
               ? `move_${this.getMoveFrameIndex(now)}`
               : 'idle';
-    const sprite = this.spriteService.getEntitySprite(animName, spritesheet);
+
+    const isComposite = spritesheet === this.COMPOSITE_SPRITESHEET;
+    const isSpecialAnim = (deathAnimationState?.isActive ?? false) || animName === 'hurt';
+    // For composite sprites, death/hurt frames live on the original Lupin.png
+    const lookupSheet = isComposite && isSpecialAnim ? 'Lupin.png' : spritesheet;
+    const sprite = this.spriteService.getEntitySprite(animName, lookupSheet);
 
     if (!sprite) {
       return false;
@@ -1573,27 +1608,150 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const spriteSize = bodyRadius * 2 * 1.5;
     const spriteYOffset = -15;
 
-    // Mirror over the y-axis so sprite facing matches gameplay orientation.
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
     this.ctx.scale(-1, 1);
     if (deathAnimationState?.isActive) {
       this.ctx.globalAlpha = deathAnimationState.alpha;
     }
+
+    if (isComposite && !isSpecialAnim) {
+      this.drawCompositeLayers(entity, animName, sprite, spriteSize, spriteYOffset);
+    } else {
+      this.ctx.drawImage(
+        sprite.image,
+        sprite.x,
+        sprite.y,
+        sprite.width,
+        sprite.height,
+        -spriteSize / 2,
+        -spriteSize / 2 + spriteYOffset,
+        spriteSize,
+        spriteSize,
+      );
+    }
+
+    this.ctx.restore();
+
+    return true;
+  }
+
+  private drawCompositeLayers(
+    entity: any,
+    animName: string,
+    backSprite: { image: CanvasImageSource; x: number; y: number; width: number; height: number },
+    spriteSize: number,
+    spriteYOffset: number,
+  ): void {
+    const layerOffsets = this.spriteService.getLayerOffsets();
+    const frameOffsets: LayerFrameOffset | undefined = layerOffsets?.frames[animName];
+    const explosionScaleMultiplier = layerOffsets?.explosionScale ?? 1.0;
+    const heldItemSprite = (entity.vehicle?.bullet?.heldItemSprite as string | undefined) ?? null;
+    const overlaySpriteName = (entity.vehicle?.bullet?.overlaySprite as string | undefined) ?? null;
+
+    // Layer 1: back
     this.ctx.drawImage(
-      sprite.image,
-      sprite.x,
-      sprite.y,
-      sprite.width,
-      sprite.height,
+      backSprite.image,
+      backSprite.x,
+      backSprite.y,
+      backSprite.width,
+      backSprite.height,
       -spriteSize / 2,
       -spriteSize / 2 + spriteYOffset,
       spriteSize,
       spriteSize,
     );
-    this.ctx.restore();
 
-    return true;
+    // Fruit config — overlayZ controls whether overlay draws below (<2) or above (>=2) the fruit
+    const fruitCfg = heldItemSprite ? (layerOffsets?.fruitConfig[heldItemSprite] ?? null) : null;
+    const fruitScale = fruitCfg?.scale ?? 1.0;
+    const overlayZ = fruitCfg?.overlayZ ?? 3;
+
+    const drawOverlay = () => {
+      if (!overlaySpriteName || frameOffsets?.hideLayers?.includes('overlay')) return;
+      const overlaySprite = this.spriteService.getSprite(overlaySpriteName);
+      if (!overlaySprite) return;
+      const ox = frameOffsets?.overlay.x ?? 0;
+      const oy = frameOffsets?.overlay.y ?? 0;
+      this.ctx.drawImage(
+        overlaySprite.image,
+        overlaySprite.x,
+        overlaySprite.y,
+        overlaySprite.width,
+        overlaySprite.height,
+        -spriteSize / 2 + ox,
+        -spriteSize / 2 + spriteYOffset + oy,
+        spriteSize,
+        spriteSize,
+      );
+    };
+
+    // Overlay under fruit (overlayZ < 2, e.g. apple bitten base)
+    if (overlayZ < 2) drawOverlay();
+
+    // Layer 2: fruit (positioned by per-frame offset, scaled)
+    if (heldItemSprite && !frameOffsets?.hideLayers?.includes('fruit')) {
+      const fruitSprite = this.spriteService.getSprite(heldItemSprite);
+      if (fruitSprite) {
+        const fruitSz = spriteSize * fruitScale;
+        const fx = frameOffsets?.fruit.x ?? 0;
+        const fy = frameOffsets?.fruit.y ?? 0;
+        this.ctx.drawImage(
+          fruitSprite.image,
+          fruitSprite.x,
+          fruitSprite.y,
+          fruitSprite.width,
+          fruitSprite.height,
+          -fruitSz / 2 + fx,
+          -fruitSz / 2 + spriteYOffset + fy,
+          fruitSz,
+          fruitSz,
+        );
+      }
+    }
+
+    // Layer 2.5: above-fruit overlay (e.g. head_eat for shoot_1), drawn on top of fruit, no offset
+    const aboveFruitSpriteName = frameOffsets?.aboveFruitSpriteName ?? null;
+    if (aboveFruitSpriteName) {
+      const aboveFruitSprite = this.spriteService.getSprite(aboveFruitSpriteName);
+      if (aboveFruitSprite) {
+        this.ctx.drawImage(
+          aboveFruitSprite.image,
+          aboveFruitSprite.x,
+          aboveFruitSprite.y,
+          aboveFruitSprite.width,
+          aboveFruitSprite.height,
+          -spriteSize / 2,
+          -spriteSize / 2 + spriteYOffset,
+          spriteSize,
+          spriteSize,
+        );
+      }
+    }
+
+    // Layer 3: hand
+    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+    if (handSprite && !frameOffsets?.hideLayers?.includes('hand')) {
+      const hx = frameOffsets?.hand.x ?? 0;
+      const hy = frameOffsets?.hand.y ?? 0;
+      this.ctx.drawImage(
+        handSprite.image,
+        handSprite.x,
+        handSprite.y,
+        handSprite.width,
+        handSprite.height,
+        -spriteSize / 2 + hx,
+        -spriteSize / 2 + spriteYOffset + hy,
+        spriteSize,
+        spriteSize,
+      );
+    }
+
+    // Overlay on top of fruit (overlayZ >= 2, e.g. banana peel)
+    if (overlayZ >= 2) drawOverlay();
+
+    // Store explosion scale multiplier on entity for use by drawExplosions
+    (entity as any).__explosionScaleMultiplier = explosionScaleMultiplier;
   }
 
   private updateHurtSpriteState() {
@@ -1875,8 +2033,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       );
 
       if (explosionSprite) {
-        let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
-        let spriteHeight = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER;
+        const explosionScale =
+          spritePrefix === 'explosion'
+            ? (this.spriteService.getLayerOffsets()?.explosionScale ?? 1.0)
+            : 1.0;
+        let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
+        let spriteHeight = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
 
         if (explosion.shape === 'horizontal_oval') {
           spriteWidth *= 1.5;
@@ -2202,6 +2364,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       currState !== GameState.MENU &&
       currState !== GameState.OPTIONS &&
       currState !== GameState.TERRAIN_TOOL &&
+      currState !== GameState.LAYER_TOOL &&
       currState !== GameState.EQUIPMENT_MENU
     ) {
       this.gameService.update();
@@ -3335,7 +3498,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Backdrop panel behind buttons
-    this.drawNineSlicePanel('panel_wood_3_nail', 460, 350, 280, 230);
+    const devBtnCount = (this.TERRAIN_TOOL_ENABLED ? 1 : 0) + (this.DEV_MODE ? 1 : 0);
+    this.drawNineSlicePanel('panel_wood_3_nail', 460, 350, 280, 230 + devBtnCount * 50);
 
     // Draw buttons
     this.drawButton('Start Game', this.MENU_START_BUTTON, '#4CAF50', '#45a049', 'panel_wood_1');
@@ -3347,6 +3511,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.MENU_TERRAIN_TOOL_BUTTON,
         '#9C6ADE',
         '#7C4DCC',
+        'panel_wood_1',
+      );
+    }
+    if (this.DEV_MODE) {
+      this.drawButton(
+        'Layer Tool',
+        this.MENU_TOOLS_BUTTON,
+        '#E91E63',
+        '#C2185B',
         'panel_wood_1',
       );
     }
@@ -3674,6 +3847,426 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.terrainToolRegions.find((region) => region.id === this.terrainToolSelectedRegionId) ??
       null
     );
+  }
+
+  private openLayerTool(): void {
+    const saved = this.spriteService.getLayerOffsets();
+    if (saved) {
+      this.editorOffsets = JSON.parse(JSON.stringify(saved)) as LayerOffsetData;
+    } else {
+      const defaultFrame = (): LayerFrameOffset => ({
+        hand: { x: 0, y: 0 },
+        fruit: { x: 0, y: 0 },
+        overlay: { x: 0, y: 0 },
+      });
+      this.editorOffsets = {
+        explosionScale: 1.0,
+        fruitConfig: {
+          item_banana: { scale: 1.0, overlayZ: 3 },
+          item_apple:  { scale: 1.0, overlayZ: 1 },
+          item_peanut: { scale: 1.0, overlayZ: 3 },
+        },
+        frames: Object.fromEntries(
+          [...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()]),
+        ),
+      };
+    }
+    this.editorFrameIndex = 0;
+    this.editorFruitIndex = 0;
+    this.gameService.currentState = GameState.LAYER_TOOL;
+  }
+
+  //
+  // ─── LAYER TOOL UI ────────────────────────────────────────────────────────────
+  //
+
+  private drawLayerTool(): void {
+    if (!this.editorOffsets) {
+      this.openLayerTool();
+    }
+    this.layerToolBtns.clear();
+
+    const W = CONST.CANVAS_WIDTH;
+    const H = CONST.CANVAS_HEIGHT;
+
+    // Ensure clean transform state regardless of what previous draw functions left behind
+    this.ctx.resetTransform();
+
+    // Full canvas clear + left preview area (grey background)
+    this.ctx.fillStyle = '#4A4A4A';
+    this.ctx.fillRect(0, 0, W, H);
+
+    // Right panel
+    this.drawNineSlicePanel('panel_wood_3_nail', 588, 15, 604, 690);
+
+    // ── Preview ──
+    const previewCX = 290;
+    const previewCY = 360;
+    const spriteSize = CONST.TANK_BODY_RADIUS * 2 * 1.5 * 3;
+    const spriteYOffset = -15 * 3;
+    const scale = 3;
+    const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
+    const fruitKey = this.LAYER_EDITOR_FRUITS[this.editorFruitIndex];
+    const offsets = this.editorOffsets!;
+    const frameOffsets = offsets.frames[frameName];
+    const fruitCfg = offsets.fruitConfig[fruitKey];
+    const fruitScale = fruitCfg?.scale ?? 1.0;
+    const overlayZ = fruitCfg?.overlayZ ?? 3;
+
+    const backSprite = this.spriteService.getEntitySprite(frameName, this.COMPOSITE_SPRITESHEET);
+    const fruitSprite = this.spriteService.getSprite(fruitKey);
+    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+
+    // Determine overlay based on fruit
+    const fruitToOverlay: Record<string, string> = {
+      item_banana: 'overlay_banana',
+      item_apple: 'overlay_apple',
+      item_peanut: 'overlay_peanut',
+    };
+    const overlaySpriteName = fruitToOverlay[fruitKey] ?? null;
+    const overlaySprite = overlaySpriteName ? this.spriteService.getSprite(overlaySpriteName) : null;
+
+    this.ctx.save();
+    try {
+      this.ctx.translate(previewCX, previewCY);
+      this.ctx.scale(-1, 1); // mirror same as gameplay
+
+      const drawPreviewLayer = (
+        spr: { image: CanvasImageSource; x: number; y: number; width: number; height: number } | null,
+        sz: number,
+        ox: number,
+        oy: number,
+      ) => {
+        if (!spr) return;
+        this.ctx.drawImage(
+          spr.image, spr.x, spr.y, spr.width, spr.height,
+          -sz / 2 + ox, -sz / 2 + spriteYOffset + oy, sz, sz,
+        );
+      };
+
+      const drawOverlayPreview = () => {
+        if (overlaySprite && !frameOffsets?.hideLayers?.includes('overlay')) {
+          const ox = (frameOffsets?.overlay.x ?? 0) * scale;
+          const oy2 = (frameOffsets?.overlay.y ?? 0) * scale;
+          drawPreviewLayer(overlaySprite, spriteSize, ox, oy2);
+        }
+      };
+
+      // back layer (one frame at a time based on editorFrameIndex)
+      drawPreviewLayer(backSprite, spriteSize, 0, 0);
+
+      // overlay under fruit (overlayZ < 2, e.g. apple bitten base)
+      if (overlayZ < 2) drawOverlayPreview();
+
+      // fruit layer (for offset alignment reference)
+      if (fruitSprite && !frameOffsets?.hideLayers?.includes('fruit')) {
+        const fruitSz = spriteSize * fruitScale;
+        const fx = (frameOffsets?.fruit.x ?? 0) * scale;
+        const fy = (frameOffsets?.fruit.y ?? 0) * scale;
+        drawPreviewLayer(fruitSprite, fruitSz, fx, fy);
+      }
+
+      // above-fruit overlay (e.g. head_eat), no offset
+      const aboveFruitName = frameOffsets?.aboveFruitSpriteName ?? null;
+      if (aboveFruitName) {
+        const aboveFruitSpr = this.spriteService.getSprite(aboveFruitName);
+        drawPreviewLayer(aboveFruitSpr, spriteSize, 0, 0);
+      }
+
+      // hand layer (for offset alignment reference)
+      if (handSprite && !frameOffsets?.hideLayers?.includes('hand')) {
+        const hx = (frameOffsets?.hand.x ?? 0) * scale;
+        const hy = (frameOffsets?.hand.y ?? 0) * scale;
+        drawPreviewLayer(handSprite, spriteSize, hx, hy);
+      }
+
+      // overlay on top of fruit (overlayZ >= 2, e.g. banana peel)
+      if (overlayZ >= 2) drawOverlayPreview();
+    } finally {
+      this.ctx.restore();
+    }
+
+    // ── Right panel content ──
+    const panelCX = 890;
+    this.ctx.textAlign = 'center';
+
+    // Title
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 18px Arial';
+    this.ctx.fillText('Layer Offset Tool', panelCX, 50);
+
+    // Frame selector row
+    const prevBtn = { x: 720, y: 88, w: 60, h: 36 };
+    const nextBtn = { x: 1060, y: 88, w: 60, h: 36 };
+    this.ltDrawBtn('frame_prev', '◀', prevBtn);
+    this.ltDrawBtn('frame_next', '▶', nextBtn);
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 15px Arial';
+    this.ctx.fillText(frameName, panelCX, 88 + 6);
+
+    // Separator
+    this.ltHRule(115);
+
+    // ── HAND section ──
+    this.ltSectionHeader('HAND', 133);
+    this.ltNudgeRow('hand_x', 'X', 162, frameOffsets?.hand.x ?? 0, 1, 5);
+    this.ltNudgeRow('hand_y', 'Y', 194, frameOffsets?.hand.y ?? 0, 1, 5);
+
+    this.ltHRule(216);
+
+    // ── FRUIT section ──
+    this.ltSectionHeader('FRUIT', 234);
+
+    // Fruit selector
+    const fruitNames = ['Banana', 'Apple', 'Peanut'];
+    const fruitBtnW = 110; const fruitBtnH = 30;
+    const fruitXs = [740, 890, 1040];
+    for (let i = 0; i < 3; i++) {
+      const isActive = this.editorFruitIndex === i;
+      const bx = fruitXs[i]; const by = 264;
+      const btn = { x: bx, y: by, w: fruitBtnW, h: fruitBtnH };
+      this.ltDrawFruitBtn(`fruit_sel_${i}`, fruitNames[i], btn, isActive);
+    }
+
+    this.ltNudgeRow('fruit_x', 'X', 300, frameOffsets?.fruit.x ?? 0, 1, 5);
+    this.ltNudgeRow('fruit_y', 'Y', 332, frameOffsets?.fruit.y ?? 0, 1, 5);
+
+    // Fruit scale
+    this.ctx.fillStyle = '#ccc';
+    this.ctx.font = 'bold 13px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('Fruit Scale', 610, 364 + 5);
+    this.ctx.textAlign = 'center';
+    this.ltScaleRow('fruit_scale', 364, fruitScale, 0.05, 0.2);
+
+    this.ltHRule(392);
+
+    // ── OVERLAY section ──
+    this.ltSectionHeader('OVERLAY', 410);
+    this.ltNudgeRow('overlay_x', 'X', 440, frameOffsets?.overlay.x ?? 0, 1, 5);
+    this.ltNudgeRow('overlay_y', 'Y', 472, frameOffsets?.overlay.y ?? 0, 1, 5);
+
+    this.ltHRule(498);
+
+    // ── EXPLOSION SCALE ──
+    this.ltSectionHeader('EXPLOSION SCALE', 516);
+    this.ltScaleRow('exp_scale', 548, offsets.explosionScale, 0.05, 0.2);
+
+    this.ltHRule(578);
+
+    // ── Action buttons ──
+    this.ltDrawBtn('copy_json', 'Copy JSON', { x: panelCX, y: 608, w: 200, h: 42 });
+    this.ltDrawBtn('back', 'Back', { x: panelCX, y: 660, w: 200, h: 42 });
+  }
+
+  /** Register a button region and draw it */
+  private ltDrawBtn(
+    key: string,
+    label: string,
+    btn: { x: number; y: number; w: number; h: number },
+    active = false,
+  ): void {
+    this.layerToolBtns.set(key, btn);
+    const left = btn.x - btn.w / 2;
+    const top = btn.y - btn.h / 2;
+    this.ctx.fillStyle = active ? '#E67C22' : '#444';
+    this.ctx.fillRect(left, top, btn.w, btn.h);
+    this.ctx.strokeStyle = active ? '#FF9800' : '#888';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.strokeRect(left, top, btn.w, btn.h);
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = 'bold 14px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(label, btn.x, btn.y);
+    this.ctx.textBaseline = 'alphabetic';
+  }
+
+  private ltDrawFruitBtn(
+    key: string,
+    label: string,
+    btn: { x: number; y: number; w: number; h: number },
+    active: boolean,
+  ): void {
+    this.ltDrawBtn(key, label, btn, active);
+  }
+
+  /** Horizontal rule */
+  private ltHRule(y: number): void {
+    this.ctx.strokeStyle = '#666';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(600, y);
+    this.ctx.lineTo(1182, y);
+    this.ctx.stroke();
+  }
+
+  /** Section header text */
+  private ltSectionHeader(label: string, y: number): void {
+    this.ctx.fillStyle = '#FFCC66';
+    this.ctx.font = 'bold 13px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(label, 890, y);
+  }
+
+  /** Nudge row: label + four buttons (±small, ±big) + value readout */
+  private ltNudgeRow(
+    id: string,
+    label: string,
+    cy: number,
+    value: number,
+    small: number,
+    big: number,
+  ): void {
+    const bW = 62; const bH = 28;
+    // label
+    this.ctx.fillStyle = '#ccc';
+    this.ctx.font = 'bold 13px Arial';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(label, 610, cy + 5);
+    // buttons: positions relative to center 890
+    const xs = [730, 800, 970, 1040];
+    const labels = [`«-${big}`, `‹-${small}`, `+${small}›`, `+${big}»`];
+    const keys = [`${id}_m${big}`, `${id}_m${small}`, `${id}_p${small}`, `${id}_p${big}`];
+    for (let i = 0; i < 4; i++) {
+      this.ltDrawBtn(keys[i], labels[i], { x: xs[i], y: cy, w: bW, h: bH });
+    }
+    // value
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '13px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(String(value), 895, cy + 5);
+    this.ctx.textAlign = 'left';
+  }
+
+  /** Scale row: ±small, ±big buttons + value readout */
+  private ltScaleRow(
+    id: string,
+    cy: number,
+    value: number,
+    small: number,
+    big: number,
+  ): void {
+    const bW = 62; const bH = 28;
+    const xs = [730, 800, 970, 1040];
+    const labels = [`«-${big}`, `‹-${small}`, `+${small}›`, `+${big}»`];
+    const keys = [`${id}_m${big}`, `${id}_m${small}`, `${id}_p${small}`, `${id}_p${big}`];
+    for (let i = 0; i < 4; i++) {
+      this.ltDrawBtn(keys[i], labels[i], { x: xs[i], y: cy, w: bW, h: bH });
+    }
+    this.ctx.fillStyle = '#fff';
+    this.ctx.font = '13px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText(value.toFixed(2), 895, cy + 5);
+    this.ctx.textAlign = 'left';
+  }
+
+  private handleLayerToolClick(x: number, y: number): void {
+    if (!this.editorOffsets) return;
+    const offsets = this.editorOffsets;
+    const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
+    const fruitKey = this.LAYER_EDITOR_FRUITS[this.editorFruitIndex];
+
+    const hit = (key: string): boolean => {
+      const btn = this.layerToolBtns.get(key);
+      if (!btn) return false;
+      return (
+        x >= btn.x - btn.w / 2 &&
+        x <= btn.x + btn.w / 2 &&
+        y >= btn.y - btn.h / 2 &&
+        y <= btn.y + btn.h / 2
+      );
+    };
+
+    // Frame navigation
+    if (hit('frame_prev')) {
+      this.editorFrameIndex =
+        (this.editorFrameIndex - 1 + this.LAYER_EDITOR_FRAMES.length) %
+        this.LAYER_EDITOR_FRAMES.length;
+      return;
+    }
+    if (hit('frame_next')) {
+      this.editorFrameIndex =
+        (this.editorFrameIndex + 1) % this.LAYER_EDITOR_FRAMES.length;
+      return;
+    }
+
+    // Fruit selector
+    for (let i = 0; i < 3; i++) {
+      if (hit(`fruit_sel_${i}`)) {
+        this.editorFruitIndex = i;
+        return;
+      }
+    }
+
+    // Ensure the current frame has an offsets entry
+    if (!offsets.frames[frameName]) {
+      offsets.frames[frameName] = {
+        hand: { x: 0, y: 0 },
+        fruit: { x: 0, y: 0 },
+        overlay: { x: 0, y: 0 },
+      };
+    }
+    const frame = offsets.frames[frameName];
+
+    // Helper: apply nudge
+    const nudgeAxis = (
+      obj: { x: number; y: number },
+      axis: 'x' | 'y',
+      id: string,
+      small: number,
+      big: number,
+    ) => {
+      if (hit(`${id}_m${big}`))   { obj[axis] -= big;   return true; }
+      if (hit(`${id}_m${small}`)) { obj[axis] -= small; return true; }
+      if (hit(`${id}_p${small}`)) { obj[axis] += small; return true; }
+      if (hit(`${id}_p${big}`))   { obj[axis] += big;   return true; }
+      return false;
+    };
+
+    if (nudgeAxis(frame.hand, 'x', 'hand_x', 1, 5)) return;
+    if (nudgeAxis(frame.hand, 'y', 'hand_y', 1, 5)) return;
+    if (nudgeAxis(frame.fruit, 'x', 'fruit_x', 1, 5)) return;
+    if (nudgeAxis(frame.fruit, 'y', 'fruit_y', 1, 5)) return;
+    if (nudgeAxis(frame.overlay, 'x', 'overlay_x', 1, 5)) return;
+    if (nudgeAxis(frame.overlay, 'y', 'overlay_y', 1, 5)) return;
+
+    // Fruit scale
+    const scaleDelta = (id: string, small: number, big: number): number | null => {
+      if (hit(`${id}_m${big}`))   return -big;
+      if (hit(`${id}_m${small}`)) return -small;
+      if (hit(`${id}_p${small}`)) return small;
+      if (hit(`${id}_p${big}`))   return big;
+      return null;
+    };
+    const fruitScaleDelta = scaleDelta('fruit_scale', 0.05, 0.2);
+    if (fruitScaleDelta !== null) {
+      const cfg = offsets.fruitConfig[fruitKey];
+      if (cfg) {
+        cfg.scale = Math.max(0.1, Math.round((cfg.scale + fruitScaleDelta) * 100) / 100);
+      }
+      return;
+    }
+    const expScaleDelta = scaleDelta('exp_scale', 0.05, 0.2);
+    if (expScaleDelta !== null) {
+      offsets.explosionScale = Math.max(
+        0.1,
+        Math.round((offsets.explosionScale + expScaleDelta) * 100) / 100,
+      );
+      return;
+    }
+
+    // Copy JSON
+    if (hit('copy_json')) {
+      void navigator.clipboard.writeText(JSON.stringify(offsets, null, 2));
+      return;
+    }
+
+    // Back
+    if (hit('back')) {
+      this.gameService.currentState = GameState.MENU;
+      return;
+    }
   }
 
   private async openTerrainTool(forceRescan: boolean = false) {
@@ -4249,9 +4842,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const { x, y } = this.getCanvasCoords(event);
 
-    // Mute button is active on every screen except terrain tool and loading
+    // Mute button is active on every screen except terrain tool, layer tool, and loading
     if (
       this.gameService.currentState !== GameState.TERRAIN_TOOL &&
+      this.gameService.currentState !== GameState.LAYER_TOOL &&
       this.gameService.currentState !== GameState.LOADING &&
       !this.isLoading &&
       this.isPointInsideButton(x, y, this.MUTE_BUTTON)
@@ -4269,6 +4863,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.handleOptionsClick(x, y);
     } else if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
       this.handleTerrainToolClick(x, y);
+    } else if (this.gameService.currentState === GameState.LAYER_TOOL) {
+      this.handleLayerToolClick(x, y);
     } else if (
       this.gameService.currentState === GameState.PLAYING ||
       this.gameService.currentState === GameState.PAUSED ||
@@ -4305,6 +4901,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.isPointInsideButton(x, y, this.MENU_TERRAIN_TOOL_BUTTON)
     ) {
       void this.openTerrainTool();
+    }
+
+    if (this.DEV_MODE && this.isPointInsideButton(x, y, this.MENU_TOOLS_BUTTON)) {
+      this.openLayerTool();
     }
   }
 

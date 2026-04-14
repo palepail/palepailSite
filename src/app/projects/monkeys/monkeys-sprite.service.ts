@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
   BackgroundMetadataFile,
   BackgroundSpriteMetadata,
+  LayerOffsetData,
   TerrainMetadataFile,
   TerrainSpriteMetadata,
 } from './monkeys.types';
@@ -45,6 +46,7 @@ export class MonkeysSpriteService {
   private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
   private readonly TERRAIN_METADATA_PATH = 'assets/monkeys/terrain-metadata.json';
   private readonly BACKGROUND_METADATA_PATH = 'assets/monkeys/background-metadata.json';
+  private readonly LAYER_OFFSETS_PATH = 'assets/monkeys/layer-offsets.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
   readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
@@ -58,6 +60,7 @@ export class MonkeysSpriteService {
   private terrainMetadataCache: TerrainMetadataFile | null = null;
   private backgroundMetadataPromise: Promise<BackgroundMetadataFile> | null = null;
   private backgroundMetadataCache: BackgroundMetadataFile | null = null;
+  private layerOffsets: LayerOffsetData | null = null;
 
   loadProgress = 0; // 0–1
   loadLabel = 'Loading...';
@@ -84,6 +87,7 @@ export class MonkeysSpriteService {
 
     try {
       await Promise.all(loadPromises);
+      await this.loadLayerOffsets();
       this.loadProgress = 1;
       this.loadLabel = 'Done';
       console.log('All sprites loaded successfully');
@@ -296,6 +300,23 @@ export class MonkeysSpriteService {
       this.sprites.set(def.name, data);
       this.sprites.set(`${spritesheetPath}:${def.name}`, data);
     }
+  }
+
+  private async loadLayerOffsets(): Promise<void> {
+    try {
+      const response = await fetch(this.LAYER_OFFSETS_PATH);
+      if (!response.ok) {
+        console.warn(`Layer offsets not found at ${this.LAYER_OFFSETS_PATH}`);
+        return;
+      }
+      this.layerOffsets = (await response.json()) as LayerOffsetData;
+    } catch (error) {
+      console.warn('Failed to load layer offsets:', error);
+    }
+  }
+
+  getLayerOffsets(): LayerOffsetData | null {
+    return this.layerOffsets;
   }
 
   getSprite(name: string): SpriteData | null {

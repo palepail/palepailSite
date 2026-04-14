@@ -82,6 +82,7 @@ export enum GameState {
   MENU = 'menu',
   OPTIONS = 'options',
   TERRAIN_TOOL = 'terrain_tool',
+  LAYER_TOOL = 'layer_tool',
   SETUP = 'setup',
   PLAYING = 'playing',
   AFTERMATH = 'aftermath',
@@ -91,6 +92,25 @@ export enum GameState {
   GAME_OVER = 'game_over',
   WIN_DELAY = 'win_delay',
   WIN = 'win',
+}
+
+export interface LayerFrameOffset {
+  hand: { x: number; y: number };
+  fruit: { x: number; y: number };
+  overlay: { x: number; y: number };
+  aboveFruitSpriteName?: string;
+  hideLayers?: string[];
+}
+
+export interface FruitConfig {
+  scale: number;
+  overlayZ: number; // <2 = overlay draws below fruit, >=2 = overlay draws above fruit
+}
+
+export interface LayerOffsetData {
+  explosionScale: number;
+  fruitConfig: Record<string, FruitConfig>;
+  frames: Record<string, LayerFrameOffset>;
 }
 
 export interface TurnEntity {
@@ -266,6 +286,8 @@ export interface Bullet {
   tier?: number; // 1 = primary, 2 = child, 3+ = cascade; default 1
   bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
+  heldItemSprite?: string; // composite layer: item sprite name shown in hand (e.g. 'item_banana')
+  overlaySprite?: string;  // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')
   childBullet?: Bullet; // recursive child definition spawned on impact
   childCount?: number; // how many children to spawn; default 1
   modifiers?: BulletModifier[]; // optional collection of effect modifiers
