@@ -1976,6 +1976,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         const vel = this.gameService.projectile.body.velocity;
         angle = Math.atan2(vel.y, vel.x);
       }
+      const rotSpeed = this.gameService.projectile.bullet.bulletRotationSpeed;
+      if (rotSpeed) {
+        const spinAngle = (performance.now() * rotSpeed / 1000) % (2 * Math.PI);
+        angle = (angle ?? 0) + spinAngle;
+      }
       this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite, angle);
     } else if (this.gameService.aftermathImpactPos) {
       const impactPos = this.gameService.aftermathImpactPos;

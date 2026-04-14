@@ -286,6 +286,7 @@ export interface Bullet {
   tier?: number; // 1 = primary, 2 = child, 3+ = cascade; default 1
   bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
   rotatesToVelocity?: boolean; // if true, bullet sprite rotates to match its velocity angle
+  bulletRotationSpeed?: number; // constant spin in radians/second; added on top of velocity angle if both set
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
   heldItemSprite?: string; // composite layer: item sprite name shown in hand (e.g. 'item_banana')
   overlaySprite?: string;  // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')

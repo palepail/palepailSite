@@ -94,6 +94,7 @@ export const PLAYER_VEHICLE: Vehicle = {
     overlaySprite: 'overlay_banana',
     bulletSprite: 'item_banana',
     rotatesToVelocity: true,
+    bulletRotationSpeed: Math.PI * 4,
     sfxImpact: 'explosion',
   },
 };
