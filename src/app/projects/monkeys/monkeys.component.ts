@@ -1596,10 +1596,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
               : 'idle';
 
     const isComposite = spritesheet === this.COMPOSITE_SPRITESHEET;
-    const isSpecialAnim = (deathAnimationState?.isActive ?? false) || animName === 'hurt';
-    // For composite sprites, death/hurt frames live on the original Lupin.png
-    const lookupSheet = isComposite && isSpecialAnim ? 'Lupin.png' : spritesheet;
-    const sprite = this.spriteService.getEntitySprite(animName, lookupSheet);
+    const sprite = this.spriteService.getEntitySprite(animName, spritesheet);
 
     if (!sprite) {
       return false;
@@ -1615,7 +1612,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.globalAlpha = deathAnimationState.alpha;
     }
 
-    if (isComposite && !isSpecialAnim) {
+    if (isComposite) {
       this.drawCompositeLayers(entity, animName, sprite, spriteSize, spriteYOffset);
     } else {
       this.ctx.drawImage(
@@ -2004,51 +2001,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         continue;
       }
       const screenPos = this.cameraController.worldToScreen(explosion.x, explosion.y);
-      // Create explosion gradient (orange to red)
-      const gradient = this.ctx.createRadialGradient(
-        screenPos.x,
-        screenPos.y,
-        0,
-        screenPos.x,
-        screenPos.y,
-        explosion.radius,
-      );
-      gradient.addColorStop(0, CONST.EXPLOSION_CENTER_COLOR); // Yellow center
-      gradient.addColorStop(0.5, CONST.EXPLOSION_MIDDLE_COLOR); // Orange middle
-      gradient.addColorStop(1, CONST.EXPLOSION_EDGE_COLOR); // Red edge fading to transparent
-
-      this.ctx.fillStyle = gradient;
-      this.ctx.beginPath();
-      if (explosion.shape === 'horizontal_oval') {
-        this.ctx.ellipse(
-          screenPos.x,
-          screenPos.y,
-          explosion.radius * 1.5,
-          explosion.radius,
-          0,
-          0,
-          Math.PI * 2,
-        );
-      } else if (explosion.shape === 'vertical_oval') {
-        this.ctx.ellipse(
-          screenPos.x,
-          screenPos.y,
-          explosion.radius,
-          explosion.radius * 1.5,
-          0,
-          0,
-          Math.PI * 2,
-        );
-      } else {
-        // 'circle' or default
-        this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
-      }
-      this.ctx.fill();
-
-      // Add explosion outline
-      this.ctx.strokeStyle = CONST.EXPLOSION_OUTLINE_COLOR;
-      this.ctx.lineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
-      this.ctx.stroke();
 
       const spritePrefix = explosion.spriteName ?? 'explosion';
       const explosionSprite = this.spriteService.getSprite(
@@ -2080,6 +2032,34 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           spriteWidth,
           spriteHeight,
         );
+      } else {
+        // Fallback: gradient circle
+        const gradient = this.ctx.createRadialGradient(
+          screenPos.x,
+          screenPos.y,
+          0,
+          screenPos.x,
+          screenPos.y,
+          explosion.radius,
+        );
+        gradient.addColorStop(0, CONST.EXPLOSION_CENTER_COLOR);
+        gradient.addColorStop(0.5, CONST.EXPLOSION_MIDDLE_COLOR);
+        gradient.addColorStop(1, CONST.EXPLOSION_EDGE_COLOR);
+
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        if (explosion.shape === 'horizontal_oval') {
+          this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius * 1.5, explosion.radius, 0, 0, Math.PI * 2);
+        } else if (explosion.shape === 'vertical_oval') {
+          this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius, explosion.radius * 1.5, 0, 0, Math.PI * 2);
+        } else {
+          this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
+        }
+        this.ctx.fill();
+
+        this.ctx.strokeStyle = CONST.EXPLOSION_OUTLINE_COLOR;
+        this.ctx.lineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
+        this.ctx.stroke();
       }
     }
   }

@@ -88,6 +88,10 @@
       "hand": { "x": 11, "y": 19 },
       "fruit": { "x": 5, "y": 12 },
       "overlay": { "x": 6, "y": 12 }
-    }
+    },
+    "hurt":    { "hand": {"x": 0, "y": 0}, "fruit": {"x": 0, "y": 0}, "overlay": {"x": 0, "y": 0}, "hideLayers": ["hand", "fruit", "overlay"] },
+    "death_0": { "hand": {"x": 0, "y": 0}, "fruit": {"x": 0, "y": 0}, "overlay": {"x": 0, "y": 0}, "hideLayers": ["hand", "fruit", "overlay"] },
+    "death_1": { "hand": {"x": 0, "y": 0}, "fruit": {"x": 0, "y": 0}, "overlay": {"x": 0, "y": 0}, "hideLayers": ["hand", "fruit", "overlay"] },
+    "death_2": { "hand": {"x": 0, "y": 0}, "fruit": {"x": 0, "y": 0}, "overlay": {"x": 0, "y": 0}, "hideLayers": ["hand", "fruit", "overlay"] }
   }
 }
