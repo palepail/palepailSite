@@ -255,24 +255,17 @@ export interface Projectile {
   bullet: Bullet;
   rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
-  bouncesRemaining?: number; // remaining terrain bounces; counts down from bullet.maxBounces
   spinRate?: number; // radians per second of constant spin for rendering
 }
 
-/**
- * Discriminant for bullet modifier effects.
- * Extend this union with string literals when implementing new modifiers.
- * Example: export type BulletModifierType = 'bounce' | 'poison' | 'fire';
- */
-export type BulletModifierType = string;
+export type BulletModifierType = 'bounce_terrain' | 'bounce_entity' | 'fuse_timer' | 'explode_on_low_speed';
 
-/**
- * A modifier attached to a bullet that triggers a special effect.
- * Specific modifiers will extend this via discriminated union subtypes.
- */
-export interface BulletModifier {
-  type: BulletModifierType;
-}
+export interface BounceTerrainModifier { type: 'bounce_terrain'; restitution?: number; }
+export interface BounceEntityModifier { type: 'bounce_entity'; }
+export interface FuseTimerModifier { type: 'fuse_timer'; ms: number; }
+export interface ExplodeOnLowSpeedModifier { type: 'explode_on_low_speed'; threshold: number; }
+
+export type BulletModifier = BounceTerrainModifier | BounceEntityModifier | FuseTimerModifier | ExplodeOnLowSpeedModifier;
 
 export interface Bullet {
   name: string;
@@ -289,7 +282,6 @@ export interface Bullet {
   bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
   rotatesToVelocity?: boolean; // if true, bullet sprite rotates to match its velocity angle
   bulletRotationSpeed?: number; // constant spin in radians/second; added on top of velocity angle if both set
-  maxBounces?: number; // number of terrain bounces before exploding
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
   heldItemSprite?: string; // composite layer: item sprite name shown in hand (e.g. 'item_banana')
   overlaySprite?: string; // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')

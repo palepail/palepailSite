@@ -86,20 +86,24 @@ export const BANANA_BULLET: Bullet = {
 
 export const APPLE_BULLET: Bullet = {
   name: 'apple',
-  weight: 2,
+  weight: 1,
   damage: 75,
   shape: 'circle',
   explosionShape: 'circle',
   explosionRadius: 35,
   craterRadius: 28,
   speed: 22,
-  maxBounces: 2,
   heldItemSprite: 'item_apple',
   overlaySprite: 'overlay_apple',
   bulletSprite: 'item_apple',
   rotatesToVelocity: true,
   bulletRotationSpeed: Math.PI * 5,
   sfxImpact: 'explosion',
+  modifiers: [
+    { type: 'bounce_terrain', restitution: 0.78 },
+    { type: 'bounce_entity' },
+    { type: 'explode_on_low_speed', threshold: 1.5 },
+  ],
 };
 
 const PEANUT_PELLET: Bullet = {
@@ -169,6 +173,10 @@ const CLUSTER_FRAGMENT: Bullet = {
   bulletSprite: 'cluster_fragment',
   explosionSprite: 'cluster_explosion',
   sfxImpact: 'explosion',
+  modifiers: [
+    { type: 'bounce_terrain' },
+    { type: 'fuse_timer', ms: 1800 },
+  ],
 };
 
 export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {

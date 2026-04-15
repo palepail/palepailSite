@@ -406,9 +406,6 @@ class CameraController {
     return { x: worldX - this.camera.x, y: worldY - this.camera.y };
   }
 
-  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-    return { x: screenX + this.camera.x, y: screenY + this.camera.y };
-  }
 }
 
 export { CameraController };

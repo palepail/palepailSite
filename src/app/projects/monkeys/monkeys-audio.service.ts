@@ -168,19 +168,6 @@ export class MonkeysAudioService {
     }
   }
 
-  playGame(): void {
-    this.activeTrack = 'game';
-    if (this.menuAudio && !this.menuAudio.paused) {
-      this.menuAudio.pause();
-    }
-    if (this.gameAudio) {
-      this.gameAudio.currentTime = 0;
-      this.gameAudio.play().catch(() => {
-        // Autoplay may be blocked until user interacts; unlockAudio() will retry
-      });
-    }
-  }
-
   stopAll(): void {
     this.activeTrack = 'none';
     if (this.menuAudio && !this.menuAudio.paused) {

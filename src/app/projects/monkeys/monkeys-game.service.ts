@@ -6,16 +6,12 @@ import {
   Player,
   Enemy,
   GameState,
-  Explosion,
-  DamageText,
   AftermathCallout,
   TurnEntity,
   Projectile,
   TerrainChunkPlacement,
-  TerrainSpriteMetadata,
   Vehicle,
   EquipmentItem,
-  EquipmentSet,
   EquipmentSlot,
   EquipmentStats,
 } from './monkeys.types';
@@ -24,7 +20,6 @@ import { MonkeysSpriteService } from './monkeys-sprite.service';
 import { EnemyFactoryService } from './enemy-factory.service';
 import { TerrainService } from './terrain.service';
 import { PhysicsService } from './physics.service';
-import { AIService } from './ai.service';
 import { TurnService } from './turn.service';
 import { EquipmentService } from './equipment.service';
 import { ProjectileService } from './projectile.service';
@@ -45,11 +40,6 @@ export class MonkeysGameService {
   public Body: any;
   public Composite: any;
 
-  // Game state
-  private engine: any;
-  private world: any;
-  private runner: any;
-
   // Game data
   player: Player;
   enemies: Enemy[] = [];
@@ -58,14 +48,12 @@ export class MonkeysGameService {
   difficulty: 'easy' | 'normal' | 'hard' = 'normal';
 
   // Turn-based system
-  private _turnStartTime: number = 0;
   private lastUpdateTime = Date.now();
 
   // Flags
   isCharging = false;
   chargeStartTime = 0;
   lastFiredPowerRatio: number | null = null;
-  private playerShotThisTurn = false;
   private shooterThisTurn: Player | Enemy | null = null;
 
   // Aftermath
@@ -97,7 +85,6 @@ export class MonkeysGameService {
     private enemyFactory: EnemyFactoryService,
     private terrainService: TerrainService,
     private physicsService: PhysicsService,
-    private aiService: AIService,
     private turnService: TurnService,
     private equipmentService: EquipmentService,
     private projectileService: ProjectileService,
@@ -419,34 +406,6 @@ export class MonkeysGameService {
         this.enemyShoot(entity as Enemy, entity.power);
       }
       entity.turnState = 'bullet_in_flight';
-    }
-  }
-
-  private updateEntityPhysics(entity: Player | Enemy) {
-    if (entity.body) {
-      entity.x = entity.body.position.x;
-      entity.y = entity.body.position.y;
-      // Clamp horizontal position to terrain bounds
-      entity.x = Math.max(0, Math.min(CONST.TERRAIN_WIDTH, entity.x));
-      this.Body.setPosition(entity.body, { x: entity.x, y: entity.y });
-      // Transition out of pushback once the body has settled
-      if (
-        entity.entityState === 'pushback' &&
-        Math.abs(entity.body.velocity.x) < 0.5 &&
-        Math.abs(entity.body.velocity.y) < 0.5
-      ) {
-        entity.entityState = 'idle';
-      }
-      // Update terrain angle
-      entity.terrainAngle = this.collisionService.getTerrainAngleAt(
-        entity.x,
-        this.terrainService.terrain,
-      );
-      // Smoothly interpolate angle toward target
-      if (entity.targetAngle !== undefined) {
-        const diff = entity.targetAngle - entity.angle;
-        entity.angle += diff * 0.1; // 10% interpolation per frame
-      }
     }
   }
 
@@ -836,7 +795,18 @@ export class MonkeysGameService {
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
-    if (bullet.shotgunCount) {
+    if (bullet.modifiers?.some(m => m.type === 'bounce_entity')) {
+      this.projectileService.spawnPhysicsPrimaryProjectile(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        enemy,
+        bullet,
+        this.physicsService,
+        bullet.name,
+        power,
+      );
+    } else if (bullet.shotgunCount) {
       this.projectileService.spawnShotgunPellets(
         barrelEndX,
         barrelEndY,
@@ -866,7 +836,6 @@ export class MonkeysGameService {
         owner: enemy,
         bullet: bullet,
         rootBulletName: bullet.name,
-        bouncesRemaining: bullet.maxBounces ?? 0,
       };
     }
     enemy.chargeStartTime = 0;
@@ -913,7 +882,6 @@ export class MonkeysGameService {
 
     // Reset turn time
     this.turnService.turnTime = 0;
-    this.playerShotThisTurn = false;
     this.shooterThisTurn = null;
 
     // Stop any walk loops from the previous turn
@@ -1187,7 +1155,18 @@ export class MonkeysGameService {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    if (bullet.shotgunCount) {
+    if (bullet.modifiers?.some(m => m.type === 'bounce_entity')) {
+      this.projectileService.spawnPhysicsPrimaryProjectile(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        this.player,
+        bullet,
+        this.physicsService,
+        bullet.name,
+        this.player.power,
+      );
+    } else if (bullet.shotgunCount) {
       this.projectileService.spawnShotgunPellets(
         barrelEndX,
         barrelEndY,
@@ -1217,7 +1196,6 @@ export class MonkeysGameService {
         owner: this.player,
         bullet: bullet,
         rootBulletName: bullet.name,
-        bouncesRemaining: bullet.maxBounces ?? 0,
       };
     }
 
@@ -1227,21 +1205,8 @@ export class MonkeysGameService {
     this.player.entityState = 'shooting';
     this.player.shotReleaseStartMs = Date.now();
     this.player.turnState = 'bullet_in_flight';
-    this.playerShotThisTurn = true;
     this.shooterThisTurn = this.player;
     this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
-  }
-
-  private updateDamageTexts() {
-    for (let i = this.damageTexts.length - 1; i >= 0; i--) {
-      const text = this.damageTexts[i];
-      text.y -= CONST.DAMAGE_TEXT_RISE_SPEED;
-      text.life--;
-
-      if (text.life <= 0) {
-        this.damageTexts.splice(i, 1);
-      }
-    }
   }
 
   getEntityDisplayedAngle(entity: Player | Enemy): number {
