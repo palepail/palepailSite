@@ -1308,6 +1308,7 @@ export class MonkeysGameService {
     angleRad: number,
     power: number,
     bullet: any,
+    ignoreWind = false,
   ) {
     return this.physicsService.simulateTrajectory(
       barrelEndX,
@@ -1315,8 +1316,8 @@ export class MonkeysGameService {
       angleRad,
       power,
       bullet,
-      this.physicsService.windSpeed,
-      this.physicsService.windAngle,
+      ignoreWind ? 0 : this.physicsService.windSpeed,
+      ignoreWind ? 0 : this.physicsService.windAngle,
       this.terrainService.terrain,
     );
   }

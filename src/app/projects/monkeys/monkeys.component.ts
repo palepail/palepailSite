@@ -1470,6 +1470,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       angleRad,
       power,
       bullet,
+      true, // dotted preview ignores wind
     );
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 2;
