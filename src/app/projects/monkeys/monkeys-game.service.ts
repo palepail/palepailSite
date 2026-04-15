@@ -1232,18 +1232,6 @@ export class MonkeysGameService {
     this.sfxService.play({ category: this.player.vehicle.sfxFire ?? 'fire' });
   }
 
-  private updateExplosions() {
-    for (let i = this.explosions.length - 1; i >= 0; i--) {
-      const explosion = this.explosions[i];
-      explosion.radius += CONST.EXPLOSION_EXPANSION_RATE;
-      explosion.life--;
-
-      if (explosion.life <= 0 || explosion.radius >= explosion.maxRadius) {
-        this.explosions.splice(i, 1);
-      }
-    }
-  }
-
   private updateDamageTexts() {
     for (let i = this.damageTexts.length - 1; i >= 0; i--) {
       const text = this.damageTexts[i];

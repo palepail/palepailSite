@@ -34,6 +34,7 @@ import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
 import { MonkeysAudioService } from './monkeys-audio.service';
 import { MonkeysSfxService } from './monkeys-sfx.service';
+import { ShieldAnimationService } from './shield-animation.service';
 import { CameraController } from './camera-controller';
 import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 
@@ -208,13 +209,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
   private readonly HURT_SPRITE_DURATION_MS = 300;
-  private readonly SHIELD_IDLE_FRAME_MS = 80;
-  private readonly SHIELD_IDLE_FRAMES = 14;
-  private readonly SHIELD_IDLE_HOLD_MS = 3000;
-  private readonly SHIELD_DAMAGE_FRAME_MS = 60;
-  private readonly SHIELD_DAMAGE_FRAMES = 6;
-  private readonly SHIELD_BREAK_FRAME_MS = 80;
-  private readonly SHIELD_BREAK_FRAMES = 8;
   private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
   private readonly DEATH_SPRITE_FRAME_COUNT = 3;
   private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
@@ -324,11 +318,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     '/': 'arena_slash',
   };
 
-  // Shield animation state machine per entity
-  private shieldStateByEntity = new WeakMap<object, 'idle' | 'damage' | 'break'>();
-  private shieldAnimStartByEntity = new WeakMap<object, number>();
-  private shieldIdleStartByEntity = new WeakMap<object, number>();
-  private prevShieldHealthByEntity = new WeakMap<object, number>();
   private terrainToolImage: HTMLImageElement | HTMLCanvasElement | null = null;
   private terrainToolRegions: TerrainSpriteRegion[] = [];
   private terrainToolSelectedRegionId: number | null = null;
@@ -463,6 +452,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     private spriteService: MonkeysSpriteService,
     private audioService: MonkeysAudioService,
     private sfxService: MonkeysSfxService,
+    private shieldAnimService: ShieldAnimationService,
   ) {}
 
   ngOnInit() {
@@ -564,10 +554,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.setupStartTime = Date.now();
     this.generateBgTreeInstances();
     this.gameOverAnim.animStart = 0;
-    this.shieldStateByEntity = new WeakMap();
-    this.shieldAnimStartByEntity = new WeakMap();
-    this.shieldIdleStartByEntity = new WeakMap();
-    this.prevShieldHealthByEntity = new WeakMap();
+    this.shieldAnimService.reset();
 
     // Add mouse listeners for camera control
     this.canvas.nativeElement.addEventListener('mousedown', (event) => this.onMouseDown(event));
@@ -640,7 +627,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.updateShieldAnimState();
+    this.shieldAnimService.update(this.gameService.player, this.gameService.enemies, this.renderTime);
     this.updateHurtSpriteState();
 
     // Check if setup is complete: minimum 1s elapsed AND all vehicles have landed
@@ -1184,53 +1171,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private getShieldIdleFrame(now: number, idleStart: number): number {
-    const cycleDuration =
-      this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS + this.SHIELD_IDLE_HOLD_MS;
-    const pos = (now - idleStart) % cycleDuration;
-    return pos < this.SHIELD_IDLE_FRAMES * this.SHIELD_IDLE_FRAME_MS
-      ? Math.floor(pos / this.SHIELD_IDLE_FRAME_MS)
-      : this.SHIELD_IDLE_FRAMES - 1;
-  }
-
   private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
     if (this.gameService.currentState === GameState.SETUP) return;
-    const key = entity as object;
-    const currentShield = entity.currentShieldHealth ?? 0;
-    const state = this.shieldStateByEntity.get(key) ?? 'idle';
-    const animStart = this.shieldAnimStartByEntity.get(key) ?? 0;
     const now = this.renderTime;
-
-    let spriteName: string;
-    let rotation = 0;
-
-    if (state === 'break') {
-      const frame = Math.floor((now - animStart) / this.SHIELD_BREAK_FRAME_MS);
-      if (frame >= this.SHIELD_BREAK_FRAMES) {
-        this.shieldStateByEntity.delete(key);
-        return;
-      }
-      spriteName = `shield_break_${frame}`;
-      rotation = entity.shieldHitAngle ?? 0;
-    } else if (state === 'damage') {
-      const frame = Math.floor((now - animStart) / this.SHIELD_DAMAGE_FRAME_MS);
-      if (frame >= this.SHIELD_DAMAGE_FRAMES) {
-        this.shieldStateByEntity.set(key, 'idle');
-        this.shieldIdleStartByEntity.set(key, now);
-        if (currentShield <= 0) return;
-        spriteName = `shield_idle_${this.getShieldIdleFrame(now, now)}`;
-      } else {
-        spriteName = `shield_damage_${frame}`;
-        rotation = entity.shieldHitAngle ?? 0;
-      }
-    } else {
-      if (currentShield <= 0) return;
-      if (!this.shieldIdleStartByEntity.has(key)) {
-        this.shieldIdleStartByEntity.set(key, now);
-      }
-      const idleStart = this.shieldIdleStartByEntity.get(key)!;
-      spriteName = `shield_idle_${this.getShieldIdleFrame(now, idleStart)}`;
-    }
+    const drawInfo = this.shieldAnimService.getShieldDrawInfo(entity, now);
+    if (!drawInfo) return;
+    const { spriteName, rotation } = drawInfo;
 
     const sprite = this.spriteService.getSprite(spriteName);
     if (!sprite) return;
@@ -1813,25 +1759,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     entity.prevHealth = currentHealth;
-  }
-
-  private updateShieldAnimState() {
-    const now = this.renderTime;
-    this.trackEntityShieldHit(this.gameService.player, now);
-    for (const enemy of this.gameService.enemies) {
-      this.trackEntityShieldHit(enemy, now);
-    }
-  }
-
-  private trackEntityShieldHit(entity: any, now: number) {
-    const key = entity as object;
-    const current = entity.currentShieldHealth ?? 0;
-    const prev = this.prevShieldHealthByEntity.get(key);
-    if (prev !== undefined && current < prev) {
-      this.shieldStateByEntity.set(key, current <= 0 ? 'break' : 'damage');
-      this.shieldAnimStartByEntity.set(key, now);
-    }
-    this.prevShieldHealthByEntity.set(key, current);
   }
 
   private drawEntityBody(

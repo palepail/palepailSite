@@ -3,19 +3,24 @@ import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.type
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { DamageService } from './damage.service';
+import { ImpactService } from './impact.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProjectileService {
   private damageService = inject(DamageService);
+  private impactService = inject(ImpactService);
 
   constructor(private sfxService: MonkeysSfxService) {}
 
   projectile: Projectile | null = null;
   childProjectiles: Projectile[] = [];
-  explosions: Explosion[] = [];
   lastImpactPos: { x: number; y: number } | null = null;
+
+  get explosions() {
+    return this.impactService.explosions;
+  }
 
   isProjectileInFlight(): boolean {
     return this.projectile !== null || this.childProjectiles.length > 0;
@@ -203,23 +208,15 @@ export class ProjectileService {
 
     this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
 
-    this.explosions.push({
-      x: explosionX,
-      y: explosionY,
-      radius: CONST.EXPLOSION_INITIAL_RADIUS,
-      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-      life: CONST.EXPLOSION_LIFETIME_FRAMES,
-      shape: this.projectile.bullet.explosionShape,
-      spriteName: projectileSnapshot.bullet.explosionSprite,
-    });
+    this.impactService.pushExplosion(explosionX, explosionY, projectileSnapshot.bullet);
 
     // Create crater first so the knockback wall-check uses post-explosion terrain.
-    this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
+    this.impactService.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35; // 0.45x–0.80x random size
       const offsetX = (Math.random() - 0.5) * 20; // ±10px random offset
       const offsetY = (Math.random() - 0.5) * 20;
-      this.createCrater(
+      this.impactService.createCrater(
         explosionX + offsetX,
         explosionY + offsetY,
         depthTerrain,
@@ -358,31 +355,7 @@ export class ProjectileService {
     bullet: any,
     radiusScale = 1,
   ): void {
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    let craterRadiusX = bullet.craterRadius * radiusScale;
-    let craterRadiusY = bullet.craterRadius * radiusScale;
-    if (bullet.explosionShape === 'horizontal_oval') {
-      craterRadiusX = bullet.craterRadius * 1.5 * radiusScale;
-    } else if (bullet.explosionShape === 'vertical_oval') {
-      craterRadiusY = bullet.craterRadius * 1.5 * radiusScale;
-    }
-
-    for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
-      for (let y = centerY - craterRadiusY; y < centerY + craterRadiusY; y++) {
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const normalizedDist = Math.sqrt((dx / craterRadiusX) ** 2 + (dy / craterRadiusY) ** 2);
-        if (normalizedDist <= 1) {
-          const ix = Math.floor(x);
-          const iy = Math.floor(y - terrainY);
-          if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
-            if (terrain[ix] && terrain[ix][iy] !== 0) {
-              terrain[ix][iy] = 0; // Remove terrain (solid and visual-only)
-            }
-          }
-        }
-      }
-    }
+    this.impactService.createCrater(centerX, centerY, terrain, bullet, radiusScale);
   }
 
   private findChildShieldHit(
@@ -700,22 +673,14 @@ export class ProjectileService {
 
     this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
 
-    this.explosions.push({
-      x: child.x,
-      y: child.y,
-      radius: CONST.EXPLOSION_INITIAL_RADIUS,
-      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-      life: CONST.EXPLOSION_LIFETIME_FRAMES,
-      shape: child.bullet.explosionShape,
-      spriteName: child.bullet.explosionSprite,
-    });
+    this.impactService.pushExplosion(child.x, child.y, child.bullet);
 
-    this.createCrater(child.x, child.y, terrain, child.bullet);
+    this.impactService.createCrater(child.x, child.y, terrain, child.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35;
       const offsetX = (Math.random() - 0.5) * 20;
       const offsetY = (Math.random() - 0.5) * 20;
-      this.createCrater(
+      this.impactService.createCrater(
         child.x + offsetX,
         child.y + offsetY,
         depthTerrain,
@@ -749,16 +714,8 @@ export class ProjectileService {
     this.childProjectiles.splice(index, 1);
   }
 
-  updateExplosions() {
-    for (let i = this.explosions.length - 1; i >= 0; i--) {
-      const explosion = this.explosions[i];
-      explosion.radius += CONST.EXPLOSION_EXPANSION_RATE;
-      explosion.life--;
-
-      if (explosion.life <= 0 || explosion.radius >= explosion.maxRadius) {
-        this.explosions.splice(i, 1);
-      }
-    }
+  updateExplosions(): void {
+    this.impactService.updateExplosions();
   }
 
   updateDamageTexts() {
