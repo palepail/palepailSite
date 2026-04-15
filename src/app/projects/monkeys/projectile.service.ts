@@ -433,7 +433,7 @@ export class ProjectileService {
       const vy = -Math.sin(angleRad) * speed;
 
       const body = physicsService.Bodies.circle(barrelX, barrelY, CONST.PROJECTILE_RADIUS, {
-        frictionAir: 0,
+        frictionAir: 0.015,
         restitution: 0,
         friction: CONST.PROJECTILE_FRICTION,
       });
@@ -448,6 +448,7 @@ export class ProjectileService {
         bullet: pellet,
         rootBulletName: rootBulletName || bullet.name || '',
         spawnTimeMs: Date.now(),
+        spinRate: (Math.random() * 8 + 4) * (Math.random() < 0.5 ? 1 : -1),
       });
     }
   }

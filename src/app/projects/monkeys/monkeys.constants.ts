@@ -106,14 +106,13 @@ const PEANUT_PELLET: Bullet = {
   name: 'peanut_pellet',
   tier: 2,
   weight: 1,
-  damage: 12,
+  damage: 20,
   shape: 'circle',
   explosionShape: 'circle',
-  explosionRadius: 14,
-  craterRadius: 10,
+  explosionRadius: 30,
+  craterRadius: 16,
   speed: 24,
-  bulletSprite: 'cluster_fragment',
-  explosionSprite: 'cluster_explosion',
+  bulletSprite: 'item_peanut',
   sfxImpact: 'explosion',
 };
 
@@ -129,7 +128,7 @@ export const PEANUT_BULLET: Bullet = {
   heldItemSprite: 'item_peanut',
   overlaySprite: 'overlay_peanut',
   bulletSprite: 'item_peanut',
-  shotgunCount: 12,
+  shotgunCount: 8,
   shotgunSpreadRad: 0.45, // ±~13° either side
   childBullet: PEANUT_PELLET,
 };

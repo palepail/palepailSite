@@ -2127,7 +2127,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.spriteService.getSprite(`${prefix}_${bulletFrameIndex}`) ??
         this.spriteService.getSprite(prefix);
       const screenPos = this.cameraController.worldToScreen(child.x, child.y);
-      this.drawBulletAt(screenPos, sprite);
+      let angle: number | undefined;
+      if (child.spinRate !== undefined) {
+        const elapsed = (this.renderTime - (child.spawnTimeMs ?? this.renderTime)) / 1000;
+        angle = (elapsed * child.spinRate) % (2 * Math.PI);
+      }
+      this.drawBulletAt(screenPos, sprite, angle);
     }
   }
 

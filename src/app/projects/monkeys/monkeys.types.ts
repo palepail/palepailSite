@@ -256,6 +256,7 @@ export interface Projectile {
   rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
   bouncesRemaining?: number; // remaining terrain bounces; counts down from bullet.maxBounces
+  spinRate?: number; // radians per second of constant spin for rendering
 }
 
 /**
