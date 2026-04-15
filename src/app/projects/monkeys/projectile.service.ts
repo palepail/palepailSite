@@ -601,7 +601,9 @@ export class ProjectileService {
       const colData = terrain[px];
       let surfaceWorldY = proj.y - r;
       if (colData) {
-        for (let ly = 0; ly < colData.length; ly++) {
+        // Scan downward from bullet center — finds floor below, not cliff top above.
+        const startLY = Math.max(0, Math.floor(proj.y) - tbY);
+        for (let ly = startLY; ly < colData.length; ly++) {
           if (colData[ly] === 1) { surfaceWorldY = tbY + ly; break; }
         }
       }
@@ -614,13 +616,21 @@ export class ProjectileService {
         }
         return surfaceWorldY;
       };
-      const span = 4;
-      const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
-      let nx = slope;
-      let ny = -1;
-      const nLen = Math.sqrt(nx * nx + 1);
-      nx /= nLen;
-      ny /= nLen;
+      let nx: number, ny: number;
+      if (lateralHit && !bottomHit) {
+        // Cliff face — getSY returns the cliff top, not the face. Use horizontal outward normal.
+        const hitRight = isTerrainAt(proj.x + r, proj.y);
+        nx = hitRight ? -1 : 1;
+        ny = 0;
+      } else {
+        const span = 4;
+        const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
+        nx = slope;
+        ny = -1;
+        const nLen = Math.sqrt(nx * nx + 1);
+        nx /= nLen;
+        ny /= nLen;
+      }
 
       const vel = body.velocity;
       const dot = vel.x * nx + vel.y * ny;
@@ -639,7 +649,7 @@ export class ProjectileService {
             y: (vel.y - dot * ny) * ROLLING_FRICTION,
           });
         }
-        if (bottomHit) {
+        if (bottomHit && !lateralHit) {
           physicsService.Body.setPosition(body, { x: proj.x, y: surfaceWorldY - r - 1 });
         }
       }
@@ -891,19 +901,17 @@ export class ProjectileService {
         }
         const px = Math.floor(child.x);
 
-        // Find topmost solid pixel in this column to get the real surface Y
+        // Scan downward from bullet center for surface Y — avoids snapping to cliff top above.
         const colData = terrain[px];
-        let surfaceWorldY = child.y - r; // fallback: don't change Y
+        let surfaceWorldY = child.y - r;
         if (colData) {
-          for (let ly = 0; ly < colData.length; ly++) {
-            if (colData[ly] === 1) {
-              surfaceWorldY = tbY + ly;
-              break;
-            }
+          const startLY = Math.max(0, Math.floor(child.y) - tbY);
+          for (let ly = startLY; ly < colData.length; ly++) {
+            if (colData[ly] === 1) { surfaceWorldY = tbY + ly; break; }
           }
         }
 
-        // Compute terrain slope from neighbouring columns for proper reflection normal
+        // Compute reflection normal: horizontal outward normal for cliff walls, slope-based for floors.
         const getSY = (col: number): number => {
           if (col < 0 || col >= CONST.TERRAIN_WIDTH) return surfaceWorldY;
           const cd = terrain[col];
@@ -913,14 +921,20 @@ export class ProjectileService {
           }
           return surfaceWorldY;
         };
-        const span = 4;
-        const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
-        // Normal = perpendicular to surface tangent, pointing upward (negative Y in screen coords)
-        let nx = slope;
-        let ny = -1;
-        const nLen = Math.sqrt(nx * nx + 1); // ny² = 1
-        nx /= nLen;
-        ny /= nLen;
+        let nx: number, ny: number;
+        if (lateralHit && !bottomHit) {
+          const hitRight = isTerrainAt(child.x + r, child.y);
+          nx = hitRight ? -1 : 1;
+          ny = 0;
+        } else {
+          const span = 4;
+          const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
+          nx = slope;
+          ny = -1;
+          const nLen = Math.sqrt(nx * nx + 1);
+          nx /= nLen;
+          ny /= nLen;
+        }
 
         const vel = child.body.velocity;
         const dot = vel.x * nx + vel.y * ny;
@@ -946,9 +960,9 @@ export class ProjectileService {
             });
           }
 
-          // Only snap to surface on floor contact — lateral cliff-face hits must not
+          // Only snap to surface on pure floor contact — lateral or corner hits must not
           // reposition Y or the fragment teleports to the cliff top/bottom.
-          if (bottomHit) {
+          if (bottomHit && !lateralHit) {
             physicsService.Body.setPosition(child.body, {
               x: child.x,
               y: surfaceWorldY - r - 1,
