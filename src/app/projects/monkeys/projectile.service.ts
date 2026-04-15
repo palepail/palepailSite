@@ -162,7 +162,7 @@ export class ProjectileService {
         const scale = shield / Math.max(sdist, 0.001);
         this.projectile.x = entity.x + sdx * scale;
         this.projectile.y = entity.y + sdy * scale;
-        entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
+        entity.currentShieldHealth = Math.max(0, (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage);
         entity.shieldHitAngle = Math.atan2(sdy, sdx);
         if ((entity.currentShieldHealth ?? 0) <= 0) {
           this.sfxService.play({ category: 'shield_break' });
@@ -381,6 +381,24 @@ export class ProjectileService {
     }
   }
 
+  private findChildShieldHit(
+    child: Projectile,
+    player: Player,
+    enemies: Enemy[],
+  ): Player | Enemy | null {
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+    for (const entity of entities) {
+      if (!entity.active) continue;
+      if ((entity as object) === (child.owner as object)) continue;
+      const shield = entity.vehicle?.shieldRadius;
+      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+      const dx = child.x - entity.x;
+      const dy = child.y - entity.y;
+      if (Math.sqrt(dx * dx + dy * dy) < shield) return entity;
+    }
+    return null;
+  }
+
   checkEntityCollisions(projectile: Projectile, player: Player, enemies: Enemy[]): boolean {
     const entities: (Player | Enemy)[] = [player, ...enemies];
 
@@ -543,6 +561,26 @@ export class ProjectileService {
       // Timer fuse: explode after 1.8 seconds
       if (Date.now() - (child.spawnTimeMs ?? 0) >= 1800) {
         this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+        continue;
+      }
+
+      // Shield boundary check — damage shield and absorb child projectile without explosion
+      const shieldedTarget = this.findChildShieldHit(child, player, enemies);
+      if (shieldedTarget) {
+        const dx = child.x - shieldedTarget.x;
+        const dy = child.y - shieldedTarget.y;
+        shieldedTarget.currentShieldHealth = Math.max(
+          0,
+          (shieldedTarget.currentShieldHealth ?? 0) - child.bullet.damage,
+        );
+        shieldedTarget.shieldHitAngle = Math.atan2(dy, dx);
+        if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
+          this.sfxService.play({ category: 'shield_break' });
+        } else {
+          this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
+        }
+        physicsService.World.remove(physicsService.world, child.body);
+        this.childProjectiles.splice(i, 1);
         continue;
       }
 

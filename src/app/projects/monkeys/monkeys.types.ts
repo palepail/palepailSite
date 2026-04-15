@@ -318,7 +318,7 @@ export interface Vehicle {
   lifesteal?: number; // % of damage dealt healed back to player; set by applyEquipmentToVehicle
   weight?: number; // pushback resistance; base 10; higher = less knockback, lower = more
   shieldRadius?: number; // radius of the hit-absorbing shield in px
-  shieldHealth?: number; // number of hits the shield can absorb before breaking
+  shieldHealth?: number; // HP of the shield; depleted by bullet damage, breaks when reaching 0
   aimGuide?: string; // set bonus from Scout set; activates trajectory arc preview
   sfxWalk?: string; // sfx-bank category for movement loop
   sfxFire?: string; // sfx-bank category played when firing
@@ -342,7 +342,7 @@ export interface EquipmentStats {
   lifesteal?: number; // % of damage dealt restored as health (e.g. 20 = 20%)
   weight?: number; // modifier to vehicle.weight (hidden stat)
   shieldRadius?: number; // radius of hit-absorbing shield in px
-  shieldHealth?: number; // number of incoming hits the shield can absorb
+  shieldHealth?: number; // HP contributed to the entity's shield
   // Accessory abilities — stored but not yet implemented
   aimGuide?: 'extended' | 'full';
 }

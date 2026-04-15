@@ -1933,7 +1933,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw movement gauge if moving
     if (Math.abs(entity.body.velocity.x) > 0.1) {
       const movementRatio = entity.movementFuel / entity.vehicle.fuel;
-      const movementBarY = barY + barHeight + 2; // Below health bar
+      const movementBarY = barY + barHeight + 2;
       // Background
       this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
       this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
@@ -2915,7 +2915,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const b = set.bonus;
     const lines: string[] = [];
     if (b.lifesteal) lines.push(`Lifesteal ${b.lifesteal}%`);
-    if (b.shieldHealth) lines.push(`Shield x${b.shieldHealth}`);
+    if (b.shieldHealth) lines.push(`Shield ${b.shieldHealth} HP`);
     if (b.aimGuide) lines.push('Aim Guide');
     if (b.pushbackMultiplier !== undefined)
       lines.push(
