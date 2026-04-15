@@ -90,6 +90,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     'text_Y',
     'text_S',
   ];
+  // Menu monkey fall-in animation state
+  private menuMonkeyState: { startMs: number; fruitIndex: number } | null = null;
+
   private menuTitleAnim: BouncingLetterAnimState = {
     cfg: {
       letterSize: 96,
@@ -3576,6 +3579,113 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // ─── Menu ─────────────────────────────────────────────────────────────
 
+  private easeOutBounce(t: number): number {
+    const n1 = 7.5625,
+      d1 = 2.75;
+    if (t < 1 / d1) return n1 * t * t;
+    if (t < 2 / d1) {
+      t -= 1.5 / d1;
+      return n1 * t * t + 0.75;
+    }
+    if (t < 2.5 / d1) {
+      t -= 2.25 / d1;
+      return n1 * t * t + 0.9375;
+    }
+    t -= 2.625 / d1;
+    return n1 * t * t + 0.984375;
+  }
+
+  private drawMenuMonkey(): void {
+    const now = this.renderTime;
+    if (!this.menuMonkeyState) {
+      this.menuMonkeyState = {
+        startMs: now,
+        fruitIndex: Math.floor(Math.random() * this.WEAPON_SPRITES.length),
+      };
+    }
+
+    const FALL_DURATION = 1500;
+    const CX = 600; // center of the menu panel
+    const START_Y = -80;
+    const END_Y = 340; // monkey feet rest on top of the panel (panel top = 350)
+    const MONKEY_SCALE = 1;
+
+    const elapsed = now - this.menuMonkeyState.startMs;
+    const t = Math.min(1, elapsed / FALL_DURATION);
+    const cy = START_Y + (END_Y - START_Y) * this.easeOutBounce(t);
+
+    const fruitKey = this.WEAPON_SPRITES[this.menuMonkeyState.fruitIndex];
+    const fruitToOverlay: Record<string, string> = {
+      item_banana: 'overlay_banana',
+      item_apple: 'overlay_apple',
+      item_peanut: 'overlay_peanut',
+    };
+    const overlayKey = fruitToOverlay[fruitKey] ?? null;
+
+    const layerOffsets = this.spriteService.getLayerOffsets();
+    const frameName = 'idle';
+    const frameOffsets = layerOffsets?.frames[frameName];
+    const fruitCfg = layerOffsets?.fruitConfig[fruitKey] ?? null;
+    const fruitScale = fruitCfg?.scale ?? 1.0;
+    const overlayZ = fruitCfg?.overlayZ ?? 3;
+
+    const backSprite = this.spriteService.getEntitySprite(frameName, this.COMPOSITE_SPRITESHEET);
+    const fruitSprite = this.spriteService.getSprite(fruitKey);
+    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+    const overlaySprite = overlayKey ? this.spriteService.getSprite(overlayKey) : null;
+    if (!backSprite) return;
+
+    const spriteSize = CONST.TANK_BODY_RADIUS * 2 * 1.5; // 81 — matches gameplay
+    const spriteYOffset = -15;
+
+    const drawLayer = (
+      spr: { image: CanvasImageSource; x: number; y: number; width: number; height: number } | null,
+      sz: number,
+      ox: number,
+      oy: number,
+    ) => {
+      if (!spr) return;
+      this.ctx.drawImage(
+        spr.image,
+        spr.x,
+        spr.y,
+        spr.width,
+        spr.height,
+        -sz / 2 + ox,
+        -sz / 2 + spriteYOffset + oy,
+        sz,
+        sz,
+      );
+    };
+
+    const drawOverlay = () => {
+      if (!overlaySprite || frameOffsets?.hideLayers?.includes('overlay')) return;
+      drawLayer(
+        overlaySprite,
+        spriteSize,
+        frameOffsets?.overlay.x ?? 0,
+        frameOffsets?.overlay.y ?? 0,
+      );
+    };
+
+    this.ctx.save();
+    this.ctx.translate(CX, cy);
+    this.ctx.scale(-MONKEY_SCALE, MONKEY_SCALE); // flip horizontally + scale up
+
+    drawLayer(backSprite, spriteSize, 0, 0);
+    if (overlayZ < 2) drawOverlay();
+    if (fruitSprite && !frameOffsets?.hideLayers?.includes('fruit')) {
+      const fruitSz = spriteSize * fruitScale;
+      drawLayer(fruitSprite, fruitSz, frameOffsets?.fruit.x ?? 0, frameOffsets?.fruit.y ?? 0);
+    }
+    if (handSprite && !frameOffsets?.hideLayers?.includes('hand')) {
+      drawLayer(handSprite, spriteSize, frameOffsets?.hand.x ?? 0, frameOffsets?.hand.y ?? 0);
+    }
+    if (overlayZ >= 2) drawOverlay();
+
+    this.ctx.restore();
+  }
+
   private drawMenu() {
     // Background
     this.ctx.fillStyle = CONST.SKY_COLOR;
@@ -3593,21 +3703,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawSpriteTextCentered('Inspired By', 165, 32);
     this.drawSpriteTextCentered('GORILLAS Gunbound WORMS', 207, 32);
 
-    // Draw idle sprite
-    const idleSprite = this.spriteService.getEntitySprite('idle', 'Lupin.png');
-    if (idleSprite) {
-      this.ctx.drawImage(
-        idleSprite.image,
-        idleSprite.x,
-        idleSprite.y,
-        idleSprite.width,
-        idleSprite.height,
-        CONST.CANVAS_WIDTH / 2 - 32,
-        303,
-        64,
-        64,
-      );
-    }
+    // Draw menu monkey (falls in from above, sits on panel)
+    this.drawMenuMonkey();
 
     // Backdrop panel behind buttons
     const devBtnCount = (this.TERRAIN_TOOL_ENABLED ? 1 : 0) + (this.DEV_MODE ? 1 : 0);
