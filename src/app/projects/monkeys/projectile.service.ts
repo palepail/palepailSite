@@ -370,9 +370,10 @@ export class ProjectileService {
 
   private findEntityCollision(child: Projectile, player: Player, enemies: Enemy[]): Player | Enemy | null {
     const entities: (Player | Enemy)[] = [player, ...enemies];
+    const ownerGrace = Date.now() - (child.spawnTimeMs ?? 0) < 500;
     for (const entity of entities) {
       if (!entity.active) continue;
-      if ((entity as object) === (child.owner as object)) continue;
+      if (ownerGrace && (entity as object) === (child.owner as object)) continue;
       const dx = entity.x - child.x;
       const dy = entity.y - child.y;
       if (Math.sqrt(dx * dx + dy * dy) < CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS) {
@@ -491,14 +492,21 @@ export class ProjectileService {
       return;
     }
 
-    // Explode when speed falls below threshold
+    // Explode when rolling average speed falls below threshold.
+    // Using a 30-frame window prevents hang-time at the arc apex from triggering the explosion.
     const lowSpeedModifier = proj.bullet.modifiers?.find(m => m.type === 'explode_on_low_speed') as ExplodeOnLowSpeedModifier | undefined;
     if (lowSpeedModifier) {
       const vel = body.velocity;
       const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      if (spd < lowSpeedModifier.threshold) {
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
+      proj.lowSpeedSamples ??= [];
+      proj.lowSpeedSamples.push(spd);
+      if (proj.lowSpeedSamples.length > 30) proj.lowSpeedSamples.shift();
+      if (proj.lowSpeedSamples.length === 30) {
+        const avgSpd = proj.lowSpeedSamples.reduce((a, b) => a + b, 0) / 30;
+        if (avgSpd < lowSpeedModifier.threshold) {
+          this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+          return;
+        }
       }
     }
 
@@ -636,10 +644,13 @@ export class ProjectileService {
       const dot = vel.x * nx + vel.y * ny;
       if (dot < 0) {
         const restitution = bounceTerrainMod.restitution ?? 0.35;
-        const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
-        const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
-        const bouncedSpeed = Math.sqrt(bouncedVx * bouncedVx + bouncedVy * bouncedVy);
-        if (bouncedSpeed > 1.5) {
+        // Use the normal-component speed to decide bounce vs roll.
+        // Using total post-bounce speed falsely classifies rolling as a bounce
+        // because the large horizontal speed dominates the total.
+        const normalImpactSpeed = Math.abs(dot) * restitution;
+        if (normalImpactSpeed > 1.5) {
+          const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
+          const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
           physicsService.Body.setVelocity(body, { x: bouncedVx, y: bouncedVy });
           this.sfxService.play({ category: 'bounce' });
         } else {
@@ -649,9 +660,13 @@ export class ProjectileService {
             y: (vel.y - dot * ny) * ROLLING_FRICTION,
           });
         }
-        if (bottomHit && !lateralHit) {
-          physicsService.Body.setPosition(body, { x: proj.x, y: surfaceWorldY - r - 1 });
-        }
+      }
+      // Depenetration: push out of floor whenever bottomHit, regardless of lateralHit.
+      // In a tight crater both flags are true simultaneously, causing the old
+      // !lateralHit guard to skip the snap and let gravity accumulate.
+      if (bottomHit) {
+        physicsService.Body.setPosition(body, { x: proj.x, y: getSY(px) - r - 1 });
+        proj.y = getSY(px) - r - 1; // keep render in sync
       }
     }
   }
@@ -784,14 +799,20 @@ export class ProjectileService {
         continue;
       }
 
-      // Explode when speed falls below threshold (checked every frame, including while rolling)
+      // Explode when rolling average speed falls below threshold (30-frame window, same hang-time guard as primary).
       const lowSpeedModifier = child.bullet.modifiers?.find(m => m.type === 'explode_on_low_speed') as ExplodeOnLowSpeedModifier | undefined;
       if (lowSpeedModifier) {
         const vel = child.body.velocity;
         const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-        if (spd < lowSpeedModifier.threshold) {
-          this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
-          continue;
+        child.lowSpeedSamples ??= [];
+        child.lowSpeedSamples.push(spd);
+        if (child.lowSpeedSamples.length > 30) child.lowSpeedSamples.shift();
+        if (child.lowSpeedSamples.length === 30) {
+          const avgSpd = child.lowSpeedSamples.reduce((a, b) => a + b, 0) / 30;
+          if (avgSpd < lowSpeedModifier.threshold) {
+            this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+            continue;
+          }
         }
       }
 
@@ -940,34 +961,33 @@ export class ProjectileService {
         const dot = vel.x * nx + vel.y * ny;
 
         if (dot < 0) {
-          // Compute what a full bounce would produce — restitution from modifier, default 0.35
           const restitution = bounceTerrainMod.restitution ?? 0.35;
-          const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
-          const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
-          const bouncedSpeed = Math.sqrt(bouncedVx * bouncedVx + bouncedVy * bouncedVy);
-
-          if (bouncedSpeed > 1.5) {
+          // Use the normal-component speed to decide bounce vs roll.
+          // Using total post-bounce speed falsely classifies rolling as a bounce
+          // because the large horizontal speed dominates the total.
+          const normalImpactSpeed = Math.abs(dot) * restitution;
+          if (normalImpactSpeed > 1.5) {
             // True bounce — reflect with restitution
+            const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
+            const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
             physicsService.Body.setVelocity(child.body, { x: bouncedVx, y: bouncedVy });
             this.sfxService.play({ category: 'bounce' });
           } else {
             // Rolling / resting — zero only the into-surface component, keep tangential.
-            // Gravity's tangential projection accumulates each frame, rolling downhill naturally.
             const ROLLING_FRICTION = 0.97;
             physicsService.Body.setVelocity(child.body, {
               x: (vel.x - dot * nx) * ROLLING_FRICTION,
               y: (vel.y - dot * ny) * ROLLING_FRICTION,
             });
           }
-
-          // Only snap to surface on pure floor contact — lateral or corner hits must not
-          // reposition Y or the fragment teleports to the cliff top/bottom.
-          if (bottomHit && !lateralHit) {
-            physicsService.Body.setPosition(child.body, {
-              x: child.x,
-              y: surfaceWorldY - r - 1,
-            });
-          }
+        }
+        // Depenetration: push out of floor whenever bottomHit, regardless of lateralHit.
+        // In a tight crater both flags are true simultaneously, causing the old
+        // !lateralHit guard to skip the snap and let gravity accumulate.
+        if (bottomHit) {
+          const snappedY = getSY(px) - r - 1;
+          physicsService.Body.setPosition(child.body, { x: child.x, y: snappedY });
+          child.y = snappedY; // keep render in sync
         }
         continue;
       }

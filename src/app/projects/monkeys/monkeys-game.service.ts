@@ -996,6 +996,11 @@ export class MonkeysGameService {
       return;
     }
 
+    // Step physics once per game-loop frame (both AFTERMATH and normal paths need this).
+    // Doing it here — after the PAUSED/GAME_OVER early return but before any position reads —
+    // ensures terrain collision detection always catches every physics step.
+    this.physicsService.stepPhysics(deltaTime * 1000);
+
     // AFTERMATH: run physics + effects only, then exit
     if (this.currentState === GameState.AFTERMATH) {
       this.physicsService.updateEntityPhysics(this.player);

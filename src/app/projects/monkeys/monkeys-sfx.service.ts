@@ -32,6 +32,7 @@ export class MonkeysSfxService {
 
   sfxVolume = 0.5;
   isMuted = false;
+  private focusMuted = false;
 
   async loadBank(): Promise<void> {
     const resp = await fetch('assets/monkeys/sfx-bank.json');
@@ -68,7 +69,7 @@ export class MonkeysSfxService {
   }
 
   private get effectiveVolume(): number {
-    return this.isMuted ? 0 : this.sfxVolume;
+    return this.isMuted || this.focusMuted ? 0 : this.sfxVolume;
   }
 
   private resolveEntry(req: SfxRequest): SfxBankEntry | null {
@@ -122,6 +123,10 @@ export class MonkeysSfxService {
 
   setMuted(muted: boolean): void {
     this.isMuted = muted;
+  }
+
+  setFocusMuted(muted: boolean): void {
+    this.focusMuted = muted;
   }
 
   playVo(entity: object, voicePack: string, event: string): void {

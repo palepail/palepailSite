@@ -487,9 +487,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       });
   }
 
-  private readonly onWindowBlur = () => this.audioService.setFocusMuted(true);
-  private readonly onWindowFocus = () => this.audioService.setFocusMuted(false);
-  private readonly onVisibilityChange = () => this.audioService.setFocusMuted(document.hidden);
+  private readonly onWindowBlur = () => { this.audioService.setFocusMuted(true); this.sfxService.setFocusMuted(true); };
+  private readonly onWindowFocus = () => { this.audioService.setFocusMuted(false); this.sfxService.setFocusMuted(false); };
+  private readonly onVisibilityChange = () => { this.audioService.setFocusMuted(document.hidden); this.sfxService.setFocusMuted(document.hidden); };
 
   ngAfterViewInit() {
     this.initCanvas();
@@ -511,6 +511,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     // Apply initial focus state in case the page loaded without focus or in a background tab
     this.audioService.setFocusMuted(document.hidden || !document.hasFocus());
+    this.sfxService.setFocusMuted(document.hidden || !document.hasFocus());
     this.renderLoop();
   }
 

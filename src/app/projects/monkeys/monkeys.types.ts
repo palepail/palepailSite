@@ -256,6 +256,7 @@ export interface Projectile {
   rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
   spinRate?: number; // radians per second of constant spin for rendering
+  lowSpeedSamples?: number[]; // rolling speed samples for explode_on_low_speed — avoids hang-time false trigger
 }
 
 export type BulletModifierType = 'bounce_terrain' | 'bounce_entity' | 'fuse_timer' | 'explode_on_low_speed';

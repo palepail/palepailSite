@@ -49,9 +49,15 @@ export class PhysicsService {
     this.engine = this.Engine.create();
     this._world = this.engine.world;
     this.engine.world.gravity.y = CONST.GRAVITY_STRENGTH;
+    // Physics is stepped manually via stepPhysics() in the game loop.
+    // Using Runner.run (its own rAF tick) caused the engine to advance multiple times
+    // between game-loop terrain checks, allowing projectiles to tunnel through terrain.
+  }
 
-    this.runner = this.Runner.create();
-    this.Runner.run(this.runner, this.engine);
+  stepPhysics(deltaMs: number): void {
+    if (!this.engine) return;
+    // Cap to 50 ms so a backgrounded tab can't cause a physics explosion on return.
+    this.Engine.update(this.engine, Math.min(deltaMs, 50));
   }
 
   simulateTrajectory(
