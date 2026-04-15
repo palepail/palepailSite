@@ -177,9 +177,28 @@ export class ProjectileService {
         entity.shieldHitAngle = Math.atan2(sdy, sdx);
         if ((entity.currentShieldHealth ?? 0) <= 0) {
           this.sfxService.play({ category: 'shield_break' });
-        } else {
-          this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
         }
+        // Shield deflects projectile whether it broke or held
+        const hasBounce = this.projectile.bullet.modifiers?.some(
+          m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
+        ) ?? false;
+        if (hasBounce) {
+          this.sfxService.play({ category: 'bounce' });
+          // Reflect the trajectory off the shield normal
+          const nx = sdx / Math.max(sdist, 0.001);
+          const ny = sdy / Math.max(sdist, 0.001);
+          const positions = this.projectile.trajectory!;
+          const idx = this.projectile.trajectoryIndex!;
+          for (let i = idx + 1; i < positions.length; i++) {
+            const rx = positions[i].x - entity.x;
+            const ry = positions[i].y - entity.y;
+            const dot2 = rx * nx + ry * ny;
+            positions[i].x = entity.x + rx - 2 * dot2 * nx;
+            positions[i].y = entity.y + ry - 2 * dot2 * ny;
+          }
+          return;
+        }
+        this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
         this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
         return;
       }
@@ -277,14 +296,34 @@ export class ProjectileService {
     const attackerName = (projectile.owner as Player | Enemy).displayName ?? 'Unknown';
     const weaponName = projectile.rootBulletName;
 
+    /** Returns { inRange, effectiveDist } for an entity considering all hitbox spheres. */
+    const getExplosionHit = (entity: Player | Enemy): { inRange: boolean; effectiveDist: number } => {
+      // Base hitbox
+      const dx = entity.x - explosionX;
+      const dy = entity.y - explosionY;
+      const baseDist = Math.sqrt(dx * dx + dy * dy);
+      let bestEffective = Math.max(0, baseDist - CONST.TANK_COLLISION_RADIUS);
+      let inRange = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2) <= 1;
+      // Extra hitboxes
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0) - explosionX;
+        const hbY = entity.y + hb.offY - explosionY;
+        const hbDist = Math.sqrt(hbX * hbX + hbY * hbY);
+        const hbEffective = Math.max(0, hbDist - hb.radius);
+        if (Math.sqrt((hbX / radiusX) ** 2 + (hbY / radiusY) ** 2) <= 1) {
+          inRange = true;
+        }
+        if (hbEffective < bestEffective) {
+          bestEffective = hbEffective;
+        }
+      }
+      return { inRange, effectiveDist: bestEffective };
+    };
+
     // Damage player
     if (player.active) {
-      const dx = player.x - explosionX;
-      const dy = player.y - explosionY;
-      const distToCenter = Math.sqrt(dx * dx + dy * dy);
-      const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
-      const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-      if (normalizedDist <= 1) {
+      const { inRange, effectiveDist } = getExplosionHit(player);
+      if (inRange) {
         const damage = Math.round(maxDamage * Math.max(0, 1 - effectiveDist / radiusX));
         const rawDamage = projectile.owner === player ? damage * 0.5 : damage;
         const actualDamage = Math.round(rawDamage * (1 - (player.vehicle.armor ?? 0)));
@@ -307,12 +346,8 @@ export class ProjectileService {
     // Damage enemies
     for (const enemy of enemies) {
       if (enemy.active) {
-        const dx = enemy.x - explosionX;
-        const dy = enemy.y - explosionY;
-        const distToCenter = Math.sqrt(dx * dx + dy * dy);
-        const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
-        const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-        if (normalizedDist <= 1) {
+        const { inRange, effectiveDist } = getExplosionHit(enemy);
+        if (inRange) {
           const damage = Math.round(
             maxDamage * Math.max(0, 1 - effectiveDist / radiusX) * (1 - (enemy.vehicle.armor ?? 0)),
           );
@@ -375,9 +410,15 @@ export class ProjectileService {
       if (!entity.active) continue;
       if (ownerGrace && (entity as object) === (child.owner as object)) continue;
       const dx = entity.x - child.x;
-      const dy = entity.y - child.y;
-      if (Math.sqrt(dx * dx + dy * dy) < CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS) {
-        return entity;
+      const baseR = CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS;
+      // Base hitbox
+      if (Math.sqrt(dx * dx + (entity.y - child.y) ** 2) < baseR) return entity;
+      // Extra hitboxes (e.g. snowman upper sphere)
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbR = CONST.PROJECTILE_RADIUS + hb.radius;
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0);
+        const hbDx = hbX - child.x;
+        if (Math.sqrt(hbDx * hbDx + (entity.y + hb.offY - child.y) ** 2) < hbR) return entity;
       }
     }
     return null;
@@ -396,6 +437,15 @@ export class ProjectileService {
       // Check direct body hit using gameplay collision radius (tighter than visual TANK_BODY_RADIUS)
       if (distance < CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS) {
         return true;
+      }
+      // Check extra hitboxes (e.g. snowman upper sphere)
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0);
+        const hbDx = hbX - projectile.x;
+        const hbDy = (entity.y + hb.offY) - projectile.y;
+        if (Math.sqrt(hbDx * hbDx + hbDy * hbDy) < CONST.PROJECTILE_RADIUS + hb.radius) {
+          return true;
+        }
       }
 
       // Check shield hit (skip owner and shields with no health)
@@ -510,24 +560,47 @@ export class ProjectileService {
       }
     }
 
-    // Shield boundary check — absorb without explosion
+    // Shield boundary check
     const shieldedTarget = this.findChildShieldHit(proj, player, enemies);
     if (shieldedTarget) {
-      const dx = proj.x - shieldedTarget.x;
-      const dy = proj.y - shieldedTarget.y;
+      const sdx = proj.x - shieldedTarget.x;
+      const sdy = proj.y - shieldedTarget.y;
+      const sdist = Math.max(Math.sqrt(sdx * sdx + sdy * sdy), 0.001);
       shieldedTarget.currentShieldHealth = Math.max(
         0,
         (shieldedTarget.currentShieldHealth ?? 0) - proj.bullet.damage,
       );
-      shieldedTarget.shieldHitAngle = Math.atan2(dy, dx);
+      shieldedTarget.shieldHitAngle = Math.atan2(sdy, sdx);
       if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
         this.sfxService.play({ category: 'shield_break' });
-      } else {
-        this.sfxService.play({ category: proj.bullet.sfxImpact ?? 'explosion' });
       }
-      physicsService.World.remove(physicsService.world, body);
-      this.projectile = null;
-      return;
+      // Shield deflects projectile whether it broke or held
+      const hasBounce = proj.bullet.modifiers?.some(
+          m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
+        ) ?? false;
+        if (hasBounce) {
+          const nx = sdx / sdist;
+          const ny = sdy / sdist;
+          const vel = body.velocity;
+          const dot = vel.x * nx + vel.y * ny;
+          const restitution = 0.7;
+          physicsService.Body.setVelocity(body, {
+            x: (vel.x - 2 * dot * nx) * restitution,
+            y: (vel.y - 2 * dot * ny) * restitution,
+          });
+          // Push projectile out to the shield surface
+          const pushDist = (shieldedTarget.vehicle.shieldRadius ?? 0) + CONST.PROJECTILE_RADIUS + 2;
+          physicsService.Body.setPosition(body, {
+            x: shieldedTarget.x + nx * pushDist,
+            y: shieldedTarget.y + ny * pushDist,
+          });
+          this.sfxService.play({ category: 'bounce' });
+          return;
+        }
+        this.sfxService.play({ category: proj.bullet.sfxImpact ?? 'explosion' });
+        physicsService.World.remove(physicsService.world, body);
+        this.projectile = null;
+        return;
     }
 
     // Entity collision — bounce or explode

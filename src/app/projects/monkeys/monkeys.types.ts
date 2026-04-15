@@ -293,6 +293,13 @@ export interface Bullet {
   modifiers?: BulletModifier[]; // optional collection of effect modifiers
 }
 
+/** An additional hitbox sphere offset from the entity centre. offY is upward (negative = up), offX is forward (positive = forward in facing direction). */
+export interface VehicleHitbox {
+  offX?: number;  // world-space X offset in the entity's facing direction (positive = forward)
+  offY: number;   // world-space Y offset from entity.y (negative = upward)
+  radius: number; // collision radius in px
+}
+
 export interface Vehicle {
   name: string;
   speed: number;
@@ -318,6 +325,7 @@ export interface Vehicle {
   sfxCharge?: string; // sfx-bank category played while charging
   bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
   voicePack?: string; // VO character pack assigned at game start
+  hitboxes?: VehicleHitbox[]; // extra hitbox spheres beyond the base TANK_COLLISION_RADIUS sphere
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';

@@ -158,6 +158,9 @@ export const PLAYER_VEHICLE: Vehicle = {
   sfxWalk: 'walk',
   sfxFire: 'fire',
   bullet: BANANA_BULLET,
+  // Snowman upper hitbox — covers the monkey's head/torso above the base circle.
+  // Uses literal 22 (= TANK_COLLISION_RADIUS) to avoid a forward-reference error.
+  hitboxes: [{ offX: 5, offY: -26, radius: 14 }],
 };
 
 const CLUSTER_FRAGMENT: Bullet = {

@@ -56,8 +56,14 @@ export class PhysicsService {
 
   stepPhysics(deltaMs: number): void {
     if (!this.engine) return;
-    // Cap to 50 ms so a backgrounded tab can't cause a physics explosion on return.
-    this.Engine.update(this.engine, Math.min(deltaMs, 50));
+    // Always step with the fixed 16.667 ms timestep Matter.js expects.
+    // Run multiple steps if the real elapsed time exceeds one frame, and cap
+    // at 3 steps so a backgrounded tab can't cause a physics explosion on return.
+    const FIXED_STEP = 1000 / 60;
+    const steps = Math.min(Math.round(deltaMs / FIXED_STEP), 3);
+    for (let i = 0; i < steps; i++) {
+      this.Engine.update(this.engine, FIXED_STEP);
+    }
   }
 
   simulateTrajectory(
