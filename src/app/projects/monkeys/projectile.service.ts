@@ -17,6 +17,10 @@ export class ProjectileService {
   explosions: Explosion[] = [];
   lastImpactPos: { x: number; y: number } | null = null;
 
+  isProjectileInFlight(): boolean {
+    return this.projectile !== null || this.childProjectiles.length > 0;
+  }
+
   get damageTexts(): DamageText[] {
     return this.damageService.damageTexts;
   }

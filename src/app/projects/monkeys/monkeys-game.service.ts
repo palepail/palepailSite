@@ -348,7 +348,7 @@ export class MonkeysGameService {
     }
     switch (entity.turnState) {
       case 'bullet_in_flight':
-        if (!this.projectile && this.projectileService.childProjectiles.length === 0) {
+        if (!this.projectileService.isProjectileInFlight()) {
           this.aftermathImpactPos = this.projectileService.lastImpactPos;
           this.aftermathStartMs = Date.now();
           this.aftermathCallouts = [];
