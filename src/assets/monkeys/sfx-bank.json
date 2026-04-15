@@ -1,6 +1,13 @@
 {
   "voiceCharacters": ["aiai", "gongon", "jam", "meemee", "yanyan"],
   "categories": {
+    "bounce": {
+      "files": [
+        { "file": "Bounce1.ogg", "volume": 1.0 },
+        { "file": "Bounce2.ogg", "volume": 1.0 },
+        { "file": "Bounce3.ogg", "volume": 1.0 }
+      ]
+    },
     "explosion": {
       "files": [
         { "file": "Explosion1.ogg", "volume": 1.0 },

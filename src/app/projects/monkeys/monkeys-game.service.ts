@@ -279,6 +279,7 @@ export class MonkeysGameService {
     for (const enemy of this.enemies) {
       if (enemy.body && enemy.active) {
         this.physicsService.updateEntityPhysics(enemy);
+        this.stopWalkIfAirborne(enemy);
         this.applyWindToEntity(enemy);
         // Kill enemies that have fallen off the map before AI or terrain-snap runs
         if (enemy.y > CONST.CANVAS_HEIGHT + CONST.FALL_THRESHOLD_OFFSET) {
@@ -406,6 +407,20 @@ export class MonkeysGameService {
         this.enemyShoot(entity as Enemy, entity.power);
       }
       entity.turnState = 'bullet_in_flight';
+    }
+  }
+
+  /** Stop the walk-loop sound for an entity that is no longer on the ground. */
+  private stopWalkIfAirborne(entity: Player | Enemy): void {
+    if (!entity.body) return;
+    const terrainH = this.collisionService.getTerrainHeightAt(
+      entity.x,
+      this.terrainService.terrain,
+    );
+    const tankBottom = entity.body.position.y + CONST.TANK_HALF_HEIGHT;
+    const isGrounded = terrainH !== -1 && tankBottom >= terrainH - 3;
+    if (!isGrounded) {
+      this.sfxService.stopWalkLoop(entity);
     }
   }
 
@@ -984,6 +999,7 @@ export class MonkeysGameService {
     // AFTERMATH: run physics + effects only, then exit
     if (this.currentState === GameState.AFTERMATH) {
       this.physicsService.updateEntityPhysics(this.player);
+      this.stopWalkIfAirborne(this.player);
       this.updateEnemies();
       this.collisionService.checkPlayerTerrainCollision(
         this.player,
@@ -1004,6 +1020,7 @@ export class MonkeysGameService {
 
     // Update player physics
     this.physicsService.updateEntityPhysics(this.player);
+    this.stopWalkIfAirborne(this.player);
     this.applyWindToEntity(this.player);
 
     // Update enemies

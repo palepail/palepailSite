@@ -88,11 +88,14 @@ export class DamageService {
     // --- VO ---
     if (entity.vehicle.voicePack) {
       if (wasKilled) {
-        this.sfxService.playVo(
-          entity,
-          entity.vehicle.voicePack,
-          event.source === 'fall' ? 'fall' : 'ochisou',
-        );
+        // Player death VO is handled by monkeys-game.service (plays 'lose') — skip here to avoid double-playing.
+        if (entityType !== 'player') {
+          this.sfxService.playVo(
+            entity,
+            entity.vehicle.voicePack,
+            event.source === 'fall' ? 'fall' : 'ochisou',
+          );
+        }
       } else if (actualAmount > 0) {
         this.sfxService.playVo(entity, entity.vehicle.voicePack, 'bump');
       }

@@ -545,6 +545,7 @@ export class ProjectileService {
           x: hitEntity.x + nx * pushDist,
           y: hitEntity.y + ny * pushDist,
         });
+        this.sfxService.play({ category: 'bounce' });
         const speedRatio = Math.min(1, speed / proj.bullet.speed);
         const armor = hitEntity.vehicle.armor ?? 0;
         const rawDamage = Math.round(proj.bullet.damage * speedRatio * (1 - armor));
@@ -630,6 +631,7 @@ export class ProjectileService {
         const bouncedSpeed = Math.sqrt(bouncedVx * bouncedVx + bouncedVy * bouncedVy);
         if (bouncedSpeed > 1.5) {
           physicsService.Body.setVelocity(body, { x: bouncedVx, y: bouncedVy });
+          this.sfxService.play({ category: 'bounce' });
         } else {
           const ROLLING_FRICTION = 0.97;
           physicsService.Body.setVelocity(body, {
@@ -829,6 +831,7 @@ export class ProjectileService {
             x: hitEntity.x + nx * pushDist,
             y: hitEntity.y + ny * pushDist,
           });
+          this.sfxService.play({ category: 'bounce' });
           // Speed-scaled damage with armor reduction
           const speedRatio = Math.min(1, speed / child.bullet.speed);
           const armor = hitEntity.vehicle.armor ?? 0;
@@ -932,6 +935,7 @@ export class ProjectileService {
           if (bouncedSpeed > 1.5) {
             // True bounce — reflect with restitution
             physicsService.Body.setVelocity(child.body, { x: bouncedVx, y: bouncedVy });
+            this.sfxService.play({ category: 'bounce' });
           } else {
             // Rolling / resting — zero only the into-surface component, keep tangential.
             // Gravity's tangential projection accumulates each frame, rolling downhill naturally.
