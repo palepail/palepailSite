@@ -62,8 +62,9 @@ export class PhysicsService {
     bullet: any,
     windSpeed = 0,
     windAngle = 0,
+    terrain?: number[][],
   ): { positions: { x: number; y: number }[]; endReason: string } {
-    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}_${windSpeed.toFixed(0)}_${windAngle.toFixed(2)}`;
+    const cacheKey = `${startX.toFixed(1)}_${startY.toFixed(1)}_${angleRad.toFixed(3)}_${power.toFixed(1)}_${bullet.name}_${windSpeed.toFixed(0)}_${windAngle.toFixed(2)}_b${bullet.maxBounces ?? 0}`;
     if (this.trajectoryCache.has(cacheKey)) {
       return this.trajectoryCache.get(cacheKey)!;
     }
@@ -87,10 +88,15 @@ export class PhysicsService {
     let endReason = 'timeout';
     const maxSteps = 1000;
     let step = 0;
+    let bouncesLeft = bullet.maxBounces ?? 0;
+    const terrainBaseY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
 
     while (step < maxSteps) {
+      const prevX = projectile.position.x;
+      const prevY = projectile.position.y;
+
       // Record position
-      positions.push({ x: projectile.position.x, y: projectile.position.y });
+      positions.push({ x: prevX, y: prevY });
 
       // Apply wind force (horizontal only, capped at 75% effective strength)
       this.Body.applyForce(projectile, projectile.position, {
@@ -100,6 +106,59 @@ export class PhysicsService {
 
       // Update simulation
       this.Engine.update(tempEngine, 16.666); // ~60 FPS
+
+      // Terrain bounce / stop detection (only when terrain data is provided)
+      if (terrain) {
+        const newX = projectile.position.x;
+        const newY = projectile.position.y;
+        const segDx = newX - prevX;
+        const segDy = newY - prevY;
+        const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+        const steps = Math.ceil(segLen);
+        let terrainHit = false;
+        let hitX = newX;
+        let hitY = newY;
+
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          const sx = Math.floor(prevX + segDx * t);
+          const sy = Math.floor(prevY + segDy * t);
+          const localY = sy - terrainBaseY;
+          if (
+            sx >= 0 &&
+            sx < CONST.TERRAIN_WIDTH &&
+            localY >= 0 &&
+            localY < (terrain[sx]?.length ?? 0) &&
+            terrain[sx][localY] === 1
+          ) {
+            hitX = sx;
+            hitY = sy;
+            terrainHit = true;
+            break;
+          }
+        }
+
+        if (terrainHit) {
+          if (bouncesLeft > 0) {
+            // Find terrain surface at hitX: scan upward
+            let surfaceLocalY = Math.floor(hitY - terrainBaseY);
+            while (surfaceLocalY > 0 && terrain[Math.floor(hitX)]?.[surfaceLocalY - 1] === 1) {
+              surfaceLocalY--;
+            }
+            const surfaceY = terrainBaseY + surfaceLocalY - CONST.PROJECTILE_RADIUS - 1;
+            this.Body.setPosition(projectile, { x: projectile.position.x, y: surfaceY });
+            const vel = projectile.velocity;
+            // Reflect vertical velocity with restitution, preserve horizontal
+            this.Body.setVelocity(projectile, { x: vel.x, y: -Math.abs(vel.y) * 0.7 });
+            bouncesLeft--;
+          } else {
+            // No bounces left — end trajectory here
+            positions.push({ x: hitX, y: hitY });
+            endReason = 'terrain';
+            break;
+          }
+        }
+      }
 
       step++;
     }
@@ -183,7 +242,7 @@ export class PhysicsService {
       xFactor = slopeAngleDeg >= 80 ? 0 : Math.max(0, 1 - Math.max(0, slopeAngleDeg - 45) / 35);
     }
 
-      // Apply velocity impulse — terrain collision naturally stops the entity at walls.
+    // Apply velocity impulse — terrain collision naturally stops the entity at walls.
     // Small upward component lets the entity crest crater rims instead of burrowing.
     if (target.body.velocity) {
       this.Body.setVelocity(target.body, {

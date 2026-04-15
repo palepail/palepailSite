@@ -179,6 +179,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private combatLogMinimized: boolean = false;
   private combatLogToggleBtn = { x: 0, y: 0, width: 0, height: 0 };
 
+  // Weapon selection (bottom-right buttons)
+  private selectedBulletIndex = 0;
+  private readonly WEAPON_BTN_SIZE = 68;
+  private readonly WEAPON_BTN_GAP = 8;
+  private readonly WEAPON_BTN_MARGIN = 10;
+  private readonly WEAPON_SPRITES = ['item_banana', 'item_apple', 'item_peanut'];
+
   // Turn message
   private turnMessage: string = '';
   private messageTimer: number = 0;
@@ -219,9 +226,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly DEV_MODE = true;
   private readonly LAYER_EDITOR_FRAMES = [
     'idle',
-    'move_0', 'move_1', 'move_2', 'move_3',
-    'shoot_0', 'shoot_1', 'shoot_2', 'shoot_3', 'shoot_4',
-    'shoot_5', 'shoot_6', 'shoot_7', 'shoot_8', 'shoot_9',
+    'move_0',
+    'move_1',
+    'move_2',
+    'move_3',
+    'shoot_0',
+    'shoot_1',
+    'shoot_2',
+    'shoot_3',
+    'shoot_4',
+    'shoot_5',
+    'shoot_6',
+    'shoot_7',
+    'shoot_8',
+    'shoot_9',
   ] as const;
   private readonly LAYER_EDITOR_FRUITS = ['item_banana', 'item_apple', 'item_peanut'] as const;
   private readonly COMPOSITE_SPRITESHEET = 'Lupin Composite.png';
@@ -536,6 +554,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     this.isLoading = false;
     this.cameraController.reset();
+    this.selectedBulletIndex = 0; // reset weapon selection on new game
     // Set up camera follow for player during setup
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
@@ -1078,8 +1097,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.drawShieldOverlay(this.gameService.player, centerX, centerY);
 
-    // Draw player prediction path when charging
-    if (this.showPrediction && this.gameService.isCharging && this.gameService.hasAimGuide) {
+    // Draw player prediction path when charging (skip for shotgun — pellets fire randomly)
+    if (
+      this.showPrediction &&
+      this.gameService.isCharging &&
+      this.gameService.hasAimGuide &&
+      !this.gameService.player.vehicle.bullet.shotgunCount
+    ) {
       const angleRad = this.gameService.getBarrelAngle();
       const barrelEndX = this.gameService.player.x + Math.cos(angleRad) * CONST.BARREL_LENGTH;
       const barrelEndY = this.gameService.player.y - Math.sin(angleRad) * CONST.BARREL_LENGTH;
@@ -1919,7 +1943,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawBulletAt(screenPos: { x: number; y: number }, bulletSprite: SpriteData | null, angle?: number): void {
+  private drawBulletAt(
+    screenPos: { x: number; y: number },
+    bulletSprite: SpriteData | null,
+    angle?: number,
+  ): void {
     if (bulletSprite) {
       const drawSize = CONST.PROJECTILE_DRAW_RADIUS * this.BULLET_SPRITE_SIZE_MULTIPLIER;
       if (angle !== undefined) {
@@ -1962,7 +1990,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private drawProjectile() {
     const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
     const bulletPrefix = this.gameService.projectile?.bullet.bulletSprite ?? 'bullet';
-    const bulletSprite = this.spriteService.getSprite(`${bulletPrefix}_${bulletFrameIndex}`);
+    const bulletSprite =
+      this.spriteService.getSprite(`${bulletPrefix}_${bulletFrameIndex}`) ??
+      this.spriteService.getSprite(bulletPrefix);
 
     if (this.gameService.projectile) {
       let pos: { x: number; y: number };
@@ -1972,13 +2002,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         pos = { x: this.gameService.projectile.x, y: this.gameService.projectile.y };
       }
       let angle: number | undefined;
-      if (this.gameService.projectile.bullet.rotatesToVelocity && this.gameService.projectile.body?.velocity) {
+      if (
+        this.gameService.projectile.bullet.rotatesToVelocity &&
+        this.gameService.projectile.body?.velocity
+      ) {
         const vel = this.gameService.projectile.body.velocity;
         angle = Math.atan2(vel.y, vel.x);
       }
       const rotSpeed = this.gameService.projectile.bullet.bulletRotationSpeed;
       if (rotSpeed) {
-        const spinAngle = (performance.now() * rotSpeed / 1000) % (2 * Math.PI);
+        const spinAngle = ((performance.now() * rotSpeed) / 1000) % (2 * Math.PI);
         angle = (angle ?? 0) + spinAngle;
       }
       this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite, angle);
@@ -2018,7 +2051,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
             ? (this.spriteService.getLayerOffsets()?.explosionScale ?? 1.0)
             : 1.0;
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
-        let spriteHeight = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
+        let spriteHeight =
+          explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
 
         if (explosion.shape === 'horizontal_oval') {
           spriteWidth *= 1.5;
@@ -2054,9 +2088,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.ctx.fillStyle = gradient;
         this.ctx.beginPath();
         if (explosion.shape === 'horizontal_oval') {
-          this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius * 1.5, explosion.radius, 0, 0, Math.PI * 2);
+          this.ctx.ellipse(
+            screenPos.x,
+            screenPos.y,
+            explosion.radius * 1.5,
+            explosion.radius,
+            0,
+            0,
+            Math.PI * 2,
+          );
         } else if (explosion.shape === 'vertical_oval') {
-          this.ctx.ellipse(screenPos.x, screenPos.y, explosion.radius, explosion.radius * 1.5, 0, 0, Math.PI * 2);
+          this.ctx.ellipse(
+            screenPos.x,
+            screenPos.y,
+            explosion.radius,
+            explosion.radius * 1.5,
+            0,
+            0,
+            Math.PI * 2,
+          );
         } else {
           this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
         }
@@ -2073,7 +2123,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
     for (const child of this.gameService.childProjectiles) {
       const prefix = child.bullet.bulletSprite ?? 'bullet';
-      const sprite = this.spriteService.getSprite(`${prefix}_${bulletFrameIndex}`);
+      const sprite =
+        this.spriteService.getSprite(`${prefix}_${bulletFrameIndex}`) ??
+        this.spriteService.getSprite(prefix);
       const screenPos = this.cameraController.worldToScreen(child.x, child.y);
       this.drawBulletAt(screenPos, sprite);
     }
@@ -2158,6 +2210,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState === GameState.SETUP
     ) {
       this.drawWindIndicator();
+      this.drawWeaponButtons();
     }
 
     // Draw turn message
@@ -2359,6 +2412,52 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(this.combatLogMinimized ? '+' : '\u2212', btnCX, btnCY);
     this.ctx.textBaseline = 'alphabetic';
+  }
+
+  private getWeaponBtnRect(index: number): { x: number; y: number; width: number; height: number } {
+    const size = this.WEAPON_BTN_SIZE;
+    const gap = this.WEAPON_BTN_GAP;
+    const margin = this.WEAPON_BTN_MARGIN;
+    const count = this.WEAPON_SPRITES.length;
+    // Rightmost button flush to right margin; buttons grow leftward
+    const rightEdge = CONST.CANVAS_WIDTH - margin;
+    const cx = rightEdge - size / 2 - (count - 1 - index) * (size + gap);
+    const cy = CONST.CANVAS_HEIGHT - margin - size / 2;
+    return { x: cx, y: cy, width: size, height: size };
+  }
+
+  private drawWeaponButtons(): void {
+    for (let i = 0; i < this.WEAPON_SPRITES.length; i++) {
+      const btn = this.getWeaponBtnRect(i);
+      const left = btn.x - btn.width / 2;
+      const top = btn.y - btn.height / 2;
+      const panelName =
+        i === this.selectedBulletIndex ? 'panel_brown_light_3d' : 'panel_brown_1_dark';
+      this.drawNineSlicePanel(panelName, left, top, btn.width, btn.height);
+
+      // Draw item icon centred inside button
+      const iconSize = 80;
+      const sprite = this.spriteService.getSprite(this.WEAPON_SPRITES[i]);
+      if (sprite) {
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          btn.x - iconSize / 2,
+          btn.y - iconSize / 2 + 4,
+          iconSize,
+          iconSize,
+        );
+      }
+    }
+  }
+
+  private selectWeapon(index: number): void {
+    this.selectedBulletIndex = index;
+    this.gameService.player.vehicle.bullet = { ...CONST.PLAYER_BULLETS[index] };
+    this.gameService.clearTrajectoryCache();
   }
 
   private renderLoop() {
@@ -3523,13 +3622,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       );
     }
     if (this.DEV_MODE) {
-      this.drawButton(
-        'Layer Tool',
-        this.MENU_TOOLS_BUTTON,
-        '#E91E63',
-        '#C2185B',
-        'panel_wood_1',
-      );
+      this.drawButton('Layer Tool', this.MENU_TOOLS_BUTTON, '#E91E63', '#C2185B', 'panel_wood_1');
     }
   }
 
@@ -3871,12 +3964,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         explosionScale: 1.0,
         fruitConfig: {
           item_banana: { scale: 1.0, overlayZ: 3 },
-          item_apple:  { scale: 1.0, overlayZ: 1 },
+          item_apple: { scale: 1.0, overlayZ: 1 },
           item_peanut: { scale: 1.0, overlayZ: 3 },
         },
-        frames: Object.fromEntries(
-          [...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()]),
-        ),
+        frames: Object.fromEntries([...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()])),
       };
     }
     this.editorFrameIndex = 0;
@@ -3932,7 +4023,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       item_peanut: 'overlay_peanut',
     };
     const overlaySpriteName = fruitToOverlay[fruitKey] ?? null;
-    const overlaySprite = overlaySpriteName ? this.spriteService.getSprite(overlaySpriteName) : null;
+    const overlaySprite = overlaySpriteName
+      ? this.spriteService.getSprite(overlaySpriteName)
+      : null;
 
     this.ctx.save();
     try {
@@ -3940,15 +4033,28 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.scale(-1, 1); // mirror same as gameplay
 
       const drawPreviewLayer = (
-        spr: { image: CanvasImageSource; x: number; y: number; width: number; height: number } | null,
+        spr: {
+          image: CanvasImageSource;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        } | null,
         sz: number,
         ox: number,
         oy: number,
       ) => {
         if (!spr) return;
         this.ctx.drawImage(
-          spr.image, spr.x, spr.y, spr.width, spr.height,
-          -sz / 2 + ox, -sz / 2 + spriteYOffset + oy, sz, sz,
+          spr.image,
+          spr.x,
+          spr.y,
+          spr.width,
+          spr.height,
+          -sz / 2 + ox,
+          -sz / 2 + spriteYOffset + oy,
+          sz,
+          sz,
         );
       };
 
@@ -4027,11 +4133,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Fruit selector
     const fruitNames = ['Banana', 'Apple', 'Peanut'];
-    const fruitBtnW = 110; const fruitBtnH = 30;
+    const fruitBtnW = 110;
+    const fruitBtnH = 30;
     const fruitXs = [740, 890, 1040];
     for (let i = 0; i < 3; i++) {
       const isActive = this.editorFruitIndex === i;
-      const bx = fruitXs[i]; const by = 264;
+      const bx = fruitXs[i];
+      const by = 264;
       const btn = { x: bx, y: by, w: fruitBtnW, h: fruitBtnH };
       this.ltDrawFruitBtn(`fruit_sel_${i}`, fruitNames[i], btn, isActive);
     }
@@ -4126,7 +4234,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     small: number,
     big: number,
   ): void {
-    const bW = 62; const bH = 28;
+    const bW = 62;
+    const bH = 28;
     // label
     this.ctx.fillStyle = '#ccc';
     this.ctx.font = 'bold 13px Arial';
@@ -4148,14 +4257,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /** Scale row: ±small, ±big buttons + value readout */
-  private ltScaleRow(
-    id: string,
-    cy: number,
-    value: number,
-    small: number,
-    big: number,
-  ): void {
-    const bW = 62; const bH = 28;
+  private ltScaleRow(id: string, cy: number, value: number, small: number, big: number): void {
+    const bW = 62;
+    const bH = 28;
     const xs = [730, 800, 970, 1040];
     const labels = [`«-${big}`, `‹-${small}`, `+${small}›`, `+${big}»`];
     const keys = [`${id}_m${big}`, `${id}_m${small}`, `${id}_p${small}`, `${id}_p${big}`];
@@ -4194,8 +4298,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     if (hit('frame_next')) {
-      this.editorFrameIndex =
-        (this.editorFrameIndex + 1) % this.LAYER_EDITOR_FRAMES.length;
+      this.editorFrameIndex = (this.editorFrameIndex + 1) % this.LAYER_EDITOR_FRAMES.length;
       return;
     }
 
@@ -4225,10 +4328,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       small: number,
       big: number,
     ) => {
-      if (hit(`${id}_m${big}`))   { obj[axis] -= big;   return true; }
-      if (hit(`${id}_m${small}`)) { obj[axis] -= small; return true; }
-      if (hit(`${id}_p${small}`)) { obj[axis] += small; return true; }
-      if (hit(`${id}_p${big}`))   { obj[axis] += big;   return true; }
+      if (hit(`${id}_m${big}`)) {
+        obj[axis] -= big;
+        return true;
+      }
+      if (hit(`${id}_m${small}`)) {
+        obj[axis] -= small;
+        return true;
+      }
+      if (hit(`${id}_p${small}`)) {
+        obj[axis] += small;
+        return true;
+      }
+      if (hit(`${id}_p${big}`)) {
+        obj[axis] += big;
+        return true;
+      }
       return false;
     };
 
@@ -4241,10 +4356,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Fruit scale
     const scaleDelta = (id: string, small: number, big: number): number | null => {
-      if (hit(`${id}_m${big}`))   return -big;
+      if (hit(`${id}_m${big}`)) return -big;
       if (hit(`${id}_m${small}`)) return -small;
       if (hit(`${id}_p${small}`)) return small;
-      if (hit(`${id}_p${big}`))   return big;
+      if (hit(`${id}_p${big}`)) return big;
       return null;
     };
     const fruitScaleDelta = scaleDelta('fruit_scale', 0.05, 0.2);
@@ -4880,6 +4995,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     ) {
       if (this.isPointInsideButton(x, y, this.combatLogToggleBtn)) {
         this.combatLogMinimized = !this.combatLogMinimized;
+        return;
+      }
+      for (let i = 0; i < this.WEAPON_SPRITES.length; i++) {
+        if (this.isPointInsideButton(x, y, this.getWeaponBtnRect(i))) {
+          this.selectWeapon(i);
+          return;
+        }
       }
     }
   }

@@ -255,6 +255,7 @@ export interface Projectile {
   bullet: Bullet;
   rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
+  bouncesRemaining?: number; // remaining terrain bounces; counts down from bullet.maxBounces
 }
 
 /**
@@ -287,11 +288,14 @@ export interface Bullet {
   bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
   rotatesToVelocity?: boolean; // if true, bullet sprite rotates to match its velocity angle
   bulletRotationSpeed?: number; // constant spin in radians/second; added on top of velocity angle if both set
+  maxBounces?: number; // number of terrain bounces before exploding
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
   heldItemSprite?: string; // composite layer: item sprite name shown in hand (e.g. 'item_banana')
-  overlaySprite?: string;  // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')
+  overlaySprite?: string; // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')
   childBullet?: Bullet; // recursive child definition spawned on impact
   childCount?: number; // how many children to spawn; default 1
+  shotgunCount?: number; // fire N physics pellets from the barrel simultaneously (no main trajectory)
+  shotgunSpreadRad?: number; // total arc width in radians; each pellet gets a random offset within ±spread/2
   modifiers?: BulletModifier[]; // optional collection of effect modifiers
 }
 

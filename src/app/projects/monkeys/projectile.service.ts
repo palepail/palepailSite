@@ -60,83 +60,88 @@ export class ProjectileService {
       return;
     }
 
-    // Sweep the segment from previous position to current position to catch tunneling
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    const segDx = this.projectile.x - prevX;
-    const segDy = this.projectile.y - prevY;
-    const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
-    const steps = Math.ceil(segLen);
-    let hitX = this.projectile.x;
-    let hitY = this.projectile.y;
-    let terrainHit = false;
-    for (let s = 0; s <= steps; s++) {
-      const t = steps === 0 ? 1 : s / steps;
-      const sx = Math.floor(prevX + segDx * t);
-      const sy = Math.floor(prevY + segDy * t);
-      const localY = sy - terrainY;
-      if (
-        sx >= 0 &&
-        sx < CONST.TERRAIN_WIDTH &&
-        localY >= 0 &&
-        localY < terrain[sx]?.length &&
-        terrain[sx][localY] === 1
-      ) {
-        hitX = sx;
-        hitY = sy;
-        terrainHit = true;
-        break;
+    // For bouncing bullets (maxBounces > 0) the full arc including bounces is already
+    // baked into the precomputed trajectory by simulateTrajectory. Skip runtime terrain
+    // checks so we don't abort the path at intermediate bounce contact points.
+    if (!this.projectile.bullet.maxBounces) {
+      // Sweep the segment from previous position to current position to catch tunneling
+      const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+      const segDx = this.projectile.x - prevX;
+      const segDy = this.projectile.y - prevY;
+      const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+      const steps = Math.ceil(segLen);
+      let hitX = this.projectile.x;
+      let hitY = this.projectile.y;
+      let terrainHit = false;
+      for (let s = 0; s <= steps; s++) {
+        const t = steps === 0 ? 1 : s / steps;
+        const sx = Math.floor(prevX + segDx * t);
+        const sy = Math.floor(prevY + segDy * t);
+        const localY = sy - terrainY;
+        if (
+          sx >= 0 &&
+          sx < CONST.TERRAIN_WIDTH &&
+          localY >= 0 &&
+          localY < terrain[sx]?.length &&
+          terrain[sx][localY] === 1
+        ) {
+          hitX = sx;
+          hitY = sy;
+          terrainHit = true;
+          break;
+        }
       }
-    }
-    if (terrainHit) {
-      this.projectile.x = hitX;
-      this.projectile.y = hitY;
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-      return;
-    }
+      if (terrainHit) {
+        this.projectile.x = hitX;
+        this.projectile.y = hitY;
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
 
-    // Check offset neighbours at current position for near-miss terrain
-    const px = Math.floor(this.projectile.x);
-    const py = Math.floor(this.projectile.y);
-    const terrainLocalY = py - terrainY;
-
-    if (
-      px >= 0 &&
-      px < CONST.TERRAIN_WIDTH &&
-      terrainLocalY >= 0 &&
-      terrainLocalY < terrain[px]?.length &&
-      terrain[px][terrainLocalY] === 1
-    ) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-      return;
-    }
-
-    // Check offsets for collision
-    const checkOffsets = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-    ];
-    let collided = false;
-    for (const [offsetX, offsetY] of checkOffsets) {
-      const checkX = px + offsetX;
-      const checkY = py + offsetY;
-      const terrainCheckY = checkY - terrainY;
+      // Check offset neighbours at current position for near-miss terrain
+      const px = Math.floor(this.projectile.x);
+      const py = Math.floor(this.projectile.y);
+      const terrainLocalY = py - terrainY;
 
       if (
-        checkX >= 0 &&
-        checkX < CONST.TERRAIN_WIDTH &&
-        terrainCheckY >= 0 &&
-        terrainCheckY < terrain[checkX]?.length &&
-        terrain[checkX][terrainCheckY] === 1
+        px >= 0 &&
+        px < CONST.TERRAIN_WIDTH &&
+        terrainLocalY >= 0 &&
+        terrainLocalY < terrain[px]?.length &&
+        terrain[px][terrainLocalY] === 1
       ) {
-        collided = true;
-        break;
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+        return;
       }
-    }
-    if (collided) {
-      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-      return;
+
+      // Check offsets for collision
+      const checkOffsets = [
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
+      ];
+      let collided = false;
+      for (const [offsetX, offsetY] of checkOffsets) {
+        const checkX = px + offsetX;
+        const checkY = py + offsetY;
+        const terrainCheckY = checkY - terrainY;
+
+        if (
+          checkX >= 0 &&
+          checkX < CONST.TERRAIN_WIDTH &&
+          terrainCheckY >= 0 &&
+          terrainCheckY < terrain[checkX]?.length &&
+          terrain[checkX][terrainCheckY] === 1
+        ) {
+          collided = true;
+          break;
+        }
+      }
+      if (collided) {
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
     }
 
     // Check shield boundary
@@ -404,6 +409,47 @@ export class ProjectileService {
     }
 
     return false;
+  }
+
+  spawnShotgunPellets(
+    barrelX: number,
+    barrelY: number,
+    aimAngleRad: number,
+    owner: Player | Enemy,
+    bullet: any,
+    physicsService: any,
+    rootBulletName: string = '',
+  ): void {
+    const pellet = bullet.childBullet;
+    if (!pellet) return;
+    const count: number = bullet.shotgunCount ?? 1;
+    const spread: number = bullet.shotgunSpreadRad ?? 0;
+    for (let i = 0; i < count; i++) {
+      const deviation = (Math.random() - 0.5) * spread;
+      const angleRad = aimAngleRad + deviation;
+      // Negate Y because canvas Y increases downward but aimAngleRad uses math convention
+      const speed = pellet.speed * (0.85 + Math.random() * 0.3);
+      const vx = Math.cos(angleRad) * speed;
+      const vy = -Math.sin(angleRad) * speed;
+
+      const body = physicsService.Bodies.circle(barrelX, barrelY, CONST.PROJECTILE_RADIUS, {
+        frictionAir: 0,
+        restitution: 0,
+        friction: CONST.PROJECTILE_FRICTION,
+      });
+      physicsService.Body.setVelocity(body, { x: vx, y: vy });
+      physicsService.World.add(physicsService.world, body);
+
+      this.childProjectiles.push({
+        body,
+        x: barrelX,
+        y: barrelY,
+        owner,
+        bullet: pellet,
+        rootBulletName: rootBulletName || bullet.name || '',
+        spawnTimeMs: Date.now(),
+      });
+    }
   }
 
   spawnChildProjectiles(

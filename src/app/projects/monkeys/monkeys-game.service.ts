@@ -457,7 +457,10 @@ export class MonkeysGameService {
   private applyWindToEntity(entity: Player | Enemy) {
     if (!entity.body || this.physicsService.windSpeed <= 0) return;
     // Skip if entity is on the ground — use terrain proximity, same threshold as collision service.
-    const terrainH = this.collisionService.getTerrainHeightAt(entity.x, this.terrainService.terrain);
+    const terrainH = this.collisionService.getTerrainHeightAt(
+      entity.x,
+      this.terrainService.terrain,
+    );
     if (terrainH !== -1) {
       const tankBottom = entity.body.position.y + CONST.TANK_HALF_HEIGHT;
       if (tankBottom >= terrainH - 3) return; // grounded
@@ -763,6 +766,7 @@ export class MonkeysGameService {
                 enemy.vehicle.bullet,
                 this.physicsService.windSpeed,
                 this.physicsService.windAngle,
+                this.terrainService.terrain,
               );
               for (const pos of positions) {
                 const distToTarget = Math.hypot(pos.x - target.x, pos.y - target.y);
@@ -832,25 +836,39 @@ export class MonkeysGameService {
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
-    const { positions } = this.physicsService.simulateTrajectory(
-      barrelEndX,
-      barrelEndY,
-      angleRad,
-      power,
-      bullet,
-      this.physicsService.windSpeed,
-      this.physicsService.windAngle,
-    );
+    if (bullet.shotgunCount) {
+      this.projectileService.spawnShotgunPellets(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        enemy,
+        bullet,
+        this.physicsService,
+        bullet.name,
+      );
+    } else {
+      const { positions } = this.physicsService.simulateTrajectory(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        power,
+        bullet,
+        this.physicsService.windSpeed,
+        this.physicsService.windAngle,
+        this.terrainService.terrain,
+      );
 
-    this.projectileService.projectile = {
-      x: barrelEndX,
-      y: barrelEndY,
-      trajectory: positions,
-      trajectoryIndex: 0,
-      owner: enemy,
-      bullet: bullet,
-      rootBulletName: bullet.name,
-    };
+      this.projectileService.projectile = {
+        x: barrelEndX,
+        y: barrelEndY,
+        trajectory: positions,
+        trajectoryIndex: 0,
+        owner: enemy,
+        bullet: bullet,
+        rootBulletName: bullet.name,
+        bouncesRemaining: bullet.maxBounces ?? 0,
+      };
+    }
     enemy.chargeStartTime = 0;
     enemy.entityState = 'shooting';
     enemy.shotReleaseStartMs = Date.now();
@@ -1169,25 +1187,39 @@ export class MonkeysGameService {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    const { positions } = this.physicsService.simulateTrajectory(
-      barrelEndX,
-      barrelEndY,
-      angleRad,
-      this.player.power,
-      bullet,
-      this.physicsService.windSpeed,
-      this.physicsService.windAngle,
-    );
+    if (bullet.shotgunCount) {
+      this.projectileService.spawnShotgunPellets(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        this.player,
+        bullet,
+        this.physicsService,
+        bullet.name,
+      );
+    } else {
+      const { positions } = this.physicsService.simulateTrajectory(
+        barrelEndX,
+        barrelEndY,
+        angleRad,
+        this.player.power,
+        bullet,
+        this.physicsService.windSpeed,
+        this.physicsService.windAngle,
+        this.terrainService.terrain,
+      );
 
-    this.projectileService.projectile = {
-      x: barrelEndX,
-      y: barrelEndY,
-      trajectory: positions,
-      trajectoryIndex: 0,
-      owner: this.player,
-      bullet: bullet,
-      rootBulletName: bullet.name,
-    };
+      this.projectileService.projectile = {
+        x: barrelEndX,
+        y: barrelEndY,
+        trajectory: positions,
+        trajectoryIndex: 0,
+        owner: this.player,
+        bullet: bullet,
+        rootBulletName: bullet.name,
+        bouncesRemaining: bullet.maxBounces ?? 0,
+      };
+    }
 
     this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
     this.isCharging = false;
@@ -1277,7 +1309,20 @@ export class MonkeysGameService {
     power: number,
     bullet: any,
   ) {
-    return this.physicsService.simulateTrajectory(barrelEndX, barrelEndY, angleRad, power, bullet);
+    return this.physicsService.simulateTrajectory(
+      barrelEndX,
+      barrelEndY,
+      angleRad,
+      power,
+      bullet,
+      this.physicsService.windSpeed,
+      this.physicsService.windAngle,
+      this.terrainService.terrain,
+    );
+  }
+
+  clearTrajectoryCache() {
+    this.physicsService.clearTrajectoryCache();
   }
 
   get turnStartTime() {

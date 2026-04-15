@@ -65,7 +65,80 @@ export const EXPLOSION_EDGE_COLOR = 'rgba(255, 0, 0, 0)';
 export const EXPLOSION_OUTLINE_COLOR = 'rgba(255, 255, 255, 0.5)';
 export const EXPLOSION_OUTLINE_WIDTH = 2;
 
-// Vehicle Configurations
+// ── Player bullet types ──────────────────────────────────────────────────────
+
+export const BANANA_BULLET: Bullet = {
+  name: 'banana',
+  weight: 1,
+  damage: 100,
+  shape: 'circle',
+  explosionShape: 'horizontal_oval',
+  explosionRadius: 50,
+  craterRadius: 40,
+  speed: 20,
+  heldItemSprite: 'item_banana',
+  overlaySprite: 'overlay_banana',
+  bulletSprite: 'item_banana',
+  rotatesToVelocity: true,
+  bulletRotationSpeed: Math.PI * 4,
+  sfxImpact: 'explosion',
+};
+
+export const APPLE_BULLET: Bullet = {
+  name: 'apple',
+  weight: 2,
+  damage: 75,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 35,
+  craterRadius: 28,
+  speed: 22,
+  maxBounces: 2,
+  heldItemSprite: 'item_apple',
+  overlaySprite: 'overlay_apple',
+  bulletSprite: 'item_apple',
+  rotatesToVelocity: true,
+  bulletRotationSpeed: Math.PI * 5,
+  sfxImpact: 'explosion',
+};
+
+const PEANUT_PELLET: Bullet = {
+  name: 'peanut_pellet',
+  tier: 2,
+  weight: 1,
+  damage: 12,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 14,
+  craterRadius: 10,
+  speed: 24,
+  bulletSprite: 'cluster_fragment',
+  explosionSprite: 'cluster_explosion',
+  sfxImpact: 'explosion',
+};
+
+export const PEANUT_BULLET: Bullet = {
+  name: 'peanut',
+  weight: 2,
+  damage: 0, // damage comes entirely from pellets
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 0,
+  craterRadius: 0,
+  speed: 0,
+  heldItemSprite: 'item_peanut',
+  overlaySprite: 'overlay_peanut',
+  bulletSprite: 'item_peanut',
+  shotgunCount: 12,
+  shotgunSpreadRad: 0.45, // ±~13° either side
+  childBullet: PEANUT_PELLET,
+};
+
+/** All player-selectable ammo types, in UI button order. */
+export const PLAYER_BULLETS: Bullet[] = [BANANA_BULLET, APPLE_BULLET, PEANUT_BULLET];
+
+// ── Vehicle Configurations ───────────────────────────────────────────────────
+
 export const PLAYER_VEHICLE: Vehicle = {
   name: 'Monkey',
   speed: 100.0,
@@ -81,22 +154,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   shotDelay: 100,
   sfxWalk: 'walk',
   sfxFire: 'fire',
-  bullet: {
-    name: 'banana',
-    weight: 1,
-    damage: 100,
-    shape: 'circle',
-    explosionShape: 'horizontal_oval',
-    explosionRadius: 50,
-    craterRadius: 40,
-    speed: 20,
-    heldItemSprite: 'item_banana',
-    overlaySprite: 'overlay_banana',
-    bulletSprite: 'item_banana',
-    rotatesToVelocity: true,
-    bulletRotationSpeed: Math.PI * 4,
-    sfxImpact: 'explosion',
-  },
+  bullet: BANANA_BULLET,
 };
 
 const CLUSTER_FRAGMENT: Bullet = {
