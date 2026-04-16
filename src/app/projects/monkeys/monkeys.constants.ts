@@ -383,6 +383,11 @@ export const TANK_BODY_STROKE_WIDTH = 2;
 export const EMOTE_DRAW_SIZE = 128;
 
 // Render layer z-indexes for the unified render queue (sorted ascending = back to front)
+export const LAYER_ENV_TREE_MID = -2;       // mid-distance bg trees, behind terrain
+export const LAYER_ENV_TREE_FRONT = -1;     // foreground bg trees, behind terrain
+export const LAYER_TERRAIN_FILL = 1;        // solid colour fill for terrain body
+export const LAYER_TERRAIN_SPRITES = 2;     // masked terrain chunk sprites
+export const LAYER_TERRAIN_DEPTH = 3;       // inner crater depth texture
 export const LAYER_CHARGE_BAR = 10;
 export const LAYER_ENTITY_SHADOW = 20;
 export const LAYER_ENTITY_EMOTE_BEHIND = 25;

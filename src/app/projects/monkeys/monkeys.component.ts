@@ -784,11 +784,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
     this.drawParallaxBackground(this.cameraController.camera.x);
 
-    // Draw terrain
-    this.drawTerrain();
-
     // Reset render queue — all game-world sprite draws below are deferred until flush
     this.renderQueue = [];
+
+    // Terrain is queued at layers 1–3, behind all entities
+    this.drawTerrain();
+    // Instance trees queued at layers 5 / 8 — appear over terrain, behind all entities
+    this.queueEnvironmentTrees(this.cameraController.camera.x);
 
     // Draw charge bars (behind tanks)
     if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
@@ -974,19 +976,29 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 0);
     offCtx.globalCompositeOperation = 'source-over';
 
-    // Brown fallback fill — visible through carved holes where sprites were erased
-    this.ctx.fillStyle = CONST.TERRAIN_COLOR;
-    this.scanlineTerrainFill(this.ctx, terrainY, startX, endX, 1);
+    // Queue terrain draws at low layers so they render behind all entities
+    const ty = terrainY, sx = startX, ex = endX;
+    const spriteCv = this.terrainSpriteCanvas!;
 
-    // Composite masked sprites over the colour fill
-    this.ctx.drawImage(this.terrainSpriteCanvas!, 0, 0);
+    this.queueDraw(CONST.LAYER_TERRAIN_FILL, () => {
+      this.ctx.fillStyle = CONST.TERRAIN_COLOR;
+      this.scanlineTerrainFill(this.ctx, ty, sx, ex, 1);
+    });
 
-    // Draw depth terrain layer on top — only visible in the ring where main terrain is
-    // carved away by a large crater but depth terrain still has solid (smaller crater)
-    this.drawDepthTerrainLayer(terrainY, startX, endX);
+    this.queueDraw(CONST.LAYER_TERRAIN_SPRITES, () => {
+      this.ctx.drawImage(spriteCv, 0, 0);
+    });
+
+    this.preRenderDepthTerrainLayer(terrainY, startX, endX);
+    if (this.depthTerrainCanvas && this.gameService.depthTerrain?.length) {
+      const depthCv = this.depthTerrainCanvas;
+      this.queueDraw(CONST.LAYER_TERRAIN_DEPTH, () => {
+        this.ctx.drawImage(depthCv, 0, 0);
+      });
+    }
   }
 
-  private drawDepthTerrainLayer(terrainY: number, startX: number, endX: number): void {
+  private preRenderDepthTerrainLayer(terrainY: number, startX: number, endX: number): void {
     if (!this.gameService.depthTerrain?.length) return;
 
     const sheet = this.spriteService.getSpritesheet(this.spriteService.INNER_TERRAIN_SPRITESHEET);
@@ -1068,9 +1080,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     dCtx.globalCompositeOperation = 'source-over';
-
-    // Composite onto main canvas (opaque)
-    this.ctx.drawImage(this.depthTerrainCanvas, 0, 0);
   }
 
   private drawTerrainSpritePlacements(
@@ -2899,6 +2908,31 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private queueEnvironmentTrees(cameraX: number): void {
+    const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
+    if (!sheet) return;
+    const byName = new Map(this.spriteService.getBackgroundSprites().map((s) => [s.name, s]));
+
+    const midNames = ['tree1_background', 'tree3_background'];
+    for (const inst of this.bgTreeInstances.filter((i) => midNames.includes(i.name))) {
+      const meta = byName.get(inst.name);
+      if (!meta) continue;
+      const wx = inst.worldX, sc = inst.scale, off = cameraX * 0.55;
+      this.queueDraw(CONST.LAYER_ENV_TREE_MID, () => {
+        this.drawBgInstance(sheet, meta, wx, off, sc);
+      });
+    }
+
+    for (const inst of this.bgTreeInstances.filter((i) => i.name === 'tree2_background')) {
+      const meta = byName.get(inst.name);
+      if (!meta) continue;
+      const wx = inst.worldX, sc = inst.scale, off = cameraX * 0.8;
+      this.queueDraw(CONST.LAYER_ENV_TREE_FRONT, () => {
+        this.drawBgInstance(sheet, meta, wx, off, sc);
+      });
+    }
+  }
+
   private drawParallaxBackground(cameraX: number) {
     const sheet = this.spriteService.getSpritesheet(this.spriteService.BACKGROUND_TOOL_SPRITESHEET);
     if (!sheet) return;
@@ -2916,18 +2950,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const trees = byName.get('trees_background');
     if (trees) this.drawBgTiledBottom(sheet, trees, 1, cameraX * 0.35);
 
-    // z=5: scattered tree1 / tree3 instances — parallax 0.55
-    const instanceSprites = ['tree1_background', 'tree3_background'];
-    for (const inst of this.bgTreeInstances.filter((i) => instanceSprites.includes(i.name))) {
-      const meta = byName.get(inst.name);
-      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.55, inst.scale);
-    }
-
-    // z=8: foreground tree2 instances — parallax 0.80
-    for (const inst of this.bgTreeInstances.filter((i) => i.name === 'tree2_background')) {
-      const meta = byName.get(inst.name);
-      if (meta) this.drawBgInstance(sheet, meta, inst.worldX, cameraX * 0.8, inst.scale);
-    }
   }
 
   private drawBgCover(

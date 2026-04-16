@@ -49,10 +49,10 @@
     {
       "name": "trees_background",
       "spritesheet": "Mushroom Shrine (Background).png",
-      "x": 24,
+      "x": 25,
       "y": 997,
       "z": 4,
-      "width": 360,
+      "width": 358,
       "height": 247
     },
     {
