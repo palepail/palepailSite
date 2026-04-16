@@ -219,10 +219,7 @@ export const ZOMBIE_MUSHROOM_BULLET: Bullet = {
   bulletRotationSpeed: Math.PI * 3,
   bulletStyle: 'standard',
   explosionSprite: 'zombie_explosion',
-  modifiers: [
-    { type: 'poison_zone', radius: 120, damage: 75 },
-    { type: 'ignore_shield' },
-  ],
+  modifiers: [{ type: 'poison_zone', radius: 120, damage: 75 }, { type: 'ignore_shield' }],
 };
 
 // ── Vehicle Configurations ───────────────────────────────────────────────────
@@ -382,6 +379,8 @@ export const AIMING_LINE_WIDTH = 1;
 export const AIMING_LINE_DASH = [5, 5];
 export const TANK_BODY_STROKE_COLOR = '#000000';
 export const TANK_BODY_STROKE_WIDTH = 2;
+
+export const EMOTE_DRAW_SIZE = 128;
 export const TANK_TRACK_OFFSET = 3;
 export const TANK_TRACK_HEIGHT = 9;
 export const TANK_TRACK_DETAIL_WIDTH = 5;

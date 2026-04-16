@@ -785,9 +785,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw terrain
     this.drawTerrain();
 
-    // Draw poison zones (on ground, behind entities)
-    this.drawPoisonZones();
-
     // Draw charge bars (behind tanks)
     if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
       this.drawChargeBar(
@@ -807,6 +804,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Draw enemies
     this.drawEnemies();
+
+    // Draw poison zones (over entities)
+    this.drawPoisonZones();
 
     // Draw projectile
     if (this.gameService.projectile) {
@@ -1125,10 +1125,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           this.ctx.stroke();
           this.ctx.setLineDash([]);
         }
+        this.drawEmoteBehind(this.gameService.player, cx, cy);
       },
     );
 
     this.drawShieldOverlay(this.gameService.player, centerX, centerY);
+    this.drawPoisonTint(this.gameService.player, centerX, centerY);
+    this.drawEmote(this.gameService.player, centerX, centerY);
 
     // Draw player prediction path when charging (skip for shotgun — pellets fire randomly)
     if (
@@ -1170,9 +1173,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawEnemy(enemy: any) {
-    const { centerX, centerY } = this.drawTankBase(enemy, CONST.ENEMY_FALLBACK_COLOR);
+    const { centerX, centerY } = this.drawTankBase(
+      enemy,
+      CONST.ENEMY_FALLBACK_COLOR,
+      undefined,
+      (cx, cy) => {
+        this.drawEmoteBehind(enemy, cx, cy);
+      },
+    );
 
     this.drawShieldOverlay(enemy, centerX, centerY);
+    this.drawPoisonTint(enemy, centerX, centerY);
+    this.drawEmote(enemy, centerX, centerY);
 
     // Draw UI elements (health bar, name label)
     const enemyIndex = this.gameService.enemies.indexOf(enemy);
@@ -1212,6 +1224,125 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const screen = this.cameraController.worldToScreen(entity.x, entity.y);
       this.drawShieldOverlay(entity, screen.x, screen.y);
     }
+  }
+
+  private isEntityInPoisonZone(entity: any): boolean {
+    for (const zone of this.gameService.poisonZones) {
+      const dx = entity.x - zone.x;
+      const dy = entity.y - zone.y;
+      if (Math.sqrt(dx * dx + dy * dy) < zone.radius) return true;
+    }
+    return false;
+  }
+
+  private drawPoisonTint(entity: any, centerX: number, centerY: number): void {
+    if (!this.isEntityInPoisonZone(entity)) return;
+    const sprite = this.spriteService.getSprite('poison_vehicle_overlay');
+    if (!sprite) return;
+    const size = CONST.TANK_BODY_RADIUS * 3;
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.85;
+    this.ctx.drawImage(
+      sprite.image,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      centerX - size / 2,
+      centerY - size / 2,
+      size,
+      size,
+    );
+    this.ctx.restore();
+  }
+
+  /** Draws the entity's emote sprite floating above it (front z-layer, outside drawTankBase transforms). */
+  private drawEmote(entity: any, centerX: number, centerY: number): void {
+    const emote = entity.emote;
+    if (!emote || emote.zLayer !== 'front') return;
+    const def = this.spriteService.getEmoteDefinition(emote.name as string);
+    if (!def) return;
+    // Hide during loop delay
+    if (emote.nextPlayTime !== undefined && this.renderTime < emote.nextPlayTime) return;
+    const elapsed = this.renderTime - emote.startTime;
+    const frameIndex = Math.floor(elapsed / def.frameDurationMs) % def.frameCount;
+    const spriteSuffix =
+      emote.name === 'sleep'
+        ? entity.facing === 1
+          ? 'sleep_right'
+          : 'sleep_left'
+        : (emote.name as string);
+    const sprite = this.spriteService.getSprite(`emote_${spriteSuffix}_${frameIndex}`);
+    if (!sprite) return;
+    const size = CONST.EMOTE_DRAW_SIZE;
+    const drawX = centerX;
+    const drawY = centerY - CONST.TANK_BODY_RADIUS * 2;
+    this.ctx.save();
+    // Mirror emote for right-facing entities (except sleep which is direction-specific)
+    if (!def.noFlip && entity.facing === 1) {
+      this.ctx.translate(centerX, 0);
+      this.ctx.scale(-1, 1);
+      this.ctx.translate(-centerX, 0);
+    }
+    this.ctx.drawImage(
+      sprite.image,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      drawX,
+      drawY,
+      size,
+      size,
+    );
+    this.ctx.restore();
+  }
+
+  /** Draws the entity's emote sprite for the 'behind' z-layer, called inside drawTankBase transforms. */
+  private drawEmoteBehind(entity: any, centerX: number, centerY: number): void {
+    const emote = entity.emote;
+    if (!emote || emote.zLayer !== 'behind') return;
+    const def = this.spriteService.getEmoteDefinition(emote.name as string);
+    if (!def) return;
+    if (emote.nextPlayTime !== undefined && this.renderTime < emote.nextPlayTime) return;
+    const elapsed = this.renderTime - emote.startTime;
+    const frameIndex = Math.floor(elapsed / def.frameDurationMs) % def.frameCount;
+    const spriteSuffix =
+      emote.name === 'sleep'
+        ? entity.facing === 1
+          ? 'sleep_right'
+          : 'sleep_left'
+        : (emote.name as string);
+    const sprite = this.spriteService.getSprite(`emote_${spriteSuffix}_${frameIndex}`);
+    if (!sprite) return;
+    const size = CONST.EMOTE_DRAW_SIZE;
+    // Center the sprite on the entity — the bubble sits in the corner of the sprite
+    // frame and naturally sticks out beyond the entity's edge at any draw scale.
+    // Offset +5 outward (canvas X) and -5 upward to reduce overlap.
+    const drawX = centerX - size / 2 + 5;
+    const drawY = centerY - size / 2 - 5;
+    this.ctx.save();
+    // Inside drawTankBase the canvas is already flipped for left-facing vehicles —
+    // that naturally mirrors the bubble to the opposite corner. No extra flip needed
+    // for regular emotes.
+    // For no-flip emotes (sleep) we undo the canvas flip so the directional sprite renders correctly.
+    if (def.noFlip && entity.facing === -1) {
+      this.ctx.translate(centerX, 0);
+      this.ctx.scale(-1, 1);
+      this.ctx.translate(-centerX, 0);
+    }
+    this.ctx.drawImage(
+      sprite.image,
+      sprite.x,
+      sprite.y,
+      sprite.width,
+      sprite.height,
+      drawX,
+      drawY,
+      size,
+      size,
+    );
+    this.ctx.restore();
   }
 
   private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
@@ -2127,14 +2258,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const sprite = this.spriteService.getSprite(`field_poison_${frameIndex}`);
 
       this.ctx.save();
-      // Fallback flat ellipse at ground level
-      this.ctx.beginPath();
-      this.ctx.ellipse(screenPos.x, screenPos.y, zone.radius, zone.radius * 0.3, 0, 0, Math.PI * 2);
-      this.ctx.fillStyle = 'rgba(80, 220, 60, 0.35)';
-      this.ctx.fill();
-      this.ctx.strokeStyle = 'rgba(60, 200, 40, 0.6)';
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
 
       if (sprite) {
         this.ctx.globalAlpha = 0.85;

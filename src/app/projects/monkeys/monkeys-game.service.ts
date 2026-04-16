@@ -15,6 +15,8 @@ import {
   EquipmentSlot,
   EquipmentStats,
   PlantedMine,
+  EmoteName,
+  ActiveEmote,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
@@ -164,11 +166,32 @@ export class MonkeysGameService {
     };
   }
 
-  async initGame() {
+  /** Resets all transient game state. Called before every new game session. */
+  cleanupGame(): void {
+    // Projectiles & zones
+    this.projectileService.projectile = null;
+    this.projectileService.childProjectiles = [];
+    this.projectileService.plantedMines = [];
+    this.projectileService.poisonZones = [];
+    this.projectileService.nextBatchId = 0;
+    this.projectileService.lastImpactPos = null;
+    this.projectileService.shieldBrokeEntities = [];
+    // Damage
+    this.damageService.resetLog();
+    this.damageService.damageTexts = [];
+    this.damageService.lowHealthCrossedEntities = [];
+    // Emotes
+    this.player.emote = undefined;
+    for (const e of this.enemies) e.emote = undefined;
+    // Physics cache
+    this.physicsService.clearTrajectoryCache();
+    // Timers
     this.gameOverTimer = 0;
     this.winTimer = 0;
-    this.damageService.resetLog();
-    this.physicsService.clearTrajectoryCache();
+  }
+
+  async initGame() {
+    this.cleanupGame();
     await this.terrainService.loadTerrainMetadata();
     this.terrainService.generateTerrain();
     this.physicsService.initPhysics();
@@ -491,9 +514,8 @@ export class MonkeysGameService {
           }
           break;
         }
-        // Apply poison zone damage to all entities at start of player's turn
+        // Apply poison zone damage only to the player (their turn)
         this.applyPoisonZoneDamage(this.player, true);
-        for (const e of this.enemies) { if (e.active) this.applyPoisonZoneDamage(e, false); }
         this.tickPoisonZonesForOwner(this.player);
         if (this.checkPoisonWinLoss()) break;
         // Reset fuel at turn start
@@ -626,9 +648,8 @@ export class MonkeysGameService {
     }
     switch (enemy.turnState) {
       case 'turn_start':
-        // Apply poison zone damage to all entities at start of enemy's turn
-        this.applyPoisonZoneDamage(this.player, true);
-        for (const e of this.enemies) { if (e.active) this.applyPoisonZoneDamage(e, false); }
+        // Apply poison zone damage only to this enemy (their turn)
+        this.applyPoisonZoneDamage(enemy, false);
         this.tickPoisonZonesForOwner(enemy);
         if (this.checkPoisonWinLoss()) break;
         // Reset fuel at turn start
@@ -1232,6 +1253,26 @@ export class MonkeysGameService {
     // Update damage texts
     this.damageService.updateDamageTexts();
 
+    // Drain shield-broke notifications — play exclamation emote
+    for (const entity of this.projectileService.shieldBrokeEntities) {
+      this.playEmote(entity, 'exclamation');
+    }
+    this.projectileService.shieldBrokeEntities = [];
+
+    // Drain low-health-crossed notifications — play small_sweat emote
+    for (const entity of this.damageService.lowHealthCrossedEntities) {
+      this.playEmote(entity, 'small_sweat');
+    }
+    this.damageService.lowHealthCrossedEntities = [];
+
+    // Tick emote expiry for all entities
+    this.tickEmoteExpiry(this.player);
+    for (const e of this.enemies) { this.tickEmoteExpiry(e); }
+
+    // Continuous grumble check — every frame, regardless of whose turn it is
+    this.updateGrumbleEmote(this.player);
+    for (const e of this.enemies) { if (e.active) this.updateGrumbleEmote(e); }
+
     // Update turn queue (remove inactive enemies)
     this.turnService.updateTurnQueue(deltaTime);
 
@@ -1587,6 +1628,66 @@ export class MonkeysGameService {
 
   get poisonZones() {
     return this.projectileService.poisonZones;
+  }
+
+  playEmote(entity: Player | Enemy, name: EmoteName, opts?: { loop?: boolean; loopDelayMs?: number; zLayer?: 'front' | 'behind' }): void {
+    entity.emote = {
+      name,
+      startTime: Date.now(),
+      loop: opts?.loop ?? false,
+      loopDelayMs: opts?.loopDelayMs,
+      zLayer: opts?.zLayer ?? 'behind',
+    };
+  }
+
+  clearEmote(entity: Player | Enemy): void {
+    entity.emote = undefined;
+  }
+
+  private tickEmoteExpiry(entity: Player | Enemy): void {
+    const emote = entity.emote;
+    if (!emote) return;
+    const def = this.spriteService.getEmoteDefinition(emote.name);
+    if (!def) return;
+    const cycleMs = def.frameCount * def.frameDurationMs;
+    const now = Date.now();
+    if (!emote.loop) {
+      if (now - emote.startTime >= cycleMs) entity.emote = undefined;
+      return;
+    }
+    // Looping emote: after cycle ends, wait loopDelayMs before restarting
+    if (emote.nextPlayTime !== undefined) {
+      if (now >= emote.nextPlayTime) {
+        emote.startTime = now;
+        emote.nextPlayTime = undefined;
+      }
+      return;
+    }
+    if (now - emote.startTime >= cycleMs) {
+      if (emote.loopDelayMs) {
+        emote.nextPlayTime = now + emote.loopDelayMs;
+      } else {
+        emote.startTime = now;
+      }
+    }
+  }
+
+  private isInPoisonZone(entity: Player | Enemy): boolean {
+    return this.projectileService.poisonZones.some(z => {
+      const dx = entity.x - z.x;
+      const dy = entity.y - z.y;
+      return Math.sqrt(dx * dx + dy * dy) < z.radius;
+    });
+  }
+
+  private updateGrumbleEmote(entity: Player | Enemy): void {
+    if (this.isInPoisonZone(entity)) {
+      if (entity.emote?.name !== 'grumble') {
+        this.playEmote(entity, 'grumble', { loop: true, loopDelayMs: 5000 });
+      }
+    } else if (entity.emote?.name === 'grumble') {
+      this.clearEmote(entity);
+    }
   }
 
   private applyPoisonZoneDamage(entity: Player | Enemy, isPlayer: boolean): void {

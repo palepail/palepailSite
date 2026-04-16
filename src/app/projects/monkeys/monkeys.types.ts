@@ -37,6 +37,7 @@ export interface Player {
   hurtUntilMs?: number;
   prevHealth?: number;
   displayName?: string; // "You" or "Enemy N" — set at game start for combat log
+  emote?: ActiveEmote;
 }
 
 export interface Enemy {
@@ -75,6 +76,7 @@ export interface Enemy {
   hurtUntilMs?: number;
   prevHealth?: number;
   displayName?: string; // "Enemy N" — set at game start for combat log
+  emote?: ActiveEmote;
 }
 
 export enum GameState {
@@ -237,6 +239,7 @@ export interface DamageResult {
   actualAmount: number;
   wasKilled: boolean;
   source: DamageSource;
+  crossedLowHealthThreshold?: boolean;
 }
 
 export interface CombatLogEntry {
@@ -246,6 +249,36 @@ export interface CombatLogEntry {
   weaponName: string;
   totalDamage: number;
   wasFatal: boolean;
+}
+
+export type EmoteName =
+  | 'big_sweat'
+  | 'small_sweat'
+  | 'small_angry'
+  | 'big_angry'
+  | 'notes'
+  | 'money'
+  | 'fume'
+  | 'double_fume'
+  | 'angry_fume'
+  | 'shock'
+  | 'lightbulb'
+  | 'heart'
+  | 'big_heart'
+  | 'question'
+  | 'exclamation'
+  | 'grumble'
+  | 'heat'
+  | 'laugh'
+  | 'sleep';
+
+export interface ActiveEmote {
+  name: EmoteName;
+  startTime: number;
+  loop: boolean;
+  loopDelayMs?: number;  // ms to wait between animation cycles
+  nextPlayTime?: number; // timestamp after which to restart the cycle
+  zLayer: 'front' | 'behind';
 }
 
 export interface Projectile {

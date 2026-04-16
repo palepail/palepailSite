@@ -20,6 +20,8 @@ export class ProjectileService {
   poisonZones: PoisonZone[] = [];
   nextBatchId = 0;
   lastImpactPos: { x: number; y: number } | null = null;
+  /** Entities whose shield just broke this frame — drained by game service to trigger emotes. */
+  shieldBrokeEntities: (Player | Enemy)[] = [];
 
   get explosions() {
     return this.impactService.explosions;
@@ -181,6 +183,7 @@ export class ProjectileService {
           entity.shieldHitAngle = Math.atan2(sdy, sdx);
           if ((entity.currentShieldHealth ?? 0) <= 0) {
             this.sfxService.play({ category: 'shield_break' });
+            this.shieldBrokeEntities.push(entity);
           }
           // Shield deflects projectile whether it broke or held
           const hasBounce = this.projectile.bullet.modifiers?.some(
@@ -631,6 +634,7 @@ export class ProjectileService {
       shieldedTarget.shieldHitAngle = Math.atan2(sdy, sdx);
       if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
         this.sfxService.play({ category: 'shield_break' });
+        this.shieldBrokeEntities.push(shieldedTarget);
       }
       // Shield deflects projectile whether it broke or held
       const hasBounce = proj.bullet.modifiers?.some(
@@ -967,6 +971,7 @@ export class ProjectileService {
         shieldedTarget.shieldHitAngle = Math.atan2(dy, dx);
         if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
           this.sfxService.play({ category: 'shield_break' });
+          this.shieldBrokeEntities.push(shieldedTarget);
         } else {
           this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
         }
