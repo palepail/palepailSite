@@ -3,6 +3,7 @@ import {
   BackgroundMetadataFile,
   BackgroundSpriteMetadata,
   LayerOffsetData,
+  LayerOffsetsMap,
 } from './monkeys.types';
 
 export interface SpriteDefinition {
@@ -56,7 +57,7 @@ export class MonkeysSpriteService {
   private metadataLoadPromise: Promise<void> | null = null;
   private backgroundMetadataPromise: Promise<BackgroundMetadataFile> | null = null;
   private backgroundMetadataCache: BackgroundMetadataFile | null = null;
-  private layerOffsets: LayerOffsetData | null = null;
+  private layerOffsetsMap: LayerOffsetsMap = {};
 
   loadProgress = 0; // 0–1
   loadLabel = 'Loading...';
@@ -264,14 +265,18 @@ export class MonkeysSpriteService {
         console.warn(`Layer offsets not found at ${this.LAYER_OFFSETS_PATH}`);
         return;
       }
-      this.layerOffsets = (await response.json()) as LayerOffsetData;
+      this.layerOffsetsMap = (await response.json()) as LayerOffsetsMap;
     } catch (error) {
       console.warn('Failed to load layer offsets:', error);
     }
   }
 
-  getLayerOffsets(): LayerOffsetData | null {
-    return this.layerOffsets;
+  getLayerOffsets(spritesheet: string): LayerOffsetData | null {
+    return this.layerOffsetsMap[spritesheet] ?? null;
+  }
+
+  getAllLayerOffsets(): LayerOffsetsMap {
+    return this.layerOffsetsMap;
   }
 
   getSprite(name: string): SpriteData | null {

@@ -140,6 +140,102 @@ export const PEANUT_BULLET: Bullet = {
 /** All player-selectable ammo types, in UI button order. */
 export const PLAYER_BULLETS: Bullet[] = [BANANA_BULLET, APPLE_BULLET, PEANUT_BULLET];
 
+// ── Zombie weapon types ──────────────────────────────────────────────────────
+
+export const ZOMBIE_BANANA_BUNCH_BULLET: Bullet = {
+  name: 'banana_bunch',
+  tier: 1,
+  weight: 1,
+  damage: 50,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 50,
+  craterRadius: 40,
+  speed: 20,
+  heldItemSprite: 'zombie_item_banana_bunch',
+  overlaySprite: 'zombie_overlay_banana_bunch',
+  bulletSprite: 'zombie_item_banana_bunch',
+  explosionSprite: 'zombie_explosion',
+  sfxImpact: 'explosion',
+  childCount: 5,
+  childBullet: {
+    name: 'banana_fragment',
+    tier: 2,
+    weight: 1,
+    damage: 30,
+    shape: 'circle',
+    explosionShape: 'circle',
+    explosionRadius: 30,
+    craterRadius: 24,
+    speed: 18,
+    bulletSprite: 'zombie_banana_bunch_fragment',
+    explosionSprite: 'zombie_explosion',
+    sfxImpact: 'explosion',
+    modifiers: [
+      { type: 'bounce_terrain' },
+      { type: 'fuse_timer', ms: 1800 },
+    ],
+  },
+};
+
+/** Zombie Corn Stick — bouncy single shot, mirrors Apple. */
+export const ZOMBIE_CORN_STICK_BULLET: Bullet = {
+  name: 'corn_stick',
+  weight: 1,
+  damage: 75,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 35,
+  craterRadius: 28,
+  speed: 22,
+  heldItemSprite: 'zombie_item_corn_stick',
+  overlaySprite: 'zombie_overlay_corn_stick',
+  bulletSprite: 'zombie_item_corn_stick',
+  rotatesToVelocity: true,
+  bulletRotationSpeed: Math.PI * 5,
+  explosionSprite: 'zombie_explosion',
+  sfxImpact: 'explosion',
+  modifiers: [
+    { type: 'bounce_terrain', restitution: 0.78 },
+    { type: 'bounce_entity' },
+    { type: 'explode_on_low_speed', threshold: 1.5 },
+  ],
+};
+
+const ZOMBIE_MUSHROOM_SPORE: Bullet = {
+  name: 'mushroom_spore',
+  tier: 2,
+  weight: 1,
+  damage: 20,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 30,
+  craterRadius: 16,
+  speed: 24,
+  bulletSprite: 'zombie_item_mushroom',
+  explosionSprite: 'zombie_explosion',
+  sfxImpact: 'explosion',
+};
+
+/** Zombie Mushroom — shotgun burst, mirrors Peanut. */
+export const ZOMBIE_MUSHROOM_BULLET: Bullet = {
+  name: 'mushroom',
+  weight: 2,
+  damage: 0,
+  shape: 'circle',
+  explosionShape: 'circle',
+  explosionRadius: 0,
+  craterRadius: 0,
+  speed: 0,
+  heldItemSprite: 'zombie_item_mushroom',
+  overlaySprite: 'zombie_overlay_mushroom',
+  bulletSprite: 'zombie_item_mushroom',
+  shotgunCount: 8,
+  shotgunSpreadRad: 0.45,
+  explosionSprite: 'zombie_explosion',
+  childBullet: ZOMBIE_MUSHROOM_SPORE,
+};
+
 // ── Vehicle Configurations ───────────────────────────────────────────────────
 
 export const PLAYER_VEHICLE: Vehicle = {
@@ -158,6 +254,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   sfxWalk: 'walk',
   sfxFire: 'fire',
   bullet: BANANA_BULLET,
+  bulletOptions: [BANANA_BULLET, APPLE_BULLET, PEANUT_BULLET],
   // Snowman upper hitbox — covers the monkey's head/torso above the base circle.
   // Uses literal 22 (= TANK_COLLISION_RADIUS) to avoid a forward-reference error.
   hitboxes: [{ offX: 5, offY: -26, radius: 14 }],
@@ -187,7 +284,7 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
   speed: 100.0,
   power: 200,
   shape: 'tank',
-  spritesheet: 'Zombie Lupin.png',
+  spritesheet: 'Zombie Lupin Composite.png',
   climbAngle: 45,
   fuel: 75,
   health: 275,
@@ -198,23 +295,8 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
   shotDelay: 100,
   sfxWalk: 'walk',
   sfxFire: 'fire',
-  bulletStyle: 'cluster',
-  bullet: {
-    name: 'banana_bunch',
-    tier: 1,
-    weight: 1,
-    damage: 50,
-    shape: 'circle',
-    explosionShape: 'circle',
-    explosionRadius: 50,
-    craterRadius: 40,
-    speed: 20,
-    bulletSprite: 'cluster_bomb',
-    explosionSprite: 'cluster_explosion',
-    sfxImpact: 'explosion',
-    childCount: 5,
-    childBullet: CLUSTER_FRAGMENT,
-  },
+  bullet: ZOMBIE_BANANA_BUNCH_BULLET,
+  bulletOptions: [ZOMBIE_BANANA_BUNCH_BULLET, ZOMBIE_CORN_STICK_BULLET, ZOMBIE_MUSHROOM_BULLET],
 };
 
 export interface SelectableVehicle {

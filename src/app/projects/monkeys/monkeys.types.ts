@@ -98,6 +98,7 @@ export interface LayerFrameOffset {
   hand: { x: number; y: number };
   fruit: { x: number; y: number };
   overlay: { x: number; y: number };
+  halo?: { x: number; y: number };
   aboveFruitSpriteName?: string;
   hideLayers?: string[];
 }
@@ -112,6 +113,8 @@ export interface LayerOffsetData {
   fruitConfig: Record<string, FruitConfig>;
   frames: Record<string, LayerFrameOffset>;
 }
+
+export type LayerOffsetsMap = Record<string, LayerOffsetData>;
 
 export interface TurnEntity {
   id: string;
@@ -324,6 +327,7 @@ export interface Vehicle {
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
   bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
+  bulletOptions?: Bullet[]; // selectable ammunition shown as in-game weapon buttons; first entry is the default
   voicePack?: string; // VO character pack assigned at game start
   hitboxes?: VehicleHitbox[]; // extra hitbox spheres beyond the base TANK_COLLISION_RADIUS sphere
 }

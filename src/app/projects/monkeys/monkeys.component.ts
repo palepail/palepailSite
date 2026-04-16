@@ -188,7 +188,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly WEAPON_BTN_SIZE = 68;
   private readonly WEAPON_BTN_GAP = 8;
   private readonly WEAPON_BTN_MARGIN = 10;
+  /** Sprites used for the menu monkey animation (always Lupin's weapons). */
   private readonly WEAPON_SPRITES = ['item_banana', 'item_apple', 'item_peanut'];
+  /** Bullet options for the currently active player vehicle. */
+  private get vehicleBulletOptions(): import('./monkeys.types').Bullet[] {
+    return this.gameService.player?.vehicle?.bulletOptions ?? CONST.PLAYER_BULLETS;
+  }
 
   // Turn message
   private turnMessage: string = '';
@@ -203,8 +208,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private canvasScale = 1;
   private readonly tintCache = new Map<string, HTMLCanvasElement>();
-  private readonly EFFECT_SPRITE_FRAME_COUNT = 3;
-  private readonly BULLET_SPRITE_FRAME_DURATION_MS = 90;
+  private readonly EXPLOSION_FRAME_COUNT = 6;
   private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
@@ -239,7 +243,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     'shoot_9',
   ] as const;
   private readonly LAYER_EDITOR_FRUITS = ['item_banana', 'item_apple', 'item_peanut'] as const;
-  private readonly COMPOSITE_SPRITESHEET = 'Lupin Composite.png';
+  private readonly ZOMBIE_LAYER_EDITOR_FRUITS = ['zombie_item_banana_bunch', 'zombie_item_corn_stick', 'zombie_item_mushroom'] as const;
+  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
+  private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
+  private readonly COMPOSITE_SHEETS = new Set<string>(['Lupin Composite.png', 'Zombie Lupin Composite.png']);
+  private layerToolSheet: string = 'Lupin Composite.png';
   private readonly POWER_PERCENT_SPRITE_SIZE = 26;
   private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
   private readonly CURSOR_BLINK_PERIOD_MS = 1000;
@@ -405,6 +413,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private editorFrameIndex = 0;
   private editorFruitIndex = 0;
   private editorOffsets: LayerOffsetData | null = null;
+  private layerToolAllOffsets: Record<string, LayerOffsetData> = {};
   // Hit regions populated each drawLayerTool() frame
   private layerToolBtns: Map<string, { x: number; y: number; w: number; h: number }> = new Map();
   // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
@@ -1280,14 +1289,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return Math.floor(now / frameDuration) % 6;
   }
 
-  private getBulletFrameIndex(now: number = Date.now()): number {
-    return Math.floor(now / this.BULLET_SPRITE_FRAME_DURATION_MS) % this.EFFECT_SPRITE_FRAME_COUNT;
-  }
-
   private getExplosionFrameIndex(now: number = Date.now()): number {
-    return (
-      Math.floor(now / this.EXPLOSION_SPRITE_FRAME_DURATION_MS) % this.EFFECT_SPRITE_FRAME_COUNT
-    );
+    return Math.floor(now / this.EXPLOSION_SPRITE_FRAME_DURATION_MS) % this.EXPLOSION_FRAME_COUNT;
   }
 
   private drawCursorBarrel(centerX: number, centerY: number, angleRad: number) {
@@ -1570,7 +1573,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
               ? `move_${this.getMoveFrameIndex(now)}`
               : 'idle';
 
-    const isComposite = spritesheet === this.COMPOSITE_SPRITESHEET;
+    const isComposite = this.COMPOSITE_SHEETS.has(spritesheet);
     const sprite = this.spriteService.getEntitySprite(animName, spritesheet);
 
     if (!sprite) {
@@ -1615,7 +1618,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     spriteSize: number,
     spriteYOffset: number,
   ): void {
-    const layerOffsets = this.spriteService.getLayerOffsets();
+    const entitySheet: string = (entity.vehicle?.spritesheet as string | undefined) ?? this.LUPIN_COMPOSITE;
+    const layerOffsets = this.spriteService.getLayerOffsets(entitySheet);
     const frameOffsets: LayerFrameOffset | undefined = layerOffsets?.frames[animName];
     const explosionScaleMultiplier = layerOffsets?.explosionScale ?? 1.0;
     const heldItemSprite = (entity.vehicle?.bullet?.heldItemSprite as string | undefined) ?? null;
@@ -1702,7 +1706,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Layer 3: hand
-    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+    const handSprite = this.spriteService.getEntitySprite('hand', entitySheet);
     if (handSprite && !frameOffsets?.hideLayers?.includes('hand')) {
       const hx = frameOffsets?.hand.x ?? 0;
       const hy = frameOffsets?.hand.y ?? 0;
@@ -1721,6 +1725,26 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Overlay on top of fruit (overlayZ >= 2, e.g. banana peel)
     if (overlayZ >= 2) drawOverlay();
+
+    // Layer 4: halo (zombie composite only)
+    if (entitySheet === this.ZOMBIE_COMPOSITE && !frameOffsets?.hideLayers?.includes('halo')) {
+      const haloSprite = this.spriteService.getSprite('zombie_halo');
+      if (haloSprite) {
+        const hlx = frameOffsets?.halo?.x ?? 0;
+        const hly = frameOffsets?.halo?.y ?? 0;
+        this.ctx.drawImage(
+          haloSprite.image,
+          haloSprite.x,
+          haloSprite.y,
+          haloSprite.width,
+          haloSprite.height,
+          -spriteSize / 2 + hlx,
+          -spriteSize / 2 + spriteYOffset + hly,
+          spriteSize,
+          spriteSize,
+        );
+      }
+    }
 
     // Store explosion scale multiplier on entity for use by drawExplosions
     (entity as any).__explosionScaleMultiplier = explosionScaleMultiplier;
@@ -1920,11 +1944,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawProjectile() {
-    const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
     const bulletPrefix = this.gameService.projectile?.bullet.bulletSprite ?? 'bullet';
-    const bulletSprite =
-      this.spriteService.getSprite(`${bulletPrefix}_${bulletFrameIndex}`) ??
-      this.spriteService.getSprite(bulletPrefix);
+    const bulletSprite = this.spriteService.getSprite(bulletPrefix);
 
     if (this.gameService.projectile) {
       let pos: { x: number; y: number };
@@ -1980,8 +2001,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       if (explosionSprite) {
         const explosionScale =
           spritePrefix === 'explosion'
-            ? (this.spriteService.getLayerOffsets()?.explosionScale ?? 1.0)
-            : 1.0;
+            ? (this.spriteService.getLayerOffsets(this.LUPIN_COMPOSITE)?.explosionScale ?? 1.0)
+            : spritePrefix === 'zombie_explosion'
+              ? (this.spriteService.getLayerOffsets(this.ZOMBIE_COMPOSITE)?.explosionScale ?? 1.0)
+              : 1.0;
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
         let spriteHeight =
           explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
@@ -2052,12 +2075,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawChildProjectiles(): void {
-    const bulletFrameIndex = this.getBulletFrameIndex(this.renderTime);
     for (const child of this.gameService.childProjectiles) {
       const prefix = child.bullet.bulletSprite ?? 'bullet';
-      const sprite =
-        this.spriteService.getSprite(`${prefix}_${bulletFrameIndex}`) ??
-        this.spriteService.getSprite(prefix);
+      const sprite = this.spriteService.getSprite(prefix);
       const screenPos = this.cameraController.worldToScreen(child.x, child.y);
       let angle: number | undefined;
       if (child.spinRate !== undefined) {
@@ -2355,7 +2375,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const size = this.WEAPON_BTN_SIZE;
     const gap = this.WEAPON_BTN_GAP;
     const margin = this.WEAPON_BTN_MARGIN;
-    const count = this.WEAPON_SPRITES.length;
+    const count = this.vehicleBulletOptions.length;
     // Rightmost button flush to right margin; buttons grow leftward
     const rightEdge = CONST.CANVAS_WIDTH - margin;
     const cx = rightEdge - size / 2 - (count - 1 - index) * (size + gap);
@@ -2364,7 +2384,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawWeaponButtons(): void {
-    for (let i = 0; i < this.WEAPON_SPRITES.length; i++) {
+    const bullets = this.vehicleBulletOptions;
+    for (let i = 0; i < bullets.length; i++) {
       const btn = this.getWeaponBtnRect(i);
       const left = btn.x - btn.width / 2;
       const top = btn.y - btn.height / 2;
@@ -2374,7 +2395,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Draw item icon centred inside button
       const iconSize = 80;
-      const sprite = this.spriteService.getSprite(this.WEAPON_SPRITES[i]);
+      const spriteName = bullets[i].heldItemSprite ?? bullets[i].bulletSprite;
+      const sprite = spriteName ? this.spriteService.getSprite(spriteName) : null;
       if (sprite) {
         this.ctx.drawImage(
           sprite.image,
@@ -2392,8 +2414,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private selectWeapon(index: number): void {
+    const options = this.vehicleBulletOptions;
+    if (index < 0 || index >= options.length) return;
     this.selectedBulletIndex = index;
-    this.gameService.player.vehicle.bullet = { ...CONST.PLAYER_BULLETS[index] };
+    this.gameService.player.vehicle.bullet = { ...options[index] };
     this.gameService.clearTrajectoryCache();
   }
 
@@ -3551,16 +3575,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     };
     const overlayKey = fruitToOverlay[fruitKey] ?? null;
 
-    const layerOffsets = this.spriteService.getLayerOffsets();
+    const layerOffsets = this.spriteService.getLayerOffsets(this.LUPIN_COMPOSITE);
     const frameName = 'idle';
     const frameOffsets = layerOffsets?.frames[frameName];
     const fruitCfg = layerOffsets?.fruitConfig[fruitKey] ?? null;
     const fruitScale = fruitCfg?.scale ?? 1.0;
     const overlayZ = fruitCfg?.overlayZ ?? 3;
 
-    const backSprite = this.spriteService.getEntitySprite(frameName, this.COMPOSITE_SPRITESHEET);
+    const backSprite = this.spriteService.getEntitySprite(frameName, this.LUPIN_COMPOSITE);
     const fruitSprite = this.spriteService.getSprite(fruitKey);
-    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+    const handSprite = this.spriteService.getEntitySprite('hand', this.LUPIN_COMPOSITE);
     const overlaySprite = overlayKey ? this.spriteService.getSprite(overlayKey) : null;
     if (!backSprite) return;
 
@@ -3982,25 +4006,27 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private openLayerTool(): void {
-    const saved = this.spriteService.getLayerOffsets();
-    if (saved) {
-      this.editorOffsets = JSON.parse(JSON.stringify(saved)) as LayerOffsetData;
-    } else {
-      const defaultFrame = (): LayerFrameOffset => ({
-        hand: { x: 0, y: 0 },
-        fruit: { x: 0, y: 0 },
-        overlay: { x: 0, y: 0 },
-      });
-      this.editorOffsets = {
-        explosionScale: 1.0,
-        fruitConfig: {
-          item_banana: { scale: 1.0, overlayZ: 3 },
-          item_apple: { scale: 1.0, overlayZ: 1 },
-          item_peanut: { scale: 1.0, overlayZ: 3 },
-        },
-        frames: Object.fromEntries([...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()])),
-      };
-    }
+    const allSaved = this.spriteService.getAllLayerOffsets();
+    const defaultFrame = (): LayerFrameOffset => ({
+      hand: { x: 0, y: 0 },
+      fruit: { x: 0, y: 0 },
+      overlay: { x: 0, y: 0 },
+    });
+    const buildDefault = (fruits: readonly string[]): LayerOffsetData => ({
+      explosionScale: 1.0,
+      fruitConfig: Object.fromEntries(fruits.map((f) => [f, { scale: 1.0, overlayZ: 3 }])),
+      frames: Object.fromEntries([...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()])),
+    });
+
+    this.layerToolAllOffsets = {
+      [this.LUPIN_COMPOSITE]:
+        allSaved[this.LUPIN_COMPOSITE] ??
+        buildDefault(this.LAYER_EDITOR_FRUITS),
+      [this.ZOMBIE_COMPOSITE]:
+        allSaved[this.ZOMBIE_COMPOSITE] ??
+        buildDefault(this.ZOMBIE_LAYER_EDITOR_FRUITS),
+    };
+    this.editorOffsets = this.layerToolAllOffsets[this.layerToolSheet];
     this.editorFrameIndex = 0;
     this.editorFruitIndex = 0;
     this.gameService.currentState = GameState.LAYER_TOOL;
@@ -4036,23 +4062,31 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const spriteYOffset = -15 * 3;
     const scale = 3;
     const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
-    const fruitKey = this.LAYER_EDITOR_FRUITS[this.editorFruitIndex];
+    const isZombie = this.layerToolSheet === this.ZOMBIE_COMPOSITE;
+    const editorFruits = isZombie ? this.ZOMBIE_LAYER_EDITOR_FRUITS : this.LAYER_EDITOR_FRUITS;
+    const fruitKey = editorFruits[this.editorFruitIndex];
     const offsets = this.editorOffsets!;
     const frameOffsets = offsets.frames[frameName];
     const fruitCfg = offsets.fruitConfig[fruitKey];
     const fruitScale = fruitCfg?.scale ?? 1.0;
     const overlayZ = fruitCfg?.overlayZ ?? 3;
 
-    const backSprite = this.spriteService.getEntitySprite(frameName, this.COMPOSITE_SPRITESHEET);
+    const backSprite = this.spriteService.getEntitySprite(frameName, this.layerToolSheet);
     const fruitSprite = this.spriteService.getSprite(fruitKey);
-    const handSprite = this.spriteService.getEntitySprite('hand', this.COMPOSITE_SPRITESHEET);
+    const handSprite = this.spriteService.getEntitySprite('hand', this.layerToolSheet);
 
     // Determine overlay based on fruit
-    const fruitToOverlay: Record<string, string> = {
-      item_banana: 'overlay_banana',
-      item_apple: 'overlay_apple',
-      item_peanut: 'overlay_peanut',
-    };
+    const fruitToOverlay: Record<string, string> = isZombie
+      ? {
+          zombie_item_banana_bunch: 'zombie_overlay_banana_bunch',
+          zombie_item_corn_stick: 'zombie_overlay_corn_stick',
+          zombie_item_mushroom: 'zombie_overlay_mushroom',
+        }
+      : {
+          item_banana: 'overlay_banana',
+          item_apple: 'overlay_apple',
+          item_peanut: 'overlay_peanut',
+        };
     const overlaySpriteName = fruitToOverlay[fruitKey] ?? null;
     const overlaySprite = overlaySpriteName
       ? this.spriteService.getSprite(overlaySpriteName)
@@ -4127,6 +4161,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // overlay on top of fruit (overlayZ >= 2, e.g. banana peel)
       if (overlayZ >= 2) drawOverlayPreview();
+
+      // halo layer (zombie only)
+      if (isZombie && !frameOffsets?.hideLayers?.includes('halo')) {
+        const haloSprite = this.spriteService.getSprite('zombie_halo');
+        const hlx = (frameOffsets?.halo?.x ?? 0) * scale;
+        const hly = (frameOffsets?.halo?.y ?? 0) * scale;
+        drawPreviewLayer(haloSprite ?? null, spriteSize, hlx, hly);
+      }
     } finally {
       this.ctx.restore();
     }
@@ -4135,75 +4177,85 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const panelCX = 890;
     this.ctx.textAlign = 'center';
 
+    // Spacing constants – compact in zombie mode to fit extra HALO section within 720px canvas
+    const NR = isZombie ? 26 : 32;  // nudge/scale row interval
+    const SG = isZombie ? 14 : 18;  // HRule → section header gap
+    const HG = isZombie ? 18 : 24;  // last row → HRule gap
+
     // Title
     this.ctx.fillStyle = '#fff';
     this.ctx.font = 'bold 18px Arial';
     this.ctx.fillText('Layer Offset Tool', panelCX, 50);
 
+    // Character selector row
+    const charBtnW = 170;
+    const charBtnH = 32;
+    this.ltDrawFruitBtn('char_lupin', 'Lupin', { x: 780, y: 76, w: charBtnW, h: charBtnH }, !isZombie);
+    this.ltDrawFruitBtn('char_zombie', 'Zombie Lupin', { x: 1000, y: 76, w: charBtnW, h: charBtnH }, isZombie);
+
     // Frame selector row
-    const prevBtn = { x: 720, y: 88, w: 60, h: 36 };
-    const nextBtn = { x: 1060, y: 88, w: 60, h: 36 };
-    this.ltDrawBtn('frame_prev', '◀', prevBtn);
-    this.ltDrawBtn('frame_next', '▶', nextBtn);
+    const frameY = isZombie ? 112 : 124;
+    this.ltDrawBtn('frame_prev', '◀', { x: 720, y: frameY, w: 60, h: 36 });
+    this.ltDrawBtn('frame_next', '▶', { x: 1060, y: frameY, w: 60, h: 36 });
     this.ctx.fillStyle = '#fff';
     this.ctx.font = 'bold 15px Arial';
-    this.ctx.fillText(frameName, panelCX, 88 + 6);
+    this.ctx.fillText(frameName, panelCX, frameY + 6);
 
-    // Separator
-    this.ltHRule(115);
+    let y = frameY + (isZombie ? 22 : 27);
+    this.ltHRule(y);
 
     // ── HAND section ──
-    this.ltSectionHeader('HAND', 133);
-    this.ltNudgeRow('hand_x', 'X', 162, frameOffsets?.hand.x ?? 0, 1, 5);
-    this.ltNudgeRow('hand_y', 'Y', 194, frameOffsets?.hand.y ?? 0, 1, 5);
-
-    this.ltHRule(216);
+    y += SG; this.ltSectionHeader('HAND', y);
+    y += NR; this.ltNudgeRow('hand_x', 'X', y, frameOffsets?.hand.x ?? 0, 1, 5);
+    y += NR; this.ltNudgeRow('hand_y', 'Y', y, frameOffsets?.hand.y ?? 0, 1, 5);
+    y += HG; this.ltHRule(y);
 
     // ── FRUIT section ──
-    this.ltSectionHeader('FRUIT', 234);
-
-    // Fruit selector
-    const fruitNames = ['Banana', 'Apple', 'Peanut'];
+    y += SG; this.ltSectionHeader('FRUIT', y);
+    const fruitNames = isZombie ? ['Bunch', 'Corn', 'Shroom'] : ['Banana', 'Apple', 'Peanut'];
     const fruitBtnW = 110;
     const fruitBtnH = 30;
-    const fruitXs = [740, 890, 1040];
-    for (let i = 0; i < 3; i++) {
-      const isActive = this.editorFruitIndex === i;
-      const bx = fruitXs[i];
-      const by = 264;
-      const btn = { x: bx, y: by, w: fruitBtnW, h: fruitBtnH };
-      this.ltDrawFruitBtn(`fruit_sel_${i}`, fruitNames[i], btn, isActive);
-    }
-
-    this.ltNudgeRow('fruit_x', 'X', 300, frameOffsets?.fruit.x ?? 0, 1, 5);
-    this.ltNudgeRow('fruit_y', 'Y', 332, frameOffsets?.fruit.y ?? 0, 1, 5);
-
-    // Fruit scale
+    y += NR;
+    [740, 890, 1040].forEach((bx, i) => {
+      this.ltDrawFruitBtn(`fruit_sel_${i}`, fruitNames[i], { x: bx, y, w: fruitBtnW, h: fruitBtnH }, this.editorFruitIndex === i);
+    });
+    y += NR; this.ltNudgeRow('fruit_x', 'X', y, frameOffsets?.fruit.x ?? 0, 1, 5);
+    y += NR; this.ltNudgeRow('fruit_y', 'Y', y, frameOffsets?.fruit.y ?? 0, 1, 5);
+    y += NR;
     this.ctx.fillStyle = '#ccc';
     this.ctx.font = 'bold 13px Arial';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText('Fruit Scale', 610, 364 + 5);
+    this.ctx.fillText('Fruit Scale', 610, y + 5);
     this.ctx.textAlign = 'center';
-    this.ltScaleRow('fruit_scale', 364, fruitScale, 0.05, 0.2);
-
-    this.ltHRule(392);
+    this.ltScaleRow('fruit_scale', y, fruitScale, 0.05, 0.2);
+    y += HG; this.ltHRule(y);
 
     // ── OVERLAY section ──
-    this.ltSectionHeader('OVERLAY', 410);
-    this.ltNudgeRow('overlay_x', 'X', 440, frameOffsets?.overlay.x ?? 0, 1, 5);
-    this.ltNudgeRow('overlay_y', 'Y', 472, frameOffsets?.overlay.y ?? 0, 1, 5);
+    y += SG; this.ltSectionHeader('OVERLAY', y);
+    y += NR; this.ltNudgeRow('overlay_x', 'X', y, frameOffsets?.overlay.x ?? 0, 1, 5);
+    y += NR; this.ltNudgeRow('overlay_y', 'Y', y, frameOffsets?.overlay.y ?? 0, 1, 5);
 
-    this.ltHRule(498);
+    // ── HALO section (zombie only) ──
+    if (isZombie) {
+      y += SG; this.ltSectionHeader('HALO', y);
+      const haloHidden = frameOffsets?.hideLayers?.includes('halo') ?? false;
+      y += NR;
+      this.ltDrawFruitBtn('halo_toggle', `${haloHidden ? '☐' : '☑'} Show`,
+        { x: panelCX, y, w: 140, h: 26 }, !haloHidden);
+      y += NR; this.ltNudgeRow('halo_x', 'X', y, frameOffsets?.halo?.x ?? 0, 1, 5);
+      y += NR; this.ltNudgeRow('halo_y', 'Y', y, frameOffsets?.halo?.y ?? 0, 1, 5);
+    }
+
+    y += HG; this.ltHRule(y);
 
     // ── EXPLOSION SCALE ──
-    this.ltSectionHeader('EXPLOSION SCALE', 516);
-    this.ltScaleRow('exp_scale', 548, offsets.explosionScale, 0.05, 0.2);
-
-    this.ltHRule(578);
+    y += SG; this.ltSectionHeader('EXPLOSION SCALE', y);
+    y += NR; this.ltScaleRow('exp_scale', y, offsets.explosionScale, 0.05, 0.2);
+    y += HG; this.ltHRule(y);
 
     // ── Action buttons ──
-    this.ltDrawBtn('copy_json', 'Copy JSON', { x: panelCX, y: 608, w: 200, h: 42 });
-    this.ltDrawBtn('back', 'Back', { x: panelCX, y: 660, w: 200, h: 42 });
+    y += 32; this.ltDrawBtn('copy_json', 'Copy JSON', { x: panelCX, y, w: 200, h: 42 });
+    y += 52; this.ltDrawBtn('back', 'Back', { x: panelCX, y, w: 200, h: 42 });
   }
 
   /** Register a button region and draw it */
@@ -4308,7 +4360,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.editorOffsets) return;
     const offsets = this.editorOffsets;
     const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
-    const fruitKey = this.LAYER_EDITOR_FRUITS[this.editorFruitIndex];
+    const isZombie = this.layerToolSheet === this.ZOMBIE_COMPOSITE;
+    const editorFruits = isZombie ? this.ZOMBIE_LAYER_EDITOR_FRUITS : this.LAYER_EDITOR_FRUITS;
+    const fruitKey = editorFruits[this.editorFruitIndex];
 
     const hit = (key: string): boolean => {
       const btn = this.layerToolBtns.get(key);
@@ -4341,6 +4395,22 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
+    // Character selector
+    if (hit('char_lupin') && this.layerToolSheet !== this.LUPIN_COMPOSITE) {
+      this.layerToolAllOffsets[this.layerToolSheet] = offsets;
+      this.layerToolSheet = this.LUPIN_COMPOSITE;
+      this.editorOffsets = this.layerToolAllOffsets[this.LUPIN_COMPOSITE];
+      this.editorFruitIndex = 0;
+      return;
+    }
+    if (hit('char_zombie') && this.layerToolSheet !== this.ZOMBIE_COMPOSITE) {
+      this.layerToolAllOffsets[this.layerToolSheet] = offsets;
+      this.layerToolSheet = this.ZOMBIE_COMPOSITE;
+      this.editorOffsets = this.layerToolAllOffsets[this.ZOMBIE_COMPOSITE];
+      this.editorFruitIndex = 0;
+      return;
+    }
+
     // Ensure the current frame has an offsets entry
     if (!offsets.frames[frameName]) {
       offsets.frames[frameName] = {
@@ -4350,6 +4420,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       };
     }
     const frame = offsets.frames[frameName];
+
+    // Halo toggle (zombie only)
+    if (hit('halo_toggle') && isZombie) {
+      const hideLayers = frame.hideLayers ?? [];
+      frame.hideLayers = hideLayers.includes('halo')
+        ? hideLayers.filter((l) => l !== 'halo')
+        : [...hideLayers, 'halo'];
+      return;
+    }
 
     // Helper: apply nudge
     const nudgeAxis = (
@@ -4384,6 +4463,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (nudgeAxis(frame.fruit, 'y', 'fruit_y', 1, 5)) return;
     if (nudgeAxis(frame.overlay, 'x', 'overlay_x', 1, 5)) return;
     if (nudgeAxis(frame.overlay, 'y', 'overlay_y', 1, 5)) return;
+    if (isZombie) {
+      if (!frame.halo) frame.halo = { x: 0, y: 0 };
+      if (nudgeAxis(frame.halo, 'x', 'halo_x', 1, 5)) return;
+      if (nudgeAxis(frame.halo, 'y', 'halo_y', 1, 5)) return;
+    }
 
     // Fruit scale
     const scaleDelta = (id: string, small: number, big: number): number | null => {
@@ -4412,7 +4496,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Copy JSON
     if (hit('copy_json')) {
-      void navigator.clipboard.writeText(JSON.stringify(offsets, null, 2));
+      this.layerToolAllOffsets[this.layerToolSheet] = offsets;
+      void navigator.clipboard.writeText(JSON.stringify(this.layerToolAllOffsets, null, 2));
       return;
     }
 
@@ -5028,7 +5113,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         this.combatLogMinimized = !this.combatLogMinimized;
         return;
       }
-      for (let i = 0; i < this.WEAPON_SPRITES.length; i++) {
+      for (let i = 0; i < this.vehicleBulletOptions.length; i++) {
         if (this.isPointInsideButton(x, y, this.getWeaponBtnRect(i))) {
           this.selectWeapon(i);
           return;
