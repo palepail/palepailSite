@@ -243,10 +243,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     'shoot_9',
   ] as const;
   private readonly LAYER_EDITOR_FRUITS = ['item_banana', 'item_apple', 'item_peanut'] as const;
-  private readonly ZOMBIE_LAYER_EDITOR_FRUITS = ['zombie_item_banana_bunch', 'zombie_item_corn_stick', 'zombie_item_mushroom'] as const;
+  private readonly ZOMBIE_LAYER_EDITOR_FRUITS = [
+    'zombie_item_banana_bunch',
+    'zombie_item_corn_stick',
+    'zombie_item_mushroom',
+  ] as const;
   private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
   private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
-  private readonly COMPOSITE_SHEETS = new Set<string>(['Lupin Composite.png', 'Zombie Lupin Composite.png']);
+  private readonly COMPOSITE_SHEETS = new Set<string>([
+    'Lupin Composite.png',
+    'Zombie Lupin Composite.png',
+  ]);
   private layerToolSheet: string = 'Lupin Composite.png';
   private readonly POWER_PERCENT_SPRITE_SIZE = 26;
   private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
@@ -496,9 +503,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       });
   }
 
-  private readonly onWindowBlur = () => { this.audioService.setFocusMuted(true); this.sfxService.setFocusMuted(true); };
-  private readonly onWindowFocus = () => { this.audioService.setFocusMuted(false); this.sfxService.setFocusMuted(false); };
-  private readonly onVisibilityChange = () => { this.audioService.setFocusMuted(document.hidden); this.sfxService.setFocusMuted(document.hidden); };
+  private readonly onWindowBlur = () => {
+    this.audioService.setFocusMuted(true);
+    this.sfxService.setFocusMuted(true);
+  };
+  private readonly onWindowFocus = () => {
+    this.audioService.setFocusMuted(false);
+    this.sfxService.setFocusMuted(false);
+  };
+  private readonly onVisibilityChange = () => {
+    this.audioService.setFocusMuted(document.hidden);
+    this.sfxService.setFocusMuted(document.hidden);
+  };
 
   ngAfterViewInit() {
     this.initCanvas();
@@ -637,7 +653,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.shieldAnimService.update(this.gameService.player, this.gameService.enemies, this.renderTime);
+    this.shieldAnimService.update(
+      this.gameService.player,
+      this.gameService.enemies,
+      this.renderTime,
+    );
     this.updateHurtSpriteState();
 
     // Check if setup is complete: minimum 1s elapsed AND all vehicles have landed
@@ -718,6 +738,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.panToEntity = null; // Clear invalid request
     }
 
+    // Pan to world position (e.g. planted mine centroid before detonation)
+    if (
+      this.gameService.panToPosition &&
+      !this.isDragging &&
+      this.gameService.currentState !== GameState.SETUP &&
+      this.gameService.currentState !== GameState.PAUSED
+    ) {
+      this.cameraController.panToEntity(this.gameService.panToPosition);
+      this.gameService.panToPosition = null;
+    }
+
     // Pan to player when they start moving
     if (
       this.gameService.isPlayerTurn() &&
@@ -754,6 +785,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw terrain
     this.drawTerrain();
 
+    // Draw poison zones (on ground, behind entities)
+    this.drawPoisonZones();
+
     // Draw charge bars (behind tanks)
     if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
       this.drawChargeBar(
@@ -779,8 +813,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.drawProjectile();
     }
     this.drawChildProjectiles();
-
-    // Draw explosions
+    this.drawPlantedMines();
     this.drawExplosions();
 
     // Draw damage texts
@@ -1618,7 +1651,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     spriteSize: number,
     spriteYOffset: number,
   ): void {
-    const entitySheet: string = (entity.vehicle?.spritesheet as string | undefined) ?? this.LUPIN_COMPOSITE;
+    const entitySheet: string =
+      (entity.vehicle?.spritesheet as string | undefined) ?? this.LUPIN_COMPOSITE;
     const layerOffsets = this.spriteService.getLayerOffsets(entitySheet);
     const frameOffsets: LayerFrameOffset | undefined = layerOffsets?.frames[animName];
     const explosionScaleMultiplier = layerOffsets?.explosionScale ?? 1.0;
@@ -1943,8 +1977,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private getInFlightSpriteName(bullet: {
+    bulletStyle?: string;
+    bulletSprite?: string;
+    overlaySprite?: string;
+  }): string {
+    const usesOverlay = bullet.bulletStyle === 'cluster' && !!bullet.overlaySprite;
+    return (usesOverlay ? bullet.overlaySprite : bullet.bulletSprite) ?? 'bullet';
+  }
+
   private drawProjectile() {
-    const bulletPrefix = this.gameService.projectile?.bullet.bulletSprite ?? 'bullet';
+    const bulletPrefix = this.getInFlightSpriteName(this.gameService.projectile?.bullet ?? {});
     const bulletSprite = this.spriteService.getSprite(bulletPrefix);
 
     if (this.gameService.projectile) {
@@ -2074,9 +2117,47 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private drawPoisonZones(): void {
+    const frameIndex = Math.floor(Date.now() / 100) % 15;
+    for (const zone of this.gameService.poisonZones) {
+      const screenPos = this.cameraController.worldToScreen(zone.x, zone.y);
+      // Draw wider than the radius to fill transparent sprite edges; height rises above terrain
+      const drawWidth = zone.radius * 3;
+      const drawHeight = zone.radius * 2;
+      const sprite = this.spriteService.getSprite(`field_poison_${frameIndex}`);
+
+      this.ctx.save();
+      // Fallback flat ellipse at ground level
+      this.ctx.beginPath();
+      this.ctx.ellipse(screenPos.x, screenPos.y, zone.radius, zone.radius * 0.3, 0, 0, Math.PI * 2);
+      this.ctx.fillStyle = 'rgba(80, 220, 60, 0.35)';
+      this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(60, 200, 40, 0.6)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      if (sprite) {
+        this.ctx.globalAlpha = 0.85;
+        // Bottom of sprite aligned to terrain surface (zone.y), cloud rises upward
+        this.ctx.drawImage(
+          sprite.image,
+          sprite.x,
+          sprite.y,
+          sprite.width,
+          sprite.height,
+          screenPos.x + (zone.radius * 0.3) / 2 - drawWidth / 2,
+          screenPos.y - zone.radius / 2 - drawHeight / 2,
+          drawWidth,
+          drawHeight,
+        );
+      }
+      this.ctx.restore();
+    }
+  }
+
   private drawChildProjectiles(): void {
     for (const child of this.gameService.childProjectiles) {
-      const prefix = child.bullet.bulletSprite ?? 'bullet';
+      const prefix = this.getInFlightSpriteName(child.bullet);
       const sprite = this.spriteService.getSprite(prefix);
       const screenPos = this.cameraController.worldToScreen(child.x, child.y);
       let angle: number | undefined;
@@ -2085,6 +2166,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         angle = (elapsed * child.spinRate) % (2 * Math.PI);
       }
       this.drawBulletAt(screenPos, sprite, angle);
+    }
+  }
+
+  private drawPlantedMines(): void {
+    for (const mine of this.gameService.plantedMines) {
+      const prefix = mine.bullet.bulletSprite ?? 'bullet';
+      const sprite = this.spriteService.getSprite(prefix);
+      const screenPos = this.cameraController.worldToScreen(mine.x, mine.y);
+      // Draw slightly tilted to indicate it is embedded in the ground
+      this.drawBulletAt(screenPos, sprite, Math.PI * 0.083);
     }
   }
 
@@ -4020,11 +4111,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.layerToolAllOffsets = {
       [this.LUPIN_COMPOSITE]:
-        allSaved[this.LUPIN_COMPOSITE] ??
-        buildDefault(this.LAYER_EDITOR_FRUITS),
+        allSaved[this.LUPIN_COMPOSITE] ?? buildDefault(this.LAYER_EDITOR_FRUITS),
       [this.ZOMBIE_COMPOSITE]:
-        allSaved[this.ZOMBIE_COMPOSITE] ??
-        buildDefault(this.ZOMBIE_LAYER_EDITOR_FRUITS),
+        allSaved[this.ZOMBIE_COMPOSITE] ?? buildDefault(this.ZOMBIE_LAYER_EDITOR_FRUITS),
     };
     this.editorOffsets = this.layerToolAllOffsets[this.layerToolSheet];
     this.editorFrameIndex = 0;
@@ -4178,9 +4267,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.textAlign = 'center';
 
     // Spacing constants – compact in zombie mode to fit extra HALO section within 720px canvas
-    const NR = isZombie ? 26 : 32;  // nudge/scale row interval
-    const SG = isZombie ? 14 : 18;  // HRule → section header gap
-    const HG = isZombie ? 18 : 24;  // last row → HRule gap
+    const NR = isZombie ? 26 : 32; // nudge/scale row interval
+    const SG = isZombie ? 14 : 18; // HRule → section header gap
+    const HG = isZombie ? 18 : 24; // last row → HRule gap
 
     // Title
     this.ctx.fillStyle = '#fff';
@@ -4190,8 +4279,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Character selector row
     const charBtnW = 170;
     const charBtnH = 32;
-    this.ltDrawFruitBtn('char_lupin', 'Lupin', { x: 780, y: 76, w: charBtnW, h: charBtnH }, !isZombie);
-    this.ltDrawFruitBtn('char_zombie', 'Zombie Lupin', { x: 1000, y: 76, w: charBtnW, h: charBtnH }, isZombie);
+    this.ltDrawFruitBtn(
+      'char_lupin',
+      'Lupin',
+      { x: 780, y: 76, w: charBtnW, h: charBtnH },
+      !isZombie,
+    );
+    this.ltDrawFruitBtn(
+      'char_zombie',
+      'Zombie Lupin',
+      { x: 1000, y: 76, w: charBtnW, h: charBtnH },
+      isZombie,
+    );
 
     // Frame selector row
     const frameY = isZombie ? 112 : 124;
@@ -4205,22 +4304,34 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ltHRule(y);
 
     // ── HAND section ──
-    y += SG; this.ltSectionHeader('HAND', y);
-    y += NR; this.ltNudgeRow('hand_x', 'X', y, frameOffsets?.hand.x ?? 0, 1, 5);
-    y += NR; this.ltNudgeRow('hand_y', 'Y', y, frameOffsets?.hand.y ?? 0, 1, 5);
-    y += HG; this.ltHRule(y);
+    y += SG;
+    this.ltSectionHeader('HAND', y);
+    y += NR;
+    this.ltNudgeRow('hand_x', 'X', y, frameOffsets?.hand.x ?? 0, 1, 5);
+    y += NR;
+    this.ltNudgeRow('hand_y', 'Y', y, frameOffsets?.hand.y ?? 0, 1, 5);
+    y += HG;
+    this.ltHRule(y);
 
     // ── FRUIT section ──
-    y += SG; this.ltSectionHeader('FRUIT', y);
+    y += SG;
+    this.ltSectionHeader('FRUIT', y);
     const fruitNames = isZombie ? ['Bunch', 'Corn', 'Shroom'] : ['Banana', 'Apple', 'Peanut'];
     const fruitBtnW = 110;
     const fruitBtnH = 30;
     y += NR;
     [740, 890, 1040].forEach((bx, i) => {
-      this.ltDrawFruitBtn(`fruit_sel_${i}`, fruitNames[i], { x: bx, y, w: fruitBtnW, h: fruitBtnH }, this.editorFruitIndex === i);
+      this.ltDrawFruitBtn(
+        `fruit_sel_${i}`,
+        fruitNames[i],
+        { x: bx, y, w: fruitBtnW, h: fruitBtnH },
+        this.editorFruitIndex === i,
+      );
     });
-    y += NR; this.ltNudgeRow('fruit_x', 'X', y, frameOffsets?.fruit.x ?? 0, 1, 5);
-    y += NR; this.ltNudgeRow('fruit_y', 'Y', y, frameOffsets?.fruit.y ?? 0, 1, 5);
+    y += NR;
+    this.ltNudgeRow('fruit_x', 'X', y, frameOffsets?.fruit.x ?? 0, 1, 5);
+    y += NR;
+    this.ltNudgeRow('fruit_y', 'Y', y, frameOffsets?.fruit.y ?? 0, 1, 5);
     y += NR;
     this.ctx.fillStyle = '#ccc';
     this.ctx.font = 'bold 13px Arial';
@@ -4228,34 +4339,51 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.fillText('Fruit Scale', 610, y + 5);
     this.ctx.textAlign = 'center';
     this.ltScaleRow('fruit_scale', y, fruitScale, 0.05, 0.2);
-    y += HG; this.ltHRule(y);
+    y += HG;
+    this.ltHRule(y);
 
     // ── OVERLAY section ──
-    y += SG; this.ltSectionHeader('OVERLAY', y);
-    y += NR; this.ltNudgeRow('overlay_x', 'X', y, frameOffsets?.overlay.x ?? 0, 1, 5);
-    y += NR; this.ltNudgeRow('overlay_y', 'Y', y, frameOffsets?.overlay.y ?? 0, 1, 5);
+    y += SG;
+    this.ltSectionHeader('OVERLAY', y);
+    y += NR;
+    this.ltNudgeRow('overlay_x', 'X', y, frameOffsets?.overlay.x ?? 0, 1, 5);
+    y += NR;
+    this.ltNudgeRow('overlay_y', 'Y', y, frameOffsets?.overlay.y ?? 0, 1, 5);
 
     // ── HALO section (zombie only) ──
     if (isZombie) {
-      y += SG; this.ltSectionHeader('HALO', y);
+      y += SG;
+      this.ltSectionHeader('HALO', y);
       const haloHidden = frameOffsets?.hideLayers?.includes('halo') ?? false;
       y += NR;
-      this.ltDrawFruitBtn('halo_toggle', `${haloHidden ? '☐' : '☑'} Show`,
-        { x: panelCX, y, w: 140, h: 26 }, !haloHidden);
-      y += NR; this.ltNudgeRow('halo_x', 'X', y, frameOffsets?.halo?.x ?? 0, 1, 5);
-      y += NR; this.ltNudgeRow('halo_y', 'Y', y, frameOffsets?.halo?.y ?? 0, 1, 5);
+      this.ltDrawFruitBtn(
+        'halo_toggle',
+        `${haloHidden ? '☐' : '☑'} Show`,
+        { x: panelCX, y, w: 140, h: 26 },
+        !haloHidden,
+      );
+      y += NR;
+      this.ltNudgeRow('halo_x', 'X', y, frameOffsets?.halo?.x ?? 0, 1, 5);
+      y += NR;
+      this.ltNudgeRow('halo_y', 'Y', y, frameOffsets?.halo?.y ?? 0, 1, 5);
     }
 
-    y += HG; this.ltHRule(y);
+    y += HG;
+    this.ltHRule(y);
 
     // ── EXPLOSION SCALE ──
-    y += SG; this.ltSectionHeader('EXPLOSION SCALE', y);
-    y += NR; this.ltScaleRow('exp_scale', y, offsets.explosionScale, 0.05, 0.2);
-    y += HG; this.ltHRule(y);
+    y += SG;
+    this.ltSectionHeader('EXPLOSION SCALE', y);
+    y += NR;
+    this.ltScaleRow('exp_scale', y, offsets.explosionScale, 0.05, 0.2);
+    y += HG;
+    this.ltHRule(y);
 
     // ── Action buttons ──
-    y += 32; this.ltDrawBtn('copy_json', 'Copy JSON', { x: panelCX, y, w: 200, h: 42 });
-    y += 52; this.ltDrawBtn('back', 'Back', { x: panelCX, y, w: 200, h: 42 });
+    y += 32;
+    this.ltDrawBtn('copy_json', 'Copy JSON', { x: panelCX, y, w: 200, h: 42 });
+    y += 52;
+    this.ltDrawBtn('back', 'Back', { x: panelCX, y, w: 200, h: 42 });
   }
 
   /** Register a button region and draw it */

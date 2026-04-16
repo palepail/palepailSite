@@ -9,7 +9,8 @@
     "shield": "Shield Round Hex.png",
     "tanks": "tanks_spritesheetRetina.png",
     "innerTerrain": "InnerTerrain.png",
-    "frames": "Frames.png"
+    "frames": "Frames.png",
+    "field_statuses": "Field Statuses.png"
   },
   "sprites": [
     { "name": "arena_G", "spritesheet": "text", "x": 0, "y": 0, "width": 64, "height": 64 },
@@ -1911,7 +1912,22 @@
       "y": 512,
       "width": 256,
       "height": 256
-    }
+    },
+    { "name": "field_poison_0",  "spritesheet": "field_statuses", "x": 0,   "y": 0,   "width": 192, "height": 192 },
+    { "name": "field_poison_1",  "spritesheet": "field_statuses", "x": 192, "y": 0,   "width": 192, "height": 192 },
+    { "name": "field_poison_2",  "spritesheet": "field_statuses", "x": 384, "y": 0,   "width": 192, "height": 192 },
+    { "name": "field_poison_3",  "spritesheet": "field_statuses", "x": 576, "y": 0,   "width": 192, "height": 192 },
+    { "name": "field_poison_4",  "spritesheet": "field_statuses", "x": 768, "y": 0,   "width": 192, "height": 192 },
+    { "name": "field_poison_5",  "spritesheet": "field_statuses", "x": 0,   "y": 192, "width": 192, "height": 192 },
+    { "name": "field_poison_6",  "spritesheet": "field_statuses", "x": 192, "y": 192, "width": 192, "height": 192 },
+    { "name": "field_poison_7",  "spritesheet": "field_statuses", "x": 384, "y": 192, "width": 192, "height": 192 },
+    { "name": "field_poison_8",  "spritesheet": "field_statuses", "x": 576, "y": 192, "width": 192, "height": 192 },
+    { "name": "field_poison_9",  "spritesheet": "field_statuses", "x": 768, "y": 192, "width": 192, "height": 192 },
+    { "name": "field_poison_10", "spritesheet": "field_statuses", "x": 0,   "y": 384, "width": 192, "height": 192 },
+    { "name": "field_poison_11", "spritesheet": "field_statuses", "x": 192, "y": 384, "width": 192, "height": 192 },
+    { "name": "field_poison_12", "spritesheet": "field_statuses", "x": 384, "y": 384, "width": 192, "height": 192 },
+    { "name": "field_poison_13", "spritesheet": "field_statuses", "x": 576, "y": 384, "width": 192, "height": 192 },
+    { "name": "field_poison_14", "spritesheet": "field_statuses", "x": 768, "y": 384, "width": 192, "height": 192 }
   ],
   "panels": [
     { "name": "panel_grey_3d", "spritesheet": "frames", "x": 0, "y": 0, "sectionSize": 16 },

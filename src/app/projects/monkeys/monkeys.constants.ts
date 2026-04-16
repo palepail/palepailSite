@@ -78,9 +78,10 @@ export const BANANA_BULLET: Bullet = {
   speed: 20,
   heldItemSprite: 'item_banana',
   overlaySprite: 'overlay_banana',
-  bulletSprite: 'item_banana',
+  bulletSprite: 'item_banana_0',
   rotatesToVelocity: true,
   bulletRotationSpeed: Math.PI * 4,
+  bulletStyle: 'standard',
   sfxImpact: 'explosion',
 };
 
@@ -95,9 +96,10 @@ export const APPLE_BULLET: Bullet = {
   speed: 22,
   heldItemSprite: 'item_apple',
   overlaySprite: 'overlay_apple',
-  bulletSprite: 'item_apple',
+  bulletSprite: 'item_apple_0',
   rotatesToVelocity: true,
   bulletRotationSpeed: Math.PI * 5,
+  bulletStyle: 'standard',
   sfxImpact: 'explosion',
   modifiers: [
     { type: 'bounce_terrain', restitution: 0.78 },
@@ -116,7 +118,7 @@ const PEANUT_PELLET: Bullet = {
   explosionRadius: 30,
   craterRadius: 16,
   speed: 24,
-  bulletSprite: 'item_peanut',
+  bulletSprite: 'item_peanut_0',
   sfxImpact: 'explosion',
 };
 
@@ -131,9 +133,10 @@ export const PEANUT_BULLET: Bullet = {
   speed: 0,
   heldItemSprite: 'item_peanut',
   overlaySprite: 'overlay_peanut',
-  bulletSprite: 'item_peanut',
+  bulletSprite: 'item_peanut_0',
   shotgunCount: 8,
   shotgunSpreadRad: 0.45, // ±~13° either side
+  bulletStyle: 'shotgun',
   childBullet: PEANUT_PELLET,
 };
 
@@ -148,15 +151,17 @@ export const ZOMBIE_BANANA_BUNCH_BULLET: Bullet = {
   weight: 1,
   damage: 50,
   shape: 'circle',
-  explosionShape: 'circle',
+  explosionShape: 'horizontal_oval',
   explosionRadius: 50,
   craterRadius: 40,
   speed: 20,
   heldItemSprite: 'zombie_item_banana_bunch',
   overlaySprite: 'zombie_overlay_banana_bunch',
-  bulletSprite: 'zombie_item_banana_bunch',
+  bulletSprite: 'zombie_banana_bunch_fragment',
   explosionSprite: 'zombie_explosion',
   sfxImpact: 'explosion',
+  bulletRotationSpeed: Math.PI * 3,
+  bulletStyle: 'cluster',
   childCount: 5,
   childBullet: {
     name: 'banana_fragment',
@@ -171,69 +176,53 @@ export const ZOMBIE_BANANA_BUNCH_BULLET: Bullet = {
     bulletSprite: 'zombie_banana_bunch_fragment',
     explosionSprite: 'zombie_explosion',
     sfxImpact: 'explosion',
-    modifiers: [
-      { type: 'bounce_terrain' },
-      { type: 'fuse_timer', ms: 1800 },
-    ],
+    modifiers: [{ type: 'bounce_terrain' }, { type: 'fuse_timer', ms: 1800 }],
   },
 };
 
-/** Zombie Corn Stick — bouncy single shot, mirrors Apple. */
+/** Zombie Corn Stick — twin sticky timebomb. Two arc at ±2°, embed in terrain, explode on owner's next turn. */
 export const ZOMBIE_CORN_STICK_BULLET: Bullet = {
   name: 'corn_stick',
   weight: 1,
-  damage: 75,
+  damage: 90,
   shape: 'circle',
-  explosionShape: 'circle',
-  explosionRadius: 35,
-  craterRadius: 28,
-  speed: 22,
+  explosionShape: 'horizontal_oval',
+  explosionRadius: 60,
+  craterRadius: 35,
+  speed: 20,
   heldItemSprite: 'zombie_item_corn_stick',
   overlaySprite: 'zombie_overlay_corn_stick',
-  bulletSprite: 'zombie_item_corn_stick',
-  rotatesToVelocity: true,
-  bulletRotationSpeed: Math.PI * 5,
+  bulletSprite: 'zombie_corn_bullet',
   explosionSprite: 'zombie_explosion',
   sfxImpact: 'explosion',
-  modifiers: [
-    { type: 'bounce_terrain', restitution: 0.78 },
-    { type: 'bounce_entity' },
-    { type: 'explode_on_low_speed', threshold: 1.5 },
-  ],
+  bulletRotationSpeed: Math.PI * 4,
+  twinCount: 2,
+  twinSpreadRad: (4 * Math.PI) / 180, // ±2° total 4° spread
+  bulletStyle: 'twin',
+  modifiers: [{ type: 'stick_on_terrain' }],
 };
 
-const ZOMBIE_MUSHROOM_SPORE: Bullet = {
-  name: 'mushroom_spore',
-  tier: 2,
-  weight: 1,
-  damage: 20,
-  shape: 'circle',
-  explosionShape: 'circle',
-  explosionRadius: 30,
-  craterRadius: 16,
-  speed: 24,
-  bulletSprite: 'zombie_item_mushroom',
-  explosionSprite: 'zombie_explosion',
-  sfxImpact: 'explosion',
-};
-
-/** Zombie Mushroom — shotgun burst, mirrors Peanut. */
+/** Zombie Mushroom — lobs a mushroom that leaves a poison zone on impact. Zone damages any entity starting a turn inside it (bypasses shields). */
 export const ZOMBIE_MUSHROOM_BULLET: Bullet = {
   name: 'mushroom',
-  weight: 2,
+  weight: 1,
   damage: 0,
   shape: 'circle',
   explosionShape: 'circle',
   explosionRadius: 0,
   craterRadius: 0,
-  speed: 0,
+  speed: 18,
   heldItemSprite: 'zombie_item_mushroom',
   overlaySprite: 'zombie_overlay_mushroom',
-  bulletSprite: 'zombie_item_mushroom',
-  shotgunCount: 8,
-  shotgunSpreadRad: 0.45,
+  bulletSprite: 'zombie_mushroom_bullet',
+  rotatesToVelocity: true,
+  bulletRotationSpeed: Math.PI * 3,
+  bulletStyle: 'standard',
   explosionSprite: 'zombie_explosion',
-  childBullet: ZOMBIE_MUSHROOM_SPORE,
+  modifiers: [
+    { type: 'poison_zone', radius: 120, damage: 75 },
+    { type: 'ignore_shield' },
+  ],
 };
 
 // ── Vehicle Configurations ───────────────────────────────────────────────────
@@ -273,10 +262,7 @@ const CLUSTER_FRAGMENT: Bullet = {
   bulletSprite: 'cluster_fragment',
   explosionSprite: 'cluster_explosion',
   sfxImpact: 'explosion',
-  modifiers: [
-    { type: 'bounce_terrain' },
-    { type: 'fuse_timer', ms: 1800 },
-  ],
+  modifiers: [{ type: 'bounce_terrain' }, { type: 'fuse_timer', ms: 1800 }],
 };
 
 export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {

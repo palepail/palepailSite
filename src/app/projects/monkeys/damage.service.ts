@@ -44,7 +44,7 @@ export class DamageService {
 
     const wasKilled = entity.health <= 0;
 
-    if (actualAmount > 0) {
+    if (actualAmount > 0 && event.source !== 'poison') {
       this.anyDamageAppliedThisTurn = true;
     }
 
@@ -85,6 +85,20 @@ export class DamageService {
       });
     }
 
+    if (event.source === 'poison' && actualAmount > 0) {
+      // Poison is status damage — does NOT set anyDamageAppliedThisTurn (turn continues normally)
+      // and logs immediately rather than accumulating in the batch.
+      const targetName = entity.displayName ?? 'Unknown';
+      this.addToLog({
+        type: 'damage',
+        attackerName: event.attackerName ?? '',
+        targetName,
+        weaponName: event.weaponName ?? '',
+        totalDamage: actualAmount,
+        wasFatal: wasKilled,
+      });
+    }
+
     // --- VO ---
     if (entity.vehicle.voicePack) {
       if (wasKilled) {
@@ -95,8 +109,7 @@ export class DamageService {
             entity.vehicle.voicePack,
             event.source === 'fall' ? 'fall' : 'ochisou',
           );
-        }
-      } else if (actualAmount > 0) {
+        }      } else if (actualAmount > 0) {
         this.sfxService.playVo(entity, entity.vehicle.voicePack, 'bump');
       }
     }

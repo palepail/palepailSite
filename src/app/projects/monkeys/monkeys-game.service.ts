@@ -14,6 +14,7 @@ import {
   EquipmentItem,
   EquipmentSlot,
   EquipmentStats,
+  PlantedMine,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
@@ -44,8 +45,14 @@ export class MonkeysGameService {
   player: Player;
   enemies: Enemy[] = [];
   panToEntity: any = null;
+  panToPosition: { x: number; y: number } | null = null;
   currentState: GameState = GameState.MENU;
   difficulty: 'easy' | 'normal' | 'hard' = 'normal';
+
+  // Mine detonation state machine
+  private pendingDetonationBatches: Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> = [];
+  private detonationPanMs = 0;
+  private detonationPhase: 'panning' | 'exploding' = 'panning';
 
   // Turn-based system
   private lastUpdateTime = Date.now();
@@ -484,9 +491,67 @@ export class MonkeysGameService {
           }
           break;
         }
+        // Apply poison zone damage to all entities at start of player's turn
+        this.applyPoisonZoneDamage(this.player, true);
+        for (const e of this.enemies) { if (e.active) this.applyPoisonZoneDamage(e, false); }
+        this.tickPoisonZonesForOwner(this.player);
+        if (this.checkPoisonWinLoss()) break;
         // Reset fuel at turn start
         player.movementFuel = player.vehicle.fuel;
+        {
+          const batches = this.groupMinesByBatch(player);
+          if (batches.length > 0) {
+            this.pendingDetonationBatches = batches;
+            this.detonationPhase = 'panning';
+            this.detonationPanMs = Date.now();
+            this.panToPosition = batches[0].centroid;
+            player.turnState = 'detonating_mines';
+            break;
+          }
+        }
         player.turnState = 'idle';
+        break;
+
+      case 'detonating_mines':
+        if (
+          this.enemies.every((e) => !e.active) &&
+          this.currentState !== GameState.WIN_DELAY &&
+          this.currentState !== GameState.WIN
+        ) {
+          this.currentState = GameState.WIN_DELAY;
+          this.winTimer = 1.5;
+          this.keys = {};
+          this.isCharging = false;
+          if (this.player.vehicle.voicePack) {
+            this.sfxService.playVo(this.player, this.player.vehicle.voicePack, 'win');
+          }
+          break;
+        }
+        if (this.detonationPhase === 'panning' && Date.now() - this.detonationPanMs >= 700) {
+          const batch = this.pendingDetonationBatches[0];
+          this.projectileService.detonateMinesBatch(
+            batch.mines,
+            this.terrainService.terrain,
+            this.player,
+            this.enemies,
+            this.physicsService,
+            this.terrainService.depthTerrain,
+          );
+          this.detonationPhase = 'exploding';
+        } else if (
+          this.detonationPhase === 'exploding' &&
+          this.projectileService.explosions.length === 0 &&
+          this.damageService.damageTexts.length === 0
+        ) {
+          this.pendingDetonationBatches.shift();
+          if (this.pendingDetonationBatches.length > 0) {
+            this.detonationPhase = 'panning';
+            this.detonationPanMs = Date.now();
+            this.panToPosition = this.pendingDetonationBatches[0].centroid;
+          } else {
+            player.turnState = 'idle';
+          }
+        }
         break;
 
       case 'idle':
@@ -561,6 +626,11 @@ export class MonkeysGameService {
     }
     switch (enemy.turnState) {
       case 'turn_start':
+        // Apply poison zone damage to all entities at start of enemy's turn
+        this.applyPoisonZoneDamage(this.player, true);
+        for (const e of this.enemies) { if (e.active) this.applyPoisonZoneDamage(e, false); }
+        this.tickPoisonZonesForOwner(enemy);
+        if (this.checkPoisonWinLoss()) break;
         // Reset fuel at turn start
         enemy.movementFuel = enemy.vehicle.fuel;
         enemy.angle = enemy.angle || (enemy.vehicle.minAimAngle + enemy.vehicle.maxAimAngle) / 2;
@@ -568,10 +638,50 @@ export class MonkeysGameService {
         enemy.targetAngle = undefined;
         enemy.targetPower = undefined;
         enemy.reassessCount = 0;
-        enemy.turnState = 'assess';
-        enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
         enemy.stuckCounter = 0;
         enemy.target = this.pickEnemyTarget(enemy);
+        {
+          const batches = this.groupMinesByBatch(enemy);
+          if (batches.length > 0) {
+            this.pendingDetonationBatches = batches;
+            this.detonationPhase = 'panning';
+            this.detonationPanMs = Date.now();
+            this.panToPosition = batches[0].centroid;
+            enemy.turnState = 'detonating_mines';
+            break;
+          }
+        }
+        enemy.turnState = 'assess';
+        enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
+        break;
+
+      case 'detonating_mines':
+        if (this.detonationPhase === 'panning' && Date.now() - this.detonationPanMs >= 700) {
+          const batch = this.pendingDetonationBatches[0];
+          this.projectileService.detonateMinesBatch(
+            batch.mines,
+            this.terrainService.terrain,
+            this.player,
+            this.enemies,
+            this.physicsService,
+            this.terrainService.depthTerrain,
+          );
+          this.detonationPhase = 'exploding';
+        } else if (
+          this.detonationPhase === 'exploding' &&
+          this.projectileService.explosions.length === 0 &&
+          this.damageService.damageTexts.length === 0
+        ) {
+          this.pendingDetonationBatches.shift();
+          if (this.pendingDetonationBatches.length > 0) {
+            this.detonationPhase = 'panning';
+            this.detonationPanMs = Date.now();
+            this.panToPosition = this.pendingDetonationBatches[0].centroid;
+          } else {
+            enemy.turnState = 'assess';
+            enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
+          }
+        }
         break;
 
       case 'assess':
@@ -832,17 +942,18 @@ export class MonkeysGameService {
         bullet.name,
       );
     } else {
+      const twinAngles = this.getTwinAngles(angleRad, bullet);
+      const batchId = twinAngles.length > 1 ? this.projectileService.nextBatchId++ : 0;
       const { positions } = this.physicsService.simulateTrajectory(
         barrelEndX,
         barrelEndY,
-        angleRad,
+        twinAngles[0],
         power,
         bullet,
         this.physicsService.windSpeed,
         this.physicsService.windAngle,
         this.terrainService.terrain,
       );
-
       this.projectileService.projectile = {
         x: barrelEndX,
         y: barrelEndY,
@@ -851,7 +962,33 @@ export class MonkeysGameService {
         owner: enemy,
         bullet: bullet,
         rootBulletName: bullet.name,
+        batchId,
       };
+      // Spawn additional twin trajectories as body-less child projectiles
+      for (let t = 1; t < twinAngles.length; t++) {
+        const { positions: tPos } = this.physicsService.simulateTrajectory(
+          barrelEndX,
+          barrelEndY,
+          twinAngles[t],
+          power,
+          bullet,
+          this.physicsService.windSpeed,
+          this.physicsService.windAngle,
+          this.terrainService.terrain,
+        );
+        this.projectileService.childProjectiles.push({
+          x: barrelEndX,
+          y: barrelEndY,
+          trajectory: tPos,
+          trajectoryIndex: 0,
+          owner: enemy,
+          bullet,
+          rootBulletName: bullet.name,
+          spawnTimeMs: Date.now(),
+          batchId,
+          spinRate: bullet.bulletRotationSpeed ?? undefined,
+        });
+      }
     }
     enemy.chargeStartTime = 0;
     enemy.entityState = 'shooting';
@@ -1056,6 +1193,29 @@ export class MonkeysGameService {
       );
     }
 
+    // Update poison zone gravity / terrain snap
+    this.projectileService.updatePoisonZonePhysics(
+      this.terrainService.terrain,
+      this.physicsService.windSpeed,
+    );
+
+    // Check planted mine contacts (entity walks into a mine — ends their turn)
+    if (this.currentState === GameState.PLAYING && !this.projectileService.isProjectileInFlight()) {
+      const hitEntity = this.projectileService.checkPlantedMineContacts(
+        this.player,
+        this.enemies,
+        this.terrainService.terrain,
+        this.physicsService,
+        this.terrainService.depthTerrain,
+      );
+      if (hitEntity) {
+        this.aftermathImpactPos = this.projectileService.lastImpactPos;
+        this.aftermathStartMs = Date.now();
+        this.aftermathCallouts = [];
+        this.currentState = GameState.AFTERMATH;
+      }
+    }
+
     // Check player collision with terrain
     this.collisionService.checkPlayerTerrainCollision(
       this.player,
@@ -1170,6 +1330,38 @@ export class MonkeysGameService {
     return trueAngleRad;
   }
 
+  private getTwinAngles(baseAngle: number, bullet: any): number[] {
+    const count: number = bullet.twinCount ?? 1;
+    if (count <= 1) return [baseAngle];
+    const spread: number = bullet.twinSpreadRad ?? 0;
+    return Array.from({ length: count }, (_, i) => {
+      const t = count === 1 ? 0 : i / (count - 1) - 0.5;
+      return baseAngle + t * spread;
+    });
+  }
+
+  private groupMinesByBatch(owner: Player | Enemy): Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> {
+    const ownerMines = this.projectileService.plantedMines.filter(m => m.owner === owner);
+    if (ownerMines.length === 0) return [];
+    const groups = new Map<number, PlantedMine[]>();
+    for (const mine of ownerMines) {
+      const arr = groups.get(mine.batchId) ?? [];
+      arr.push(mine);
+      groups.set(mine.batchId, arr);
+    }
+    // Remove owner's mines from the service list now (they're being dequeued for detonation)
+    this.projectileService.plantedMines = this.projectileService.plantedMines.filter(m => m.owner !== owner);
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, mines]) => ({
+        centroid: {
+          x: mines.reduce((s, m) => s + m.x, 0) / mines.length,
+          y: mines.reduce((s, m) => s + m.y, 0) / mines.length,
+        },
+        mines,
+      }));
+  }
+
   public shoot() {
     const angleRad = this.getBarrelAngle();
     const bullet = this.player.vehicle.bullet;
@@ -1199,17 +1391,18 @@ export class MonkeysGameService {
         bullet.name,
       );
     } else {
+      const twinAngles = this.getTwinAngles(angleRad, bullet);
+      const batchId = twinAngles.length > 1 ? this.projectileService.nextBatchId++ : 0;
       const { positions } = this.physicsService.simulateTrajectory(
         barrelEndX,
         barrelEndY,
-        angleRad,
+        twinAngles[0],
         this.player.power,
         bullet,
         this.physicsService.windSpeed,
         this.physicsService.windAngle,
         this.terrainService.terrain,
       );
-
       this.projectileService.projectile = {
         x: barrelEndX,
         y: barrelEndY,
@@ -1218,7 +1411,33 @@ export class MonkeysGameService {
         owner: this.player,
         bullet: bullet,
         rootBulletName: bullet.name,
+        batchId,
       };
+      // Spawn additional twin trajectories as body-less child projectiles
+      for (let t = 1; t < twinAngles.length; t++) {
+        const { positions: tPos } = this.physicsService.simulateTrajectory(
+          barrelEndX,
+          barrelEndY,
+          twinAngles[t],
+          this.player.power,
+          bullet,
+          this.physicsService.windSpeed,
+          this.physicsService.windAngle,
+          this.terrainService.terrain,
+        );
+        this.projectileService.childProjectiles.push({
+          x: barrelEndX,
+          y: barrelEndY,
+          trajectory: tPos,
+          trajectoryIndex: 0,
+          owner: this.player,
+          bullet,
+          rootBulletName: bullet.name,
+          spawnTimeMs: Date.now(),
+          batchId,
+          spinRate: bullet.bulletRotationSpeed ?? undefined,
+        });
+      }
     }
 
     this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
@@ -1360,6 +1579,71 @@ export class MonkeysGameService {
 
   get childProjectiles() {
     return this.projectileService.childProjectiles;
+  }
+
+  get plantedMines() {
+    return this.projectileService.plantedMines;
+  }
+
+  get poisonZones() {
+    return this.projectileService.poisonZones;
+  }
+
+  private applyPoisonZoneDamage(entity: Player | Enemy, isPlayer: boolean): void {
+    for (const zone of this.projectileService.poisonZones) {
+      const dx = entity.x - zone.x;
+      const dy = entity.y - zone.y;
+      if (Math.sqrt(dx * dx + dy * dy) < zone.radius) {
+        this.damageService.applyDamage(
+          entity,
+          {
+            amount: zone.damage,
+            source: 'poison',
+            attackerName: (zone.owner as Player | Enemy).displayName ?? 'Unknown',
+            weaponName: zone.rootBulletName,
+          },
+          isPlayer ? 'player' : 'enemy',
+        );
+      }
+    }
+  }
+
+  private tickPoisonZonesForOwner(owner: Player | Enemy): void {
+    for (const zone of this.projectileService.poisonZones) {
+      if (zone.owner === owner) zone.turnsUntilExpiry--;
+    }
+    this.projectileService.poisonZones = this.projectileService.poisonZones.filter(
+      z => z.turnsUntilExpiry > 0,
+    );
+  }
+
+  /** Returns true if a win/loss transition was triggered by poison damage. */
+  private checkPoisonWinLoss(): boolean {
+    if (this.enemies.every(e => !e.active)) {
+      if (this.currentState !== GameState.WIN_DELAY && this.currentState !== GameState.WIN) {
+        this.currentState = GameState.WIN_DELAY;
+        this.winTimer = 1.5;
+        this.keys = {};
+        this.isCharging = false;
+        if (this.player.vehicle.voicePack) {
+          this.sfxService.playVo(this.player, this.player.vehicle.voicePack, 'win');
+        }
+      }
+      return true;
+    }
+    if (this.player.health <= 0) {
+      if (this.currentState !== GameState.GAME_OVER_DELAY && this.currentState !== GameState.GAME_OVER) {
+        this.currentState = GameState.GAME_OVER_DELAY;
+        this.gameOverTimer = 2.0;
+        this.keys = {};
+        this.isCharging = false;
+        if (this.player.vehicle.voicePack) {
+          this.sfxService.playVo(this.player, this.player.vehicle.voicePack, 'lose');
+        }
+      }
+      return true;
+    }
+    return false;
   }
 
   areAllEntitiesSettled(): boolean {

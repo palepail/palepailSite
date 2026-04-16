@@ -25,7 +25,7 @@ export interface Player {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight';
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight' | 'detonating_mines';
   delay: number;
   targetAngle?: number;
   currentShieldHealth?: number;
@@ -50,7 +50,7 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'assess' | 'aiming' | 'bullet_in_flight';
+  turnState: 'turn_start' | 'assess' | 'aiming' | 'bullet_in_flight' | 'detonating_mines';
   targetPower?: number;
   power: number;
   delay: number;
@@ -224,7 +224,7 @@ export interface DamageText {
   isHeal?: boolean;
 }
 
-export type DamageSource = 'explosion' | 'fall';
+export type DamageSource = 'explosion' | 'fall' | 'poison';
 
 export interface DamageEvent {
   amount: number;
@@ -260,16 +260,42 @@ export interface Projectile {
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
   spinRate?: number; // radians per second of constant spin for rendering
   lowSpeedSamples?: number[]; // rolling speed samples for explode_on_low_speed — avoids hang-time false trigger
+  batchId?: number; // twin-fire batch id; all projectiles from one firing share a batchId
 }
 
-export type BulletModifierType = 'bounce_terrain' | 'bounce_entity' | 'fuse_timer' | 'explode_on_low_speed';
+export type BulletModifierType = 'bounce_terrain' | 'bounce_entity' | 'fuse_timer' | 'explode_on_low_speed' | 'stick_on_terrain' | 'poison_zone' | 'ignore_shield';
 
 export interface BounceTerrainModifier { type: 'bounce_terrain'; restitution?: number; }
 export interface BounceEntityModifier { type: 'bounce_entity'; }
 export interface FuseTimerModifier { type: 'fuse_timer'; ms: number; }
 export interface ExplodeOnLowSpeedModifier { type: 'explode_on_low_speed'; threshold: number; }
+export interface StickOnTerrainModifier { type: 'stick_on_terrain'; }
+export interface PoisonZoneModifier { type: 'poison_zone'; radius: number; damage: number; }
+export interface IgnoreShieldModifier { type: 'ignore_shield'; }
 
-export type BulletModifier = BounceTerrainModifier | BounceEntityModifier | FuseTimerModifier | ExplodeOnLowSpeedModifier;
+export type BulletModifier = BounceTerrainModifier | BounceEntityModifier | FuseTimerModifier | ExplodeOnLowSpeedModifier | StickOnTerrainModifier | PoisonZoneModifier | IgnoreShieldModifier;
+
+export interface PoisonZone {
+  x: number;
+  y: number;
+  vy: number;
+  owner: Player | Enemy;
+  radius: number;
+  damage: number;
+  turnsUntilExpiry: number;
+  rootBulletName: string;
+  grounded: boolean;
+}
+
+export interface PlantedMine {
+  x: number;
+  y: number;
+  batchId: number;
+  health: number;
+  owner: Player | Enemy;
+  bullet: Bullet;
+  rootBulletName: string;
+}
 
 export interface Bullet {
   name: string;
@@ -293,6 +319,9 @@ export interface Bullet {
   childCount?: number; // how many children to spawn; default 1
   shotgunCount?: number; // fire N physics pellets from the barrel simultaneously (no main trajectory)
   shotgunSpreadRad?: number; // total arc width in radians; each pellet gets a random offset within ±spread/2
+  twinCount?: number; // fire N trajectory twins at evenly spread angles (shares batchId per firing)
+  twinSpreadRad?: number; // total angular spread across all twins (each offset by fraction of spread)
+  bulletStyle?: string; // fire mode: 'standard' | 'shotgun' | 'cluster' | 'twin' | 'salvo'
   modifiers?: BulletModifier[]; // optional collection of effect modifiers
 }
 
@@ -326,7 +355,6 @@ export interface Vehicle {
   sfxWalk?: string; // sfx-bank category for movement loop
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
-  bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
   bulletOptions?: Bullet[]; // selectable ammunition shown as in-game weapon buttons; first entry is the default
   voicePack?: string; // VO character pack assigned at game start
   hitboxes?: VehicleHitbox[]; // extra hitbox spheres beyond the base TANK_COLLISION_RADIUS sphere

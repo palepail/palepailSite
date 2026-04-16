@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Player, Enemy, Projectile, Explosion, DamageText, FuseTimerModifier, ExplodeOnLowSpeedModifier } from './monkeys.types';
+import { Player, Enemy, Projectile, Explosion, DamageText, FuseTimerModifier, ExplodeOnLowSpeedModifier, PlantedMine, PoisonZone, PoisonZoneModifier } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { DamageService } from './damage.service';
@@ -16,6 +16,9 @@ export class ProjectileService {
 
   projectile: Projectile | null = null;
   childProjectiles: Projectile[] = [];
+  plantedMines: PlantedMine[] = [];
+  poisonZones: PoisonZone[] = [];
+  nextBatchId = 0;
   lastImpactPos: { x: number; y: number } | null = null;
 
   get explosions() {
@@ -155,52 +158,54 @@ export class ProjectileService {
         return;
       }
 
-    // Check shield boundary
-    const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
-    for (const entity of shieldedEntities) {
-      if (!entity.active) continue;
-      const shield = entity.vehicle?.shieldRadius;
-      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
-      if ((this.projectile.owner as object) === (entity as object)) continue;
-      const sdx = this.projectile.x - entity.x;
-      const sdy = this.projectile.y - entity.y;
-      const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-      const ownerDist = Math.hypot(
-        this.projectile.owner.x - entity.x,
-        this.projectile.owner.y - entity.y,
-      );
-      if (sdist < shield && ownerDist >= shield) {
-        const scale = shield / Math.max(sdist, 0.001);
-        this.projectile.x = entity.x + sdx * scale;
-        this.projectile.y = entity.y + sdy * scale;
-        entity.currentShieldHealth = Math.max(0, (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage);
-        entity.shieldHitAngle = Math.atan2(sdy, sdx);
-        if ((entity.currentShieldHealth ?? 0) <= 0) {
-          this.sfxService.play({ category: 'shield_break' });
-        }
-        // Shield deflects projectile whether it broke or held
-        const hasBounce = this.projectile.bullet.modifiers?.some(
-          m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
-        ) ?? false;
-        if (hasBounce) {
-          this.sfxService.play({ category: 'bounce' });
-          // Reflect the trajectory off the shield normal
-          const nx = sdx / Math.max(sdist, 0.001);
-          const ny = sdy / Math.max(sdist, 0.001);
-          const positions = this.projectile.trajectory!;
-          const idx = this.projectile.trajectoryIndex!;
-          for (let i = idx + 1; i < positions.length; i++) {
-            const rx = positions[i].x - entity.x;
-            const ry = positions[i].y - entity.y;
-            const dot2 = rx * nx + ry * ny;
-            positions[i].x = entity.x + rx - 2 * dot2 * nx;
-            positions[i].y = entity.y + ry - 2 * dot2 * ny;
+    // Check shield boundary (skipped for ignore_shield bullets e.g. poison zone)
+    if (!this.projectile.bullet.modifiers?.some(m => m.type === 'ignore_shield')) {
+      const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
+      for (const entity of shieldedEntities) {
+        if (!entity.active) continue;
+        const shield = entity.vehicle?.shieldRadius;
+        if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+        if ((this.projectile.owner as object) === (entity as object)) continue;
+        const sdx = this.projectile.x - entity.x;
+        const sdy = this.projectile.y - entity.y;
+        const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+        const ownerDist = Math.hypot(
+          this.projectile.owner.x - entity.x,
+          this.projectile.owner.y - entity.y,
+        );
+        if (sdist < shield && ownerDist >= shield) {
+          const scale = shield / Math.max(sdist, 0.001);
+          this.projectile.x = entity.x + sdx * scale;
+          this.projectile.y = entity.y + sdy * scale;
+          entity.currentShieldHealth = Math.max(0, (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage);
+          entity.shieldHitAngle = Math.atan2(sdy, sdx);
+          if ((entity.currentShieldHealth ?? 0) <= 0) {
+            this.sfxService.play({ category: 'shield_break' });
           }
+          // Shield deflects projectile whether it broke or held
+          const hasBounce = this.projectile.bullet.modifiers?.some(
+            m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
+          ) ?? false;
+          if (hasBounce) {
+            this.sfxService.play({ category: 'bounce' });
+            // Reflect the trajectory off the shield normal
+            const nx = sdx / Math.max(sdist, 0.001);
+            const ny = sdy / Math.max(sdist, 0.001);
+            const positions = this.projectile.trajectory!;
+            const idx = this.projectile.trajectoryIndex!;
+            for (let i = idx + 1; i < positions.length; i++) {
+              const rx = positions[i].x - entity.x;
+              const ry = positions[i].y - entity.y;
+              const dot2 = rx * nx + ry * ny;
+              positions[i].x = entity.x + rx - 2 * dot2 * nx;
+              positions[i].y = entity.y + ry - 2 * dot2 * ny;
+            }
+            return;
+          }
+          this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
+          this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
           return;
         }
-        this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
       }
     }
 
@@ -226,6 +231,41 @@ export class ProjectileService {
     const explosionX = this.projectile.x;
     const explosionY = this.projectile.y;
     const projectileSnapshot = this.projectile;
+
+    // Stick-on-terrain: plant mine instead of exploding
+    if (projectileSnapshot.bullet.modifiers?.some(m => m.type === 'stick_on_terrain')) {
+      this.plantedMines.push({
+        x: explosionX,
+        y: explosionY,
+        batchId: projectileSnapshot.batchId ?? 0,
+        health: 30,
+        owner: projectileSnapshot.owner,
+        bullet: projectileSnapshot.bullet,
+        rootBulletName: projectileSnapshot.rootBulletName,
+      });
+      this.projectile = null;
+      return;
+    }
+
+    // Poison-zone: plant an animated poison cloud instead of exploding
+    const poisonMod = projectileSnapshot.bullet.modifiers?.find(m => m.type === 'poison_zone') as PoisonZoneModifier | undefined;
+    if (poisonMod) {
+      this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
+      this.poisonZones.push({
+        x: explosionX,
+        y: explosionY,
+        vy: 0,
+        owner: projectileSnapshot.owner,
+        radius: poisonMod.radius,
+        damage: poisonMod.damage,
+        turnsUntilExpiry: 2,
+        rootBulletName: projectileSnapshot.rootBulletName,
+        grounded: false,
+      });
+      this.lastImpactPos = { x: explosionX, y: explosionY };
+      this.projectile = null;
+      return;
+    }
 
     this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
 
@@ -383,6 +423,21 @@ export class ProjectileService {
         }
       }
     }
+
+    // Damage planted mines caught in the blast — silently destroy them if HP reaches 0 (no chain detonation)
+    for (let mi = this.plantedMines.length - 1; mi >= 0; mi--) {
+      const mine = this.plantedMines[mi];
+      const mdx = mine.x - explosionX;
+      const mdy = mine.y - explosionY;
+      const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mDist <= radiusX) {
+        const mDamage = Math.round(maxDamage * Math.max(0, 1 - mDist / radiusX));
+        mine.health -= mDamage;
+        if (mine.health <= 0) {
+          this.plantedMines.splice(mi, 1);
+        }
+      }
+    }
   }
 
   private findChildShieldHit(
@@ -426,6 +481,7 @@ export class ProjectileService {
 
   checkEntityCollisions(projectile: Projectile, player: Player, enemies: Enemy[]): boolean {
     const entities: (Player | Enemy)[] = [player, ...enemies];
+    const ignoresShield = projectile.bullet.modifiers?.some(m => m.type === 'ignore_shield') ?? false;
 
     for (const entity of entities) {
       if (!entity.active) continue;
@@ -448,15 +504,17 @@ export class ProjectileService {
         }
       }
 
-      // Check shield hit (skip owner and shields with no health)
-      const shield = entity.vehicle?.shieldRadius;
-      if (
-        shield &&
-        (entity.currentShieldHealth ?? 0) > 0 &&
-        (entity as object) !== (projectile.owner as object) &&
-        distance < shield
-      ) {
-        return true;
+      // Check shield hit (skip owner, shields with no health, and ignore_shield bullets)
+      if (!ignoresShield) {
+        const shield = entity.vehicle?.shieldRadius;
+        if (
+          shield &&
+          (entity.currentShieldHealth ?? 0) > 0 &&
+          (entity as object) !== (projectile.owner as object) &&
+          distance < shield
+        ) {
+          return true;
+        }
       }
     }
 
@@ -822,6 +880,7 @@ export class ProjectileService {
         bullet: childBullet,
         rootBulletName: rootBulletName || parentBullet.name || '',
         spawnTimeMs: Date.now(),
+        spinRate: (Math.random() * 8 + 4) * (Math.random() < 0.5 ? 1 : -1),
       });
     }
   }
@@ -837,7 +896,14 @@ export class ProjectileService {
 
     for (let i = this.childProjectiles.length - 1; i >= 0; i--) {
       const child = this.childProjectiles[i];
-      if (!child.body) continue;
+
+      // Trajectory-based child (no physics body — e.g. twin corn stick)
+      if (!child.body) {
+        if (child.trajectory && child.trajectoryIndex !== undefined) {
+          this.updateTrajectoryChild(i, child, terrain, player, enemies, physicsService, depthTerrain);
+        }
+        continue;
+      }
 
       // Apply wind force (mirrors simulateTrajectory wind formula)
       physicsService.Body.applyForce(child.body, child.body.position, {
@@ -1067,6 +1133,106 @@ export class ProjectileService {
     }
   }
 
+  updatePoisonZonePhysics(terrain: number[][], windSpeed: number): void {
+    // Hurricane-force winds clear all zones
+    if (windSpeed >= 80) {
+      this.poisonZones = [];
+      return;
+    }
+    const tbY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    for (const zone of this.poisonZones) {
+      if (zone.grounded) continue;
+      zone.vy += CONST.GRAVITY_STRENGTH;
+      zone.y += zone.vy;
+      // Terrain column scan — find first solid pixel at or below zone center
+      const px = Math.floor(zone.x);
+      const col = terrain[px];
+      if (col) {
+        const startLY = Math.max(0, Math.floor(zone.y) - tbY);
+        for (let ly = startLY; ly < col.length; ly++) {
+          if (col[ly] === 1) {
+            zone.y = tbY + ly;
+            zone.vy = 0;
+            zone.grounded = true;
+            break;
+          }
+        }
+      }
+      // Clamp to canvas bottom
+      if (zone.y >= CONST.CANVAS_HEIGHT) {
+        zone.y = CONST.CANVAS_HEIGHT;
+        zone.vy = 0;
+        zone.grounded = true;
+      }
+    }
+  }
+
+  private updateTrajectoryChild(
+    index: number,
+    child: Projectile,
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    const positions = child.trajectory!;
+    const idx = child.trajectoryIndex!;
+
+    if (idx >= positions.length) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    const prevX = child.x;
+    const prevY = child.y;
+    child.x = positions[idx].x;
+    child.y = positions[idx].y;
+
+    const marginX = CONST.OFFSCREEN_EXPLODE_MARGIN_X;
+    const marginYBot = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM;
+    const marginYTop = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP;
+    if (
+      child.x < -marginX || child.x > CONST.TERRAIN_WIDTH + marginX ||
+      child.y > CONST.TERRAIN_HEIGHT + marginYBot || child.y < -marginYTop
+    ) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    const tbY = Math.floor(CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET);
+    const segDx = child.x - prevX;
+    const segDy = child.y - prevY;
+    const steps = Math.ceil(Math.sqrt(segDx * segDx + segDy * segDy));
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 1 : s / steps;
+      const sx = Math.floor(prevX + segDx * t);
+      const sy = Math.floor(prevY + segDy * t);
+      const ly = sy - tbY;
+      if (sx >= 0 && sx < CONST.TERRAIN_WIDTH && ly >= 0 && ly < (terrain[sx]?.length ?? 0) && terrain[sx][ly] === 1) {
+        child.x = sx;
+        child.y = sy;
+        this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
+    }
+
+    const px = Math.floor(child.x);
+    const py = Math.floor(child.y);
+    const ly2 = py - tbY;
+    if (px >= 0 && px < CONST.TERRAIN_WIDTH && ly2 >= 0 && ly2 < (terrain[px]?.length ?? 0) && terrain[px][ly2] === 1) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    if (this.checkEntityCollisions(child, player, enemies)) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    child.trajectoryIndex!++;
+  }
+
   private destroyChildProjectile(
     index: number,
     terrain: number[][],
@@ -1076,7 +1242,24 @@ export class ProjectileService {
     depthTerrain?: number[][],
   ): void {
     const child = this.childProjectiles[index];
-    physicsService.World.remove(physicsService.world, child.body);
+
+    // Stick-on-terrain: plant mine instead of exploding
+    if (child.bullet.modifiers?.some(m => m.type === 'stick_on_terrain')) {
+      this.plantedMines.push({
+        x: child.x,
+        y: child.y,
+        batchId: child.batchId ?? 0,
+        health: 30,
+        owner: child.owner,
+        bullet: child.bullet,
+        rootBulletName: child.rootBulletName,
+      });
+      if (child.body) physicsService.World.remove(physicsService.world, child.body);
+      this.childProjectiles.splice(index, 1);
+      return;
+    }
+
+    if (child.body) physicsService.World.remove(physicsService.world, child.body);
 
     this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
 
@@ -1123,6 +1306,60 @@ export class ProjectileService {
 
   updateExplosions(): void {
     this.impactService.updateExplosions();
+  }
+
+  /** Detonate a batch of planted mines (all from same firing event). No state changes — caller handles aftermath. */
+  detonateMinesBatch(
+    batch: PlantedMine[],
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    for (const mine of batch) {
+      const fakeProjectile = {
+        owner: mine.owner,
+        bullet: mine.bullet,
+        rootBulletName: mine.rootBulletName,
+        x: mine.x,
+        y: mine.y,
+      };
+      this.sfxService.play({ category: mine.bullet.sfxImpact ?? 'explosion' });
+      this.impactService.pushExplosion(mine.x, mine.y, mine.bullet);
+      this.impactService.createCrater(mine.x, mine.y, terrain, mine.bullet);
+      if (depthTerrain) {
+        this.impactService.createCrater(mine.x, mine.y, depthTerrain, mine.bullet, 0.6);
+      }
+      this.calculateExplosionDamage(mine.x, mine.y, fakeProjectile, player, enemies, physicsService, terrain);
+      this.lastImpactPos = { x: mine.x, y: mine.y };
+    }
+  }
+
+  /** Check each planted mine for entity proximity. On contact, detonate that mine alone and return the touching entity. */
+  checkPlantedMineContacts(
+    player: Player,
+    enemies: Enemy[],
+    terrain: number[][],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): Player | Enemy | null {
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+    const contactRadius = CONST.TANK_COLLISION_RADIUS + 20;
+    for (let i = this.plantedMines.length - 1; i >= 0; i--) {
+      const mine = this.plantedMines[i];
+      for (const entity of entities) {
+        if (!entity.active) continue;
+        const dx = entity.x - mine.x;
+        const dy = entity.y - mine.y;
+        if (Math.sqrt(dx * dx + dy * dy) < contactRadius) {
+          this.plantedMines.splice(i, 1);
+          this.detonateMinesBatch([mine], terrain, player, enemies, physicsService, depthTerrain);
+          return entity;
+        }
+      }
+    }
+    return null;
   }
 
 }
