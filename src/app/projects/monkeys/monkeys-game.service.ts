@@ -1106,11 +1106,6 @@ export class MonkeysGameService {
     this.physicsService.clearTrajectoryCache();
   }
 
-  setWindSpeed(speed: number): void {
-    this.physicsService.windSpeed = speed;
-    this.physicsService.clearTrajectoryCache();
-  }
-
   update() {
     const now = Date.now();
     const deltaTime = (now - this.lastUpdateTime) / 1000;

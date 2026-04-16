@@ -246,22 +246,6 @@ export const PLAYER_VEHICLE: Vehicle = {
   hitboxes: [{ offX: 5, offY: -26, radius: 14 }],
 };
 
-const CLUSTER_FRAGMENT: Bullet = {
-  name: 'banana_fragment',
-  tier: 2,
-  weight: 1,
-  damage: 30,
-  shape: 'circle',
-  explosionShape: 'circle',
-  explosionRadius: 30,
-  craterRadius: 24,
-  speed: 18,
-  bulletSprite: 'cluster_fragment',
-  explosionSprite: 'cluster_explosion',
-  sfxImpact: 'explosion',
-  modifiers: [{ type: 'bounce_terrain' }, { type: 'fuse_timer', ms: 1800 }],
-};
-
 export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
   name: 'Zombie Monkey',
   speed: 100.0,
@@ -355,9 +339,6 @@ export const TURN_QUEUE_BG_COLOR = 'rgba(0, 0, 0, 0.7)';
 export const TURN_QUEUE_CURRENT_COLOR = '#FFFF00';
 export const TURN_QUEUE_PLAYER_COLOR = '#00FF00';
 export const TURN_QUEUE_ENEMY_COLOR = '#FF0000';
-// Tank tracks (fallback)
-export const TANK_TRACK_COLOR = '#333333';
-export const TANK_TRACK_INNER_COLOR = '#222222';
 // Prediction paths
 export const PREDICTION_PLAYER_COLOR = '#0000FF';
 export const PREDICTION_ENEMY_COLOR = '#FF0000';
@@ -403,17 +384,6 @@ export const LAYER_POISON_ZONE = 65;
 export const LAYER_PROJECTILE = 70;
 export const LAYER_EXPLOSION = 80;
 export const LAYER_DAMAGE_TEXT = 90;
-export const TANK_TRACK_OFFSET = 3;
-export const TANK_TRACK_HEIGHT = 9;
-export const TANK_TRACK_DETAIL_WIDTH = 5;
-export const TANK_TRACK_DETAIL_HEIGHT = 15;
-export const BARREL_WIDTH = 8;
-export const BARREL_COLOR = '#666666';
-export const BARREL_STROKE_COLOR = '#000000';
-export const BARREL_STROKE_WIDTH = 1;
-export const BARREL_TIP_COLOR = '#444444';
-export const BARREL_TIP_LENGTH = 5;
-export const BARREL_TIP_EXTRA_HEIGHT = 3;
 export const PROJECTILE_DRAW_RADIUS = 15;
 export const PROJECTILE_COLOR = '#FF0000';
 

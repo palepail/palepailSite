@@ -1253,15 +1253,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private drawAllShields() {
-    const entities: any[] = [this.gameService.player, ...this.gameService.enemies];
-    for (const entity of entities) {
-      if (!entity.active && !this.isEntityDeathAnimationActive(entity)) continue;
-      const screen = this.cameraController.worldToScreen(entity.x, entity.y);
-      this.drawShieldOverlay(entity, screen.x, screen.y);
-    }
-  }
-
   private isEntityInPoisonZone(entity: any): boolean {
     for (const zone of this.gameService.poisonZones) {
       const dx = entity.x - zone.x;
@@ -1447,9 +1438,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     beforeBody?.(centerX, centerY);
 
-    if (!this.drawEntityBody(entity, fallbackColor, centerX, centerY, bodyRadius)) {
-      this.drawTankTracks(centerX, centerY, bodyRadius);
-    }
+    this.drawEntityBody(entity, fallbackColor, centerX, centerY, bodyRadius);
 
     this.ctx.restore();
     return { centerX, centerY };
@@ -1468,11 +1457,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const cursorFrameIndex = this.getCursorFrameIndex(this.renderTime);
     const cursorSprite = this.spriteService.getSprite(`cursor_${cursorFrameIndex}`);
 
-    // Fallback to original barrel shape if cursor sprite isn't loaded yet.
-    if (!cursorSprite) {
-      this.drawClassicBarrel(centerX, centerY, angleRad);
-      return;
-    }
+    if (!cursorSprite) return;
 
     const pivotOffset = CONST.BARREL_LENGTH + 14;
     const scale = 0.84;
@@ -1498,30 +1483,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         -drawHeight / 2,
         drawWidth,
         drawHeight,
-      );
-    });
-    this.ctx.restore();
-  }
-
-  private drawClassicBarrel(centerX: number, centerY: number, angleRad: number) {
-    const barrelLength = CONST.BARREL_LENGTH;
-    const barrelWidth = CONST.BARREL_WIDTH;
-
-    this.ctx.save();
-    this.ctx.translate(centerX, centerY);
-    this.ctx.rotate(-angleRad);
-    this.queueDraw(CONST.LAYER_ENTITY_BARREL, () => {
-      this.ctx.fillStyle = CONST.BARREL_COLOR;
-      this.ctx.strokeStyle = CONST.BARREL_STROKE_COLOR;
-      this.ctx.lineWidth = CONST.BARREL_STROKE_WIDTH;
-      this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-      this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-      this.ctx.fillStyle = CONST.BARREL_TIP_COLOR;
-      this.ctx.fillRect(
-        barrelLength - CONST.BARREL_TIP_LENGTH,
-        -barrelWidth / 2 - 1,
-        CONST.BARREL_TIP_LENGTH,
-        barrelWidth + CONST.BARREL_TIP_EXTRA_HEIGHT,
       );
     });
     this.ctx.restore();
@@ -1984,35 +1945,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.ctx.stroke();
     });
     return false;
-  }
-
-  private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
-    const cx = centerX,
-      cy = centerY,
-      r = bodyRadius;
-    this.queueDraw(CONST.LAYER_ENTITY_BODY, () => {
-      this.ctx.fillStyle = CONST.TANK_TRACK_COLOR;
-      this.ctx.fillRect(
-        cx - r + CONST.TANK_TRACK_OFFSET,
-        cy - 3,
-        r * 2 - 4,
-        CONST.TANK_TRACK_HEIGHT,
-      );
-      this.ctx.strokeRect(
-        cx - r + CONST.TANK_TRACK_OFFSET,
-        cy - 3,
-        r * 2 - 4,
-        CONST.TANK_TRACK_HEIGHT,
-      );
-      this.ctx.fillStyle = CONST.TANK_TRACK_INNER_COLOR;
-      this.ctx.fillRect(
-        cx - r + 4,
-        cy - 5,
-        CONST.TANK_TRACK_DETAIL_WIDTH,
-        CONST.TANK_TRACK_DETAIL_HEIGHT,
-      );
-      this.ctx.fillRect(cx + r - 7, cy - 5, 3, 10);
-    });
   }
 
   private drawEntityUI(
