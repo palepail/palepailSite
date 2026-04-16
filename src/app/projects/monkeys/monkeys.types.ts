@@ -118,6 +118,13 @@ export interface LayerOffsetData {
 
 export type LayerOffsetsMap = Record<string, LayerOffsetData>;
 
+/** A single deferred draw command in the unified render queue. */
+export interface RenderCommand {
+  zIndex: number;
+  transform: DOMMatrix;
+  draw: () => void;
+}
+
 export interface TurnEntity {
   id: string;
   type: 'player' | 'enemy';

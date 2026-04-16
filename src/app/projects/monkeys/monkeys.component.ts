@@ -28,6 +28,7 @@ import {
   EquipmentStats,
   LayerOffsetData,
   LayerFrameOffset,
+  RenderCommand,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
@@ -74,6 +75,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private shieldMaskCanvas: HTMLCanvasElement | null = null;
   private shieldMaskCtx: CanvasRenderingContext2D | null = null;
   private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
+  private renderQueue: RenderCommand[] = [];
 
   // Camera system
   private cameraController = new CameraController();
@@ -785,6 +787,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw terrain
     this.drawTerrain();
 
+    // Reset render queue — all game-world sprite draws below are deferred until flush
+    this.renderQueue = [];
+
     // Draw charge bars (behind tanks)
     if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
       this.drawChargeBar(
@@ -819,7 +824,10 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw damage texts
     this.drawDamageTexts();
 
-    // Draw UI
+    // Flush all queued game-world sprite draws in z-index order
+    this.flushRenderQueue();
+
+    // Draw UI (naturally on top of all queued sprites)
     this.drawUI();
     this.drawTurnQueue();
     this.drawCombatLog();
@@ -827,62 +835,84 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private drawChargeBar(entity: any, maxPower: number, markerRatio?: number) {
     const barWidth = CONST.CHARGE_BAR_WIDTH;
-    const barHeight = CONST.CHARGE_BAR_HEIGHT; // 50% shorter (was 60px)
-    // Position further behind tank based on facing direction
-    const offsetX = entity.facing === 1 ? -CONST.CHARGE_BAR_OFFSET_X : CONST.CHARGE_BAR_OFFSET_X; // Further left of tank when facing right, further right when facing left
+    const barHeight = CONST.CHARGE_BAR_HEIGHT;
+    const offsetX = entity.facing === 1 ? -CONST.CHARGE_BAR_OFFSET_X : CONST.CHARGE_BAR_OFFSET_X;
     const worldX = entity.x + offsetX;
-    const worldY = entity.y - barHeight / 2; // Center vertically on tank
+    const worldY = entity.y - barHeight / 2;
     const screenPos = this.cameraController.worldToScreen(worldX, worldY);
     const barX = screenPos.x;
     const barY = screenPos.y;
-
-    // Background
-    this.ctx.fillStyle = CONST.CHARGE_BAR_BACKGROUND_COLOR;
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-
-    // Charge level (bottom to top)
     const chargeRatio = entity.power / maxPower;
-    this.ctx.fillStyle =
-      chargeRatio < CONST.CHARGE_BAR_LOW_THRESHOLD
-        ? CONST.CHARGE_BAR_LOW_COLOR
-        : chargeRatio < CONST.CHARGE_BAR_HIGH_THRESHOLD
-          ? CONST.CHARGE_BAR_MID_COLOR
-          : CONST.CHARGE_BAR_HIGH_COLOR;
-    this.ctx.fillRect(
-      barX,
-      barY + barHeight * (1 - chargeRatio),
-      barWidth,
-      barHeight * chargeRatio,
-    );
-
-    // Border
-    this.ctx.strokeStyle = CONST.CHARGE_BAR_BORDER_COLOR;
-    this.ctx.lineWidth = CONST.CHARGE_BAR_BORDER_WIDTH;
-    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-    // Target power marker
-    if (markerRatio !== undefined) {
-      const markerY = barY + barHeight * (1 - markerRatio);
-      this.ctx.strokeStyle = '#FF8C00';
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      this.ctx.moveTo(barX - 5, markerY);
-      this.ctx.lineTo(barX + barWidth + 5, markerY);
-      this.ctx.stroke();
-      const markerPct = Math.round(markerRatio * 100);
-      const labelSize = 16;
-      // Centre the label on the side away from the player sprite
-      const labelCentreX =
-        entity.facing === 1
-          ? barX - 20 // bar is left of player — label left of bar
-          : barX + barWidth + 20; // bar is right of player — label right of bar
-      this.drawPowerPercent(markerPct, labelCentreX, markerY - labelSize / 2, '#FF8C00', labelSize);
-    }
-
-    // Power percentage
     const pct = Math.round(chargeRatio * 100);
-    this.drawPowerPercent(pct, barX + barWidth / 2, barY - this.POWER_PERCENT_SPRITE_SIZE - 6);
-    this.ctx.textAlign = 'left'; // Reset text alignment
+    const facing = entity.facing;
+    const markerRatioCopy = markerRatio;
+
+    this.queueDraw(CONST.LAYER_CHARGE_BAR, () => {
+      // Background
+      this.ctx.fillStyle = CONST.CHARGE_BAR_BACKGROUND_COLOR;
+      this.ctx.fillRect(barX, barY, barWidth, barHeight);
+
+      // Charge level (bottom to top)
+      this.ctx.fillStyle =
+        chargeRatio < CONST.CHARGE_BAR_LOW_THRESHOLD
+          ? CONST.CHARGE_BAR_LOW_COLOR
+          : chargeRatio < CONST.CHARGE_BAR_HIGH_THRESHOLD
+            ? CONST.CHARGE_BAR_MID_COLOR
+            : CONST.CHARGE_BAR_HIGH_COLOR;
+      this.ctx.fillRect(
+        barX,
+        barY + barHeight * (1 - chargeRatio),
+        barWidth,
+        barHeight * chargeRatio,
+      );
+
+      // Border
+      this.ctx.strokeStyle = CONST.CHARGE_BAR_BORDER_COLOR;
+      this.ctx.lineWidth = CONST.CHARGE_BAR_BORDER_WIDTH;
+      this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+      // Target power marker
+      if (markerRatioCopy !== undefined) {
+        const markerY = barY + barHeight * (1 - markerRatioCopy);
+        this.ctx.strokeStyle = '#FF8C00';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(barX - 5, markerY);
+        this.ctx.lineTo(barX + barWidth + 5, markerY);
+        this.ctx.stroke();
+        const markerPct = Math.round(markerRatioCopy * 100);
+        const labelSize = 16;
+        const labelCentreX = facing === 1 ? barX - 20 : barX + barWidth + 20;
+        this.drawPowerPercent(
+          markerPct,
+          labelCentreX,
+          markerY - labelSize / 2,
+          '#FF8C00',
+          labelSize,
+        );
+      }
+
+      // Power percentage
+      this.drawPowerPercent(pct, barX + barWidth / 2, barY - this.POWER_PERCENT_SPRITE_SIZE - 6);
+      this.ctx.textAlign = 'left';
+    });
+  }
+
+  /** Captures the current canvas transform and adds a draw command to the render queue. */
+  private queueDraw(zIndex: number, draw: () => void): void {
+    this.renderQueue.push({ zIndex, transform: this.ctx.getTransform(), draw });
+  }
+
+  /** Sorts the render queue by z-index and executes all commands, then clears the queue. */
+  private flushRenderQueue(): void {
+    this.renderQueue.sort((a, b) => a.zIndex - b.zIndex);
+    for (const cmd of this.renderQueue) {
+      this.ctx.save();
+      this.ctx.setTransform(cmd.transform);
+      cmd.draw();
+      this.ctx.restore();
+    }
+    this.renderQueue = [];
   }
 
   private drawTerrain() {
@@ -1125,13 +1155,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           this.ctx.stroke();
           this.ctx.setLineDash([]);
         }
-        this.drawEmoteBehind(this.gameService.player, cx, cy);
       },
     );
 
     this.drawShieldOverlay(this.gameService.player, centerX, centerY);
     this.drawPoisonTint(this.gameService.player, centerX, centerY);
-    this.drawEmote(this.gameService.player, centerX, centerY);
+    this.drawEntityEmote(this.gameService.player, centerX, centerY);
 
     // Draw player prediction path when charging (skip for shotgun — pellets fire randomly)
     if (
@@ -1177,14 +1206,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       enemy,
       CONST.ENEMY_FALLBACK_COLOR,
       undefined,
-      (cx, cy) => {
-        this.drawEmoteBehind(enemy, cx, cy);
-      },
+      undefined,
     );
 
     this.drawShieldOverlay(enemy, centerX, centerY);
     this.drawPoisonTint(enemy, centerX, centerY);
-    this.drawEmote(enemy, centerX, centerY);
+    this.drawEntityEmote(enemy, centerX, centerY);
 
     // Draw UI elements (health bar, name label)
     const enemyIndex = this.gameService.enemies.indexOf(enemy);
@@ -1240,68 +1267,33 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const sprite = this.spriteService.getSprite('poison_vehicle_overlay');
     if (!sprite) return;
     const size = CONST.TANK_BODY_RADIUS * 3;
-    this.ctx.save();
-    this.ctx.globalAlpha = 0.85;
-    this.ctx.drawImage(
-      sprite.image,
-      sprite.x,
-      sprite.y,
-      sprite.width,
-      sprite.height,
-      centerX - size / 2,
-      centerY - size / 2,
-      size,
-      size,
-    );
-    this.ctx.restore();
+    const cx = centerX,
+      cy = centerY;
+    const s = sprite;
+    this.queueDraw(CONST.LAYER_ENTITY_POISON_TINT, () => {
+      this.ctx.globalAlpha = 0.85;
+      this.ctx.drawImage(
+        s.image,
+        s.x,
+        s.y,
+        s.width,
+        s.height,
+        cx - size / 2,
+        cy - size / 2,
+        size,
+        size,
+      );
+    });
   }
 
-  /** Draws the entity's emote sprite floating above it (front z-layer, outside drawTankBase transforms). */
-  private drawEmote(entity: any, centerX: number, centerY: number): void {
+  /**
+   * Queues the entity's emote sprite for rendering.
+   * Uses LAYER_ENTITY_EMOTE_BEHIND or LAYER_ENTITY_EMOTE_FRONT based on emote.zLayer.
+   * Called in screen space after drawTankBase; entity orientation is re-applied in the closure.
+   */
+  private drawEntityEmote(entity: any, centerX: number, centerY: number): void {
     const emote = entity.emote;
-    if (!emote || emote.zLayer !== 'front') return;
-    const def = this.spriteService.getEmoteDefinition(emote.name as string);
-    if (!def) return;
-    // Hide during loop delay
-    if (emote.nextPlayTime !== undefined && this.renderTime < emote.nextPlayTime) return;
-    const elapsed = this.renderTime - emote.startTime;
-    const frameIndex = Math.floor(elapsed / def.frameDurationMs) % def.frameCount;
-    const spriteSuffix =
-      emote.name === 'sleep'
-        ? entity.facing === 1
-          ? 'sleep_right'
-          : 'sleep_left'
-        : (emote.name as string);
-    const sprite = this.spriteService.getSprite(`emote_${spriteSuffix}_${frameIndex}`);
-    if (!sprite) return;
-    const size = CONST.EMOTE_DRAW_SIZE;
-    const drawX = centerX;
-    const drawY = centerY - CONST.TANK_BODY_RADIUS * 2;
-    this.ctx.save();
-    // Mirror emote for right-facing entities (except sleep which is direction-specific)
-    if (!def.noFlip && entity.facing === 1) {
-      this.ctx.translate(centerX, 0);
-      this.ctx.scale(-1, 1);
-      this.ctx.translate(-centerX, 0);
-    }
-    this.ctx.drawImage(
-      sprite.image,
-      sprite.x,
-      sprite.y,
-      sprite.width,
-      sprite.height,
-      drawX,
-      drawY,
-      size,
-      size,
-    );
-    this.ctx.restore();
-  }
-
-  /** Draws the entity's emote sprite for the 'behind' z-layer, called inside drawTankBase transforms. */
-  private drawEmoteBehind(entity: any, centerX: number, centerY: number): void {
-    const emote = entity.emote;
-    if (!emote || emote.zLayer !== 'behind') return;
+    if (!emote) return;
     const def = this.spriteService.getEmoteDefinition(emote.name as string);
     if (!def) return;
     if (emote.nextPlayTime !== undefined && this.renderTime < emote.nextPlayTime) return;
@@ -1315,34 +1307,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         : (emote.name as string);
     const sprite = this.spriteService.getSprite(`emote_${spriteSuffix}_${frameIndex}`);
     if (!sprite) return;
+
     const size = CONST.EMOTE_DRAW_SIZE;
-    // Center the sprite on the entity — the bubble sits in the corner of the sprite
-    // frame and naturally sticks out beyond the entity's edge at any draw scale.
-    // Offset +5 outward (canvas X) and -5 upward to reduce overlap.
-    const drawX = centerX - size / 2 + 5;
-    const drawY = centerY - size / 2 - 5;
-    this.ctx.save();
-    // Inside drawTankBase the canvas is already flipped for left-facing vehicles —
-    // that naturally mirrors the bubble to the opposite corner. No extra flip needed
-    // for regular emotes.
-    // For no-flip emotes (sleep) we undo the canvas flip so the directional sprite renders correctly.
-    if (def.noFlip && entity.facing === -1) {
-      this.ctx.translate(centerX, 0);
-      this.ctx.scale(-1, 1);
-      this.ctx.translate(-centerX, 0);
-    }
-    this.ctx.drawImage(
-      sprite.image,
-      sprite.x,
-      sprite.y,
-      sprite.width,
-      sprite.height,
-      drawX,
-      drawY,
-      size,
-      size,
-    );
-    this.ctx.restore();
+    const s = sprite;
+    const cx = centerX;
+    const cy = centerY;
+    const facing = entity.facing;
+    const terrainAngle = entity.terrainAngle;
+    const noFlip = def.noFlip;
+
+    const layer =
+      emote.zLayer === 'behind' ? CONST.LAYER_ENTITY_EMOTE_BEHIND : CONST.LAYER_ENTITY_EMOTE_FRONT;
+    const drawX = cx - size / 3;
+    const drawY = cy - size / 2 - 5;
+    this.queueDraw(layer, () => {
+      this.ctx.translate(cx, cy);
+      this.ctx.rotate(terrainAngle);
+      this.ctx.translate(-cx, -cy);
+      if (facing === 1) {
+        this.ctx.scale(-1, 1);
+        this.ctx.translate(-cx * 2, 0);
+      }
+      // noFlip emotes (e.g. sleep) use direction-specific sprites; undo the canvas flip.
+      if (noFlip && facing === -1) {
+        this.ctx.translate(cx, 0);
+        this.ctx.scale(-1, 1);
+        this.ctx.translate(-cx, 0);
+      }
+      this.ctx.drawImage(s.image, s.x, s.y, s.width, s.height, drawX, drawY, size, size);
+    });
   }
 
   private drawShieldOverlay(entity: any, centerX: number, centerY: number) {
@@ -1356,55 +1349,60 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!sprite) return;
 
     const size = (entity.vehicle?.shieldRadius ?? 120) * 2 * 1.15;
+    const cx = centerX,
+      cy = centerY;
+    const s = sprite;
 
-    // Draw shield to offscreen canvas, then punch out terrain so it is naturally occluded.
-    if (
-      !this.shieldMaskCanvas ||
-      this.shieldMaskCanvas.width !== CONST.CANVAS_WIDTH ||
-      this.shieldMaskCanvas.height !== CONST.CANVAS_HEIGHT
-    ) {
-      this.shieldMaskCanvas = document.createElement('canvas');
-      this.shieldMaskCanvas.width = CONST.CANVAS_WIDTH;
-      this.shieldMaskCanvas.height = CONST.CANVAS_HEIGHT;
-      this.shieldMaskCtx = this.shieldMaskCanvas.getContext('2d');
-    }
-    const offCtx = this.shieldMaskCtx!;
-    offCtx.clearRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
+    this.queueDraw(CONST.LAYER_ENTITY_SHIELD, () => {
+      // Ensure offscreen shield mask canvas exists
+      if (
+        !this.shieldMaskCanvas ||
+        this.shieldMaskCanvas.width !== CONST.CANVAS_WIDTH ||
+        this.shieldMaskCanvas.height !== CONST.CANVAS_HEIGHT
+      ) {
+        this.shieldMaskCanvas = document.createElement('canvas');
+        this.shieldMaskCanvas.width = CONST.CANVAS_WIDTH;
+        this.shieldMaskCanvas.height = CONST.CANVAS_HEIGHT;
+        this.shieldMaskCtx = this.shieldMaskCanvas.getContext('2d');
+      }
+      const offCtx = this.shieldMaskCtx!;
+      offCtx.clearRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
 
-    offCtx.save();
-    if (rotation !== 0) {
-      offCtx.translate(centerX, centerY);
-      offCtx.rotate(rotation);
-      offCtx.translate(-centerX, -centerY);
-    }
-    offCtx.drawImage(
-      sprite.image,
-      sprite.x,
-      sprite.y,
-      sprite.width,
-      sprite.height,
-      centerX - size / 2,
-      centerY - size / 2,
-      size,
-      size,
-    );
-    offCtx.restore();
+      offCtx.save();
+      if (rotation !== 0) {
+        offCtx.translate(cx, cy);
+        offCtx.rotate(rotation);
+        offCtx.translate(-cx, -cy);
+      }
+      offCtx.drawImage(
+        s.image,
+        s.x,
+        s.y,
+        s.width,
+        s.height,
+        cx - size / 2,
+        cy - size / 2,
+        size,
+        size,
+      );
+      offCtx.restore();
 
-    // Erase shield pixels that fall on solid terrain.
-    const terrainY = Math.floor(
-      CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
-    );
-    const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
-    const endX = Math.min(
-      CONST.TERRAIN_WIDTH,
-      Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
-    );
-    offCtx.globalCompositeOperation = 'destination-out';
-    offCtx.fillStyle = 'rgba(0,0,0,1)';
-    this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 1);
-    offCtx.globalCompositeOperation = 'source-over';
+      // Erase shield pixels that fall on solid terrain.
+      const terrainY = Math.floor(
+        CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET - this.cameraController.camera.y,
+      );
+      const startX = Math.max(0, Math.floor(this.cameraController.camera.x));
+      const endX = Math.min(
+        CONST.TERRAIN_WIDTH,
+        Math.ceil(this.cameraController.camera.x + CONST.CANVAS_WIDTH),
+      );
+      offCtx.globalCompositeOperation = 'destination-out';
+      offCtx.fillStyle = 'rgba(0,0,0,1)';
+      this.scanlineTerrainFill(offCtx, terrainY, startX, endX, 1);
+      offCtx.globalCompositeOperation = 'source-over';
 
-    this.ctx.drawImage(this.shieldMaskCanvas, 0, 0);
+      this.ctx.drawImage(this.shieldMaskCanvas!, 0, 0);
+    });
   }
 
   // Shared tank rendering core: transform, shadow, barrel, body, restore.
@@ -1479,17 +1477,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.rotate(-angleRad);
     this.ctx.translate(pivotOffset + xNudge, yNudge);
     this.ctx.rotate(Math.PI / 2 + (20 * Math.PI) / 180);
-    this.ctx.drawImage(
-      cursorSprite.image,
-      cursorSprite.x,
-      cursorSprite.y,
-      cursorSprite.width,
-      cursorSprite.height,
-      -drawWidth / 2,
-      -drawHeight / 2,
-      drawWidth,
-      drawHeight,
-    );
+    const s = cursorSprite;
+    this.queueDraw(CONST.LAYER_ENTITY_BARREL, () => {
+      this.ctx.drawImage(
+        s.image,
+        s.x,
+        s.y,
+        s.width,
+        s.height,
+        -drawWidth / 2,
+        -drawHeight / 2,
+        drawWidth,
+        drawHeight,
+      );
+    });
     this.ctx.restore();
   }
 
@@ -1500,22 +1501,20 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
     this.ctx.rotate(-angleRad);
-
-    this.ctx.fillStyle = CONST.BARREL_COLOR;
-    this.ctx.strokeStyle = CONST.BARREL_STROKE_COLOR;
-    this.ctx.lineWidth = CONST.BARREL_STROKE_WIDTH;
-
-    this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-    this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
-
-    this.ctx.fillStyle = CONST.BARREL_TIP_COLOR;
-    this.ctx.fillRect(
-      barrelLength - CONST.BARREL_TIP_LENGTH,
-      -barrelWidth / 2 - 1,
-      CONST.BARREL_TIP_LENGTH,
-      barrelWidth + CONST.BARREL_TIP_EXTRA_HEIGHT,
-    );
-
+    this.queueDraw(CONST.LAYER_ENTITY_BARREL, () => {
+      this.ctx.fillStyle = CONST.BARREL_COLOR;
+      this.ctx.strokeStyle = CONST.BARREL_STROKE_COLOR;
+      this.ctx.lineWidth = CONST.BARREL_STROKE_WIDTH;
+      this.ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+      this.ctx.strokeRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+      this.ctx.fillStyle = CONST.BARREL_TIP_COLOR;
+      this.ctx.fillRect(
+        barrelLength - CONST.BARREL_TIP_LENGTH,
+        -barrelWidth / 2 - 1,
+        CONST.BARREL_TIP_LENGTH,
+        barrelWidth + CONST.BARREL_TIP_EXTRA_HEIGHT,
+      );
+    });
     this.ctx.restore();
   }
 
@@ -1605,20 +1604,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private drawTankShadow(centerX: number, centerY: number, bodyRadius: number) {
-    // Draw tank shadow for depth
-    this.ctx.fillStyle = CONST.TANK_SHADOW_COLOR;
-    this.ctx.beginPath();
-    this.ctx.ellipse(
-      centerX,
-      centerY + 2,
-      bodyRadius,
-      bodyRadius * CONST.TANK_SHADOW_HEIGHT_RATIO,
-      0,
-      0,
-      Math.PI,
-      true,
-    );
-    this.ctx.fill();
+    const cx = centerX,
+      cy = centerY,
+      r = bodyRadius;
+    this.queueDraw(CONST.LAYER_ENTITY_SHADOW, () => {
+      this.ctx.fillStyle = CONST.TANK_SHADOW_COLOR;
+      this.ctx.beginPath();
+      this.ctx.ellipse(cx, cy + 2, r, r * CONST.TANK_SHADOW_HEIGHT_RATIO, 0, 0, Math.PI, true);
+      this.ctx.fill();
+    });
   }
 
   private getMoveFrameIndex(now: number = Date.now()): number {
@@ -1746,30 +1740,35 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const spriteSize = bodyRadius * 2 * 1.5;
     const spriteYOffset = -15;
+    const deathAlpha = deathAnimationState?.isActive ? deathAnimationState.alpha : null;
 
+    // Apply entity-space transforms to capture the full compound matrix, then queue the draw
     this.ctx.save();
     this.ctx.translate(centerX, centerY);
     this.ctx.scale(-1, 1);
-    if (deathAnimationState?.isActive) {
-      this.ctx.globalAlpha = deathAnimationState.alpha;
-    }
-
-    if (isComposite) {
-      this.drawCompositeLayers(entity, animName, sprite, spriteSize, spriteYOffset);
-    } else {
-      this.ctx.drawImage(
-        sprite.image,
-        sprite.x,
-        sprite.y,
-        sprite.width,
-        sprite.height,
-        -spriteSize / 2,
-        -spriteSize / 2 + spriteYOffset,
-        spriteSize,
-        spriteSize,
-      );
-    }
-
+    const s = sprite;
+    const animN = animName;
+    const composite = isComposite;
+    this.queueDraw(CONST.LAYER_ENTITY_BODY, () => {
+      if (deathAlpha !== null) {
+        this.ctx.globalAlpha = deathAlpha;
+      }
+      if (composite) {
+        this.drawCompositeLayers(entity, animN, s, spriteSize, spriteYOffset);
+      } else {
+        this.ctx.drawImage(
+          s.image,
+          s.x,
+          s.y,
+          s.width,
+          s.height,
+          -spriteSize / 2,
+          -spriteSize / 2 + spriteYOffset,
+          spriteSize,
+          spriteSize,
+        );
+      }
+    });
     this.ctx.restore();
 
     return true;
@@ -1961,42 +1960,50 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.drawEntitySprite(entity, centerX, centerY, bodyRadius)) {
       return true;
     }
-    this.ctx.fillStyle = fallbackColor;
-    this.ctx.strokeStyle = CONST.TANK_BODY_STROKE_COLOR;
-    this.ctx.lineWidth = CONST.TANK_BODY_STROKE_WIDTH;
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, bodyRadius, Math.PI, 0, false);
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.stroke();
+    const cx = centerX,
+      cy = centerY,
+      r = bodyRadius;
+    const color = fallbackColor;
+    this.queueDraw(CONST.LAYER_ENTITY_BODY, () => {
+      this.ctx.fillStyle = color;
+      this.ctx.strokeStyle = CONST.TANK_BODY_STROKE_COLOR;
+      this.ctx.lineWidth = CONST.TANK_BODY_STROKE_WIDTH;
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, Math.PI, 0, false);
+      this.ctx.closePath();
+      this.ctx.fill();
+      this.ctx.stroke();
+    });
     return false;
   }
 
   private drawTankTracks(centerX: number, centerY: number, bodyRadius: number) {
-    // Draw tank tracks/details - on top
-    this.ctx.fillStyle = CONST.TANK_TRACK_COLOR;
-    this.ctx.fillRect(
-      centerX - bodyRadius + CONST.TANK_TRACK_OFFSET,
-      centerY - 3,
-      bodyRadius * 2 - 4,
-      CONST.TANK_TRACK_HEIGHT,
-    );
-    this.ctx.strokeRect(
-      centerX - bodyRadius + CONST.TANK_TRACK_OFFSET,
-      centerY - 3,
-      bodyRadius * 2 - 4,
-      CONST.TANK_TRACK_HEIGHT,
-    );
-
-    // Draw tank tracks (left and right)
-    this.ctx.fillStyle = CONST.TANK_TRACK_INNER_COLOR;
-    this.ctx.fillRect(
-      centerX - bodyRadius + 4,
-      centerY - 5,
-      CONST.TANK_TRACK_DETAIL_WIDTH,
-      CONST.TANK_TRACK_DETAIL_HEIGHT,
-    );
-    this.ctx.fillRect(centerX + bodyRadius - 7, centerY - 5, 3, 10);
+    const cx = centerX,
+      cy = centerY,
+      r = bodyRadius;
+    this.queueDraw(CONST.LAYER_ENTITY_BODY, () => {
+      this.ctx.fillStyle = CONST.TANK_TRACK_COLOR;
+      this.ctx.fillRect(
+        cx - r + CONST.TANK_TRACK_OFFSET,
+        cy - 3,
+        r * 2 - 4,
+        CONST.TANK_TRACK_HEIGHT,
+      );
+      this.ctx.strokeRect(
+        cx - r + CONST.TANK_TRACK_OFFSET,
+        cy - 3,
+        r * 2 - 4,
+        CONST.TANK_TRACK_HEIGHT,
+      );
+      this.ctx.fillStyle = CONST.TANK_TRACK_INNER_COLOR;
+      this.ctx.fillRect(
+        cx - r + 4,
+        cy - 5,
+        CONST.TANK_TRACK_DETAIL_WIDTH,
+        CONST.TANK_TRACK_DETAIL_HEIGHT,
+      );
+      this.ctx.fillRect(cx + r - 7, cy - 5, 3, 10);
+    });
   }
 
   private drawEntityUI(
@@ -2015,53 +2022,58 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // Draw name label: show for everyone when not the player's turn, or when the player is idle
-    if (
+    const cx = centerX,
+      cy = centerY,
+      r = bodyRadius;
+    const showLabel = !!(
       label &&
       (!this.gameService.isPlayerTurn() || this.gameService.player.turnState === 'idle')
-    ) {
-      const labelY = centerY - bodyRadius - 25;
-      this.ctx.font = 'bold 13px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'bottom';
-      // Dark outline for legibility
-      this.ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-      this.ctx.lineWidth = 3;
-      this.ctx.lineJoin = 'round';
-      this.ctx.strokeText(label, centerX, labelY);
-      this.ctx.fillStyle = isPlayer ? '#88DDFF' : '#FFAAAA';
-      this.ctx.fillText(label, centerX, labelY);
-      this.ctx.textBaseline = 'middle';
-    }
-
-    // Draw health bar under the tank
+    );
+    const labelY = cy - r - 25;
     const healthRatio = entity.health / entity.vehicle.health;
     const barWidth = 60;
     const barHeight = 5;
-    const barX = centerX - barWidth / 2;
-    const barY = centerY + bodyRadius - 5;
-    // Background bar
-    this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-    // Health bar
-    this.ctx.fillStyle = isPlayer ? CONST.HEALTH_BAR_PLAYER_COLOR : CONST.HEALTH_BAR_ENEMY_COLOR; // Green for player, red for enemies
-    this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
-
-    // Draw angle text to the right of health bar
+    const barX = cx - barWidth / 2;
+    const barY = cy + r - 5;
     const angleDeg = this.gameService.getEntityDisplayedAngle(entity);
-    this.drawAngleText(angleDeg, barX + barWidth + 6, barY + barHeight / 2, 18);
+    const isMoving = Math.abs(entity.body.velocity.x) > 0.1;
+    const movementRatio = isMoving ? entity.movementFuel / entity.vehicle.fuel : 0;
+    const lbl = label,
+      pl = isPlayer;
 
-    // Draw movement gauge if moving
-    if (Math.abs(entity.body.velocity.x) > 0.1) {
-      const movementRatio = entity.movementFuel / entity.vehicle.fuel;
-      const movementBarY = barY + barHeight + 2;
-      // Background
+    this.queueDraw(CONST.LAYER_ENTITY_UI, () => {
+      // Name label
+      if (showLabel && lbl) {
+        this.ctx.font = 'bold 13px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'bottom';
+        this.ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        this.ctx.lineWidth = 3;
+        this.ctx.lineJoin = 'round';
+        this.ctx.strokeText(lbl, cx, labelY);
+        this.ctx.fillStyle = pl ? '#88DDFF' : '#FFAAAA';
+        this.ctx.fillText(lbl, cx, labelY);
+        this.ctx.textBaseline = 'middle';
+      }
+
+      // Health bar
       this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
-      this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
-      // Movement bar
-      this.ctx.fillStyle = CONST.MOVEMENT_BAR_COLOR; // Yellow
-      this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
-    }
+      this.ctx.fillRect(barX, barY, barWidth, barHeight);
+      this.ctx.fillStyle = pl ? CONST.HEALTH_BAR_PLAYER_COLOR : CONST.HEALTH_BAR_ENEMY_COLOR;
+      this.ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
+
+      // Angle text
+      this.drawAngleText(angleDeg, barX + barWidth + 6, barY + barHeight / 2, 18);
+
+      // Movement gauge
+      if (isMoving) {
+        const movementBarY = barY + barHeight + 2;
+        this.ctx.fillStyle = CONST.HEALTH_BAR_BG_COLOR;
+        this.ctx.fillRect(barX, movementBarY, barWidth, barHeight);
+        this.ctx.fillStyle = CONST.MOVEMENT_BAR_COLOR;
+        this.ctx.fillRect(barX, movementBarY, barWidth * movementRatio, barHeight);
+      }
+    });
   }
 
   private drawBulletAt(
@@ -2141,13 +2153,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         const spinAngle = ((performance.now() * rotSpeed) / 1000) % (2 * Math.PI);
         angle = (angle ?? 0) + spinAngle;
       }
-      this.drawBulletAt(this.cameraController.worldToScreen(pos.x, pos.y), bulletSprite, angle);
+      const screenPos = this.cameraController.worldToScreen(pos.x, pos.y);
+      const angleFinal = angle;
+      const bs = bulletSprite;
+      this.queueDraw(CONST.LAYER_PROJECTILE, () => {
+        this.drawBulletAt(screenPos, bs, angleFinal);
+      });
     } else if (this.gameService.aftermathImpactPos) {
       const impactPos = this.gameService.aftermathImpactPos;
-      this.drawBulletAt(
-        this.cameraController.worldToScreen(impactPos.x, impactPos.y),
-        bulletSprite,
-      );
+      const screenPos = this.cameraController.worldToScreen(impactPos.x, impactPos.y);
+      const bs = bulletSprite;
+      this.queueDraw(CONST.LAYER_PROJECTILE, () => {
+        this.drawBulletAt(screenPos, bs);
+      });
     }
   }
 
@@ -2189,61 +2207,51 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
           spriteHeight *= 1.5;
         }
 
-        this.ctx.drawImage(
-          explosionSprite.image,
-          explosionSprite.x,
-          explosionSprite.y,
-          explosionSprite.width,
-          explosionSprite.height,
-          screenPos.x - spriteWidth / 2,
-          screenPos.y - spriteHeight / 2,
-          spriteWidth,
-          spriteHeight,
-        );
+        const es = explosionSprite,
+          sx = screenPos.x,
+          sy = screenPos.y,
+          sw = spriteWidth,
+          sh = spriteHeight;
+        this.queueDraw(CONST.LAYER_EXPLOSION, () => {
+          this.ctx.drawImage(
+            es.image,
+            es.x,
+            es.y,
+            es.width,
+            es.height,
+            sx - sw / 2,
+            sy - sh / 2,
+            sw,
+            sh,
+          );
+        });
       } else {
         // Fallback: gradient circle
-        const gradient = this.ctx.createRadialGradient(
-          screenPos.x,
-          screenPos.y,
-          0,
-          screenPos.x,
-          screenPos.y,
-          explosion.radius,
-        );
-        gradient.addColorStop(0, CONST.EXPLOSION_CENTER_COLOR);
-        gradient.addColorStop(0.5, CONST.EXPLOSION_MIDDLE_COLOR);
-        gradient.addColorStop(1, CONST.EXPLOSION_EDGE_COLOR);
-
-        this.ctx.fillStyle = gradient;
-        this.ctx.beginPath();
-        if (explosion.shape === 'horizontal_oval') {
-          this.ctx.ellipse(
-            screenPos.x,
-            screenPos.y,
-            explosion.radius * 1.5,
-            explosion.radius,
-            0,
-            0,
-            Math.PI * 2,
-          );
-        } else if (explosion.shape === 'vertical_oval') {
-          this.ctx.ellipse(
-            screenPos.x,
-            screenPos.y,
-            explosion.radius,
-            explosion.radius * 1.5,
-            0,
-            0,
-            Math.PI * 2,
-          );
-        } else {
-          this.ctx.arc(screenPos.x, screenPos.y, explosion.radius, 0, Math.PI * 2);
-        }
-        this.ctx.fill();
-
-        this.ctx.strokeStyle = CONST.EXPLOSION_OUTLINE_COLOR;
-        this.ctx.lineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
-        this.ctx.stroke();
+        const sx = screenPos.x,
+          sy = screenPos.y,
+          r = explosion.radius,
+          shape = explosion.shape;
+        const outlineColor = CONST.EXPLOSION_OUTLINE_COLOR;
+        const outlineWidth = CONST.EXPLOSION_OUTLINE_WIDTH;
+        this.queueDraw(CONST.LAYER_EXPLOSION, () => {
+          const gradient = this.ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+          gradient.addColorStop(0, CONST.EXPLOSION_CENTER_COLOR);
+          gradient.addColorStop(0.5, CONST.EXPLOSION_MIDDLE_COLOR);
+          gradient.addColorStop(1, CONST.EXPLOSION_EDGE_COLOR);
+          this.ctx.fillStyle = gradient;
+          this.ctx.beginPath();
+          if (shape === 'horizontal_oval') {
+            this.ctx.ellipse(sx, sy, r * 1.5, r, 0, 0, Math.PI * 2);
+          } else if (shape === 'vertical_oval') {
+            this.ctx.ellipse(sx, sy, r, r * 1.5, 0, 0, Math.PI * 2);
+          } else {
+            this.ctx.arc(sx, sy, r, 0, Math.PI * 2);
+          }
+          this.ctx.fill();
+          this.ctx.strokeStyle = outlineColor;
+          this.ctx.lineWidth = outlineWidth;
+          this.ctx.stroke();
+        });
       }
     }
   }
@@ -2252,29 +2260,17 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const frameIndex = Math.floor(Date.now() / 100) % 15;
     for (const zone of this.gameService.poisonZones) {
       const screenPos = this.cameraController.worldToScreen(zone.x, zone.y);
-      // Draw wider than the radius to fill transparent sprite edges; height rises above terrain
       const drawWidth = zone.radius * 3;
       const drawHeight = zone.radius * 2;
       const sprite = this.spriteService.getSprite(`field_poison_${frameIndex}`);
-
-      this.ctx.save();
-
-      if (sprite) {
+      if (!sprite) continue;
+      const s = sprite;
+      const sx = screenPos.x + (zone.radius * 0.3) / 2 - drawWidth / 2;
+      const sy = screenPos.y - zone.radius / 2 - drawHeight / 2;
+      this.queueDraw(CONST.LAYER_POISON_ZONE, () => {
         this.ctx.globalAlpha = 0.85;
-        // Bottom of sprite aligned to terrain surface (zone.y), cloud rises upward
-        this.ctx.drawImage(
-          sprite.image,
-          sprite.x,
-          sprite.y,
-          sprite.width,
-          sprite.height,
-          screenPos.x + (zone.radius * 0.3) / 2 - drawWidth / 2,
-          screenPos.y - zone.radius / 2 - drawHeight / 2,
-          drawWidth,
-          drawHeight,
-        );
-      }
-      this.ctx.restore();
+        this.ctx.drawImage(s.image, s.x, s.y, s.width, s.height, sx, sy, drawWidth, drawHeight);
+      });
     }
   }
 
@@ -2288,7 +2284,12 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         const elapsed = (this.renderTime - (child.spawnTimeMs ?? this.renderTime)) / 1000;
         angle = (elapsed * child.spinRate) % (2 * Math.PI);
       }
-      this.drawBulletAt(screenPos, sprite, angle);
+      const s = sprite,
+        sp = screenPos,
+        a = angle;
+      this.queueDraw(CONST.LAYER_PROJECTILE, () => {
+        this.drawBulletAt(sp, s, a);
+      });
     }
   }
 
@@ -2297,8 +2298,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       const prefix = mine.bullet.bulletSprite ?? 'bullet';
       const sprite = this.spriteService.getSprite(prefix);
       const screenPos = this.cameraController.worldToScreen(mine.x, mine.y);
-      // Draw slightly tilted to indicate it is embedded in the ground
-      this.drawBulletAt(screenPos, sprite, Math.PI * 0.083);
+      const s = sprite,
+        sp = screenPos;
+      this.queueDraw(CONST.LAYER_PROJECTILE, () => {
+        this.drawBulletAt(sp, s, Math.PI * 0.083);
+      });
     }
   }
 
@@ -2348,20 +2352,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const text of this.gameService.damageTexts) {
       const tint = text.isHeal ? '#22FF55' : CONST.DAMAGE_TEXT_COLOR;
       const screenPos = this.cameraController.worldToScreen(text.x, text.y);
-      this.ctx.globalAlpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
+      const alpha = text.life / CONST.DAMAGE_TEXT_LIFETIME;
       const damageStr = String(text.damage);
       const totalWidth = (damageStr.length - 1) * advance + size;
-      this.drawSpriteChars(
-        damageStr,
-        this.ANGLE_CHAR_TO_SPRITE,
-        screenPos.x - totalWidth / 2,
-        screenPos.y - size,
-        size,
-        advance,
-        tint,
-      );
+      const drawX = screenPos.x - totalWidth / 2;
+      const drawY = screenPos.y - size;
+      const str = damageStr,
+        t = tint,
+        a = alpha;
+      this.queueDraw(CONST.LAYER_DAMAGE_TEXT, () => {
+        this.ctx.globalAlpha = a;
+        this.drawSpriteChars(str, this.ANGLE_CHAR_TO_SPRITE, drawX, drawY, size, advance, t);
+      });
     }
-    this.ctx.globalAlpha = 1;
   }
 
   private drawUI() {

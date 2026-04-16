@@ -381,6 +381,23 @@ export const TANK_BODY_STROKE_COLOR = '#000000';
 export const TANK_BODY_STROKE_WIDTH = 2;
 
 export const EMOTE_DRAW_SIZE = 128;
+
+// Render layer z-indexes for the unified render queue (sorted ascending = back to front)
+export const LAYER_CHARGE_BAR = 10;
+export const LAYER_ENTITY_SHADOW = 20;
+export const LAYER_ENTITY_EMOTE_BEHIND = 25;
+export const LAYER_ENTITY_BARREL = 30;
+export const LAYER_ENTITY_AIM_LINE = 32;
+export const LAYER_ENTITY_BODY = 35;
+export const LAYER_PREDICTION = 37;
+export const LAYER_ENTITY_SHIELD = 45;
+export const LAYER_ENTITY_POISON_TINT = 50;
+export const LAYER_ENTITY_UI = 55;
+export const LAYER_ENTITY_EMOTE_FRONT = 60;
+export const LAYER_POISON_ZONE = 65;
+export const LAYER_PROJECTILE = 70;
+export const LAYER_EXPLOSION = 80;
+export const LAYER_DAMAGE_TEXT = 90;
 export const TANK_TRACK_OFFSET = 3;
 export const TANK_TRACK_HEIGHT = 9;
 export const TANK_TRACK_DETAIL_WIDTH = 5;
