@@ -1197,7 +1197,17 @@ export class ProjectileService {
     }
     const tbY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
     for (const zone of this.poisonZones) {
-      if (zone.grounded) continue;
+      if (zone.grounded) {
+        // Re-check terrain: if the ground beneath was destroyed, let the zone fall again
+        const px = Math.floor(zone.x);
+        const col = terrain[px];
+        const ly = Math.floor(zone.y) - tbY;
+        if (!col || ly < 0 || col[ly] !== 1) {
+          zone.grounded = false;
+        } else {
+          continue;
+        }
+      }
       zone.vy += CONST.GRAVITY_STRENGTH;
       zone.y += zone.vy;
       // Terrain column scan — find first solid pixel at or below zone center
