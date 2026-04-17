@@ -96,7 +96,7 @@ export class MonkeysAudioService {
   loadMenuAudio(): Promise<void> {
     if (this.menuAudio) return Promise.resolve();
     return new Promise((resolve) => {
-      const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('Menu.ogg'));
+      const audio = new Audio(this.AUDIO_BASE_PATH + 'Menu.ogg');
       audio.loop = true;
       audio.volume = this.bgVolume;
       const onReady = () => {
@@ -120,7 +120,7 @@ export class MonkeysAudioService {
     if (this.gameAudio) return Promise.resolve();
     // Create and store the element immediately so startGameAudioOnGesture() can call
     // play() synchronously within the same user-gesture tick, before any await.
-    const audio = new Audio(this.AUDIO_BASE_PATH + encodeURIComponent('New Road Loop.ogg'));
+    const audio = new Audio(this.AUDIO_BASE_PATH + 'new-road-loop.ogg');
     audio.loop = true;
     audio.volume = this.bgVolume;
     this.gameAudio = audio;
@@ -129,7 +129,7 @@ export class MonkeysAudioService {
       audio.addEventListener(
         'error',
         () => {
-          console.warn('[MonkeysAudio] Failed to load New Road Loop.ogg');
+          console.warn('[MonkeysAudio] Failed to load new-road-loop.ogg');
           resolve();
         },
         { once: true },
@@ -163,19 +163,6 @@ export class MonkeysAudioService {
       this.menuAudio.volume = this.effectiveVolume;
       this.menuAudio.currentTime = 0;
       this.menuAudio.play().catch(() => {
-        // Autoplay may be blocked until user interacts; unlockAudio() will retry
-      });
-    }
-  }
-
-  playGame(): void {
-    this.activeTrack = 'game';
-    if (this.menuAudio && !this.menuAudio.paused) {
-      this.menuAudio.pause();
-    }
-    if (this.gameAudio) {
-      this.gameAudio.currentTime = 0;
-      this.gameAudio.play().catch(() => {
         // Autoplay may be blocked until user interacts; unlockAudio() will retry
       });
     }

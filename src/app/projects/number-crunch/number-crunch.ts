@@ -1384,6 +1384,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    document.body.classList.add('number-crunch-active');
+
     // Start in loading state
     this.currentState = GameState.LOADING;
 
@@ -1489,6 +1491,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    document.body.classList.remove('number-crunch-active');
+
     // Remove visibility change listener
     document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
 

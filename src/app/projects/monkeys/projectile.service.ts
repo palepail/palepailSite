@@ -1,22 +1,46 @@
-import { Injectable } from '@angular/core';
-import { Player, Enemy, Projectile, Explosion, DamageText } from './monkeys.types';
+import { Injectable, inject } from '@angular/core';
+import {
+  Player,
+  Enemy,
+  Projectile,
+  Explosion,
+  DamageText,
+  FuseTimerModifier,
+  ExplodeOnLowSpeedModifier,
+  PlantedMine,
+  PoisonZone,
+  PoisonZoneModifier,
+} from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { DamageService } from './damage.service';
+import { ImpactService } from './impact.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProjectileService {
-  constructor(
-    private sfxService: MonkeysSfxService,
-    private damageService: DamageService,
-  ) {}
+  private damageService = inject(DamageService);
+  private impactService = inject(ImpactService);
+
+  constructor(private sfxService: MonkeysSfxService) {}
 
   projectile: Projectile | null = null;
   childProjectiles: Projectile[] = [];
-  explosions: Explosion[] = [];
+  plantedMines: PlantedMine[] = [];
+  poisonZones: PoisonZone[] = [];
+  nextBatchId = 0;
   lastImpactPos: { x: number; y: number } | null = null;
+  /** Entities whose shield just broke this frame — drained by game service to trigger emotes. */
+  shieldBrokeEntities: (Player | Enemy)[] = [];
+
+  get explosions() {
+    return this.impactService.explosions;
+  }
+
+  isProjectileInFlight(): boolean {
+    return this.projectile !== null || this.childProjectiles.length > 0;
+  }
 
   get damageTexts(): DamageText[] {
     return this.damageService.damageTexts;
@@ -29,12 +53,15 @@ export class ProjectileService {
     enemies: Enemy[],
     depthTerrain?: number[][],
   ) {
-    if (
-      !this.projectile ||
-      !this.projectile.trajectory ||
-      this.projectile.trajectoryIndex === undefined
-    )
+    if (!this.projectile) return;
+
+    // Physics-primary projectile (e.g. apple) — delegate to separate update
+    if (this.projectile.body && !this.projectile.trajectory) {
+      this.updatePhysicsPrimaryProjectile(terrain, physicsService, player, enemies, depthTerrain);
       return;
+    }
+
+    if (!this.projectile.trajectory || this.projectile.trajectoryIndex === undefined) return;
 
     const index = this.projectile.trajectoryIndex;
     const positions = this.projectile.trajectory;
@@ -140,33 +167,59 @@ export class ProjectileService {
       return;
     }
 
-    // Check shield boundary
-    const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
-    for (const entity of shieldedEntities) {
-      if (!entity.active) continue;
-      const shield = entity.vehicle?.shieldRadius;
-      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
-      if ((this.projectile.owner as object) === (entity as object)) continue;
-      const sdx = this.projectile.x - entity.x;
-      const sdy = this.projectile.y - entity.y;
-      const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-      const ownerDist = Math.hypot(
-        this.projectile.owner.x - entity.x,
-        this.projectile.owner.y - entity.y,
-      );
-      if (sdist < shield && ownerDist >= shield) {
-        const scale = shield / Math.max(sdist, 0.001);
-        this.projectile.x = entity.x + sdx * scale;
-        this.projectile.y = entity.y + sdy * scale;
-        entity.currentShieldHealth = (entity.currentShieldHealth ?? 1) - 1;
-        entity.shieldHitAngle = Math.atan2(sdy, sdx);
-        if ((entity.currentShieldHealth ?? 0) <= 0) {
-          this.sfxService.play({ category: 'shield_break' });
-        } else {
+    // Check shield boundary (skipped for ignore_shield bullets e.g. poison zone)
+    if (!this.projectile.bullet.modifiers?.some((m) => m.type === 'ignore_shield')) {
+      const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
+      for (const entity of shieldedEntities) {
+        if (!entity.active) continue;
+        const shield = entity.vehicle?.shieldRadius;
+        if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+        if ((this.projectile.owner as object) === (entity as object)) continue;
+        const sdx = this.projectile.x - entity.x;
+        const sdy = this.projectile.y - entity.y;
+        const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+        const ownerDist = Math.hypot(
+          this.projectile.owner.x - entity.x,
+          this.projectile.owner.y - entity.y,
+        );
+        if (sdist < shield && ownerDist >= shield) {
+          const scale = shield / Math.max(sdist, 0.001);
+          this.projectile.x = entity.x + sdx * scale;
+          this.projectile.y = entity.y + sdy * scale;
+          entity.currentShieldHealth = Math.max(
+            0,
+            (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage,
+          );
+          entity.shieldHitAngle = Math.atan2(sdy, sdx);
+          if ((entity.currentShieldHealth ?? 0) <= 0) {
+            this.sfxService.play({ category: 'shield_break' });
+            this.shieldBrokeEntities.push(entity);
+          }
+          // Shield deflects projectile whether it broke or held
+          const hasBounce =
+            this.projectile.bullet.modifiers?.some(
+              (m) => m.type === 'bounce_entity' || m.type === 'bounce_terrain',
+            ) ?? false;
+          if (hasBounce) {
+            this.sfxService.play({ category: 'bounce' });
+            // Reflect the trajectory off the shield normal
+            const nx = sdx / Math.max(sdist, 0.001);
+            const ny = sdy / Math.max(sdist, 0.001);
+            const positions = this.projectile.trajectory!;
+            const idx = this.projectile.trajectoryIndex!;
+            for (let i = idx + 1; i < positions.length; i++) {
+              const rx = positions[i].x - entity.x;
+              const ry = positions[i].y - entity.y;
+              const dot2 = rx * nx + ry * ny;
+              positions[i].x = entity.x + rx - 2 * dot2 * nx;
+              positions[i].y = entity.y + ry - 2 * dot2 * ny;
+            }
+            return;
+          }
           this.sfxService.play({ category: this.projectile.bullet.sfxImpact ?? 'explosion' });
+          this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+          return;
         }
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
       }
     }
 
@@ -193,25 +246,54 @@ export class ProjectileService {
     const explosionY = this.projectile.y;
     const projectileSnapshot = this.projectile;
 
+    // Stick-on-terrain: plant mine instead of exploding
+    if (projectileSnapshot.bullet.modifiers?.some((m) => m.type === 'stick_on_terrain')) {
+      this.plantedMines.push({
+        x: explosionX,
+        y: explosionY,
+        batchId: projectileSnapshot.batchId ?? 0,
+        health: 30,
+        owner: projectileSnapshot.owner,
+        bullet: projectileSnapshot.bullet,
+        rootBulletName: projectileSnapshot.rootBulletName,
+      });
+      this.projectile = null;
+      return;
+    }
+
+    // Poison-zone: plant an animated poison cloud instead of exploding
+    const poisonMod = projectileSnapshot.bullet.modifiers?.find((m) => m.type === 'poison_zone') as
+      | PoisonZoneModifier
+      | undefined;
+    if (poisonMod) {
+      this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
+      this.poisonZones.push({
+        x: explosionX,
+        y: explosionY,
+        vy: 0,
+        owner: projectileSnapshot.owner,
+        radius: poisonMod.radius,
+        damage: poisonMod.damage,
+        turnsUntilExpiry: 2,
+        rootBulletName: projectileSnapshot.rootBulletName,
+        grounded: false,
+      });
+      this.lastImpactPos = { x: explosionX, y: explosionY };
+      this.projectile = null;
+      return;
+    }
+
     this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
 
-    this.explosions.push({
-      x: explosionX,
-      y: explosionY,
-      radius: CONST.EXPLOSION_INITIAL_RADIUS,
-      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-      life: CONST.EXPLOSION_LIFETIME_FRAMES,
-      shape: this.projectile.bullet.explosionShape,
-      spriteName: projectileSnapshot.bullet.explosionSprite,
-    });
+    this.impactService.pushExplosion(explosionX, explosionY, projectileSnapshot.bullet);
 
     // Create crater first so the knockback wall-check uses post-explosion terrain.
-    this.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
+    this.impactService.createCrater(explosionX, explosionY, terrain, projectileSnapshot.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35; // 0.45x–0.80x random size
       const offsetX = (Math.random() - 0.5) * 20; // ±10px random offset
       const offsetY = (Math.random() - 0.5) * 20;
-      this.createCrater(
+      this.impactService.createCrater(
         explosionX + offsetX,
         explosionY + offsetY,
         depthTerrain,
@@ -270,14 +352,36 @@ export class ProjectileService {
     const attackerName = (projectile.owner as Player | Enemy).displayName ?? 'Unknown';
     const weaponName = projectile.rootBulletName;
 
+    /** Returns { inRange, effectiveDist } for an entity considering all hitbox spheres. */
+    const getExplosionHit = (
+      entity: Player | Enemy,
+    ): { inRange: boolean; effectiveDist: number } => {
+      // Base hitbox
+      const dx = entity.x - explosionX;
+      const dy = entity.y - explosionY;
+      const baseDist = Math.sqrt(dx * dx + dy * dy);
+      let bestEffective = Math.max(0, baseDist - CONST.TANK_COLLISION_RADIUS);
+      let inRange = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2) <= 1;
+      // Extra hitboxes
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0) - explosionX;
+        const hbY = entity.y + hb.offY - explosionY;
+        const hbDist = Math.sqrt(hbX * hbX + hbY * hbY);
+        const hbEffective = Math.max(0, hbDist - hb.radius);
+        if (Math.sqrt((hbX / radiusX) ** 2 + (hbY / radiusY) ** 2) <= 1) {
+          inRange = true;
+        }
+        if (hbEffective < bestEffective) {
+          bestEffective = hbEffective;
+        }
+      }
+      return { inRange, effectiveDist: bestEffective };
+    };
+
     // Damage player
     if (player.active) {
-      const dx = player.x - explosionX;
-      const dy = player.y - explosionY;
-      const distToCenter = Math.sqrt(dx * dx + dy * dy);
-      const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
-      const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-      if (normalizedDist <= 1) {
+      const { inRange, effectiveDist } = getExplosionHit(player);
+      if (inRange) {
         const damage = Math.round(maxDamage * Math.max(0, 1 - effectiveDist / radiusX));
         const rawDamage = projectile.owner === player ? damage * 0.5 : damage;
         const actualDamage = Math.round(rawDamage * (1 - (player.vehicle.armor ?? 0)));
@@ -300,12 +404,8 @@ export class ProjectileService {
     // Damage enemies
     for (const enemy of enemies) {
       if (enemy.active) {
-        const dx = enemy.x - explosionX;
-        const dy = enemy.y - explosionY;
-        const distToCenter = Math.sqrt(dx * dx + dy * dy);
-        const effectiveDist = Math.max(0, distToCenter - CONST.TANK_COLLISION_RADIUS);
-        const normalizedDist = Math.sqrt((dx / radiusX) ** 2 + (dy / radiusY) ** 2);
-        if (normalizedDist <= 1) {
+        const { inRange, effectiveDist } = getExplosionHit(enemy);
+        if (inRange) {
           const damage = Math.round(
             maxDamage * Math.max(0, 1 - effectiveDist / radiusX) * (1 - (enemy.vehicle.armor ?? 0)),
           );
@@ -341,44 +441,68 @@ export class ProjectileService {
         }
       }
     }
-  }
 
-  createCrater(
-    centerX: number,
-    centerY: number,
-    terrain: number[][],
-    bullet: any,
-    radiusScale = 1,
-  ): void {
-    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-    let craterRadiusX = bullet.craterRadius * radiusScale;
-    let craterRadiusY = bullet.craterRadius * radiusScale;
-    if (bullet.explosionShape === 'horizontal_oval') {
-      craterRadiusX = bullet.craterRadius * 1.5 * radiusScale;
-    } else if (bullet.explosionShape === 'vertical_oval') {
-      craterRadiusY = bullet.craterRadius * 1.5 * radiusScale;
-    }
-
-    for (let x = centerX - craterRadiusX; x < centerX + craterRadiusX; x++) {
-      for (let y = centerY - craterRadiusY; y < centerY + craterRadiusY; y++) {
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const normalizedDist = Math.sqrt((dx / craterRadiusX) ** 2 + (dy / craterRadiusY) ** 2);
-        if (normalizedDist <= 1) {
-          const ix = Math.floor(x);
-          const iy = Math.floor(y - terrainY);
-          if (ix >= 0 && ix < CONST.TERRAIN_WIDTH && iy >= 0 && iy < CONST.TERRAIN_STRIP_HEIGHT) {
-            if (terrain[ix] && terrain[ix][iy] !== 0) {
-              terrain[ix][iy] = 0; // Remove terrain (solid and visual-only)
-            }
-          }
-        }
+    // Destroy planted mines caught in the blast from a different weapon type (no chain detonation).
+    // Same-type mines are immune (e.g. corn explosion won't destroy other corn mines).
+    for (let mi = this.plantedMines.length - 1; mi >= 0; mi--) {
+      const mine = this.plantedMines[mi];
+      if (mine.rootBulletName === projectile.rootBulletName) continue;
+      const mdx = mine.x - explosionX;
+      const mdy = mine.y - explosionY;
+      const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mDist <= radiusX) {
+        this.plantedMines.splice(mi, 1);
       }
     }
   }
 
+  private findChildShieldHit(
+    child: Projectile,
+    player: Player,
+    enemies: Enemy[],
+  ): Player | Enemy | null {
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+    for (const entity of entities) {
+      if (!entity.active) continue;
+      if ((entity as object) === (child.owner as object)) continue;
+      const shield = entity.vehicle?.shieldRadius;
+      if (!shield || (entity.currentShieldHealth ?? 0) <= 0) continue;
+      const dx = child.x - entity.x;
+      const dy = child.y - entity.y;
+      if (Math.sqrt(dx * dx + dy * dy) < shield) return entity;
+    }
+    return null;
+  }
+
+  private findEntityCollision(
+    child: Projectile,
+    player: Player,
+    enemies: Enemy[],
+  ): Player | Enemy | null {
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+    const ownerGrace = Date.now() - (child.spawnTimeMs ?? 0) < 500;
+    for (const entity of entities) {
+      if (!entity.active) continue;
+      if (ownerGrace && (entity as object) === (child.owner as object)) continue;
+      const dx = entity.x - child.x;
+      const baseR = CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS;
+      // Base hitbox
+      if (Math.sqrt(dx * dx + (entity.y - child.y) ** 2) < baseR) return entity;
+      // Extra hitboxes (e.g. snowman upper sphere)
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbR = CONST.PROJECTILE_RADIUS + hb.radius;
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0);
+        const hbDx = hbX - child.x;
+        if (Math.sqrt(hbDx * hbDx + (entity.y + hb.offY - child.y) ** 2) < hbR) return entity;
+      }
+    }
+    return null;
+  }
+
   checkEntityCollisions(projectile: Projectile, player: Player, enemies: Enemy[]): boolean {
     const entities: (Player | Enemy)[] = [player, ...enemies];
+    const ignoresShield =
+      projectile.bullet.modifiers?.some((m) => m.type === 'ignore_shield') ?? false;
 
     for (const entity of entities) {
       if (!entity.active) continue;
@@ -391,20 +515,360 @@ export class ProjectileService {
       if (distance < CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS) {
         return true;
       }
+      // Check extra hitboxes (e.g. snowman upper sphere)
+      for (const hb of entity.vehicle?.hitboxes ?? []) {
+        const hbX = entity.x + entity.facing * (hb.offX ?? 0);
+        const hbDx = hbX - projectile.x;
+        const hbDy = entity.y + hb.offY - projectile.y;
+        if (Math.sqrt(hbDx * hbDx + hbDy * hbDy) < CONST.PROJECTILE_RADIUS + hb.radius) {
+          return true;
+        }
+      }
 
-      // Check shield hit (skip owner and shields with no health)
-      const shield = entity.vehicle?.shieldRadius;
-      if (
-        shield &&
-        (entity.currentShieldHealth ?? 0) > 0 &&
-        (entity as object) !== (projectile.owner as object) &&
-        distance < shield
-      ) {
-        return true;
+      // Check shield hit (skip owner, shields with no health, and ignore_shield bullets)
+      if (!ignoresShield) {
+        const shield = entity.vehicle?.shieldRadius;
+        if (
+          shield &&
+          (entity.currentShieldHealth ?? 0) > 0 &&
+          (entity as object) !== (projectile.owner as object) &&
+          distance < shield
+        ) {
+          return true;
+        }
       }
     }
 
     return false;
+  }
+
+  spawnShotgunPellets(
+    barrelX: number,
+    barrelY: number,
+    aimAngleRad: number,
+    owner: Player | Enemy,
+    bullet: any,
+    physicsService: any,
+    rootBulletName: string = '',
+  ): void {
+    const pellet = bullet.childBullet;
+    if (!pellet) return;
+    const count: number = bullet.shotgunCount ?? 1;
+    const spread: number = bullet.shotgunSpreadRad ?? 0;
+    for (let i = 0; i < count; i++) {
+      const deviation = (Math.random() - 0.5) * spread;
+      const angleRad = aimAngleRad + deviation;
+      // Negate Y because canvas Y increases downward but aimAngleRad uses math convention
+      const speed = pellet.speed * (0.85 + Math.random() * 0.3);
+      const vx = Math.cos(angleRad) * speed;
+      const vy = -Math.sin(angleRad) * speed;
+
+      const body = physicsService.Bodies.circle(barrelX, barrelY, CONST.PROJECTILE_RADIUS, {
+        frictionAir: 0.015,
+        restitution: 0,
+        friction: CONST.PROJECTILE_FRICTION,
+      });
+      physicsService.Body.setVelocity(body, { x: vx, y: vy });
+      physicsService.World.add(physicsService.world, body);
+
+      this.childProjectiles.push({
+        body,
+        x: barrelX,
+        y: barrelY,
+        owner,
+        bullet: pellet,
+        rootBulletName: rootBulletName || bullet.name || '',
+        spawnTimeMs: Date.now(),
+        spinRate: (Math.random() * 8 + 4) * (Math.random() < 0.5 ? 1 : -1),
+      });
+    }
+  }
+
+  private updatePhysicsPrimaryProjectile(
+    terrain: number[][],
+    physicsService: any,
+    player: Player,
+    enemies: Enemy[],
+    depthTerrain?: number[][],
+  ): void {
+    const proj = this.projectile!;
+    const body = proj.body!;
+    const terrainBaseY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+
+    // Apply wind force
+    physicsService.Body.applyForce(body, body.position, {
+      x:
+        (physicsService.windSpeed *
+          0.75 *
+          CONST.WIND_BULLET_FORCE_SCALE *
+          Math.cos(physicsService.windAngle)) /
+        proj.bullet.weight,
+      y:
+        (physicsService.windSpeed *
+          0.75 *
+          CONST.WIND_BULLET_FORCE_SCALE *
+          Math.sin(physicsService.windAngle)) /
+        proj.bullet.weight,
+    });
+
+    // Sync world-space position
+    proj.x = body.position.x;
+    proj.y = body.position.y;
+
+    // Out-of-bounds — destroy
+    if (
+      proj.x < -CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+      proj.x > CONST.TERRAIN_WIDTH + CONST.OFFSCREEN_EXPLODE_MARGIN_X ||
+      proj.y > CONST.TERRAIN_HEIGHT + CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM ||
+      proj.y < -CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP
+    ) {
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    // Explode when rolling average speed falls below threshold.
+    // Using a 30-frame window prevents hang-time at the arc apex from triggering the explosion.
+    const lowSpeedModifier = proj.bullet.modifiers?.find(
+      (m) => m.type === 'explode_on_low_speed',
+    ) as ExplodeOnLowSpeedModifier | undefined;
+    if (lowSpeedModifier) {
+      const vel = body.velocity;
+      const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+      proj.lowSpeedSamples ??= [];
+      proj.lowSpeedSamples.push(spd);
+      if (proj.lowSpeedSamples.length > 30) proj.lowSpeedSamples.shift();
+      if (proj.lowSpeedSamples.length === 30) {
+        const avgSpd = proj.lowSpeedSamples.reduce((a, b) => a + b, 0) / 30;
+        if (avgSpd < lowSpeedModifier.threshold) {
+          this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+          return;
+        }
+      }
+    }
+
+    // Shield boundary check
+    const shieldedTarget = this.findChildShieldHit(proj, player, enemies);
+    if (shieldedTarget) {
+      const sdx = proj.x - shieldedTarget.x;
+      const sdy = proj.y - shieldedTarget.y;
+      const sdist = Math.max(Math.sqrt(sdx * sdx + sdy * sdy), 0.001);
+      shieldedTarget.currentShieldHealth = Math.max(
+        0,
+        (shieldedTarget.currentShieldHealth ?? 0) - proj.bullet.damage,
+      );
+      shieldedTarget.shieldHitAngle = Math.atan2(sdy, sdx);
+      if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
+        this.sfxService.play({ category: 'shield_break' });
+        this.shieldBrokeEntities.push(shieldedTarget);
+      }
+      // Shield deflects projectile whether it broke or held
+      const hasBounce =
+        proj.bullet.modifiers?.some(
+          (m) => m.type === 'bounce_entity' || m.type === 'bounce_terrain',
+        ) ?? false;
+      if (hasBounce) {
+        const nx = sdx / sdist;
+        const ny = sdy / sdist;
+        const vel = body.velocity;
+        const dot = vel.x * nx + vel.y * ny;
+        const restitution = 0.7;
+        physicsService.Body.setVelocity(body, {
+          x: (vel.x - 2 * dot * nx) * restitution,
+          y: (vel.y - 2 * dot * ny) * restitution,
+        });
+        // Push projectile out to the shield surface
+        const pushDist = (shieldedTarget.vehicle.shieldRadius ?? 0) + CONST.PROJECTILE_RADIUS + 2;
+        physicsService.Body.setPosition(body, {
+          x: shieldedTarget.x + nx * pushDist,
+          y: shieldedTarget.y + ny * pushDist,
+        });
+        this.sfxService.play({ category: 'bounce' });
+        return;
+      }
+      this.sfxService.play({ category: proj.bullet.sfxImpact ?? 'explosion' });
+      physicsService.World.remove(physicsService.world, body);
+      this.projectile = null;
+      return;
+    }
+
+    // Entity collision — bounce or explode
+    const hasBounceEntity = proj.bullet.modifiers?.some((m) => m.type === 'bounce_entity') ?? false;
+    if (hasBounceEntity) {
+      const hitEntity = this.findEntityCollision(proj, player, enemies);
+      if (hitEntity) {
+        const vel = body.velocity;
+        const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+        const dx = proj.x - hitEntity.x;
+        const dy = proj.y - hitEntity.y;
+        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const dot = vel.x * nx + vel.y * ny;
+        const restitution = 0.6;
+        physicsService.Body.setVelocity(body, {
+          x: (vel.x - 2 * dot * nx) * restitution,
+          y: (vel.y - 2 * dot * ny) * restitution,
+        });
+        const pushDist = CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS + 2;
+        physicsService.Body.setPosition(body, {
+          x: hitEntity.x + nx * pushDist,
+          y: hitEntity.y + ny * pushDist,
+        });
+        this.sfxService.play({ category: 'bounce' });
+        const speedRatio = Math.min(1, speed / proj.bullet.speed);
+        const armor = hitEntity.vehicle.armor ?? 0;
+        const rawDamage = Math.round(proj.bullet.damage * speedRatio * (1 - armor));
+        const attackerName = (proj.owner as Player | Enemy).displayName ?? 'Unknown';
+        const isPlayer = (hitEntity as object) === (player as object);
+        this.damageService.applyDamage(
+          hitEntity,
+          { amount: rawDamage, source: 'explosion', attackerName, weaponName: proj.rootBulletName },
+          isPlayer ? 'player' : 'enemy',
+        );
+        physicsService.applyExplosionKnockback(
+          hitEntity,
+          proj.x,
+          proj.y,
+          proj,
+          proj.bullet.explosionRadius,
+          proj.bullet.explosionRadius,
+        );
+        return;
+      }
+    } else {
+      if (this.checkEntityCollisions(proj, player, enemies)) {
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
+    }
+
+    // Terrain hit check
+    const r = CONST.PROJECTILE_RADIUS;
+    const tbY = Math.floor(terrainBaseY);
+    const isTerrainAt = (wx: number, wy: number): boolean => {
+      const col = Math.floor(wx);
+      const ly = Math.floor(wy) - tbY;
+      return (
+        col >= 0 &&
+        col < CONST.TERRAIN_WIDTH &&
+        ly >= 0 &&
+        ly < (terrain[col]?.length ?? 0) &&
+        terrain[col][ly] === 1
+      );
+    };
+    const bottomHit = isTerrainAt(proj.x, proj.y + r) || isTerrainAt(proj.x, proj.y);
+    const lateralHit = isTerrainAt(proj.x + r, proj.y) || isTerrainAt(proj.x - r, proj.y);
+    const terrainHit = bottomHit || lateralHit;
+
+    if (terrainHit) {
+      const bounceTerrainMod = proj.bullet.modifiers?.find((m) => m.type === 'bounce_terrain') as
+        | import('./monkeys.types').BounceTerrainModifier
+        | undefined;
+      if (!bounceTerrainMod) {
+        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
+      const px = Math.floor(proj.x);
+      const colData = terrain[px];
+      let surfaceWorldY = proj.y - r;
+      if (colData) {
+        // Scan downward from bullet center — finds floor below, not cliff top above.
+        const startLY = Math.max(0, Math.floor(proj.y) - tbY);
+        for (let ly = startLY; ly < colData.length; ly++) {
+          if (colData[ly] === 1) {
+            surfaceWorldY = tbY + ly;
+            break;
+          }
+        }
+      }
+      const getSY = (col: number): number => {
+        if (col < 0 || col >= CONST.TERRAIN_WIDTH) return surfaceWorldY;
+        const cd = terrain[col];
+        if (!cd) return surfaceWorldY;
+        for (let ly = 0; ly < cd.length; ly++) {
+          if (cd[ly] === 1) return tbY + ly;
+        }
+        return surfaceWorldY;
+      };
+      let nx: number, ny: number;
+      if (lateralHit && !bottomHit) {
+        // Cliff face — getSY returns the cliff top, not the face. Use horizontal outward normal.
+        const hitRight = isTerrainAt(proj.x + r, proj.y);
+        nx = hitRight ? -1 : 1;
+        ny = 0;
+      } else {
+        const span = 4;
+        const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
+        nx = slope;
+        ny = -1;
+        const nLen = Math.sqrt(nx * nx + 1);
+        nx /= nLen;
+        ny /= nLen;
+      }
+
+      const vel = body.velocity;
+      const dot = vel.x * nx + vel.y * ny;
+      if (dot < 0) {
+        const restitution = bounceTerrainMod.restitution ?? 0.35;
+        // Use the normal-component speed to decide bounce vs roll.
+        // Using total post-bounce speed falsely classifies rolling as a bounce
+        // because the large horizontal speed dominates the total.
+        const normalImpactSpeed = Math.abs(dot) * restitution;
+        if (normalImpactSpeed > 1.5) {
+          const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
+          const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
+          physicsService.Body.setVelocity(body, { x: bouncedVx, y: bouncedVy });
+          this.sfxService.play({ category: 'bounce' });
+        } else {
+          const ROLLING_FRICTION = 0.97;
+          physicsService.Body.setVelocity(body, {
+            x: (vel.x - dot * nx) * ROLLING_FRICTION,
+            y: (vel.y - dot * ny) * ROLLING_FRICTION,
+          });
+        }
+      }
+      // Depenetration: push out of floor whenever bottomHit, regardless of lateralHit.
+      // In a tight crater both flags are true simultaneously, causing the old
+      // !lateralHit guard to skip the snap and let gravity accumulate.
+      if (bottomHit) {
+        physicsService.Body.setPosition(body, { x: proj.x, y: getSY(px) - r - 1 });
+        proj.y = getSY(px) - r - 1; // keep render in sync
+      }
+    }
+  }
+
+  spawnPhysicsPrimaryProjectile(
+    barrelX: number,
+    barrelY: number,
+    aimAngleRad: number,
+    owner: Player | Enemy,
+    bullet: any,
+    physicsService: any,
+    rootBulletName: string = '',
+    power: number = 200,
+  ): void {
+    const speed = (power / 100) * bullet.speed;
+    const vx = Math.cos(aimAngleRad) * speed;
+    const vy = -Math.sin(aimAngleRad) * speed;
+
+    const body = physicsService.Bodies.circle(barrelX, barrelY, CONST.PROJECTILE_RADIUS, {
+      frictionAir: 0,
+      restitution: 0.75,
+      friction: CONST.PROJECTILE_FRICTION,
+    });
+    physicsService.Body.setVelocity(body, { x: vx, y: vy });
+    physicsService.World.add(physicsService.world, body);
+
+    this.projectile = {
+      body,
+      x: barrelX,
+      y: barrelY,
+      owner,
+      bullet,
+      rootBulletName: rootBulletName || bullet.name || '',
+      spawnTimeMs: Date.now(),
+      spinRate: (Math.random() * 8 + 4) * (Math.random() < 0.5 ? 1 : -1),
+    };
   }
 
   spawnChildProjectiles(
@@ -451,6 +915,7 @@ export class ProjectileService {
         bullet: childBullet,
         rootBulletName: rootBulletName || parentBullet.name || '',
         spawnTimeMs: Date.now(),
+        spinRate: (Math.random() * 8 + 4) * (Math.random() < 0.5 ? 1 : -1),
       });
     }
   }
@@ -466,7 +931,22 @@ export class ProjectileService {
 
     for (let i = this.childProjectiles.length - 1; i >= 0; i--) {
       const child = this.childProjectiles[i];
-      if (!child.body) continue;
+
+      // Trajectory-based child (no physics body — e.g. twin corn stick)
+      if (!child.body) {
+        if (child.trajectory && child.trajectoryIndex !== undefined) {
+          this.updateTrajectoryChild(
+            i,
+            child,
+            terrain,
+            player,
+            enemies,
+            physicsService,
+            depthTerrain,
+          );
+        }
+        continue;
+      }
 
       // Apply wind force (mirrors simulateTrajectory wind formula)
       physicsService.Body.applyForce(child.body, child.body.position, {
@@ -476,7 +956,12 @@ export class ProjectileService {
             CONST.WIND_BULLET_FORCE_SCALE *
             Math.cos(physicsService.windAngle)) /
           child.bullet.weight,
-        y: 0,
+        y:
+          (physicsService.windSpeed *
+            0.75 *
+            CONST.WIND_BULLET_FORCE_SCALE *
+            Math.sin(physicsService.windAngle)) /
+          child.bullet.weight,
       });
 
       // Sync world-space position
@@ -494,16 +979,115 @@ export class ProjectileService {
         continue;
       }
 
-      // Timer fuse: explode after 1.8 seconds
-      if (Date.now() - (child.spawnTimeMs ?? 0) >= 1800) {
+      // Timer fuse: only explode if bullet has fuse_timer modifier
+      const fuseModifier = child.bullet.modifiers?.find((m) => m.type === 'fuse_timer') as
+        | FuseTimerModifier
+        | undefined;
+      if (fuseModifier && Date.now() - (child.spawnTimeMs ?? 0) >= fuseModifier.ms) {
         this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
         continue;
       }
 
-      // Entity collision check — must run before terrain so rolling fragments can detonate
-      if (this.checkEntityCollisions(child, player, enemies)) {
-        this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+      // Explode when rolling average speed falls below threshold (30-frame window, same hang-time guard as primary).
+      const lowSpeedModifier = child.bullet.modifiers?.find(
+        (m) => m.type === 'explode_on_low_speed',
+      ) as ExplodeOnLowSpeedModifier | undefined;
+      if (lowSpeedModifier) {
+        const vel = child.body.velocity;
+        const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+        child.lowSpeedSamples ??= [];
+        child.lowSpeedSamples.push(spd);
+        if (child.lowSpeedSamples.length > 30) child.lowSpeedSamples.shift();
+        if (child.lowSpeedSamples.length === 30) {
+          const avgSpd = child.lowSpeedSamples.reduce((a, b) => a + b, 0) / 30;
+          if (avgSpd < lowSpeedModifier.threshold) {
+            this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+            continue;
+          }
+        }
+      }
+
+      // Shield boundary check — damage shield and absorb child projectile without explosion
+      const shieldedTarget = this.findChildShieldHit(child, player, enemies);
+      if (shieldedTarget) {
+        const dx = child.x - shieldedTarget.x;
+        const dy = child.y - shieldedTarget.y;
+        shieldedTarget.currentShieldHealth = Math.max(
+          0,
+          (shieldedTarget.currentShieldHealth ?? 0) - child.bullet.damage,
+        );
+        shieldedTarget.shieldHitAngle = Math.atan2(dy, dx);
+        if ((shieldedTarget.currentShieldHealth ?? 0) <= 0) {
+          this.sfxService.play({ category: 'shield_break' });
+          this.shieldBrokeEntities.push(shieldedTarget);
+        } else {
+          this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
+        }
+        physicsService.World.remove(physicsService.world, child.body);
+        this.childProjectiles.splice(i, 1);
         continue;
+      }
+
+      // Entity collision — bounce if modifier, otherwise explode
+      const hasBounceEntity =
+        child.bullet.modifiers?.some((m) => m.type === 'bounce_entity') ?? false;
+      if (hasBounceEntity) {
+        const hitEntity = this.findEntityCollision(child, player, enemies);
+        if (hitEntity) {
+          const vel = child.body.velocity;
+          const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
+          // Normal: from entity center toward projectile
+          const dx = child.x - hitEntity.x;
+          const dy = child.y - hitEntity.y;
+          const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+          const nx = dx / dist;
+          const ny = dy / dist;
+          // Reflect velocity with restitution
+          const dot = vel.x * nx + vel.y * ny;
+          const restitution = 0.6;
+          physicsService.Body.setVelocity(child.body, {
+            x: (vel.x - 2 * dot * nx) * restitution,
+            y: (vel.y - 2 * dot * ny) * restitution,
+          });
+          // Push projectile outside collision radius to prevent re-collision next frame
+          const pushDist = CONST.PROJECTILE_RADIUS + CONST.TANK_COLLISION_RADIUS + 2;
+          physicsService.Body.setPosition(child.body, {
+            x: hitEntity.x + nx * pushDist,
+            y: hitEntity.y + ny * pushDist,
+          });
+          this.sfxService.play({ category: 'bounce' });
+          // Speed-scaled damage with armor reduction
+          const speedRatio = Math.min(1, speed / child.bullet.speed);
+          const armor = hitEntity.vehicle.armor ?? 0;
+          const rawDamage = Math.round(child.bullet.damage * speedRatio * (1 - armor));
+          const attackerName = (child.owner as Player | Enemy).displayName ?? 'Unknown';
+          const isPlayer = (hitEntity as object) === (player as object);
+          this.damageService.applyDamage(
+            hitEntity,
+            {
+              amount: rawDamage,
+              source: 'explosion',
+              attackerName,
+              weaponName: child.rootBulletName,
+            },
+            isPlayer ? 'player' : 'enemy',
+          );
+          physicsService.applyExplosionKnockback(
+            hitEntity,
+            child.x,
+            child.y,
+            child,
+            child.bullet.explosionRadius,
+            child.bullet.explosionRadius,
+          );
+          continue;
+        }
+      } else {
+        // Standard: explode on entity contact
+        if (this.checkEntityCollisions(child, player, enemies)) {
+          this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+          continue;
+        }
       }
 
       // Terrain hit check — test bottom edge, center, and lateral edges
@@ -529,13 +1113,21 @@ export class ProjectileService {
       const terrainHit = bottomHit || lateralHit;
 
       if (terrainHit) {
+        const bounceTerrainMod = child.bullet.modifiers?.find(
+          (m) => m.type === 'bounce_terrain',
+        ) as import('./monkeys.types').BounceTerrainModifier | undefined;
+        if (!bounceTerrainMod) {
+          this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
+          continue;
+        }
         const px = Math.floor(child.x);
 
-        // Find topmost solid pixel in this column to get the real surface Y
+        // Scan downward from bullet center for surface Y — avoids snapping to cliff top above.
         const colData = terrain[px];
-        let surfaceWorldY = child.y - r; // fallback: don't change Y
+        let surfaceWorldY = child.y - r;
         if (colData) {
-          for (let ly = 0; ly < colData.length; ly++) {
+          const startLY = Math.max(0, Math.floor(child.y) - tbY);
+          for (let ly = startLY; ly < colData.length; ly++) {
             if (colData[ly] === 1) {
               surfaceWorldY = tbY + ly;
               break;
@@ -543,7 +1135,7 @@ export class ProjectileService {
           }
         }
 
-        // Compute terrain slope from neighbouring columns for proper reflection normal
+        // Compute reflection normal: horizontal outward normal for cliff walls, slope-based for floors.
         const getSY = (col: number): number => {
           if (col < 0 || col >= CONST.TERRAIN_WIDTH) return surfaceWorldY;
           const cd = terrain[col];
@@ -553,50 +1145,180 @@ export class ProjectileService {
           }
           return surfaceWorldY;
         };
-        const span = 4;
-        const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
-        // Normal = perpendicular to surface tangent, pointing upward (negative Y in screen coords)
-        let nx = slope;
-        let ny = -1;
-        const nLen = Math.sqrt(nx * nx + 1); // ny² = 1
-        nx /= nLen;
-        ny /= nLen;
+        let nx: number, ny: number;
+        if (lateralHit && !bottomHit) {
+          const hitRight = isTerrainAt(child.x + r, child.y);
+          nx = hitRight ? -1 : 1;
+          ny = 0;
+        } else {
+          const span = 4;
+          const slope = (getSY(px + span) - getSY(px - span)) / (span * 2);
+          nx = slope;
+          ny = -1;
+          const nLen = Math.sqrt(nx * nx + 1);
+          nx /= nLen;
+          ny /= nLen;
+        }
 
         const vel = child.body.velocity;
         const dot = vel.x * nx + vel.y * ny;
 
         if (dot < 0) {
-          // Compute what a full bounce would produce
-          const restitution = 0.35;
-          const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
-          const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
-          const bouncedSpeed = Math.sqrt(bouncedVx * bouncedVx + bouncedVy * bouncedVy);
-
-          if (bouncedSpeed > 1.5) {
+          const restitution = bounceTerrainMod.restitution ?? 0.35;
+          // Use the normal-component speed to decide bounce vs roll.
+          // Using total post-bounce speed falsely classifies rolling as a bounce
+          // because the large horizontal speed dominates the total.
+          const normalImpactSpeed = Math.abs(dot) * restitution;
+          if (normalImpactSpeed > 1.5) {
             // True bounce — reflect with restitution
+            const bouncedVx = (vel.x - 2 * dot * nx) * restitution;
+            const bouncedVy = (vel.y - 2 * dot * ny) * restitution;
             physicsService.Body.setVelocity(child.body, { x: bouncedVx, y: bouncedVy });
+            this.sfxService.play({ category: 'bounce' });
           } else {
             // Rolling / resting — zero only the into-surface component, keep tangential.
-            // Gravity's tangential projection accumulates each frame, rolling downhill naturally.
             const ROLLING_FRICTION = 0.97;
             physicsService.Body.setVelocity(child.body, {
               x: (vel.x - dot * nx) * ROLLING_FRICTION,
               y: (vel.y - dot * ny) * ROLLING_FRICTION,
             });
           }
-
-          // Only snap to surface on floor contact — lateral cliff-face hits must not
-          // reposition Y or the fragment teleports to the cliff top/bottom.
-          if (bottomHit) {
-            physicsService.Body.setPosition(child.body, {
-              x: child.x,
-              y: surfaceWorldY - r - 1,
-            });
-          }
+        }
+        // Depenetration: push out of floor whenever bottomHit, regardless of lateralHit.
+        // In a tight crater both flags are true simultaneously, causing the old
+        // !lateralHit guard to skip the snap and let gravity accumulate.
+        if (bottomHit) {
+          const snappedY = getSY(px) - r - 1;
+          physicsService.Body.setPosition(child.body, { x: child.x, y: snappedY });
+          child.y = snappedY; // keep render in sync
         }
         continue;
       }
     }
+  }
+
+  updatePoisonZonePhysics(terrain: number[][], windSpeed: number): void {
+    // Hurricane-force winds clear all zones
+    if (windSpeed >= 40) {
+      this.poisonZones = [];
+      return;
+    }
+    const tbY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    for (const zone of this.poisonZones) {
+      if (zone.grounded) {
+        // Re-check terrain: if the ground beneath was destroyed, let the zone fall again
+        const px = Math.floor(zone.x);
+        const col = terrain[px];
+        const ly = Math.floor(zone.y) - tbY;
+        if (!col || ly < 0 || col[ly] !== 1) {
+          zone.grounded = false;
+        } else {
+          continue;
+        }
+      }
+      zone.vy += CONST.GRAVITY_STRENGTH;
+      zone.y += zone.vy;
+      // Terrain column scan — find first solid pixel at or below zone center
+      const px = Math.floor(zone.x);
+      const col = terrain[px];
+      if (col) {
+        const startLY = Math.max(0, Math.floor(zone.y) - tbY);
+        for (let ly = startLY; ly < col.length; ly++) {
+          if (col[ly] === 1) {
+            zone.y = tbY + ly;
+            zone.vy = 0;
+            zone.grounded = true;
+            break;
+          }
+        }
+      }
+      // Clamp to canvas bottom
+      if (zone.y >= CONST.CANVAS_HEIGHT) {
+        zone.y = CONST.CANVAS_HEIGHT;
+        zone.vy = 0;
+        zone.grounded = true;
+      }
+    }
+  }
+
+  private updateTrajectoryChild(
+    index: number,
+    child: Projectile,
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    const positions = child.trajectory!;
+    const idx = child.trajectoryIndex!;
+
+    if (idx >= positions.length) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    const prevX = child.x;
+    const prevY = child.y;
+    child.x = positions[idx].x;
+    child.y = positions[idx].y;
+
+    const marginX = CONST.OFFSCREEN_EXPLODE_MARGIN_X;
+    const marginYBot = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM;
+    const marginYTop = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP;
+    if (
+      child.x < -marginX ||
+      child.x > CONST.TERRAIN_WIDTH + marginX ||
+      child.y > CONST.TERRAIN_HEIGHT + marginYBot ||
+      child.y < -marginYTop
+    ) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    const tbY = Math.floor(CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET);
+    const segDx = child.x - prevX;
+    const segDy = child.y - prevY;
+    const steps = Math.ceil(Math.sqrt(segDx * segDx + segDy * segDy));
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 1 : s / steps;
+      const sx = Math.floor(prevX + segDx * t);
+      const sy = Math.floor(prevY + segDy * t);
+      const ly = sy - tbY;
+      if (
+        sx >= 0 &&
+        sx < CONST.TERRAIN_WIDTH &&
+        ly >= 0 &&
+        ly < (terrain[sx]?.length ?? 0) &&
+        terrain[sx][ly] === 1
+      ) {
+        child.x = sx;
+        child.y = sy;
+        this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+        return;
+      }
+    }
+
+    const px = Math.floor(child.x);
+    const py = Math.floor(child.y);
+    const ly2 = py - tbY;
+    if (
+      px >= 0 &&
+      px < CONST.TERRAIN_WIDTH &&
+      ly2 >= 0 &&
+      ly2 < (terrain[px]?.length ?? 0) &&
+      terrain[px][ly2] === 1
+    ) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    if (this.checkEntityCollisions(child, player, enemies)) {
+      this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    child.trajectoryIndex!++;
   }
 
   private destroyChildProjectile(
@@ -608,26 +1330,35 @@ export class ProjectileService {
     depthTerrain?: number[][],
   ): void {
     const child = this.childProjectiles[index];
-    physicsService.World.remove(physicsService.world, child.body);
+
+    // Stick-on-terrain: plant mine instead of exploding
+    if (child.bullet.modifiers?.some((m) => m.type === 'stick_on_terrain')) {
+      this.plantedMines.push({
+        x: child.x,
+        y: child.y,
+        batchId: child.batchId ?? 0,
+        health: 30,
+        owner: child.owner,
+        bullet: child.bullet,
+        rootBulletName: child.rootBulletName,
+      });
+      if (child.body) physicsService.World.remove(physicsService.world, child.body);
+      this.childProjectiles.splice(index, 1);
+      return;
+    }
+
+    if (child.body) physicsService.World.remove(physicsService.world, child.body);
 
     this.sfxService.play({ category: child.bullet.sfxImpact ?? 'explosion' });
 
-    this.explosions.push({
-      x: child.x,
-      y: child.y,
-      radius: CONST.EXPLOSION_INITIAL_RADIUS,
-      maxRadius: CONST.EXPLOSION_MAX_RADIUS,
-      life: CONST.EXPLOSION_LIFETIME_FRAMES,
-      shape: child.bullet.explosionShape,
-      spriteName: child.bullet.explosionSprite,
-    });
+    this.impactService.pushExplosion(child.x, child.y, child.bullet);
 
-    this.createCrater(child.x, child.y, terrain, child.bullet);
+    this.impactService.createCrater(child.x, child.y, terrain, child.bullet);
     if (depthTerrain) {
       const depthScale = 0.45 + Math.random() * 0.35;
       const offsetX = (Math.random() - 0.5) * 20;
       const offsetY = (Math.random() - 0.5) * 20;
-      this.createCrater(
+      this.impactService.createCrater(
         child.x + offsetX,
         child.y + offsetY,
         depthTerrain,
@@ -661,19 +1392,87 @@ export class ProjectileService {
     this.childProjectiles.splice(index, 1);
   }
 
-  updateExplosions() {
-    for (let i = this.explosions.length - 1; i >= 0; i--) {
-      const explosion = this.explosions[i];
-      explosion.radius += CONST.EXPLOSION_EXPANSION_RATE;
-      explosion.life--;
+  updateExplosions(): void {
+    this.impactService.updateExplosions();
+  }
 
-      if (explosion.life <= 0 || explosion.radius >= explosion.maxRadius) {
-        this.explosions.splice(i, 1);
+  /** Detonate a batch of planted mines (all from same firing event). No state changes — caller handles aftermath. */
+  detonateMinesBatch(
+    batch: PlantedMine[],
+    terrain: number[][],
+    player: Player,
+    enemies: Enemy[],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): void {
+    for (const mine of batch) {
+      const fakeProjectile = {
+        owner: mine.owner,
+        bullet: mine.bullet,
+        rootBulletName: mine.rootBulletName,
+        x: mine.x,
+        y: mine.y,
+      };
+      this.sfxService.play({ category: mine.bullet.sfxImpact ?? 'explosion' });
+      this.impactService.pushExplosion(mine.x, mine.y, mine.bullet);
+      this.impactService.createCrater(mine.x, mine.y, terrain, mine.bullet);
+      if (depthTerrain) {
+        this.impactService.createCrater(mine.x, mine.y, depthTerrain, mine.bullet, 0.6);
       }
+      this.calculateExplosionDamage(
+        mine.x,
+        mine.y,
+        fakeProjectile,
+        player,
+        enemies,
+        physicsService,
+        terrain,
+      );
+      this.lastImpactPos = { x: mine.x, y: mine.y };
     }
   }
 
-  updateDamageTexts() {
-    this.damageService.updateDamageTexts();
+  /** Check each planted mine for entity proximity. On contact, detonate ALL touching mines and return the entity that triggered them. */
+  checkPlantedMineContacts(
+    player: Player,
+    enemies: Enemy[],
+    terrain: number[][],
+    physicsService: any,
+    depthTerrain?: number[][],
+  ): Player | Enemy | null {
+    const entities: (Player | Enemy)[] = [player, ...enemies];
+    const contactRadius = CONST.TANK_COLLISION_RADIUS + 20;
+    let contactedEntity: Player | Enemy | null = null;
+    const triggeredMines: PlantedMine[] = [];
+    for (let i = this.plantedMines.length - 1; i >= 0; i--) {
+      const mine = this.plantedMines[i];
+      for (const entity of entities) {
+        if (!entity.active) continue;
+        const dx = entity.x - mine.x;
+        const dy = entity.y - mine.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const shieldRadius = (entity.vehicle?.shieldRadius ?? 0) > 0 && (entity.currentShieldHealth ?? 0) > 0
+          ? entity.vehicle!.shieldRadius!
+          : 0;
+        const triggerRadius = Math.max(contactRadius, shieldRadius);
+        if (dist < triggerRadius) {
+          triggeredMines.push(mine);
+          this.plantedMines.splice(i, 1);
+          contactedEntity = contactedEntity ?? entity;
+          break; // one entity per mine; continue to next mine
+        }
+      }
+    }
+    if (triggeredMines.length > 0) {
+      this.detonateMinesBatch(
+        triggeredMines,
+        terrain,
+        player,
+        enemies,
+        physicsService,
+        depthTerrain,
+      );
+    }
+    return contactedEntity;
   }
 }

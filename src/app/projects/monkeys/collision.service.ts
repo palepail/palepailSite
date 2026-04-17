@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Player, Enemy } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { DamageService } from './damage.service';
@@ -7,7 +7,7 @@ import { DamageService } from './damage.service';
   providedIn: 'root',
 })
 export class CollisionService {
-  constructor(private damageService: DamageService) {}
+  private damageService = inject(DamageService);
 
   checkPlayerTerrainCollision(player: Player, terrain: number[][], physicsService: any) {
     if (!player.body) return;
@@ -20,12 +20,11 @@ export class CollisionService {
       const GROUNDED_ZONE = 3;
 
       if (tankBottom > terrainHeight - GROUNDED_ZONE) {
-        // Guard: skip snap if terrain surface is above the entity's center (cliff/ledge from wind drift).
-        // Override the guard when moving fast (e.g. lateral knockback crossing a crater wall).
-        const speed = Math.sqrt(player.body.velocity.x ** 2 + player.body.velocity.y ** 2);
-        const isMovingFast = speed > 3;
-        const terrainIsClose = terrainHeight >= player.body.position.y - tankHalfHeight;
-        if (isMovingFast || terrainIsClose) {
+        // getTerrainHeightAt returns the topmost solid pixel in the column — for cliff walls and
+        // tunnel ceilings that surface is far above the entity center. Guard against teleporting
+        // entities upward by skipping the snap when the surface is more than 4× half-height above center.
+        const isCeilingOrDistantWall = terrainHeight < player.body.position.y - tankHalfHeight * 4;
+        if (!isCeilingOrDistantWall) {
           // Kill downward velocity near/at surface to prevent gravity-snap jitter
           if (player.body.velocity.y > 0) {
             physicsService.Body.setVelocity(player.body, { x: player.body.velocity.x, y: 0 });
@@ -54,12 +53,10 @@ export class CollisionService {
 
           enemy.terrainAngle = terrainAngle;
           if (tankBottom > terrainHeight - GROUNDED_ZONE) {
-            // Guard: skip snap if terrain surface is above the entity's center (cliff/ledge from wind drift).
-            // Override the guard when moving fast (e.g. lateral knockback crossing a crater wall).
-            const speed = Math.sqrt(enemy.body.velocity.x ** 2 + enemy.body.velocity.y ** 2);
-            const isMovingFast = speed > 3;
-            const terrainIsClose = terrainHeight >= enemy.body.position.y - tankHalfHeight;
-            if (isMovingFast || terrainIsClose) {
+            // Same ceiling/wall guard as player: skip snap when surface is far above entity center.
+            const isCeilingOrDistantWall =
+              terrainHeight < enemy.body.position.y - tankHalfHeight * 4;
+            if (!isCeilingOrDistantWall) {
               // Kill downward velocity near/at surface to prevent gravity-snap jitter
               if (enemy.body.velocity.y > 0) {
                 physicsService.Body.setVelocity(enemy.body, { x: enemy.body.velocity.x, y: 0 });

@@ -19,6 +19,8 @@ export class DamageService {
   damageTexts: DamageText[] = [];
   combatLog: CombatLogEntry[] = [];
   anyDamageAppliedThisTurn = false;
+  /** Entities that crossed the 20% health threshold this frame — drained by game service to trigger emotes. */
+  lowHealthCrossedEntities: (Player | Enemy)[] = [];
 
   /** Accumulates all explosion damage for a single turn; flushed to combatLog at aftermath end. */
   private batchAccumulator = new Map<string, CombatLogEntry>();
@@ -43,8 +45,12 @@ export class DamageService {
     }
 
     const wasKilled = entity.health <= 0;
+    const lowThreshold = entity.vehicle.health * 0.2;
+    const crossedLowHealthThreshold =
+      !wasKilled && prevHealth > lowThreshold && entity.health <= lowThreshold;
+    if (crossedLowHealthThreshold) this.lowHealthCrossedEntities.push(entity);
 
-    if (actualAmount > 0) {
+    if (actualAmount > 0 && event.source !== 'poison') {
       this.anyDamageAppliedThisTurn = true;
     }
 
@@ -85,14 +91,31 @@ export class DamageService {
       });
     }
 
+    if (event.source === 'poison' && actualAmount > 0) {
+      // Poison is status damage — does NOT set anyDamageAppliedThisTurn (turn continues normally)
+      // and logs immediately rather than accumulating in the batch.
+      const targetName = entity.displayName ?? 'Unknown';
+      this.addToLog({
+        type: 'damage',
+        attackerName: event.attackerName ?? '',
+        targetName,
+        weaponName: event.weaponName ?? '',
+        totalDamage: actualAmount,
+        wasFatal: wasKilled,
+      });
+    }
+
     // --- VO ---
     if (entity.vehicle.voicePack) {
       if (wasKilled) {
-        this.sfxService.playVo(
-          entity,
-          entity.vehicle.voicePack,
-          event.source === 'fall' ? 'fall' : 'ochisou',
-        );
+        // Player death VO is handled by monkeys-game.service (plays 'lose') — skip here to avoid double-playing.
+        if (entityType !== 'player') {
+          this.sfxService.playVo(
+            entity,
+            entity.vehicle.voicePack,
+            event.source === 'fall' ? 'fall' : 'ochisou',
+          );
+        }
       } else if (actualAmount > 0) {
         this.sfxService.playVo(entity, entity.vehicle.voicePack, 'bump');
       }
@@ -104,7 +127,7 @@ export class DamageService {
       (entity as Enemy).entityState = 'dead';
     }
 
-    return { actualAmount, wasKilled, source: event.source };
+    return { actualAmount, wasKilled, source: event.source, crossedLowHealthThreshold };
   }
 
   /** Called at the end of each aftermath — pushes accumulated batch entries to the log. */

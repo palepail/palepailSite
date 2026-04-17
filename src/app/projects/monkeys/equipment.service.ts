@@ -104,6 +104,57 @@ export class EquipmentService {
     }
   }
 
+  static applyItemStatsToVehicle(vehicle: Vehicle, stats: EquipmentStats): void {
+    if (stats.attack) vehicle.bullet.damage *= 1 + stats.attack / 100;
+    if (stats.health) vehicle.health += stats.health;
+    if (stats.armor) vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - stats.armor / 100);
+    if (stats.pushbackMultiplier !== undefined)
+      vehicle.bullet.pushbackMultiplier =
+        (vehicle.bullet.pushbackMultiplier ?? 1) * stats.pushbackMultiplier;
+    if (stats.blastRadius) {
+      vehicle.bullet.explosionRadius = Math.max(
+        5,
+        vehicle.bullet.explosionRadius + stats.blastRadius,
+      );
+      vehicle.bullet.craterRadius = Math.max(
+        5,
+        vehicle.bullet.craterRadius + Math.round(stats.blastRadius * 0.8),
+      );
+      if (vehicle.bullet.childBullet) {
+        vehicle.bullet.childBullet.explosionRadius = Math.max(
+          5,
+          vehicle.bullet.childBullet.explosionRadius + Math.round(stats.blastRadius * 0.5),
+        );
+        vehicle.bullet.childBullet.craterRadius = Math.max(
+          5,
+          vehicle.bullet.childBullet.craterRadius + Math.round(stats.blastRadius * 0.4),
+        );
+      }
+    }
+    if (stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + stats.fuel);
+    if (stats.climbAngle) vehicle.climbAngle = Math.max(10, vehicle.climbAngle + stats.climbAngle);
+    if (stats.minAimAngle)
+      vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + stats.minAimAngle);
+    if (stats.maxAimAngle)
+      vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + stats.maxAimAngle);
+    if (stats.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + stats.lifesteal;
+    if (stats.weight) vehicle.weight = (vehicle.weight ?? 10) + stats.weight;
+    if (stats.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + stats.shieldRadius;
+    if (stats.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + stats.shieldHealth;
+  }
+
+  static applySetBonusToVehicle(vehicle: Vehicle, bonus: EquipmentStats): void {
+    if (bonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + bonus.lifesteal;
+    if (bonus.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + bonus.shieldRadius;
+    if (bonus.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + bonus.shieldHealth;
+    if (bonus.pushbackMultiplier !== undefined)
+      vehicle.bullet.pushbackMultiplier =
+        (vehicle.bullet.pushbackMultiplier ?? 1) * bonus.pushbackMultiplier;
+    if (bonus.aimGuide) vehicle.aimGuide = bonus.aimGuide;
+    if (bonus.actionDelay !== undefined)
+      vehicle.actionDelay = (vehicle.actionDelay ?? 0) + bonus.actionDelay;
+  }
+
   applyEquipmentToVehicle(vehicle: Vehicle): void {
     // Apply vehicle's base attack scaling before any equipment modifiers
     if (vehicle.attack !== undefined) {
@@ -116,49 +167,10 @@ export class EquipmentService {
     }
     for (const item of Object.values(this.equipped)) {
       if (!item?.stats) continue;
-      if (item.stats.attack) vehicle.bullet.damage *= 1 + item.stats.attack / 100;
-      if (item.stats.health) vehicle.health += item.stats.health;
-      if (item.stats.armor)
-        vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - item.stats.armor / 100);
-      if (item.stats.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier =
-          (vehicle.bullet.pushbackMultiplier ?? 1) * item.stats.pushbackMultiplier;
-      if (item.stats.blastRadius) {
-        vehicle.bullet.explosionRadius = Math.max(
-          5,
-          vehicle.bullet.explosionRadius + item.stats.blastRadius,
-        );
-        vehicle.bullet.craterRadius = Math.max(
-          5,
-          vehicle.bullet.craterRadius + Math.round(item.stats.blastRadius * 0.8),
-        );
-      }
-      if (item.stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + item.stats.fuel);
-      if (item.stats.climbAngle)
-        vehicle.climbAngle = Math.max(10, vehicle.climbAngle + item.stats.climbAngle);
-      if (item.stats.minAimAngle)
-        vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + item.stats.minAimAngle);
-      if (item.stats.maxAimAngle)
-        vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + item.stats.maxAimAngle);
-      if (item.stats.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + item.stats.lifesteal;
-      if (item.stats.weight) vehicle.weight = (vehicle.weight ?? 10) + item.stats.weight;
-      if (item.stats.shieldRadius)
-        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + item.stats.shieldRadius;
-      if (item.stats.shieldHealth)
-        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + item.stats.shieldHealth;
+      EquipmentService.applyItemStatsToVehicle(vehicle, item.stats);
     }
     const setBonus = this.getEquippedSetBonus();
-    if (setBonus) {
-      if (setBonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + setBonus.lifesteal;
-      if (setBonus.shieldRadius)
-        vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + setBonus.shieldRadius;
-      if (setBonus.shieldHealth)
-        vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + setBonus.shieldHealth;
-      if (setBonus.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier =
-          (vehicle.bullet.pushbackMultiplier ?? 1) * setBonus.pushbackMultiplier;
-      if (setBonus.aimGuide) vehicle.aimGuide = setBonus.aimGuide;
-    }
+    if (setBonus) EquipmentService.applySetBonusToVehicle(vehicle, setBonus);
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
 }

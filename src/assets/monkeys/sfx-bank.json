@@ -1,6 +1,13 @@
 {
   "voiceCharacters": ["aiai", "gongon", "jam", "meemee", "yanyan"],
   "categories": {
+    "bounce": {
+      "files": [
+        { "file": "Bounce1.ogg", "volume": 1.0 },
+        { "file": "Bounce2.ogg", "volume": 1.0 },
+        { "file": "Bounce3.ogg", "volume": 1.0 }
+      ]
+    },
     "explosion": {
       "files": [
         { "file": "Explosion1.ogg", "volume": 1.0 },
@@ -26,7 +33,7 @@
         { "file": "Wind_Gust1.ogg", "volume": 1.5 },
         { "file": "Wind_Gust2.ogg", "volume": 1.5 },
         { "file": "Wind_Gust3.ogg", "volume": 1.5 },
-        { "file": "Wind_Gust4.ogg", "volume": 1.5 }
+        { "file": "Wind_Gust5.ogg", "volume": 1.5 }
       ]
     },
 

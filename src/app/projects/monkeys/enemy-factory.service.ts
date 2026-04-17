@@ -7,6 +7,7 @@ import {
   Vehicle,
 } from './monkeys.types';
 import * as CONST from './monkeys.constants';
+import { EquipmentService } from './equipment.service';
 
 const SLOTS: EquipmentSlot[] = ['headgear', 'torso', 'legs', 'footwear', 'accessory'];
 
@@ -65,46 +66,13 @@ export class EnemyFactoryService {
     return loadout;
   }
 
-  /**
-   * Apply a loadout (and its set bonus if applicable) to a vehicle in-place.
-   * Mirrors MonkeysGameService.applyEquipmentToVehicle but takes explicit args.
-   */
   applyLoadoutToVehicle(vehicle: Vehicle, loadout: Loadout, sets: EquipmentSet[]): void {
     for (const item of Object.values(loadout)) {
       if (!item?.stats) continue;
-      const s = item.stats;
-      if (s.attack) vehicle.bullet.damage += s.attack;
-      if (s.health) vehicle.health += s.health;
-      if (s.armor) vehicle.armor = 1 - (1 - (vehicle.armor ?? 0)) * (1 - s.armor / 100);
-      if (s.pushbackMultiplier !== undefined)
-        vehicle.bullet.pushbackMultiplier =
-          (vehicle.bullet.pushbackMultiplier ?? 1) * s.pushbackMultiplier;
-      if (s.blastRadius) {
-        vehicle.bullet.explosionRadius = Math.max(
-          5,
-          vehicle.bullet.explosionRadius + s.blastRadius,
-        );
-        vehicle.bullet.craterRadius = Math.max(
-          5,
-          vehicle.bullet.craterRadius + Math.round(s.blastRadius * 0.8),
-        );
-      }
-      if (s.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + s.fuel);
-      if (s.climbAngle) vehicle.climbAngle = Math.max(10, vehicle.climbAngle + s.climbAngle);
-      if (s.minAimAngle) vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + s.minAimAngle);
-      if (s.maxAimAngle) vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + s.maxAimAngle);
-      if (s.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + s.lifesteal;
-      if (s.weight) vehicle.weight = (vehicle.weight ?? 10) + s.weight;
-      if (s.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + s.shieldRadius;
-      if (s.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + s.shieldHealth;
+      EquipmentService.applyItemStatsToVehicle(vehicle, item.stats);
     }
-
-    // Set bonus — applies only if all 5 slots share the same setId
     const setBonus = this.getLoadoutSetBonus(loadout, sets);
-    if (setBonus) {
-      this.applySetBonus(vehicle, setBonus);
-    }
-
+    if (setBonus) EquipmentService.applySetBonusToVehicle(vehicle, setBonus);
     vehicle.minAimAngle = Math.min(vehicle.minAimAngle, vehicle.maxAimAngle - 5);
   }
 
@@ -143,15 +111,5 @@ export class EnemyFactoryService {
     const firstId = setIds[0]!;
     if (!setIds.every((id) => id === firstId)) return null;
     return sets.find((s) => s.id === firstId)?.bonus ?? null;
-  }
-
-  private applySetBonus(vehicle: Vehicle, bonus: EquipmentStats): void {
-    if (bonus.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + bonus.lifesteal;
-    if (bonus.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + bonus.shieldRadius;
-    if (bonus.shieldHealth) vehicle.shieldHealth = (vehicle.shieldHealth ?? 0) + bonus.shieldHealth;
-    if (bonus.pushbackMultiplier !== undefined)
-      vehicle.bullet.pushbackMultiplier =
-        (vehicle.bullet.pushbackMultiplier ?? 1) * bonus.pushbackMultiplier;
-    if (bonus.aimGuide) vehicle.aimGuide = bonus.aimGuide;
   }
 }

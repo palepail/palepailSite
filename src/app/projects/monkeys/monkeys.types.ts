@@ -25,7 +25,7 @@ export interface Player {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight';
+  turnState: 'turn_start' | 'idle' | 'aiming' | 'bullet_in_flight' | 'detonating_mines';
   delay: number;
   targetAngle?: number;
   currentShieldHealth?: number;
@@ -37,6 +37,7 @@ export interface Player {
   hurtUntilMs?: number;
   prevHealth?: number;
   displayName?: string; // "You" or "Enemy N" — set at game start for combat log
+  emote?: ActiveEmote;
 }
 
 export interface Enemy {
@@ -50,7 +51,7 @@ export interface Enemy {
   facing: number; // 1 for right, -1 for left
   terrainAngle: number; // Angle of terrain beneath the tank
   vehicle: Vehicle;
-  turnState: 'turn_start' | 'assess' | 'aiming' | 'bullet_in_flight';
+  turnState: 'turn_start' | 'assess' | 'aiming' | 'bullet_in_flight' | 'detonating_mines';
   targetPower?: number;
   power: number;
   delay: number;
@@ -75,6 +76,7 @@ export interface Enemy {
   hurtUntilMs?: number;
   prevHealth?: number;
   displayName?: string; // "Enemy N" — set at game start for combat log
+  emote?: ActiveEmote;
 }
 
 export enum GameState {
@@ -82,6 +84,7 @@ export enum GameState {
   MENU = 'menu',
   OPTIONS = 'options',
   TERRAIN_TOOL = 'terrain_tool',
+  LAYER_TOOL = 'layer_tool',
   SETUP = 'setup',
   PLAYING = 'playing',
   AFTERMATH = 'aftermath',
@@ -91,6 +94,35 @@ export enum GameState {
   GAME_OVER = 'game_over',
   WIN_DELAY = 'win_delay',
   WIN = 'win',
+}
+
+export interface LayerFrameOffset {
+  hand: { x: number; y: number };
+  fruit: { x: number; y: number };
+  overlay: { x: number; y: number };
+  halo?: { x: number; y: number };
+  aboveFruitSpriteName?: string;
+  hideLayers?: string[];
+}
+
+export interface FruitConfig {
+  scale: number;
+  overlayZ: number; // <2 = overlay draws below fruit, >=2 = overlay draws above fruit
+}
+
+export interface LayerOffsetData {
+  explosionScale: number;
+  fruitConfig: Record<string, FruitConfig>;
+  frames: Record<string, LayerFrameOffset>;
+}
+
+export type LayerOffsetsMap = Record<string, LayerOffsetData>;
+
+/** A single deferred draw command in the unified render queue. */
+export interface RenderCommand {
+  zIndex: number;
+  transform: DOMMatrix;
+  draw: () => void;
 }
 
 export interface TurnEntity {
@@ -201,7 +233,7 @@ export interface DamageText {
   isHeal?: boolean;
 }
 
-export type DamageSource = 'explosion' | 'fall';
+export type DamageSource = 'explosion' | 'fall' | 'poison';
 
 export interface DamageEvent {
   amount: number;
@@ -214,6 +246,7 @@ export interface DamageResult {
   actualAmount: number;
   wasKilled: boolean;
   source: DamageSource;
+  crossedLowHealthThreshold?: boolean;
 }
 
 export interface CombatLogEntry {
@@ -223,6 +256,36 @@ export interface CombatLogEntry {
   weaponName: string;
   totalDamage: number;
   wasFatal: boolean;
+}
+
+export type EmoteName =
+  | 'big_sweat'
+  | 'small_sweat'
+  | 'small_angry'
+  | 'big_angry'
+  | 'notes'
+  | 'money'
+  | 'fume'
+  | 'double_fume'
+  | 'angry_fume'
+  | 'shock'
+  | 'lightbulb'
+  | 'heart'
+  | 'big_heart'
+  | 'question'
+  | 'exclamation'
+  | 'grumble'
+  | 'heat'
+  | 'laugh'
+  | 'sleep';
+
+export interface ActiveEmote {
+  name: EmoteName;
+  startTime: number;
+  loop: boolean;
+  loopDelayMs?: number; // ms to wait between animation cycles
+  nextPlayTime?: number; // timestamp after which to restart the cycle
+  zLayer: 'front' | 'behind';
 }
 
 export interface Projectile {
@@ -235,21 +298,79 @@ export interface Projectile {
   bullet: Bullet;
   rootBulletName: string; // top-level weapon name; shared by all child projectiles for log grouping
   spawnTimeMs?: number; // ms timestamp of spawn, used for child projectile timer fuse
+  spinRate?: number; // radians per second of constant spin for rendering
+  lowSpeedSamples?: number[]; // rolling speed samples for explode_on_low_speed — avoids hang-time false trigger
+  batchId?: number; // twin-fire batch id; all projectiles from one firing share a batchId
 }
 
-/**
- * Discriminant for bullet modifier effects.
- * Extend this union with string literals when implementing new modifiers.
- * Example: export type BulletModifierType = 'bounce' | 'poison' | 'fire';
- */
-export type BulletModifierType = string;
+export type BulletModifierType =
+  | 'bounce_terrain'
+  | 'bounce_entity'
+  | 'fuse_timer'
+  | 'explode_on_low_speed'
+  | 'stick_on_terrain'
+  | 'poison_zone'
+  | 'ignore_shield';
 
-/**
- * A modifier attached to a bullet that triggers a special effect.
- * Specific modifiers will extend this via discriminated union subtypes.
- */
-export interface BulletModifier {
-  type: BulletModifierType;
+export interface BounceTerrainModifier {
+  type: 'bounce_terrain';
+  restitution?: number;
+}
+export interface BounceEntityModifier {
+  type: 'bounce_entity';
+}
+export interface FuseTimerModifier {
+  type: 'fuse_timer';
+  ms: number;
+}
+export interface ExplodeOnLowSpeedModifier {
+  type: 'explode_on_low_speed';
+  threshold: number;
+}
+export interface StickOnTerrainModifier {
+  type: 'stick_on_terrain';
+}
+export interface PoisonZoneModifier {
+  type: 'poison_zone';
+  radius: number;
+  damage: number;
+}
+export interface IgnoreShieldModifier {
+  type: 'ignore_shield';
+}
+
+export type BulletModifier =
+  | BounceTerrainModifier
+  | BounceEntityModifier
+  | FuseTimerModifier
+  | ExplodeOnLowSpeedModifier
+  | StickOnTerrainModifier
+  | PoisonZoneModifier
+  | IgnoreShieldModifier;
+
+export interface PoisonZone {
+  x: number;
+  y: number;
+  vy: number;
+  owner: Player | Enemy;
+  radius: number;
+  damage: number;
+  turnsUntilExpiry: number;
+  rootBulletName: string;
+  grounded: boolean;
+}
+
+export interface PlantedMine {
+  x: number;
+  y: number;
+  batchId: number;
+  health: number;
+  owner: Player | Enemy;
+  bullet: Bullet;
+  rootBulletName: string;
+  vx?: number;
+  vy?: number;
+  hopFramesLeft?: number;
 }
 
 export interface Bullet {
@@ -265,10 +386,26 @@ export interface Bullet {
   sfxImpact?: string; // sfx-bank category to play on impact
   tier?: number; // 1 = primary, 2 = child, 3+ = cascade; default 1
   bulletSprite?: string; // in-flight sprite prefix; defaults to 'bullet'
+  rotatesToVelocity?: boolean; // if true, bullet sprite rotates to match its velocity angle
+  bulletRotationSpeed?: number; // constant spin in radians/second; added on top of velocity angle if both set
   explosionSprite?: string; // explosion overlay sprite prefix; defaults to 'explosion'
+  heldItemSprite?: string; // composite layer: item sprite name shown in hand (e.g. 'item_banana')
+  overlaySprite?: string; // composite layer: overlay sprite drawn on top (e.g. 'overlay_banana')
   childBullet?: Bullet; // recursive child definition spawned on impact
   childCount?: number; // how many children to spawn; default 1
+  shotgunCount?: number; // fire N physics pellets from the barrel simultaneously (no main trajectory)
+  shotgunSpreadRad?: number; // total arc width in radians; each pellet gets a random offset within ±spread/2
+  twinCount?: number; // fire N trajectory twins at evenly spread angles (shares batchId per firing)
+  twinSpreadRad?: number; // total angular spread across all twins (each offset by fraction of spread)
+  bulletStyle?: string; // fire mode: 'standard' | 'shotgun' | 'cluster' | 'twin' | 'salvo'
   modifiers?: BulletModifier[]; // optional collection of effect modifiers
+}
+
+/** An additional hitbox sphere offset from the entity centre. offY is upward (negative = up), offX is forward (positive = forward in facing direction). */
+export interface VehicleHitbox {
+  offX?: number; // world-space X offset in the entity's facing direction (positive = forward)
+  offY: number; // world-space Y offset from entity.y (negative = upward)
+  radius: number; // collision radius in px
 }
 
 export interface Vehicle {
@@ -289,13 +426,15 @@ export interface Vehicle {
   lifesteal?: number; // % of damage dealt healed back to player; set by applyEquipmentToVehicle
   weight?: number; // pushback resistance; base 10; higher = less knockback, lower = more
   shieldRadius?: number; // radius of the hit-absorbing shield in px
-  shieldHealth?: number; // number of hits the shield can absorb before breaking
+  shieldHealth?: number; // HP of the shield; depleted by bullet damage, breaks when reaching 0
   aimGuide?: string; // set bonus from Scout set; activates trajectory arc preview
+  actionDelay?: number; // % modifier to action cost; applied when player is the active entity (negative = faster)
   sfxWalk?: string; // sfx-bank category for movement loop
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
-  bulletStyle?: string; // fire mode: 'standard' | 'cluster' | future 'shotgun' | 'salvo'
+  bulletOptions?: Bullet[]; // selectable ammunition shown as in-game weapon buttons; first entry is the default
   voicePack?: string; // VO character pack assigned at game start
+  hitboxes?: VehicleHitbox[]; // extra hitbox spheres beyond the base TANK_COLLISION_RADIUS sphere
 }
 
 export type EquipmentSlot = 'headgear' | 'torso' | 'legs' | 'footwear' | 'accessory';
@@ -313,9 +452,10 @@ export interface EquipmentStats {
   lifesteal?: number; // % of damage dealt restored as health (e.g. 20 = 20%)
   weight?: number; // modifier to vehicle.weight (hidden stat)
   shieldRadius?: number; // radius of hit-absorbing shield in px
-  shieldHealth?: number; // number of incoming hits the shield can absorb
+  shieldHealth?: number; // HP contributed to the entity's shield
   // Accessory abilities — stored but not yet implemented
   aimGuide?: 'extended' | 'full';
+  actionDelay?: number; // % modifier to action cost (negative = faster; e.g. -15 = 15% reduction)
 }
 
 export interface EquipmentItem {

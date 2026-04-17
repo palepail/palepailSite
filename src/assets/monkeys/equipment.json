@@ -1,10 +1,14 @@
 {
   "sets": [
-    { "id": "iron", "name": "Iron", "bonus": { "pushbackMultiplier": 3 } },
-    { "id": "berserker", "name": "Berserker", "bonus": { "lifesteal": 20 } },
-    { "id": "fortress", "name": "Fortress", "bonus": { "shieldRadius": 120, "shieldHealth": 2 } },
-    { "id": "scout", "name": "Scout", "bonus": { "aimGuide": "extended" } },
-    { "id": "miner", "name": "Miner", "bonus": { "pushbackMultiplier": -1.5 } }
+    { "id": "iron", "name": "Iron", "bonus": { "pushbackMultiplier": 3, "actionDelay": 5 } },
+    { "id": "berserker", "name": "Berserker", "bonus": { "lifesteal": 20, "actionDelay": -10 } },
+    {
+      "id": "fortress",
+      "name": "Fortress",
+      "bonus": { "shieldRadius": 120, "shieldHealth": 120, "actionDelay": 10 }
+    },
+    { "id": "scout", "name": "Scout", "bonus": { "aimGuide": "extended", "actionDelay": -15 } },
+    { "id": "miner", "name": "Miner", "bonus": { "pushbackMultiplier": -1.5, "actionDelay": -5 } }
   ],
   "items": [
     { "id": "none_headgear", "name": "None", "slot": "headgear", "stats": {} },

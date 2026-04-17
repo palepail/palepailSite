@@ -2,9 +2,14 @@ import { Injectable } from '@angular/core';
 import {
   BackgroundMetadataFile,
   BackgroundSpriteMetadata,
-  TerrainMetadataFile,
-  TerrainSpriteMetadata,
+  LayerOffsetData,
+  LayerOffsetsMap,
 } from './monkeys.types';
+import {
+  LUPIN_COMPOSITE_SPRITESHEET,
+  ZOMBIE_COMPOSITE_SPRITESHEET,
+  EQUIPMENT_SPRITESHEET,
+} from './monkeys.constants';
 
 export interface SpriteDefinition {
   name: string;
@@ -35,6 +40,10 @@ interface SpriteMetadataFile {
   spritesheets: Record<string, string>;
   sprites: SpriteDefinition[];
   panels?: Array<{ name: string; spritesheet: string; x: number; y: number; sectionSize: number }>;
+  emoteDefinitions?: Record<
+    string,
+    { frameCount: number; frameDurationMs: number; noFlip?: boolean }
+  >;
 }
 
 @Injectable({
@@ -45,19 +54,31 @@ export class MonkeysSpriteService {
   private readonly METADATA_PATH = 'assets/monkeys/sprite-metadata.json';
   private readonly TERRAIN_METADATA_PATH = 'assets/monkeys/terrain-metadata.json';
   private readonly BACKGROUND_METADATA_PATH = 'assets/monkeys/background-metadata.json';
+  private readonly LAYER_OFFSETS_PATH = 'assets/monkeys/layer-offsets.json';
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
   readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
+  readonly EQUIPMENT_SPRITESHEET = EQUIPMENT_SPRITESHEET;
+  readonly LUPIN_COMPOSITE = LUPIN_COMPOSITE_SPRITESHEET;
+  readonly ZOMBIE_COMPOSITE = ZOMBIE_COMPOSITE_SPRITESHEET;
+
+  isCompositeSheet(name: string): boolean {
+    return name === this.LUPIN_COMPOSITE || name === this.ZOMBIE_COMPOSITE;
+  }
+
   private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private panelDefinitions: Map<string, PanelDefinition> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
   private spriteDefinitions: SpriteDefinition[] = [];
+  private emoteDefinitions: Record<
+    string,
+    { frameCount: number; frameDurationMs: number; noFlip?: boolean }
+  > = {};
   private metadataLoadPromise: Promise<void> | null = null;
-  private terrainMetadataPromise: Promise<TerrainMetadataFile> | null = null;
-  private terrainMetadataCache: TerrainMetadataFile | null = null;
   private backgroundMetadataPromise: Promise<BackgroundMetadataFile> | null = null;
   private backgroundMetadataCache: BackgroundMetadataFile | null = null;
+  private layerOffsetsMap: LayerOffsetsMap = {};
 
   loadProgress = 0; // 0–1
   loadLabel = 'Loading...';
@@ -84,6 +105,7 @@ export class MonkeysSpriteService {
 
     try {
       await Promise.all(loadPromises);
+      await this.loadLayerOffsets();
       this.loadProgress = 1;
       this.loadLabel = 'Done';
       console.log('All sprites loaded successfully');
@@ -103,30 +125,6 @@ export class MonkeysSpriteService {
 
   async loadInnerTerrainSpritesheet(): Promise<HTMLImageElement | HTMLCanvasElement> {
     return this.loadRawSpritesheet(this.INNER_TERRAIN_SPRITESHEET);
-  }
-
-  async loadTerrainMetadata(): Promise<TerrainMetadataFile> {
-    if (this.terrainMetadataCache) {
-      return this.terrainMetadataCache;
-    }
-
-    if (!this.terrainMetadataPromise) {
-      this.terrainMetadataPromise = this.fetchTerrainMetadata().catch((error) => {
-        this.terrainMetadataPromise = null;
-        throw error;
-      });
-    }
-
-    const metadata = await this.terrainMetadataPromise;
-    this.terrainMetadataCache = metadata;
-    return metadata;
-  }
-
-  async getTerrainSpritesByType(
-    type: TerrainSpriteMetadata['pieceType'],
-  ): Promise<TerrainSpriteMetadata[]> {
-    const metadata = await this.loadTerrainMetadata();
-    return metadata.sprites.filter((sprite) => sprite.pieceType === type);
   }
 
   async loadBackgroundMetadata(): Promise<BackgroundMetadataFile> {
@@ -182,6 +180,7 @@ export class MonkeysSpriteService {
         spritesheet: this.resolveSpritesheetPath(p.spritesheet, metadata.spritesheets),
       });
     }
+    this.emoteDefinitions = metadata.emoteDefinitions ?? {};
   }
 
   private resolveSpritesheetPath(
@@ -194,23 +193,6 @@ export class MonkeysSpriteService {
     }
 
     return resolvedSpritesheet;
-  }
-
-  private async fetchTerrainMetadata(): Promise<TerrainMetadataFile> {
-    const response = await fetch(this.TERRAIN_METADATA_PATH);
-    if (!response.ok) {
-      throw new Error(`Failed to load terrain metadata from ${this.TERRAIN_METADATA_PATH}`);
-    }
-
-    const metadata = (await response.json()) as TerrainMetadataFile;
-    metadata.sprites = metadata.sprites
-      .map((sprite) => ({
-        ...sprite,
-        id: Number.isFinite(sprite.id) ? sprite.id : this.extractRegionId(sprite.name),
-      }))
-      .sort((a, b) => a.id - b.id);
-
-    return metadata;
   }
 
   private async fetchBackgroundMetadata(): Promise<BackgroundMetadataFile> {
@@ -298,8 +280,35 @@ export class MonkeysSpriteService {
     }
   }
 
+  private async loadLayerOffsets(): Promise<void> {
+    try {
+      const response = await fetch(this.LAYER_OFFSETS_PATH);
+      if (!response.ok) {
+        console.warn(`Layer offsets not found at ${this.LAYER_OFFSETS_PATH}`);
+        return;
+      }
+      this.layerOffsetsMap = (await response.json()) as LayerOffsetsMap;
+    } catch (error) {
+      console.warn('Failed to load layer offsets:', error);
+    }
+  }
+
+  getLayerOffsets(spritesheet: string): LayerOffsetData | null {
+    return this.layerOffsetsMap[spritesheet] ?? null;
+  }
+
+  getAllLayerOffsets(): LayerOffsetsMap {
+    return this.layerOffsetsMap;
+  }
+
   getSprite(name: string): SpriteData | null {
     return this.sprites.get(name) || null;
+  }
+
+  getEmoteDefinition(
+    name: string,
+  ): { frameCount: number; frameDurationMs: number; noFlip?: boolean } | null {
+    return this.emoteDefinitions[name] ?? null;
   }
 
   getEntitySprite(animName: string, spritesheet: string): SpriteData | null {
@@ -312,15 +321,5 @@ export class MonkeysSpriteService {
 
   getSpritesheet(path: string): HTMLImageElement | HTMLCanvasElement | null {
     return this.spritesheets.get(path) || null;
-  }
-
-  isLoaded(): boolean {
-    return Array.from(this.loadedAssets.values()).every((loaded) => loaded);
-  }
-
-  getLoadedSpritesheets(): string[] {
-    return Array.from(this.loadedAssets.entries())
-      .filter(([, loaded]) => loaded)
-      .map(([path]) => path);
   }
 }
