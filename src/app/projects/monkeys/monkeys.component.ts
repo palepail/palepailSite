@@ -15,24 +15,10 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import {
-  Player,
-  GameState,
-  Explosion,
-  DamageText,
-  TerrainSpriteRegion,
-  TerrainChunkPlacement,
-  BackgroundSpriteMetadata,
-  EquipmentSlot,
-  EquipmentItem,
-  EquipmentStats,
-  LayerOffsetData,
-  LayerFrameOffset,
-  RenderCommand,
-} from './monkeys.types';
+import { GameState, RenderCommand } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
-import { MonkeysSpriteService, SpriteData } from './monkeys-sprite.service';
+import { MonkeysSpriteService } from './monkeys-sprite.service';
 import { MonkeysAudioService } from './monkeys-audio.service';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { ShieldAnimationService } from './shield-animation.service';
@@ -44,26 +30,6 @@ import { MonkeysEffectsRenderer } from './monkeys-effects.renderer';
 import { MonkeysEntityRenderer } from './monkeys-entity.renderer';
 import { MonkeysUIRenderer, isPointInsideButton } from './monkeys-ui.renderer';
 import { MonkeysDevToolsRenderer } from './monkeys-dev-tools.renderer';
-
-// Camera system
-
-// Physics config + runtime state for a row of letters that drop in with bounce.
-interface BouncingLetterAnimConfig {
-  letterSize: number;
-  staggerMs: number;
-  gravity: number;
-  bounce: number;
-  minBounceVY: number;
-  advanceRatio: number;
-  targetYFn: (i: number) => number;
-}
-interface BouncingLetterAnimState {
-  cfg: BouncingLetterAnimConfig;
-  letterY: number[];
-  letterVY: number[];
-  animStart: number; // 0 = not yet started
-  animLastTs: number;
-}
 
 @Component({
   selector: 'app-tmonkeys',
@@ -86,74 +52,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // Camera system
   private cameraController = new CameraController();
 
-  // Parallax background tree instances (generated once per game)
-  private bgTreeInstances: { name: string; worldX: number; scale: number }[] = [];
-
-  // Menu title animation (MONKEYS letters drop in on first menu visit)
-  private readonly MT_LETTERS = [
-    'text_M',
-    'text_O',
-    'text_N',
-    'text_K',
-    'text_E',
-    'text_Y',
-    'text_S',
-  ];
-  // Menu monkey fall-in animation state
-  private menuMonkeyState: { startMs: number; fruitIndex: number } | null = null;
-
-  private menuTitleAnim: BouncingLetterAnimState = {
-    cfg: {
-      letterSize: 96,
-      staggerMs: 130,
-      gravity: 1800,
-      bounce: 0.38,
-      minBounceVY: 50,
-      advanceRatio: 0.5,
-      targetYFn: (i) => 55 + [4, -8, 10, -5, 8, -10, 3][i],
-    },
-    letterY: [],
-    letterVY: [],
-    animStart: 0,
-    animLastTs: 0,
-  };
-
-  // Game over letter drop animation
-  private readonly GO_LETTERS: string[] = [
-    'arena_G',
-    'arena_A',
-    'arena_M',
-    'arena_E',
-    'arena_O',
-    'arena_V',
-    'arena_E2',
-    'arena_R',
-  ];
-  private readonly WIN_LETTERS: string[] = [
-    'text_Y',
-    'text_O',
-    'text_U',
-    'text_W',
-    'text_I',
-    'text_N',
-  ];
-  private readonly WIN_TEXT_TINT = '#FFE700';
-  private gameOverAnim: BouncingLetterAnimState = {
-    cfg: {
-      letterSize: 96,
-      staggerMs: 110,
-      gravity: 2400,
-      bounce: 0.42,
-      minBounceVY: 60,
-      advanceRatio: 0.62,
-      targetYFn: () => CONST.CANVAS_HEIGHT / 3 - 48, // top-third - letterSize/2
-    },
-    letterY: [],
-    letterVY: [],
-    animStart: 0,
-    animLastTs: 0,
-  };
-
   // Setup timer
   private setupStartTime: number = 0;
 
@@ -169,39 +67,11 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   // State tracking for audio transitions
   private previousGameState: GameState | null = null;
 
-  // Wind indicator animation state
-  private windAnim = {
-    displayAngle: 0,
-    displayFill: 0,
-    fromAngle: 0,
-    fromFill: 0,
-    toAngle: 0,
-    toFill: 0,
-    startTime: 0,
-    duration: 600,
-  };
-
   // Player movement tracking
   private playerMovementStarted = false;
 
   // Prediction path toggle
   private showPrediction: boolean = true;
-
-  // Combat log
-  private combatLogMinimized: boolean = false;
-  private combatLogToggleBtn = { x: 0, y: 0, width: 0, height: 0 };
-
-  // Weapon selection (bottom-right buttons)
-  private selectedBulletIndex = 0;
-  private readonly WEAPON_BTN_SIZE = 68;
-  private readonly WEAPON_BTN_GAP = 8;
-  private readonly WEAPON_BTN_MARGIN = 10;
-  /** Sprites used for the menu monkey animation (always Lupin's weapons). */
-  private readonly WEAPON_SPRITES = ['item_banana', 'item_apple', 'item_peanut'];
-  /** Bullet options for the currently active player vehicle. */
-  private get vehicleBulletOptions(): import('./monkeys.types').Bullet[] {
-    return this.gameService.player?.vehicle?.bulletOptions ?? CONST.PLAYER_BULLETS;
-  }
 
   // Turn message
   private turnMessage: string = '';
@@ -214,190 +84,18 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.gameService.currentState;
   }
 
-  private canvasScale = 1;
-  private readonly tintCache = new Map<string, HTMLCanvasElement>();
-  private readonly EXPLOSION_FRAME_COUNT = 6;
-  private readonly EXPLOSION_SPRITE_FRAME_DURATION_MS = 110;
-  private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
-  private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
-  private readonly HURT_SPRITE_DURATION_MS = 300;
-  private readonly DEATH_SPRITE_FRAME_DURATION_MS = 100;
-  private readonly DEATH_SPRITE_FRAME_COUNT = 3;
-  private readonly DEATH_SPRITE_FADE_DURATION_MS = 1000;
-  private readonly SHOOT_CHARGE_FRAME_COUNT = 4;
-  private readonly SHOOT_TOTAL_FRAME_COUNT = 10;
-  private readonly SHOOT_CHARGE_FRAME_DURATION_MS = 150;
-  private readonly SHOOT_RELEASE_FRAME_DURATION_MS = 150;
-  private readonly TERRAIN_TOOL_ALPHA_THRESHOLD = 96;
-  private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
-  private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
-  private readonly TERRAIN_TOOL_ENABLED = true;
-  private readonly DEV_MODE = true;
-  private readonly LAYER_EDITOR_FRAMES = [
-    'idle',
-    'move_0',
-    'move_1',
-    'move_2',
-    'move_3',
-    'shoot_0',
-    'shoot_1',
-    'shoot_2',
-    'shoot_3',
-    'shoot_4',
-    'shoot_5',
-    'shoot_6',
-    'shoot_7',
-    'shoot_8',
-    'shoot_9',
-  ] as const;
-  private readonly LAYER_EDITOR_FRUITS = ['item_banana', 'item_apple', 'item_peanut'] as const;
-  private readonly ZOMBIE_LAYER_EDITOR_FRUITS = [
-    'zombie_item_banana_bunch',
-    'zombie_item_corn_stick',
-    'zombie_item_mushroom',
-  ] as const;
-  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
-  private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
-  private readonly COMPOSITE_SHEETS = new Set<string>([
-    'Lupin Composite.png',
-    'Zombie Lupin Composite.png',
-  ]);
-  private layerToolSheet: string = 'Lupin Composite.png';
-  private readonly POWER_PERCENT_SPRITE_SIZE = 26;
-  private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
-  private readonly CURSOR_BLINK_PERIOD_MS = 1000;
-  private readonly CURSOR_ON_DURATION_MS = 530;
-
-  // Sprite name maps for digit/symbol rendering — defined once here rather than per render frame.
-  private readonly ANGLE_CHAR_TO_SPRITE: Record<string, string> = {
-    '0': 'angle_0',
-    '1': 'angle_1',
-    '2': 'angle_2',
-    '3': 'angle_3',
-    '4': 'angle_4',
-    '5': 'angle_5',
-    '6': 'angle_6',
-    '7': 'angle_7',
-    '8': 'angle_8',
-    '9': 'angle_9',
-    '%': 'angle_percent',
-    '°': 'angle_degree',
-  };
-
-  // Full character → sprite map used by drawSpriteTextCentered and buildQueueCharMap.
-  private readonly TEXT_CHAR_TO_SPRITE: Record<string, string> = (() => {
-    const m: Record<string, string> = {};
-    for (let i = 0; i < 26; i++) {
-      m[String.fromCharCode(65 + i)] = `text_${String.fromCharCode(65 + i)}`;
-      m[String.fromCharCode(97 + i)] = `text_${String.fromCharCode(97 + i)}`;
-    }
-    for (let d = 0; d <= 9; d++) m[String(d)] = `arena_${d}`;
-    // Math symbols (row 3)
-    m['+'] = 'angle_plus';
-    m['-'] = 'angle_minus';
-    m['×'] = 'angle_multiply';
-    m['÷'] = 'angle_divide';
-    m['='] = 'angle_equals';
-    m['/'] = 'angle_slash';
-    m['\\'] = 'angle_backslash';
-    m['$'] = 'angle_dollar';
-    // Punctuation row
-    m['&'] = 'text_ampersand';
-    m['('] = 'text_lparen';
-    m[')'] = 'text_rparen';
-    m['\u300c'] = 'text_jp_open';
-    m['\u300d'] = 'text_jp_close';
-    m['\u3001'] = 'text_jp_comma';
-    m['\u3002'] = 'text_jp_period';
-    m[','] = 'text_comma';
-    m['.'] = 'text_period';
-    m['\u00b7'] = 'text_middledot';
-    m['~'] = 'text_tilde';
-    m[':'] = 'text_colon';
-    m[';'] = 'text_semicolon';
-    m['\u02bb'] = 'text_okina';
-    m["'"] = 'text_apostrophe';
-    m['\u201c'] = 'text_openquote';
-    m['\u201d'] = 'text_closequote';
-    m['<'] = 'text_lt';
-    m['>'] = 'text_gt';
-    m['?'] = 'text_question';
-    m['!'] = 'text_exclaim';
-    m[' '] = '';
-    return m;
-  })();
-
-  private readonly ARENA_CHAR_TO_SPRITE: Record<string, string> = {
-    '0': 'arena_0',
-    '1': 'arena_1',
-    '2': 'arena_2',
-    '3': 'arena_3',
-    '4': 'arena_4',
-    '5': 'arena_5',
-    '6': 'arena_6',
-    '7': 'arena_7',
-    '8': 'arena_8',
-    '9': 'arena_9',
-    '/': 'arena_slash',
-  };
-
-  private terrainToolImage: HTMLImageElement | HTMLCanvasElement | null = null;
-  private terrainToolRegions: TerrainSpriteRegion[] = [];
-  private terrainToolSelectedRegionId: number | null = null;
-  private terrainToolLoading = false;
-  private terrainToolError = '';
-  private terrainToolViewport: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    scale: number;
-  } | null = null;
-  private terrainToolCopyStatus = '';
-  private terrainToolCopyStatusUntil = 0;
-  private terrainToolActiveSheet: 'terrain' | 'background' = 'terrain';
-  private terrainToolSimpleMode = false;
-
-  // Equipment / Loadout screen state
-  private readonly EQUIPMENT_SLOTS: EquipmentSlot[] = [
-    'headgear',
-    'torso',
-    'legs',
-    'footwear',
-    'accessory',
-  ];
-  private readonly SLOT_LABELS: Record<EquipmentSlot, string> = {
-    headgear: 'Headgear',
-    torso: 'Torso',
-    legs: 'Legs',
-    footwear: 'Footwear',
-    accessory: 'Accessory',
-  };
-  private loadoutSlotIndices: Record<EquipmentSlot, number> = {
-    headgear: 0,
-    torso: 0,
-    legs: 0,
-    footwear: 0,
-    accessory: 0,
-  };
-  private isNameEditing = false;
-  private expandedSlot: EquipmentSlot | null = null;
-  private frozenTime: number | null = null; // set when paused to freeze sprite animations
-  private animationFrameId = 0;
-
-  private get renderTime(): number {
-    return this.frozenTime ?? Date.now();
+  /** Bullet options for the currently active player vehicle. */
+  private get vehicleBulletOptions(): import('./monkeys.types').Bullet[] {
+    return this.gameService.player?.vehicle?.bulletOptions ?? CONST.PLAYER_BULLETS;
   }
 
+  private canvasScale = 1;
+  private readonly tintCache = new Map<string, HTMLCanvasElement>();
+  private readonly TERRAIN_TOOL_ENABLED = true;
+  private readonly DEV_MODE = true;
 
-  // Layer offset editor state
-  private editorFrameIndex = 0;
-  private editorFruitIndex = 0;
-  private editorOffsets: LayerOffsetData | null = null;
-  private layerToolAllOffsets: Record<string, LayerOffsetData> = {};
-  // Hit regions populated each drawLayerTool() frame
-  private layerToolBtns: Map<string, { x: number; y: number; w: number; h: number }> = new Map();
-  // Top-right corner, beside/above the turn timer digits (timer rightX = CANVAS_WIDTH-20); 24×24 px
+  private frozenTime: number | null = null; // set when paused to freeze sprite animations
+  private animationFrameId = 0;
 
   private readonly SLIDER_TRACK_LEFT = CONST.CANVAS_WIDTH / 2 - 220;
   private readonly SLIDER_TRACK_WIDTH = 440;

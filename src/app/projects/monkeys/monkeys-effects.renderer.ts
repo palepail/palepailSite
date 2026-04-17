@@ -13,9 +13,6 @@ export class MonkeysEffectsRenderer {
   private readonly BULLET_SPRITE_SIZE_MULTIPLIER = 5;
   private readonly EXPLOSION_SPRITE_SIZE_MULTIPLIER = 3.3;
 
-  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
-  private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
-
   constructor(private readonly rc: MonkeysRenderContext) {}
 
   private getExplosionFrameIndex(now: number): number {
@@ -173,9 +170,9 @@ export class MonkeysEffectsRenderer {
       if (explosionSprite) {
         const explosionScale =
           spritePrefix === 'explosion'
-            ? (spriteService.getLayerOffsets(this.LUPIN_COMPOSITE)?.explosionScale ?? 1.0)
+            ? (spriteService.getLayerOffsets(spriteService.LUPIN_COMPOSITE)?.explosionScale ?? 1.0)
             : spritePrefix === 'zombie_explosion'
-              ? (spriteService.getLayerOffsets(this.ZOMBIE_COMPOSITE)?.explosionScale ?? 1.0)
+              ? (spriteService.getLayerOffsets(spriteService.ZOMBIE_COMPOSITE)?.explosionScale ?? 1.0)
               : 1.0;
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
         let spriteHeight =

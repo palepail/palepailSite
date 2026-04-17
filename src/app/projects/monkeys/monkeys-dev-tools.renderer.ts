@@ -44,9 +44,6 @@ export class MonkeysDevToolsRenderer {
   private readonly TERRAIN_TOOL_MINIMUM_PIXEL_COUNT = 24;
   private readonly TERRAIN_TOOL_OUTLINE_POINT_STRIDE = 1;
 
-  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
-  private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
-
   private readonly LAYER_EDITOR_FRAMES = [
     'idle',
     'move_0',
@@ -203,7 +200,7 @@ export class MonkeysDevToolsRenderer {
     const spriteYOffset = -15 * 3;
     const scale = 3;
     const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
-    const isZombie = this.layerToolSheet === this.ZOMBIE_COMPOSITE;
+    const isZombie = this.layerToolSheet === spriteService.ZOMBIE_COMPOSITE;
     const editorFruits = isZombie ? this.ZOMBIE_LAYER_EDITOR_FRUITS : this.LAYER_EDITOR_FRUITS;
     const fruitKey = editorFruits[this.editorFruitIndex];
     const offsets = this.editorOffsets!;
@@ -417,10 +414,10 @@ export class MonkeysDevToolsRenderer {
       frames: Object.fromEntries([...this.LAYER_EDITOR_FRAMES].map((f) => [f, defaultFrame()])),
     });
     this.layerToolAllOffsets = {
-      [this.LUPIN_COMPOSITE]:
-        allSaved[this.LUPIN_COMPOSITE] ?? buildDefault(this.LAYER_EDITOR_FRUITS),
-      [this.ZOMBIE_COMPOSITE]:
-        allSaved[this.ZOMBIE_COMPOSITE] ?? buildDefault(this.ZOMBIE_LAYER_EDITOR_FRUITS),
+      [spriteService.LUPIN_COMPOSITE]:
+        allSaved[spriteService.LUPIN_COMPOSITE] ?? buildDefault(this.LAYER_EDITOR_FRUITS),
+      [spriteService.ZOMBIE_COMPOSITE]:
+        allSaved[spriteService.ZOMBIE_COMPOSITE] ?? buildDefault(this.ZOMBIE_LAYER_EDITOR_FRUITS),
     };
     this.editorOffsets = this.layerToolAllOffsets[this.layerToolSheet];
     this.editorFrameIndex = 0;
@@ -513,9 +510,9 @@ export class MonkeysDevToolsRenderer {
   handleLayerToolClick(x: number, y: number): void {
     if (!this.editorOffsets) return;
     const offsets = this.editorOffsets;
-    const { gameService } = this.rc;
+    const { gameService, spriteService } = this.rc;
     const frameName = this.LAYER_EDITOR_FRAMES[this.editorFrameIndex];
-    const isZombie = this.layerToolSheet === this.ZOMBIE_COMPOSITE;
+    const isZombie = this.layerToolSheet === spriteService.ZOMBIE_COMPOSITE;
     const editorFruits = isZombie ? this.ZOMBIE_LAYER_EDITOR_FRUITS : this.LAYER_EDITOR_FRUITS;
     const fruitKey = editorFruits[this.editorFruitIndex];
 
@@ -547,17 +544,17 @@ export class MonkeysDevToolsRenderer {
       }
     }
 
-    if (hit('char_lupin') && this.layerToolSheet !== this.LUPIN_COMPOSITE) {
+    if (hit('char_lupin') && this.layerToolSheet !== spriteService.LUPIN_COMPOSITE) {
       this.layerToolAllOffsets[this.layerToolSheet] = offsets;
-      this.layerToolSheet = this.LUPIN_COMPOSITE;
-      this.editorOffsets = this.layerToolAllOffsets[this.LUPIN_COMPOSITE];
+      this.layerToolSheet = spriteService.LUPIN_COMPOSITE;
+      this.editorOffsets = this.layerToolAllOffsets[spriteService.LUPIN_COMPOSITE];
       this.editorFruitIndex = 0;
       return;
     }
-    if (hit('char_zombie') && this.layerToolSheet !== this.ZOMBIE_COMPOSITE) {
+    if (hit('char_zombie') && this.layerToolSheet !== spriteService.ZOMBIE_COMPOSITE) {
       this.layerToolAllOffsets[this.layerToolSheet] = offsets;
-      this.layerToolSheet = this.ZOMBIE_COMPOSITE;
-      this.editorOffsets = this.layerToolAllOffsets[this.ZOMBIE_COMPOSITE];
+      this.layerToolSheet = spriteService.ZOMBIE_COMPOSITE;
+      this.editorOffsets = this.layerToolAllOffsets[spriteService.ZOMBIE_COMPOSITE];
       this.editorFruitIndex = 0;
       return;
     }

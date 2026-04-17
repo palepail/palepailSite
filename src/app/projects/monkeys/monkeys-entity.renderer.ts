@@ -21,13 +21,6 @@ export class MonkeysEntityRenderer {
   private readonly SHOOT_RELEASE_FRAME_DURATION_MS = 150;
   private readonly MOVE_FRAME_DURATIONS = [150, 150, 150, 80] as const;
   private readonly POWER_PERCENT_SPRITE_SIZE = 26;
-  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
-  private readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
-  private readonly COMPOSITE_SHEETS = new Set<string>([
-    'Lupin Composite.png',
-    'Zombie Lupin Composite.png',
-  ]);
-
   private shieldMaskCanvas: HTMLCanvasElement | null = null;
   private shieldMaskCtx: CanvasRenderingContext2D | null = null;
 
@@ -525,7 +518,7 @@ export class MonkeysEntityRenderer {
               ? `move_${this.getMoveFrameIndex(now)}`
               : 'idle';
 
-    const isComposite = this.COMPOSITE_SHEETS.has(spritesheet);
+    const isComposite = spriteService.isCompositeSheet(spritesheet);
     const sprite = spriteService.getEntitySprite(animName, spritesheet);
     if (!sprite) return false;
 
@@ -570,7 +563,7 @@ export class MonkeysEntityRenderer {
   ): void {
     const { ctx, spriteService } = this.rc;
     const entitySheet: string =
-      (entity.vehicle?.spritesheet as string | undefined) ?? this.LUPIN_COMPOSITE;
+      (entity.vehicle?.spritesheet as string | undefined) ?? spriteService.LUPIN_COMPOSITE;
     const layerOffsets = spriteService.getLayerOffsets(entitySheet);
     const frameOffsets: LayerFrameOffset | undefined = layerOffsets?.frames[animName];
     const explosionScaleMultiplier = layerOffsets?.explosionScale ?? 1.0;
@@ -671,7 +664,7 @@ export class MonkeysEntityRenderer {
 
     if (overlayZ >= 2) drawOverlay();
 
-    if (entitySheet === this.ZOMBIE_COMPOSITE && !frameOffsets?.hideLayers?.includes('halo')) {
+    if (entitySheet === spriteService.ZOMBIE_COMPOSITE && !frameOffsets?.hideLayers?.includes('halo')) {
       const haloSprite = spriteService.getSprite('zombie_halo');
       if (haloSprite) {
         const hlx = frameOffsets?.halo?.x ?? 0;

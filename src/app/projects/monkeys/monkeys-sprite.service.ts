@@ -53,6 +53,13 @@ export class MonkeysSpriteService {
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
   readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
+  readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
+  readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
+
+  isCompositeSheet(name: string): boolean {
+    return name === this.LUPIN_COMPOSITE || name === this.ZOMBIE_COMPOSITE;
+  }
+
   private spritesheets: Map<string, HTMLImageElement | HTMLCanvasElement> = new Map();
   private sprites: Map<string, SpriteData> = new Map();
   private panelDefinitions: Map<string, PanelDefinition> = new Map();

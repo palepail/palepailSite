@@ -110,7 +110,6 @@ export class MonkeysUIRenderer {
   private readonly WEAPON_BTN_GAP = 8;
   private readonly WEAPON_BTN_MARGIN = 10;
   private readonly WEAPON_SPRITES = ['item_banana', 'item_apple', 'item_peanut'];
-  private readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
 
   private readonly MT_LETTERS = [
     'text_M',
@@ -1085,16 +1084,16 @@ export class MonkeysUIRenderer {
       item_peanut: 'overlay_peanut',
     };
     const overlayKey = fruitToOverlay[fruitKey] ?? null;
-    const layerOffsets = spriteService.getLayerOffsets(this.LUPIN_COMPOSITE);
+    const layerOffsets = spriteService.getLayerOffsets(spriteService.LUPIN_COMPOSITE);
     const frameName = 'idle';
     const frameOffsets = layerOffsets?.frames[frameName];
     const fruitCfg = layerOffsets?.fruitConfig[fruitKey] ?? null;
     const fruitScale = fruitCfg?.scale ?? 1.0;
     const overlayZ = fruitCfg?.overlayZ ?? 3;
 
-    const backSprite = spriteService.getEntitySprite(frameName, this.LUPIN_COMPOSITE);
+    const backSprite = spriteService.getEntitySprite(frameName, spriteService.LUPIN_COMPOSITE);
     const fruitSprite = spriteService.getSprite(fruitKey);
-    const handSprite = spriteService.getEntitySprite('hand', this.LUPIN_COMPOSITE);
+    const handSprite = spriteService.getEntitySprite('hand', spriteService.LUPIN_COMPOSITE);
     const overlaySprite = overlayKey ? spriteService.getSprite(overlayKey) : null;
     if (!backSprite) return;
 
