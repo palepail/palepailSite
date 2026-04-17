@@ -1107,7 +1107,7 @@ export class MonkeysGameService {
   private rollWind(): void {
     const r = Math.random();
     this.physicsService.windSpeed =
-      Math.random() < 0.02 ? 76 + Math.round(Math.random() * 24) : Math.round(Math.pow(r, 4) * 75);
+      Math.random() < 0.02 ? 76 + Math.round(Math.random() * 4) : Math.round(Math.pow(r, 4) * 55);
     this.physicsService.windAngle = Math.random() * Math.PI * 2;
     this.physicsService.clearTrajectoryCache();
   }
@@ -1231,7 +1231,9 @@ export class MonkeysGameService {
         this.terrainService.depthTerrain,
       );
       if (hitEntity) {
-        this.aftermathActionCost = this.isPlayerTurn() ? CONST.ACTION_COST_INTERRUPTED : CONST.ACTION_COST_WEAPON_1;
+        this.aftermathActionCost = this.isPlayerTurn()
+          ? CONST.ACTION_COST_INTERRUPTED
+          : CONST.ACTION_COST_WEAPON_1;
         this.aftermathImpactPos = this.projectileService.lastImpactPos;
         this.aftermathStartMs = Date.now();
         this.aftermathCallouts = [];
@@ -1492,8 +1494,13 @@ export class MonkeysGameService {
     }
 
     this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
-    const slotCosts = [CONST.ACTION_COST_WEAPON_1, CONST.ACTION_COST_WEAPON_2, CONST.ACTION_COST_WEAPON_3];
-    this.aftermathActionCost = slotCosts[this.selectedWeaponSlotIndex] ?? CONST.ACTION_COST_WEAPON_1;
+    const slotCosts = [
+      CONST.ACTION_COST_WEAPON_1,
+      CONST.ACTION_COST_WEAPON_2,
+      CONST.ACTION_COST_WEAPON_3,
+    ];
+    this.aftermathActionCost =
+      slotCosts[this.selectedWeaponSlotIndex] ?? CONST.ACTION_COST_WEAPON_1;
     this.isCharging = false;
     this.player.chargeStartTime = 0;
     this.player.entityState = 'shooting';
@@ -1635,7 +1642,11 @@ export class MonkeysGameService {
   }
 
   get plantedMines() {
-    return this.projectileService.plantedMines;
+    const active = this.projectileService.plantedMines;
+    if (this.pendingDetonationBatches.length === 0 || this.detonationPhase !== 'panning')
+      return active;
+    const pending = this.pendingDetonationBatches.flatMap((b) => b.mines);
+    return [...active, ...pending];
   }
 
   get poisonZones() {

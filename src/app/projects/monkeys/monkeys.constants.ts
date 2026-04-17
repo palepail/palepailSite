@@ -208,7 +208,7 @@ export const ZOMBIE_CORN_STICK_BULLET: Bullet = {
   sfxImpact: 'explosion',
   bulletRotationSpeed: Math.PI * 4,
   twinCount: 2,
-  twinSpreadRad: (4 * Math.PI) / 180, // ±2° total 4° spread
+  twinSpreadRad: (8 * Math.PI) / 180, // ±4° total 8° spread
   bulletStyle: 'twin',
   modifiers: [{ type: 'stick_on_terrain' }],
 };

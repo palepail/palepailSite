@@ -151,7 +151,8 @@ export class EquipmentService {
       vehicle.bullet.pushbackMultiplier =
         (vehicle.bullet.pushbackMultiplier ?? 1) * bonus.pushbackMultiplier;
     if (bonus.aimGuide) vehicle.aimGuide = bonus.aimGuide;
-    if (bonus.actionDelay !== undefined) vehicle.actionDelay = (vehicle.actionDelay ?? 0) + bonus.actionDelay;
+    if (bonus.actionDelay !== undefined)
+      vehicle.actionDelay = (vehicle.actionDelay ?? 0) + bonus.actionDelay;
   }
 
   applyEquipmentToVehicle(vehicle: Vehicle): void {

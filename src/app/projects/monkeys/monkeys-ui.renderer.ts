@@ -1291,7 +1291,7 @@ export class MonkeysUIRenderer {
     const now = Date.now();
     const wa = this.windAnim;
 
-    const targetFill = targetSpeed / 100;
+    const targetFill = targetSpeed / 80;
     if (targetAngle !== wa.toAngle || targetFill !== wa.toFill) {
       wa.fromAngle = wa.displayAngle;
       wa.fromFill = wa.displayFill;

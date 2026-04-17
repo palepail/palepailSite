@@ -1191,7 +1191,7 @@ export class ProjectileService {
 
   updatePoisonZonePhysics(terrain: number[][], windSpeed: number): void {
     // Hurricane-force winds clear all zones
-    if (windSpeed >= 80) {
+    if (windSpeed >= 40) {
       this.poisonZones = [];
       return;
     }
@@ -1424,7 +1424,7 @@ export class ProjectileService {
     }
   }
 
-  /** Check each planted mine for entity proximity. On contact, detonate that mine alone and return the touching entity. */
+  /** Check each planted mine for entity proximity. On contact, detonate ALL touching mines and return the entity that triggered them. */
   checkPlantedMineContacts(
     player: Player,
     enemies: Enemy[],
@@ -1434,6 +1434,8 @@ export class ProjectileService {
   ): Player | Enemy | null {
     const entities: (Player | Enemy)[] = [player, ...enemies];
     const contactRadius = CONST.TANK_COLLISION_RADIUS + 20;
+    let contactedEntity: Player | Enemy | null = null;
+    const triggeredMines: PlantedMine[] = [];
     for (let i = this.plantedMines.length - 1; i >= 0; i--) {
       const mine = this.plantedMines[i];
       for (const entity of entities) {
@@ -1441,12 +1443,23 @@ export class ProjectileService {
         const dx = entity.x - mine.x;
         const dy = entity.y - mine.y;
         if (Math.sqrt(dx * dx + dy * dy) < contactRadius) {
+          triggeredMines.push(mine);
           this.plantedMines.splice(i, 1);
-          this.detonateMinesBatch([mine], terrain, player, enemies, physicsService, depthTerrain);
-          return entity;
+          contactedEntity = contactedEntity ?? entity;
+          break; // one entity per mine; continue to next mine
         }
       }
     }
-    return null;
+    if (triggeredMines.length > 0) {
+      this.detonateMinesBatch(
+        triggeredMines,
+        terrain,
+        player,
+        enemies,
+        physicsService,
+        depthTerrain,
+      );
+    }
+    return contactedEntity;
   }
 }
