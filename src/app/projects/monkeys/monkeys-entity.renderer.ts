@@ -767,7 +767,7 @@ export class MonkeysEntityRenderer {
     bullet: any,
     color = '#FFFFFF',
   ): void {
-    const { ctx, gameService, cameraController } = this.rc;
+    const { ctx, gameService, cameraController, queueDraw } = this.rc;
     const { positions } = gameService.simulateTrajectory(
       startX,
       startY,
@@ -776,20 +776,23 @@ export class MonkeysEntityRenderer {
       bullet,
       true,
     );
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    let started = false;
-    for (const pos of positions) {
-      const screenPos = cameraController.worldToScreen(pos.x, pos.y);
-      if (!started) {
-        ctx.moveTo(screenPos.x, screenPos.y);
-        started = true;
-      } else ctx.lineTo(screenPos.x, screenPos.y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Pre-convert to screen coords so the queued callback doesn't depend on camera state at flush time
+    const screenPositions = positions.map((pos) => cameraController.worldToScreen(pos.x, pos.y));
+    queueDraw(CONST.LAYER_PREDICTION, () => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      let started = false;
+      for (const sp of screenPositions) {
+        if (!started) {
+          ctx.moveTo(sp.x, sp.y);
+          started = true;
+        } else ctx.lineTo(sp.x, sp.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
   }
 
   private drawPowerPercent(
