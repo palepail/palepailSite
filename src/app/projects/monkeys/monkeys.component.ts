@@ -147,7 +147,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
         )
         .catch((err) => console.error('Failed to load background sprites:', err)),
       this.spriteService
-        .loadRawSpritesheet('equipment.png')
+        .loadRawSpritesheet(this.spriteService.EQUIPMENT_SPRITESHEET)
         .catch((err) => console.warn('Failed to load equipment sprites:', err)),
       this.audioService
         .loadMenuAudio()

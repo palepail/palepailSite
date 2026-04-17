@@ -376,7 +376,7 @@ export class MonkeysUIRenderer {
     ctx.textAlign = 'center';
     ctx.fillText('Equipment', mCx, 102);
 
-    const equipSheet = spriteService.getSpritesheet('equipment.png');
+    const equipSheet = spriteService.getSpritesheet(spriteService.EQUIPMENT_SPRITESHEET);
     const spriteSize = 32;
     const slotBoxX = 416,
       slotBoxW = 368,
@@ -1161,7 +1161,7 @@ export class MonkeysUIRenderer {
       previewY = 204;
     const idleSprite = spriteService.getEntitySprite(
       'idle',
-      selEntry?.vehicle?.spritesheet ?? 'Lupin.png',
+      selEntry?.vehicle?.spritesheet ?? spriteService.LUPIN_COMPOSITE,
     );
     if (idleSprite && !selEntry?.locked) {
       ctx.drawImage(
@@ -1219,7 +1219,7 @@ export class MonkeysUIRenderer {
       if (!isLocked) {
         const spr = spriteService.getEntitySprite(
           'idle',
-          entry.vehicle?.spritesheet ?? 'Lupin.png',
+          entry.vehicle?.spritesheet ?? spriteService.LUPIN_COMPOSITE,
         );
         if (spr) {
           const pad = 7;

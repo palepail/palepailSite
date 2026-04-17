@@ -5,6 +5,11 @@ import {
   LayerOffsetData,
   LayerOffsetsMap,
 } from './monkeys.types';
+import {
+  LUPIN_COMPOSITE_SPRITESHEET,
+  ZOMBIE_COMPOSITE_SPRITESHEET,
+  EQUIPMENT_SPRITESHEET,
+} from './monkeys.constants';
 
 export interface SpriteDefinition {
   name: string;
@@ -53,8 +58,9 @@ export class MonkeysSpriteService {
   readonly TERRAIN_TOOL_SPRITESHEET = 'Dragon Road (Tiles).png';
   readonly BACKGROUND_TOOL_SPRITESHEET = 'Mushroom Shrine (Background).png';
   readonly INNER_TERRAIN_SPRITESHEET = 'InnerTerrain.png';
-  readonly LUPIN_COMPOSITE = 'Lupin Composite.png';
-  readonly ZOMBIE_COMPOSITE = 'Zombie Lupin Composite.png';
+  readonly EQUIPMENT_SPRITESHEET = EQUIPMENT_SPRITESHEET;
+  readonly LUPIN_COMPOSITE = LUPIN_COMPOSITE_SPRITESHEET;
+  readonly ZOMBIE_COMPOSITE = ZOMBIE_COMPOSITE_SPRITESHEET;
 
   isCompositeSheet(name: string): boolean {
     return name === this.LUPIN_COMPOSITE || name === this.ZOMBIE_COMPOSITE;

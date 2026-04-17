@@ -3,6 +3,11 @@
 
 import { Bullet, Vehicle } from './monkeys.types';
 
+// ── Spritesheet filename constants ───────────────────────────────────────────
+export const LUPIN_COMPOSITE_SPRITESHEET = 'Lupin Composite.png';
+export const ZOMBIE_COMPOSITE_SPRITESHEET = 'Zombie Lupin Composite.png';
+export const EQUIPMENT_SPRITESHEET = 'equipment.png';
+
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 720;
 export const CANVAS_PADDING = 32;
@@ -229,7 +234,7 @@ export const PLAYER_VEHICLE: Vehicle = {
   speed: 100.0,
   power: 200,
   shape: 'tank',
-  spritesheet: 'Lupin Composite.png',
+  spritesheet: LUPIN_COMPOSITE_SPRITESHEET,
   climbAngle: 45,
   fuel: 75,
   health: 300,
@@ -251,7 +256,7 @@ export const ZOMBIE_LUPIN_VEHICLE: Vehicle = {
   speed: 100.0,
   power: 200,
   shape: 'tank',
-  spritesheet: 'Zombie Lupin Composite.png',
+  spritesheet: ZOMBIE_COMPOSITE_SPRITESHEET,
   climbAngle: 45,
   fuel: 75,
   health: 275,
