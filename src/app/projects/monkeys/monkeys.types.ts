@@ -425,6 +425,7 @@ export interface Vehicle {
   shieldRadius?: number; // radius of the hit-absorbing shield in px
   shieldHealth?: number; // HP of the shield; depleted by bullet damage, breaks when reaching 0
   aimGuide?: string; // set bonus from Scout set; activates trajectory arc preview
+  actionDelay?: number; // % modifier to action cost; applied when player is the active entity (negative = faster)
   sfxWalk?: string; // sfx-bank category for movement loop
   sfxFire?: string; // sfx-bank category played when firing
   sfxCharge?: string; // sfx-bank category played while charging
@@ -451,6 +452,7 @@ export interface EquipmentStats {
   shieldHealth?: number; // HP contributed to the entity's shield
   // Accessory abilities — stored but not yet implemented
   aimGuide?: 'extended' | 'full';
+  actionDelay?: number; // % modifier to action cost (negative = faster; e.g. -15 = 15% reduction)
 }
 
 export interface EquipmentItem {

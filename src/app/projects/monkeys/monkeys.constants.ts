@@ -56,6 +56,12 @@ export const MIN_POWER = 0;
 export const MAX_POWER = 200;
 export const BARREL_LENGTH = 53;
 export const PROJECTILE_RADIUS = 5;
+
+// Action costs — added to the active entity's delay at endTurn
+export const ACTION_COST_WEAPON_1 = 100;
+export const ACTION_COST_WEAPON_2 = 120;
+export const ACTION_COST_WEAPON_3 = 150;
+export const ACTION_COST_INTERRUPTED = 75; // player walked into a mine during their turn
 export const PROJECTILE_FRICTION = 0.01;
 export const PROJECTILE_RESTITUTION = 0.8;
 

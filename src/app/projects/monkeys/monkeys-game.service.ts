@@ -73,6 +73,8 @@ export class MonkeysGameService {
   aftermathStartMs = 0;
   aftermathImpactPos: { x: number; y: number } | null = null;
   aftermathCallouts: AftermathCallout[] = [];
+  private aftermathActionCost = CONST.ACTION_COST_WEAPON_1;
+  selectedWeaponSlotIndex = 0;
 
   // Input
   keys: { [key: string]: boolean } = {};
@@ -1072,6 +1074,7 @@ export class MonkeysGameService {
       this.chargeStartTime = 0;
       this.keys = {};
     }
+    this.aftermathActionCost = CONST.ACTION_COST_WEAPON_1;
     if (this.player.entityState === 'charging' || this.player.entityState === 'shooting') {
       this.player.entityState = 'idle';
     }
@@ -1228,6 +1231,7 @@ export class MonkeysGameService {
         this.terrainService.depthTerrain,
       );
       if (hitEntity) {
+        this.aftermathActionCost = this.isPlayerTurn() ? CONST.ACTION_COST_INTERRUPTED : CONST.ACTION_COST_WEAPON_1;
         this.aftermathImpactPos = this.projectileService.lastImpactPos;
         this.aftermathStartMs = Date.now();
         this.aftermathCallouts = [];
@@ -1488,6 +1492,8 @@ export class MonkeysGameService {
     }
 
     this.lastFiredPowerRatio = this.player.power / this.player.maxPower;
+    const slotCosts = [CONST.ACTION_COST_WEAPON_1, CONST.ACTION_COST_WEAPON_2, CONST.ACTION_COST_WEAPON_3];
+    this.aftermathActionCost = slotCosts[this.selectedWeaponSlotIndex] ?? CONST.ACTION_COST_WEAPON_1;
     this.isCharging = false;
     this.player.chargeStartTime = 0;
     this.player.entityState = 'shooting';
@@ -1787,8 +1793,14 @@ export class MonkeysGameService {
         });
       }
       this.damageService.flushBatch();
-      this.endTurn(100);
+      this.endTurn(this.calculateActionCost(this.aftermathActionCost));
     }
+  }
+
+  private calculateActionCost(base: number): number {
+    if (!this.isPlayerTurn()) return base;
+    const modifier = this.player.vehicle.actionDelay ?? 0;
+    return Math.round(base * (1 + modifier / 100));
   }
 
   destroy() {

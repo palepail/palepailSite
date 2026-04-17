@@ -250,6 +250,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.isLoading = false;
     this.cameraController.reset();
     this.ui.selectedBulletIndex = 0; // reset weapon selection on new game
+    this.gameService.selectedWeaponSlotIndex = 0;
     // Set up camera follow for player during setup
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
@@ -532,6 +533,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     const options = this.vehicleBulletOptions;
     if (index < 0 || index >= options.length) return;
     this.ui.selectedBulletIndex = index;
+    this.gameService.selectedWeaponSlotIndex = index;
     this.gameService.player.vehicle.bullet = { ...options[index] };
     this.gameService.clearTrajectoryCache();
   }
