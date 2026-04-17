@@ -23,7 +23,6 @@ import { MonkeysAudioService } from './monkeys-audio.service';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { ShieldAnimationService } from './shield-animation.service';
 import { CameraController } from './camera-controller';
-import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
 import { MonkeysRenderContext } from './monkeys-render-context';
 import { MonkeysBackgroundRenderer } from './monkeys-background.renderer';
 import { MonkeysEffectsRenderer } from './monkeys-effects.renderer';
@@ -40,13 +39,6 @@ import { MonkeysDevToolsRenderer } from './monkeys-dev-tools.renderer';
 export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvas!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D;
-  private terrainSpriteCanvas: HTMLCanvasElement | null = null;
-  private terrainSpriteCtx: CanvasRenderingContext2D | null = null;
-  private depthTerrainCanvas: HTMLCanvasElement | null = null;
-  private depthTerrainCtx: CanvasRenderingContext2D | null = null;
-  private shieldMaskCanvas: HTMLCanvasElement | null = null;
-  private shieldMaskCtx: CanvasRenderingContext2D | null = null;
-  private terrainSpriteAnalyzer = new TerrainSpriteAnalyzer();
   private renderQueue: RenderCommand[] = [];
 
   // Camera system
@@ -105,7 +97,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private powerMarkerRatio: number | null = null;
   private draggingPowerMarker = false;
   private wasCharging = false;
-
 
   constructor(
     private gameService: MonkeysGameService,

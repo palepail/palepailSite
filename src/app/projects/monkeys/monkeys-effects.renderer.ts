@@ -172,7 +172,8 @@ export class MonkeysEffectsRenderer {
           spritePrefix === 'explosion'
             ? (spriteService.getLayerOffsets(spriteService.LUPIN_COMPOSITE)?.explosionScale ?? 1.0)
             : spritePrefix === 'zombie_explosion'
-              ? (spriteService.getLayerOffsets(spriteService.ZOMBIE_COMPOSITE)?.explosionScale ?? 1.0)
+              ? (spriteService.getLayerOffsets(spriteService.ZOMBIE_COMPOSITE)?.explosionScale ??
+                1.0)
               : 1.0;
         let spriteWidth = explosion.radius * this.EXPLOSION_SPRITE_SIZE_MULTIPLIER * explosionScale;
         let spriteHeight =

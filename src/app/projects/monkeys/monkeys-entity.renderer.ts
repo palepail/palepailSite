@@ -664,7 +664,10 @@ export class MonkeysEntityRenderer {
 
     if (overlayZ >= 2) drawOverlay();
 
-    if (entitySheet === spriteService.ZOMBIE_COMPOSITE && !frameOffsets?.hideLayers?.includes('halo')) {
+    if (
+      entitySheet === spriteService.ZOMBIE_COMPOSITE &&
+      !frameOffsets?.hideLayers?.includes('halo')
+    ) {
       const haloSprite = spriteService.getSprite('zombie_halo');
       if (haloSprite) {
         const hlx = frameOffsets?.halo?.x ?? 0;
