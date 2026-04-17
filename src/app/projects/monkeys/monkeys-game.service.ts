@@ -1173,10 +1173,31 @@ export class MonkeysGameService {
       return;
     }
 
-    // Step physics once per game-loop frame (both AFTERMATH and normal paths need this).
-    // Doing it here — after the PAUSED/GAME_OVER early return but before any position reads —
-    // ensures terrain collision detection always catches every physics step.
-    this.physicsService.stepPhysics(deltaTime * 1000);
+    // Step physics in fixed sub-steps and snap entities to terrain after EACH step.
+    // This prevents fall-through when entities have high velocity (e.g. post-explosion
+    // knockback): the isCeilingOrDistantWall guard can no longer false-fire because
+    // penetration depth is bounded to a single 16ms step's worth of movement.
+    {
+      const FIXED_STEP_MS = 1000 / 60;
+      const steps = Math.min(Math.round(deltaTime * 1000 / FIXED_STEP_MS), 3);
+      for (let i = 0; i < steps; i++) {
+        this.physicsService.stepOnce();
+        this.physicsService.updateEntityPhysics(this.player);
+        for (const enemy of this.enemies) {
+          if (enemy.body && enemy.active) this.physicsService.updateEntityPhysics(enemy);
+        }
+        this.collisionService.checkPlayerTerrainCollision(
+          this.player,
+          this.terrainService.terrain,
+          this.physicsService,
+        );
+        this.collisionService.checkEnemiesTerrainCollision(
+          this.enemies,
+          this.terrainService.terrain,
+          this.physicsService,
+        );
+      }
+    }
 
     // AFTERMATH: run physics + effects only, then exit
     if (this.currentState === GameState.AFTERMATH) {

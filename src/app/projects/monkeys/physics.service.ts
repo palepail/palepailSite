@@ -66,6 +66,12 @@ export class PhysicsService {
     }
   }
 
+  /** Run a single fixed-timestep physics update (16.667 ms). */
+  stepOnce(): void {
+    if (!this.engine) return;
+    this.Engine.update(this.engine, 1000 / 60);
+  }
+
   simulateTrajectory(
     startX: number,
     startY: number,
