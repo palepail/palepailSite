@@ -526,7 +526,10 @@ export class NumberCrunch implements OnInit, OnDestroy {
   // Game loop
   private animationFrameId: number = 0;
 
-  constructor(private cdr: ChangeDetectorRef, private numberCrunchService: NumberCrunchService) {}
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private numberCrunchService: NumberCrunchService,
+  ) {}
 
   // Damage application methods
   private applyPlayerDamageToEnemy(damage: number): number {
@@ -758,9 +761,8 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.avatarSprites[i].onerror = (e) => {
           handleError();
         };
-        this.avatarSprites[
-          i
-        ].src = `resources/images/projects/numberCrunch/Avatars_${avatarFiles[i]}.png`;
+        this.avatarSprites[i].src =
+          `resources/images/projects/numberCrunch/Avatars_${avatarFiles[i]}.png`;
       }
     });
   }
@@ -898,14 +900,14 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Player attack sounds - load MP3 directly
       this.loadAudio(
         this.playerAttackSound1,
-        'resources/audio/projects/numberCrunch/Sword Attack 2'
+        'resources/audio/projects/numberCrunch/Sword Attack 2',
       )
         .then(checkComplete)
         .catch(handleError);
 
       this.loadAudio(
         this.playerAttackSound2,
-        'resources/audio/projects/numberCrunch/Sword Attack 3'
+        'resources/audio/projects/numberCrunch/Sword Attack 3',
       )
         .then(checkComplete)
         .catch(handleError);
@@ -913,7 +915,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Enemy attack sound - load MP3 directly
       this.loadAudio(
         this.enemyAttackSound,
-        'resources/audio/projects/numberCrunch/Torch Attack Strike 1'
+        'resources/audio/projects/numberCrunch/Torch Attack Strike 1',
       )
         .then(checkComplete)
         .catch(handleError);
@@ -948,7 +950,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       // Upgrade screen sound - load MP3 directly
       this.loadAudio(
         this.upgradeSound,
-        'resources/audio/projects/numberCrunch/harpsichord_positive_long'
+        'resources/audio/projects/numberCrunch/harpsichord_positive_long',
       )
         .then(checkComplete)
         .catch(handleError);
@@ -979,7 +981,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           console.log(
             'Fanfare sound loaded successfully, duration:',
             this.fanfareSound.duration,
-            'seconds'
+            'seconds',
           );
         })
         .catch((error) => {
@@ -2000,7 +2002,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         // Move arrow towards target during the movement phase
         const moveProgress = Math.min(
           1.0,
-          this.arrowTimer / (this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME)
+          this.arrowTimer / (this.ARROW_FADE_IN_TIME + this.ARROW_STAY_TIME),
         );
         // Use ease-out to make arrow appear faster (starts fast, slows down)
         const easedProgress = this.easeOutQuad(moveProgress);
@@ -2229,7 +2231,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           'Playing fanfare sound, volume:',
           this.fanfareSound.volume,
           'muted:',
-          this.fanfareSound.muted
+          this.fanfareSound.muted,
         );
 
         // Reset sound to beginning in case it was played before
@@ -2576,7 +2578,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_PLAY_BUTTON.y + 5,
         300,
         70,
-        'Campaign'
+        'Campaign',
       );
     } else {
       this.drawButton(
@@ -2586,7 +2588,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_PLAY_BUTTON.width,
         this.MENU_PLAY_BUTTON.height,
         '#4CAF50',
-        '#45a049'
+        '#45a049',
       );
     }
     // Draw Gauntlet ribbon banner
@@ -2597,7 +2599,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_GAUNTLET_BUTTON.y + 5,
         300,
         70,
-        'Gauntlet'
+        'Gauntlet',
       );
     } else {
       this.drawButton(
@@ -2607,7 +2609,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_GAUNTLET_BUTTON.width,
         this.MENU_GAUNTLET_BUTTON.height,
         '#2196F3',
-        '#1976D2'
+        '#1976D2',
       );
     }
     // Draw Options ribbon banner (clickable)
@@ -2618,7 +2620,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_OPTIONS_BUTTON.y + 5,
         300,
         70,
-        'Options'
+        'Options',
       );
     } else {
       this.drawButton(
@@ -2628,7 +2630,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_OPTIONS_BUTTON.width,
         this.MENU_OPTIONS_BUTTON.height,
         '#2196F3',
-        '#1976D2'
+        '#1976D2',
       );
     }
     // Draw Leaderboard ribbon banner (clickable) - purple
@@ -2639,7 +2641,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_LEADERBOARD_BUTTON.y + 5,
         300,
         70,
-        'Leaderboard'
+        'Leaderboard',
       );
     } else {
       this.drawButton(
@@ -2649,7 +2651,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.MENU_LEADERBOARD_BUTTON.width,
         this.MENU_LEADERBOARD_BUTTON.height,
         '#FF9800',
-        '#F57C00'
+        '#F57C00',
       );
     }
 
@@ -2680,7 +2682,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           -playerX - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
           characterY - scaledHeight / 2, // destination y (centered)
           scaledWidth, // destination width
-          scaledHeight // destination height
+          scaledHeight, // destination height
         );
 
         // Restore context
@@ -2695,7 +2697,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           playerX - scaledWidth / 2, // destination x (centered)
           characterY - scaledHeight / 2, // destination y (centered)
           scaledWidth, // destination width
-          scaledHeight // destination height
+          scaledHeight, // destination height
         );
       }
     }
@@ -2721,7 +2723,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         -enemyX - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
         characterY - scaledHeight / 2, // destination y (centered)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
 
       // Restore context
@@ -2750,7 +2752,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.CANVAS_SIZE / 2 - 100,
       this.CANVAS_SIZE / 2 + 10,
       (this.loadingProgress / 100) * 200,
-      20
+      20,
     );
 
     // Progress text
@@ -2759,7 +2761,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(
       `${Math.round(this.loadingProgress)}%`,
       this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE / 2 + 45
+      this.CANVAS_SIZE / 2 + 45,
     );
   }
 
@@ -2794,7 +2796,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_EASY_BUTTON.y + 5,
         200,
         50,
-        'Easy'
+        'Easy',
       );
     } else {
       this.drawButton(
@@ -2804,7 +2806,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_EASY_BUTTON.width,
         this.OPTIONS_EASY_BUTTON.height,
         this.settings.difficulty === 'easy' ? '#FF9800' : '#757575',
-        this.settings.difficulty === 'easy' ? '#F57C00' : '#616161'
+        this.settings.difficulty === 'easy' ? '#F57C00' : '#616161',
       );
     }
 
@@ -2818,7 +2820,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_NORMAL_BUTTON.y + 5,
         200,
         50,
-        'Normal'
+        'Normal',
       );
     } else {
       this.drawButton(
@@ -2828,7 +2830,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_NORMAL_BUTTON.width,
         this.OPTIONS_NORMAL_BUTTON.height,
         this.settings.difficulty === 'normal' ? '#FF9800' : '#757575',
-        this.settings.difficulty === 'normal' ? '#F57C00' : '#616161'
+        this.settings.difficulty === 'normal' ? '#F57C00' : '#616161',
       );
     }
 
@@ -2842,7 +2844,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_HARD_BUTTON.y + 5,
         200,
         50,
-        'Hard'
+        'Hard',
       );
     } else {
       this.drawButton(
@@ -2852,7 +2854,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_HARD_BUTTON.width,
         this.OPTIONS_HARD_BUTTON.height,
         this.settings.difficulty === 'hard' ? '#FF9800' : '#757575',
-        this.settings.difficulty === 'hard' ? '#F57C00' : '#616161'
+        this.settings.difficulty === 'hard' ? '#F57C00' : '#616161',
       );
     }
 
@@ -2864,7 +2866,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_BACK_BUTTON.y + 5,
         250,
         60,
-        'Back'
+        'Back',
       );
     } else {
       this.drawButton(
@@ -2874,7 +2876,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.OPTIONS_BACK_BUTTON.width,
         this.OPTIONS_BACK_BUTTON.height,
         '#9C27B0',
-        '#7B1FA2'
+        '#7B1FA2',
       );
     }
   }
@@ -2886,7 +2888,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     width: number,
     height: number,
     color: string,
-    hoverColor: string
+    hoverColor: string,
   ) {
     // Button background
     this.ctx.fillStyle = color;
@@ -2910,7 +2912,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     y: number,
     totalWidth: number,
     height: number = 150,
-    text?: string
+    text?: string,
   ) {
     if (ribbonImage && ribbonImage.complete) {
       const sectionWidth = 150; // Each section is 150x150
@@ -2935,7 +2937,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         leftX, // destination x
         topY, // destination y
         scaledSectionWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
 
       // Calculate how many middle sections can fit
@@ -2950,7 +2952,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
 
       const middleSections = Math.max(
         0,
-        Math.ceil((remainingWidth + scaledGapSize) / effectiveMiddleWidth)
+        Math.ceil((remainingWidth + scaledGapSize) / effectiveMiddleWidth),
       );
 
       // Draw middle sections (overlapping to fill transparent gaps)
@@ -2980,7 +2982,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
               middleX, // destination x
               topY, // destination y
               clipWidth, // destination width (clipped)
-              scaledHeight // destination height
+              scaledHeight, // destination height
             );
           }
         } else {
@@ -2994,7 +2996,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             middleX, // destination x (overlapping transparent areas)
             topY, // destination y
             scaledSectionWidth, // destination width
-            scaledHeight // destination height
+            scaledHeight, // destination height
           );
         }
       }
@@ -3009,7 +3011,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         rightX, // destination x
         topY, // destination y
         scaledSectionWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
 
@@ -3043,7 +3045,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     height: number,
     value: number,
     min: number = 0,
-    max: number = 1
+    max: number = 1,
   ) {
     // Slider track
     this.ctx.fillStyle = '#e0e0e0';
@@ -3101,7 +3103,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.GAME_OVER_PLAY_AGAIN_BUTTON.width,
       this.GAME_OVER_PLAY_AGAIN_BUTTON.height,
       '#4CAF50',
-      '#45a049'
+      '#45a049',
     );
     this.drawButton(
       'Main Menu',
@@ -3110,7 +3112,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.GAME_OVER_MAIN_MENU_BUTTON.width,
       this.GAME_OVER_MAIN_MENU_BUTTON.height,
       '#2196F3',
-      '#1976D2'
+      '#1976D2',
     );
   }
 
@@ -3174,7 +3176,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CANVAS_SIZE / 2 - scaledWidth / 2, // destination x (centered)
         200, // destination y
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
 
@@ -3216,7 +3218,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
       this.CHOOSE_UPGRADE_HEALTH_BUTTON.height,
       '#FF9800',
-      '#F57C00'
+      '#F57C00',
     );
 
     this.drawButton(
@@ -3226,7 +3228,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
       this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height,
       '#FF5722',
-      '#D84315'
+      '#D84315',
     );
 
     this.drawButton(
@@ -3236,7 +3238,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.width,
       this.CHOOSE_UPGRADE_ASSIST_BUTTON.height,
       '#D4AF37',
-      '#B8860B'
+      '#B8860B',
     );
 
     // Draw running animation at bottom center
@@ -3259,7 +3261,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           2 -
           scaledHeight / 2, // destination y (halfway between bottom of last button and bottom of screen)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
   }
@@ -3336,7 +3338,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.LEADERBOARD_BACK_BUTTON.y + 5,
         250,
         60,
-        'Back'
+        'Back',
       );
     } else {
       // Fallback button if ribbon not loaded
@@ -3347,7 +3349,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.LEADERBOARD_BACK_BUTTON.width,
         this.LEADERBOARD_BACK_BUTTON.height,
         '#2196F3',
-        '#1976D2'
+        '#1976D2',
       );
     }
 
@@ -3419,7 +3421,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.LEADERBOARD_BACK_BUTTON.x,
         this.LEADERBOARD_BACK_BUTTON.y,
         this.LEADERBOARD_BACK_BUTTON.width,
-        this.LEADERBOARD_BACK_BUTTON.height
+        this.LEADERBOARD_BACK_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -3489,7 +3491,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.LEADERBOARD_NAME_SUBMIT_BUTTON.width,
       this.LEADERBOARD_NAME_SUBMIT_BUTTON.height,
       '#4CAF50',
-      '#45a049'
+      '#45a049',
     );
     this.drawButton(
       'Skip',
@@ -3498,7 +3500,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.LEADERBOARD_NAME_SKIP_BUTTON.width,
       this.LEADERBOARD_NAME_SKIP_BUTTON.height,
       '#f44336',
-      '#d32f2f'
+      '#d32f2f',
     );
   }
 
@@ -3530,7 +3532,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.LEADERBOARD_NAME_SUBMIT_BUTTON.x,
         this.LEADERBOARD_NAME_SUBMIT_BUTTON.y,
         this.LEADERBOARD_NAME_SUBMIT_BUTTON.width,
-        this.LEADERBOARD_NAME_SUBMIT_BUTTON.height
+        this.LEADERBOARD_NAME_SUBMIT_BUTTON.height,
       )
     ) {
       this.submitLeaderboardName();
@@ -3543,7 +3545,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.LEADERBOARD_NAME_SKIP_BUTTON.x,
         this.LEADERBOARD_NAME_SKIP_BUTTON.y,
         this.LEADERBOARD_NAME_SKIP_BUTTON.width,
-        this.LEADERBOARD_NAME_SKIP_BUTTON.height
+        this.LEADERBOARD_NAME_SKIP_BUTTON.height,
       )
     ) {
       this.skipLeaderboardName();
@@ -3622,7 +3624,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         if (this.leaderboardSessionId) {
           await this.numberCrunchService.updateReplaysWithPlayerName(
             this.leaderboardSessionId,
-            name
+            name,
           );
         }
       } catch (error) {
@@ -3677,7 +3679,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
               tileX + inset,
               tileY + inset,
               this.CELL_SIZE - inset * 2,
-              this.CELL_SIZE - inset * 2
+              this.CELL_SIZE - inset * 2,
             );
           }
         }
@@ -3695,7 +3697,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           this.ctx.fillText(
             cell.value.toString(),
             x * this.CELL_SIZE + this.CELL_SIZE / 2,
-            y * this.CELL_SIZE + this.CELL_SIZE / 2 + 7
+            y * this.CELL_SIZE + this.CELL_SIZE / 2 + 7,
           );
         }
       }
@@ -3729,7 +3731,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             tileCenterX - this.CELL_SIZE / 2 + inset,
             tileCenterY - this.CELL_SIZE / 2 + inset,
             this.CELL_SIZE - inset * 2,
-            this.CELL_SIZE - inset * 2
+            this.CELL_SIZE - inset * 2,
           );
         }
       }
@@ -3753,7 +3755,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       startX * this.CELL_SIZE,
       startY * this.CELL_SIZE,
       (endX - startX + 1) * this.CELL_SIZE,
-      (endY - startY + 1) * this.CELL_SIZE
+      (endY - startY + 1) * this.CELL_SIZE,
     );
 
     this.ctx.strokeStyle = '#4CAF50';
@@ -3762,7 +3764,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       startX * this.CELL_SIZE,
       startY * this.CELL_SIZE,
       (endX - startX + 1) * this.CELL_SIZE,
-      (endY - startY + 1) * this.CELL_SIZE
+      (endY - startY + 1) * this.CELL_SIZE,
     );
   }
 
@@ -3793,7 +3795,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       'Player',
       this.playerHealth,
       playerMaxHealth,
-      '#4CAF50'
+      '#4CAF50',
     );
     this.drawCharacter(
       this.ENEMY_X,
@@ -3801,7 +3803,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       this.isGauntletMode && this.replayToPlay?.playerName ? this.replayToPlay.playerName : 'Enemy',
       this.enemyHealth,
       this.enemyMaxHealth,
-      '#f44336'
+      '#f44336',
     );
 
     // Draw buttons
@@ -3813,7 +3815,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.PLAYING_SCRAMBLE_BUTTON.width,
         this.PLAYING_SCRAMBLE_BUTTON.height,
         '#FF9800',
-        '#F57C00'
+        '#F57C00',
       );
     } else if (this.isScrambling) {
       this.drawButton(
@@ -3823,7 +3825,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.PLAYING_SCRAMBLE_BUTTON.width,
         this.PLAYING_SCRAMBLE_BUTTON.height,
         '#757575',
-        '#616161'
+        '#616161',
       );
     }
 
@@ -3838,7 +3840,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     this.ctx.fillText(
       `Level: ${this.level} | Scrambles: ${this.scramblesRemaining}`,
       this.CANVAS_SIZE / 2,
-      this.CANVAS_SIZE + 95
+      this.CANVAS_SIZE + 95,
     );
   }
 
@@ -3910,7 +3912,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         -monkX - scaledWidth / 2, // destination x (flipped)
         monkY - scaledHeight / 2, // destination y (centered)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     } else {
       this.ctx.drawImage(
@@ -3922,7 +3924,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         monkX - scaledWidth / 2, // destination x (centered)
         monkY - scaledHeight / 2, // destination y (centered)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
 
@@ -3960,7 +3962,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         -healX - scaledWidth / 2, // destination x (flipped)
         healY - scaledHeight / 2, // destination y (centered on target)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     } else {
       this.ctx.drawImage(
@@ -3972,7 +3974,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         healX - scaledWidth / 2, // destination x (centered on target)
         healY - scaledHeight / 2, // destination y (centered on target)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
 
@@ -4018,7 +4020,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         -archerX - scaledWidth / 2, // destination x (flipped)
         archerY - scaledHeight / 2, // destination y (centered)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     } else {
       this.ctx.drawImage(
@@ -4030,7 +4032,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         archerX - scaledWidth / 2, // destination x (centered)
         archerY - scaledHeight / 2, // destination y (centered)
         scaledWidth, // destination width
-        scaledHeight // destination height
+        scaledHeight, // destination height
       );
     }
 
@@ -4067,7 +4069,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       -scaledWidth / 2, // destination x (centered on rotation point)
       -scaledHeight / 2, // destination y (centered on rotation point)
       scaledWidth, // destination width
-      scaledHeight // destination height
+      scaledHeight, // destination height
     );
 
     this.ctx.restore();
@@ -4106,7 +4108,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     label: string,
     health: number,
     maxHealth: number,
-    color: string
+    color: string,
   ) {
     // Draw player with sprite animation if sprite is loaded, otherwise draw rectangle
     if (label === 'Player') {
@@ -4129,7 +4131,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             x - scaledWidth / 2, // destination x (centered)
             y - scaledHeight / 2, // destination y (centered)
             scaledWidth, // destination width
-            scaledHeight // destination height
+            scaledHeight, // destination height
           );
         } else {
           // Fallback to rectangle if attack sprite not available
@@ -4138,7 +4140,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             x - this.CHARACTER_SIZE_PX / 2,
             y - this.CHARACTER_SIZE_PX / 2,
             this.CHARACTER_SIZE_PX,
-            this.CHARACTER_SIZE_PX
+            this.CHARACTER_SIZE_PX,
           );
         }
       } else if (this.playerSprite && this.playerSprite.complete) {
@@ -4152,7 +4154,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           x - scaledWidth / 2, // destination x (centered)
           y - scaledHeight / 2, // destination y (centered)
           scaledWidth, // destination width
-          scaledHeight // destination height
+          scaledHeight, // destination height
         );
       } else {
         // Fallback to rectangle if no sprites available
@@ -4161,7 +4163,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           x - this.CHARACTER_SIZE_PX / 2,
           y - this.CHARACTER_SIZE_PX / 2,
           this.CHARACTER_SIZE_PX,
-          this.CHARACTER_SIZE_PX
+          this.CHARACTER_SIZE_PX,
         );
       }
     } else {
@@ -4191,7 +4193,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
               -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
               y - scaledHeight / 2, // destination y (centered)
               scaledWidth, // destination width
-              scaledHeight // destination height
+              scaledHeight, // destination height
             );
 
             // Restore context
@@ -4203,7 +4205,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
               x - this.CHARACTER_SIZE_PX / 2,
               y - this.CHARACTER_SIZE_PX / 2,
               this.CHARACTER_SIZE_PX,
-              this.CHARACTER_SIZE_PX
+              this.CHARACTER_SIZE_PX,
             );
           }
         } else if (
@@ -4226,7 +4228,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
             y - scaledHeight / 2, // destination y (centered)
             scaledWidth, // destination width
-            scaledHeight // destination height
+            scaledHeight, // destination height
           );
 
           // Restore context
@@ -4238,7 +4240,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
             x - this.CHARACTER_SIZE_PX / 2,
             y - this.CHARACTER_SIZE_PX / 2,
             this.CHARACTER_SIZE_PX,
-            this.CHARACTER_SIZE_PX
+            this.CHARACTER_SIZE_PX,
           );
         }
       } else if (this.isGauntletMode && this.playerSprite && this.playerSprite.complete) {
@@ -4257,7 +4259,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
           y - scaledHeight / 2, // destination y (centered)
           scaledWidth, // destination width
-          scaledHeight // destination height
+          scaledHeight, // destination height
         );
 
         // Restore context
@@ -4278,7 +4280,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           -x - scaledWidth / 2, // destination x (flipped, so negate x and adjust)
           y - scaledHeight / 2, // destination y (centered)
           scaledWidth, // destination width
-          scaledHeight // destination height
+          scaledHeight, // destination height
         );
 
         // Restore context
@@ -4290,7 +4292,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
           x - this.CHARACTER_SIZE_PX / 2,
           y - this.CHARACTER_SIZE_PX / 2,
           this.CHARACTER_SIZE_PX,
-          this.CHARACTER_SIZE_PX
+          this.CHARACTER_SIZE_PX,
         );
       }
     }
@@ -4309,7 +4311,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       x - this.HEALTH_BAR_WIDTH_PX / 2,
       y - 25,
       (Math.min(health, maxHealth) / maxHealth) * this.HEALTH_BAR_WIDTH_PX, // Cap bar at maxHealth
-      5
+      5,
     );
 
     // Label
@@ -4459,7 +4461,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.PLAYING_SCRAMBLE_BUTTON.x,
         this.PLAYING_SCRAMBLE_BUTTON.y,
         this.PLAYING_SCRAMBLE_BUTTON.width,
-        this.PLAYING_SCRAMBLE_BUTTON.height
+        this.PLAYING_SCRAMBLE_BUTTON.height,
       )
     ) {
       this.scrambleBoard();
@@ -4546,7 +4548,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.GAME_OVER_PLAY_AGAIN_BUTTON.x,
         this.GAME_OVER_PLAY_AGAIN_BUTTON.y,
         this.GAME_OVER_PLAY_AGAIN_BUTTON.width,
-        this.GAME_OVER_PLAY_AGAIN_BUTTON.height
+        this.GAME_OVER_PLAY_AGAIN_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -4560,7 +4562,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.GAME_OVER_MAIN_MENU_BUTTON.x,
         this.GAME_OVER_MAIN_MENU_BUTTON.y,
         this.GAME_OVER_MAIN_MENU_BUTTON.width,
-        this.GAME_OVER_MAIN_MENU_BUTTON.height
+        this.GAME_OVER_MAIN_MENU_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -4584,7 +4586,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CHOOSE_UPGRADE_HEALTH_BUTTON.x,
         this.CHOOSE_UPGRADE_HEALTH_BUTTON.y,
         this.CHOOSE_UPGRADE_HEALTH_BUTTON.width,
-        this.CHOOSE_UPGRADE_HEALTH_BUTTON.height
+        this.CHOOSE_UPGRADE_HEALTH_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -4600,7 +4602,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CHOOSE_UPGRADE_DAMAGE_BUTTON.x,
         this.CHOOSE_UPGRADE_DAMAGE_BUTTON.y,
         this.CHOOSE_UPGRADE_DAMAGE_BUTTON.width,
-        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height
+        this.CHOOSE_UPGRADE_DAMAGE_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -4616,7 +4618,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.CHOOSE_UPGRADE_ASSIST_BUTTON.x,
         this.CHOOSE_UPGRADE_ASSIST_BUTTON.y,
         this.CHOOSE_UPGRADE_ASSIST_BUTTON.width,
-        this.CHOOSE_UPGRADE_ASSIST_BUTTON.height
+        this.CHOOSE_UPGRADE_ASSIST_BUTTON.height,
       )
     ) {
       this.playButtonSound();
@@ -4632,7 +4634,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     buttonX: number,
     buttonY: number,
     buttonWidth: number,
-    buttonHeight: number
+    buttonHeight: number,
   ): boolean {
     return (
       clickX >= buttonX - buttonWidth / 2 &&
@@ -4648,7 +4650,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
     sliderX: number,
     sliderY: number,
     sliderWidth: number,
-    sliderHeight: number
+    sliderHeight: number,
   ): boolean {
     return (
       clickX >= sliderX - sliderWidth / 2 &&
@@ -4912,7 +4914,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.damageBase = this.EASY_DAMAGE_BASE;
         // Scale enemy health so it takes same number of hits: 450 * (8/10) = 360
         this.enemyMaxHealth = Math.floor(
-          this.ENEMY_MAX_HEALTH * (this.EASY_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE)
+          this.ENEMY_MAX_HEALTH * (this.EASY_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE),
         );
         this.enemyHealth = this.enemyMaxHealth;
         break;
@@ -4928,7 +4930,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
         this.damageBase = this.HARD_DAMAGE_BASE;
         // Scale enemy health so it takes same number of hits: 450 * (12/10) = 540
         this.enemyMaxHealth = Math.floor(
-          this.ENEMY_MAX_HEALTH * (this.HARD_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE)
+          this.ENEMY_MAX_HEALTH * (this.HARD_DAMAGE_BASE / this.NORMAL_DAMAGE_BASE),
         );
         this.enemyHealth = this.enemyMaxHealth;
         break;
@@ -5271,7 +5273,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       'nextLevel called, isGauntletMode:',
       this.isGauntletMode,
       'gauntletWins:',
-      this.gauntletWins
+      this.gauntletWins,
     );
     this.score += 500 * this.level; // Add level completion bonus
     this.level++;
@@ -5433,7 +5435,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
       scrambleSeeds.length,
       'scramble seeds',
       'player:',
-      this.sessionPlayerName
+      this.sessionPlayerName,
     );
   }
 
@@ -5564,7 +5566,7 @@ export class NumberCrunch implements OnInit, OnDestroy {
   private recordAction(
     type: 'damage' | 'scramble' | 'healing',
     amount?: number,
-    isAssist?: boolean
+    isAssist?: boolean,
   ) {
     if (!this.isRecording || !this.currentRecording) {
       console.log('Not recording, cannot record action:', type);
