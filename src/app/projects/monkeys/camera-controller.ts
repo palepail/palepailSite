@@ -162,29 +162,51 @@ class CameraController {
     if (distFromPlayer > this.MIN_TRACK_DISTANCE || projectile || aftermathImpactPos) {
       if (projectile) {
         let targetX, targetY;
+        const HW = this.camera.width / 2;
+        const HH = this.camera.height / 2;
+        // The range of bullet world-positions that the camera can centre on without hitting bounds.
+        const minBulletX = HW;
+        const maxBulletX = CONST.TERRAIN_WIDTH - HW;
+        const minBulletY = this.CAMERA_Y_MIN + HH;
+        const maxBulletY = this.CAMERA_Y_MAX + HH;
+
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
           const remainingSteps = projectile.trajectory.length - projectile.trajectoryIndex;
           const trackElapsed = this.projectileTrackStartMs !== null ? Date.now() - this.projectileTrackStartMs : 600;
           const lookAheadFactor = Math.min(0.5, (trackElapsed / 600) * 0.5);
           const stepsAhead = Math.floor(remainingSteps * lookAheadFactor);
-          const futureIndex = Math.min(
+          // Walk back from the ideal future index until we find a point the camera can actually centre on.
+          let futureIndex = Math.min(
             projectile.trajectoryIndex + stepsAhead,
             projectile.trajectory.length - 1,
           );
+          while (futureIndex > projectile.trajectoryIndex) {
+            const p = projectile.trajectory[futureIndex];
+            if (p.x >= minBulletX && p.x <= maxBulletX && p.y >= minBulletY && p.y <= maxBulletY) break;
+            futureIndex--;
+          }
           const futurePos = projectile.trajectory[futureIndex];
-          targetX = futurePos.x - this.camera.width / 2;
-          targetY = futurePos.y - this.camera.height / 2;
+          targetX = futurePos.x - HW;
+          targetY = futurePos.y - HH;
         } else if (projectile.body) {
-          const predictionTime = this.PREDICTION_TIME_S;
-          targetX =
-            trackPos.x + projectile.body.velocity.x * predictionTime - this.camera.width / 2;
-          targetY =
-            trackPos.y + projectile.body.velocity.y * predictionTime - this.camera.height / 2;
+          const vx = projectile.body.velocity.x;
+          const vy = projectile.body.velocity.y;
+          // Reduce prediction time so the lookahead point stays within camera-trackable bounds.
+          let maxT = this.PREDICTION_TIME_S;
+          if (vx > 0) maxT = Math.min(maxT, (maxBulletX - trackPos.x) / vx);
+          else if (vx < 0) maxT = Math.min(maxT, (minBulletX - trackPos.x) / vx);
+          if (vy > 0) maxT = Math.min(maxT, (maxBulletY - trackPos.y) / vy);
+          else if (vy < 0) maxT = Math.min(maxT, (minBulletY - trackPos.y) / vy);
+          const t = Math.max(0, maxT);
+          targetX = trackPos.x + vx * t - HW;
+          targetY = trackPos.y + vy * t - HH;
         } else {
-          // no prediction available, just center on current position
-          targetX = trackPos.x - this.camera.width / 2;
-          targetY = trackPos.y - this.camera.height / 2;
+          // no prediction available, just centre on current position
+          targetX = trackPos.x - HW;
+          targetY = trackPos.y - HH;
         }
+        targetX = Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, targetX));
+        targetY = this.clampCameraY(targetY);
         return { targetX, targetY, type: 'projectile' };
       } else {
         // For impact pos, center without prediction
@@ -314,9 +336,11 @@ class CameraController {
 
     // If we have an impact position (aftermath), track it directly
     if (!projectile && aftermathImpactPos) {
+      const rawTargetX = aftermathImpactPos.x - this.camera.width / 2;
+      const rawTargetY = aftermathImpactPos.y - this.camera.height * (2 / 3);
       projectileTargets = {
-        targetX: aftermathImpactPos.x - this.camera.width / 2,
-        targetY: aftermathImpactPos.y - this.camera.height * (2 / 3),
+        targetX: Math.max(0, Math.min(CONST.TERRAIN_WIDTH - this.camera.width, rawTargetX)),
+        targetY: this.clampCameraY(rawTargetY),
         type: 'explosion',
       };
     } else {

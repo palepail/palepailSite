@@ -670,6 +670,13 @@ export class MonkeysGameService {
         enemy.targetPower = undefined;
         enemy.reassessCount = 0;
         enemy.stuckCounter = 0;
+        // Randomize weapon each turn from available bullet options
+        if (enemy.vehicle.bulletOptions && enemy.vehicle.bulletOptions.length > 1) {
+          enemy.vehicle.bullet =
+            enemy.vehicle.bulletOptions[
+              Math.floor(Math.random() * enemy.vehicle.bulletOptions.length)
+            ];
+        }
         enemy.target = this.pickEnemyTarget(enemy);
         {
           const batches = this.groupMinesByBatch(enemy);
