@@ -103,17 +103,19 @@ export class MonkeysEntityRenderer {
         const state = gameService.currentState;
         if (state === GameState.PLAYING || state === GameState.PAUSED) {
           const angleRad = (gameService.player.angle * Math.PI) / 180;
-          const { ctx } = this.rc;
+          const { ctx, queueDraw } = this.rc;
           const endX = cx + Math.cos(angleRad) * CONST.AIM_LINE_LENGTH;
           const endY = cy - Math.sin(angleRad) * CONST.AIM_LINE_LENGTH;
-          ctx.strokeStyle = CONST.AIMING_LINE_COLOR;
-          ctx.lineWidth = CONST.AIMING_LINE_WIDTH;
-          ctx.setLineDash(CONST.AIMING_LINE_DASH);
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.lineTo(endX, endY);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          queueDraw(CONST.LAYER_ENTITY_AIM_LINE, () => {
+            ctx.strokeStyle = CONST.AIMING_LINE_COLOR;
+            ctx.lineWidth = CONST.AIMING_LINE_WIDTH;
+            ctx.setLineDash(CONST.AIMING_LINE_DASH);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          });
         }
       },
     );
@@ -274,47 +276,52 @@ export class MonkeysEntityRenderer {
   }
 
   private drawTankAimingArc(centerX: number, centerY: number): void {
-    const { ctx, gameService } = this.rc;
+    const { ctx, gameService, queueDraw } = this.rc;
     const state = gameService.currentState;
     if (state !== GameState.PLAYING && state !== GameState.PAUSED) return;
 
     const minAngle = (gameService.player.vehicle.minAimAngle * Math.PI) / 180;
     const maxAngle = (gameService.player.vehicle.maxAimAngle * Math.PI) / 180;
+    const cx = centerX, cy = centerY;
 
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = CONST.CANNON_ARC_COLOR;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, CONST.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = CONST.AIM_GUIDE_COLOR;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, CONST.CANNON_ARC_RADIUS, -Math.PI / 2, 0);
-    ctx.closePath();
-    ctx.fill();
+    queueDraw(CONST.LAYER_ENTITY_AIM_LINE, () => {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = CONST.CANNON_ARC_COLOR;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, CONST.CANNON_ARC_RADIUS, -maxAngle, -minAngle);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = CONST.AIM_GUIDE_COLOR;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, CONST.CANNON_ARC_RADIUS, -Math.PI / 2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+    });
   }
 
   private drawTankAimLines(centerX: number, centerY: number): void {
-    const { ctx, gameService } = this.rc;
+    const { ctx, gameService, queueDraw } = this.rc;
     const state = gameService.currentState;
     if (state !== GameState.PLAYING && state !== GameState.PAUSED) return;
 
-    ctx.globalAlpha = 1.0;
-    ctx.strokeStyle = CONST.AIM_LINE_COLOR;
-    ctx.lineWidth = CONST.AIM_LINE_WIDTH;
-    const angles = [0, -Math.PI / 4, -Math.PI / 2];
-    angles.forEach((angle) => {
-      const endX = centerX + Math.cos(-angle) * CONST.AIM_LINE_LENGTH;
-      const endY = centerY - Math.sin(-angle) * CONST.AIM_LINE_LENGTH;
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
+    const cx = centerX, cy = centerY;
+    queueDraw(CONST.LAYER_ENTITY_AIM_LINE, () => {
+      ctx.globalAlpha = 1.0;
+      ctx.strokeStyle = CONST.AIM_LINE_COLOR;
+      ctx.lineWidth = CONST.AIM_LINE_WIDTH;
+      const angles = [0, -Math.PI / 4, -Math.PI / 2];
+      angles.forEach((angle) => {
+        const endX = cx + Math.cos(-angle) * CONST.AIM_LINE_LENGTH;
+        const endY = cy - Math.sin(-angle) * CONST.AIM_LINE_LENGTH;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      });
     });
   }
 

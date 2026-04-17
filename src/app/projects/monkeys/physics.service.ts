@@ -110,10 +110,10 @@ export class PhysicsService {
       // Record position
       positions.push({ x: prevX, y: prevY });
 
-      // Apply wind force (horizontal only, capped at 75% effective strength)
+      // Apply wind force (horizontal + vertical, capped at 75% effective strength)
       this.Body.applyForce(projectile, projectile.position, {
         x: (windSpeed * 0.75 * CONST.WIND_BULLET_FORCE_SCALE * Math.cos(windAngle)) / bullet.weight,
-        y: 0,
+        y: (windSpeed * 0.75 * CONST.WIND_BULLET_FORCE_SCALE * Math.sin(windAngle)) / bullet.weight,
       });
 
       // Update simulation

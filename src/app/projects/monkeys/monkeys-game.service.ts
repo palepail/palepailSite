@@ -529,9 +529,7 @@ export class MonkeysGameService {
           const batches = this.groupMinesByBatch(player);
           if (batches.length > 0) {
             this.pendingDetonationBatches = batches;
-            this.detonationPhase = 'panning';
-            this.detonationPanMs = Date.now();
-            this.panToPosition = batches[0].centroid;
+            this.startPanningBatch();
             player.turnState = 'detonating_mines';
             break;
           }
@@ -554,8 +552,17 @@ export class MonkeysGameService {
           }
           break;
         }
+        if (this.detonationPhase === 'panning') {
+          this.tickHoppingMines(this.pendingDetonationBatches[0].mines);
+          this.detonateCurrentBatchIfContact();
+        }
         if (this.detonationPhase === 'panning' && Date.now() - this.detonationPanMs >= 700) {
           const batch = this.pendingDetonationBatches[0];
+          // Remove from render list just before detonation
+          const batchSet = new Set(batch.mines);
+          this.projectileService.plantedMines = this.projectileService.plantedMines.filter(
+            (m) => !batchSet.has(m),
+          );
           this.projectileService.detonateMinesBatch(
             batch.mines,
             this.terrainService.terrain,
@@ -572,9 +579,7 @@ export class MonkeysGameService {
         ) {
           this.pendingDetonationBatches.shift();
           if (this.pendingDetonationBatches.length > 0) {
-            this.detonationPhase = 'panning';
-            this.detonationPanMs = Date.now();
-            this.panToPosition = this.pendingDetonationBatches[0].centroid;
+            this.startPanningBatch();
           } else {
             player.turnState = 'idle';
           }
@@ -670,9 +675,7 @@ export class MonkeysGameService {
           const batches = this.groupMinesByBatch(enemy);
           if (batches.length > 0) {
             this.pendingDetonationBatches = batches;
-            this.detonationPhase = 'panning';
-            this.detonationPanMs = Date.now();
-            this.panToPosition = batches[0].centroid;
+            this.startPanningBatch();
             enemy.turnState = 'detonating_mines';
             break;
           }
@@ -682,8 +685,17 @@ export class MonkeysGameService {
         break;
 
       case 'detonating_mines':
+        if (this.detonationPhase === 'panning') {
+          this.tickHoppingMines(this.pendingDetonationBatches[0].mines);
+          this.detonateCurrentBatchIfContact();
+        }
         if (this.detonationPhase === 'panning' && Date.now() - this.detonationPanMs >= 700) {
           const batch = this.pendingDetonationBatches[0];
+          // Remove from render list just before detonation
+          const batchSet = new Set(batch.mines);
+          this.projectileService.plantedMines = this.projectileService.plantedMines.filter(
+            (m) => !batchSet.has(m),
+          );
           this.projectileService.detonateMinesBatch(
             batch.mines,
             this.terrainService.terrain,
@@ -700,9 +712,7 @@ export class MonkeysGameService {
         ) {
           this.pendingDetonationBatches.shift();
           if (this.pendingDetonationBatches.length > 0) {
-            this.detonationPhase = 'panning';
-            this.detonationPanMs = Date.now();
-            this.panToPosition = this.pendingDetonationBatches[0].centroid;
+            this.startPanningBatch();
           } else {
             enemy.turnState = 'assess';
             enemy.assessCounter = CONST.ENEMY_ASSESS_DELAY;
@@ -1108,7 +1118,8 @@ export class MonkeysGameService {
     const r = Math.random();
     this.physicsService.windSpeed =
       Math.random() < 0.02 ? 76 + Math.round(Math.random() * 4) : Math.round(Math.pow(r, 4) * 55);
-    this.physicsService.windAngle = Math.random() * Math.PI * 2;
+    const maxUpRad = (5 * Math.PI) / 180;
+    this.physicsService.windAngle = Math.random() * (Math.PI + 2 * maxUpRad) - maxUpRad;
     this.physicsService.clearTrajectoryCache();
   }
 
@@ -1389,6 +1400,118 @@ export class MonkeysGameService {
     });
   }
 
+  private applyMineHopIfInRange(ownerMines: PlantedMine[]): void {
+    const HOP_PROXIMITY = 150;
+    const HOP_VX = 2.5;   // fixed horizontal speed (px/frame)
+    const HOP_VY = -5.0;  // fixed initial vertical speed (upward); gravity=0.5 lands in 20 frames at same height
+    const HOP_FRAMES = 20;
+    const entities: (Player | Enemy)[] = [this.player, ...this.enemies];
+    for (const mine of ownerMines) {
+      let closestEntity: Player | Enemy | null = null;
+      let closestDist = Infinity;
+      for (const entity of entities) {
+        if (!entity.active) continue;
+        if (entity === mine.owner) continue;
+        const dx = entity.x - mine.x;
+        const dy = entity.y - mine.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < HOP_PROXIMITY && dist < closestDist) {
+          closestDist = dist;
+          closestEntity = entity;
+        }
+      }
+      if (!closestEntity) continue;
+      // Hop direction is determined solely by which horizontal side the nearest entity is on
+      const dirX = closestEntity.x >= mine.x ? 1 : -1;
+      mine.vx = HOP_VX * dirX;
+      mine.vy = HOP_VY;
+      mine.hopFramesLeft = HOP_FRAMES;
+    }
+  }
+
+  private tickHoppingMines(mines: PlantedMine[]): void {
+    const HOP_GRAVITY = 0.5;
+    for (const mine of mines) {
+      if (!mine.hopFramesLeft) continue;
+      mine.x += mine.vx!;
+      mine.y += mine.vy!;
+      mine.vy! += HOP_GRAVITY;
+      mine.hopFramesLeft--;
+      if (mine.hopFramesLeft <= 0) {
+        mine.vx = undefined;
+        mine.vy = undefined;
+      }
+    }
+  }
+
+  /** After a hop tick, checks if any mine in the current batch is touching an entity.
+   * If so, detonates immediately (skipping the remainder of the 700ms pan timer).
+   * Returns true if early detonation was triggered. */
+  private detonateCurrentBatchIfContact(): boolean {
+    if (this.pendingDetonationBatches.length === 0) return false;
+    const batch = this.pendingDetonationBatches[0];
+    const entities: (Player | Enemy)[] = [this.player, ...this.enemies];
+    const contactRadius = CONST.TANK_COLLISION_RADIUS + 20;
+    const hasContact = batch.mines.some((mine) =>
+      entities.some((entity) => {
+        if (!entity.active) return false;
+        const dx = entity.x - mine.x;
+        const dy = entity.y - mine.y;
+        const shieldRadius =
+          (entity.vehicle?.shieldRadius ?? 0) > 0 && (entity.currentShieldHealth ?? 0) > 0
+            ? entity.vehicle!.shieldRadius!
+            : 0;
+        const triggerRadius = Math.max(contactRadius, shieldRadius);
+        return Math.sqrt(dx * dx + dy * dy) < triggerRadius;
+      }),
+    );
+    if (!hasContact) return false;
+
+    // Force immediate detonation
+    const batchSet = new Set(batch.mines);
+    this.projectileService.plantedMines = this.projectileService.plantedMines.filter(
+      (m) => !batchSet.has(m),
+    );
+    this.projectileService.detonateMinesBatch(
+      batch.mines,
+      this.terrainService.terrain,
+      this.player,
+      this.enemies,
+      this.physicsService,
+      this.terrainService.depthTerrain,
+    );
+    this.detonationPhase = 'exploding';
+    return true;
+  }
+
+
+  /** Called when a batch becomes the active (first) entry in pendingDetonationBatches.
+   * Computes each mine's hop velocity toward the nearest entity now (just-in-time) so that later
+   * batches use post-explosion entity positions rather than stale T=0 positions. */
+  private startPanningBatch(): void {
+    const batch = this.pendingDetonationBatches[0];
+    this.applyMineHopIfInRange(batch.mines);
+    // Recompute centroid using projected landing positions now that hop velocities are set
+    batch.centroid = {
+      x: batch.mines.reduce((s, m) => {
+        if (m.hopFramesLeft !== undefined && m.vx !== undefined) {
+          return s + m.x + m.vx * m.hopFramesLeft;
+        }
+        return s + m.x;
+      }, 0) / batch.mines.length,
+      y: batch.mines.reduce((s, m) => {
+        if (m.hopFramesLeft !== undefined && m.vy !== undefined) {
+          const n = m.hopFramesLeft;
+          return s + m.y + m.vy * n + 0.5 * 0.5 * n * n;
+        }
+        return s + m.y;
+      }, 0) / batch.mines.length,
+    };
+    this.detonationPhase = 'panning';
+    this.detonationPanMs = Date.now();
+    this.panToPosition = batch.centroid;
+  }
+
   private groupMinesByBatch(
     owner: Player | Enemy,
   ): Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> {
@@ -1400,10 +1523,8 @@ export class MonkeysGameService {
       arr.push(mine);
       groups.set(mine.batchId, arr);
     }
-    // Remove owner's mines from the service list now (they're being dequeued for detonation)
-    this.projectileService.plantedMines = this.projectileService.plantedMines.filter(
-      (m) => m.owner !== owner,
-    );
+    // Mines stay in plantedMines for rendering during the pan; they'll be removed at detonation time.
+    // Centroid starts at current positions; startPanningBatch() will refine it after computing hop velocities.
     return Array.from(groups.entries())
       .sort(([a], [b]) => a - b)
       .map(([, mines]) => ({

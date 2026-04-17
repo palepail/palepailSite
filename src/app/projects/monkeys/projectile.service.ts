@@ -442,18 +442,16 @@ export class ProjectileService {
       }
     }
 
-    // Damage planted mines caught in the blast — silently destroy them if HP reaches 0 (no chain detonation)
+    // Destroy planted mines caught in the blast from a different weapon type (no chain detonation).
+    // Same-type mines are immune (e.g. corn explosion won't destroy other corn mines).
     for (let mi = this.plantedMines.length - 1; mi >= 0; mi--) {
       const mine = this.plantedMines[mi];
+      if (mine.rootBulletName === projectile.rootBulletName) continue;
       const mdx = mine.x - explosionX;
       const mdy = mine.y - explosionY;
       const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
       if (mDist <= radiusX) {
-        const mDamage = Math.round(maxDamage * Math.max(0, 1 - mDist / radiusX));
-        mine.health -= mDamage;
-        if (mine.health <= 0) {
-          this.plantedMines.splice(mi, 1);
-        }
+        this.plantedMines.splice(mi, 1);
       }
     }
   }
@@ -605,7 +603,12 @@ export class ProjectileService {
           CONST.WIND_BULLET_FORCE_SCALE *
           Math.cos(physicsService.windAngle)) /
         proj.bullet.weight,
-      y: 0,
+      y:
+        (physicsService.windSpeed *
+          0.75 *
+          CONST.WIND_BULLET_FORCE_SCALE *
+          Math.sin(physicsService.windAngle)) /
+        proj.bullet.weight,
     });
 
     // Sync world-space position
@@ -953,7 +956,12 @@ export class ProjectileService {
             CONST.WIND_BULLET_FORCE_SCALE *
             Math.cos(physicsService.windAngle)) /
           child.bullet.weight,
-        y: 0,
+        y:
+          (physicsService.windSpeed *
+            0.75 *
+            CONST.WIND_BULLET_FORCE_SCALE *
+            Math.sin(physicsService.windAngle)) /
+          child.bullet.weight,
       });
 
       // Sync world-space position
@@ -1442,7 +1450,12 @@ export class ProjectileService {
         if (!entity.active) continue;
         const dx = entity.x - mine.x;
         const dy = entity.y - mine.y;
-        if (Math.sqrt(dx * dx + dy * dy) < contactRadius) {
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const shieldRadius = (entity.vehicle?.shieldRadius ?? 0) > 0 && (entity.currentShieldHealth ?? 0) > 0
+          ? entity.vehicle!.shieldRadius!
+          : 0;
+        const triggerRadius = Math.max(contactRadius, shieldRadius);
+        if (dist < triggerRadius) {
           triggeredMines.push(mine);
           this.plantedMines.splice(i, 1);
           contactedEntity = contactedEntity ?? entity;

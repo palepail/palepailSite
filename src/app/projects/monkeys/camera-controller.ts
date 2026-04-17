@@ -15,14 +15,14 @@ class CameraController {
   private previousIsDragging = false;
   private readonly RECENTER_DISTANCE_THRESHOLD = 10;
   private readonly DEFAULT_LERP = 0.02;
-  private readonly PROJECTILE_LERP = 0.05;
+  private readonly PROJECTILE_LERP = 0.08;
   private readonly EXPLODED_LERP = 0.05;
   private readonly RECENTER_LERP = 0.1;
   private readonly CATCHUP_LERP = 0.8;
   private readonly TRACKING_MARGIN = 150;
   private readonly MIN_TRACK_DISTANCE = 100;
   private readonly INACTIVITY_DELAY_MS = 1000;
-  private readonly PREDICTION_TIME_S = 0.2;
+  private readonly PREDICTION_TIME_S = 0.5;
   private readonly CATCHUP_DISTANCE_THRESHOLD = 150;
   private readonly CAMERA_Y_MIN = -500;
   private readonly CAMERA_Y_MAX = 100;
@@ -36,6 +36,7 @@ class CameraController {
   public isFollowing = false;
   private isTrackingProjectile = false;
   private lastTrackedType: 'projectile' | 'explosion' | null = null;
+  private projectileTrackStartMs: number | null = null;
   private isIdleMode = false;
   private idleModeActivityTime = Date.now();
   private isLocked = false;
@@ -163,9 +164,11 @@ class CameraController {
         let targetX, targetY;
         if (projectile.trajectory && projectile.trajectoryIndex !== undefined) {
           const remainingSteps = projectile.trajectory.length - projectile.trajectoryIndex;
-          const stepsAhead = Math.min(remainingSteps * 0.1, 12);
+          const trackElapsed = this.projectileTrackStartMs !== null ? Date.now() - this.projectileTrackStartMs : 600;
+          const lookAheadFactor = Math.min(0.5, (trackElapsed / 600) * 0.5);
+          const stepsAhead = Math.floor(remainingSteps * lookAheadFactor);
           const futureIndex = Math.min(
-            Math.floor(projectile.trajectoryIndex + stepsAhead),
+            projectile.trajectoryIndex + stepsAhead,
             projectile.trajectory.length - 1,
           );
           const futurePos = projectile.trajectory[futureIndex];
@@ -301,6 +304,13 @@ class CameraController {
     // pending pan — just suppress it until tracking ends so the camera returns to the
     // turn entity once the explosion clears.
     const hasActiveTracking = !!(projectile || aftermathImpactPos);
+
+    // Track when projectile tracking starts so we can ramp the look-ahead smoothly
+    if (projectile && this.projectileTrackStartMs === null) {
+      this.projectileTrackStartMs = Date.now();
+    } else if (!projectile) {
+      this.projectileTrackStartMs = null;
+    }
 
     // If we have an impact position (aftermath), track it directly
     if (!projectile && aftermathImpactPos) {

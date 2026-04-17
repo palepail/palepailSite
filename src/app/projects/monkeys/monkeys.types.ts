@@ -368,6 +368,9 @@ export interface PlantedMine {
   owner: Player | Enemy;
   bullet: Bullet;
   rootBulletName: string;
+  vx?: number;
+  vy?: number;
+  hopFramesLeft?: number;
 }
 
 export interface Bullet {
