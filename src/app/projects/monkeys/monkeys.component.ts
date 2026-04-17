@@ -15,7 +15,7 @@ import { CommonModule } from '@angular/common';
 import * as Matter from 'matter-js';
 
 // Local imports
-import { GameState, RenderCommand } from './monkeys.types';
+import { GameState, RenderCommand, Bullet } from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysGameService } from './monkeys-game.service';
 import { MonkeysSpriteService } from './monkeys-sprite.service';
@@ -23,6 +23,7 @@ import { MonkeysAudioService } from './monkeys-audio.service';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { ShieldAnimationService } from './shield-animation.service';
 import { CameraController } from './camera-controller';
+import { environment } from '../../../environments/environment';
 import { MonkeysRenderContext } from './monkeys-render-context';
 import { MonkeysBackgroundRenderer } from './monkeys-background.renderer';
 import { MonkeysEffectsRenderer } from './monkeys-effects.renderer';
@@ -77,14 +78,14 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /** Bullet options for the currently active player vehicle. */
-  private get vehicleBulletOptions(): import('./monkeys.types').Bullet[] {
+  private get vehicleBulletOptions(): Bullet[] {
     return this.gameService.player?.vehicle?.bulletOptions ?? CONST.PLAYER_BULLETS;
   }
 
   private canvasScale = 1;
   private readonly tintCache = new Map<string, HTMLCanvasElement>();
-  private readonly TERRAIN_TOOL_ENABLED = true;
-  private readonly DEV_MODE = true;
+  private readonly TERRAIN_TOOL_ENABLED = environment.devMode;
+  private readonly DEV_MODE = environment.devMode;
 
   private frozenTime: number | null = null; // set when paused to freeze sprite animations
   private animationFrameId = 0;
@@ -176,6 +177,15 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.audioService.setFocusMuted(document.hidden);
     this.sfxService.setFocusMuted(document.hidden);
   };
+  private readonly onWindowKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
+  private readonly onWindowKeyUp = (event: KeyboardEvent) => this.onKeyUp(event);
+  private readonly onWindowMouseUp = () => {
+    this.draggingSlider = null;
+    this.draggingPowerMarker = false;
+  };
+  private readonly onCanvasMouseDownCamera = (event: MouseEvent) => this.onMouseDown(event);
+  private readonly onCanvasMouseMoveCamera = (event: MouseEvent) => this.onMouseMove(event);
+  private readonly onCanvasMouseUpCamera = () => this.onMouseUp();
 
   ngAfterViewInit() {
     this.initCanvas();
@@ -187,15 +197,16 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.canvas.nativeElement.addEventListener('mousemove', (event) =>
       this.onCanvasMouseMove(event),
     );
-    window.addEventListener('mouseup', () => {
-      this.draggingSlider = null;
-      this.draggingPowerMarker = false;
-    });
-    window.addEventListener('keydown', (event) => this.onKeyDown(event));
-    window.addEventListener('keyup', (event) => this.onKeyUp(event));
+    window.addEventListener('mouseup', this.onWindowMouseUp);
+    window.addEventListener('keydown', this.onWindowKeyDown);
+    window.addEventListener('keyup', this.onWindowKeyUp);
     window.addEventListener('blur', this.onWindowBlur);
     window.addEventListener('focus', this.onWindowFocus);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.canvas.nativeElement.addEventListener('mousedown', this.onCanvasMouseDownCamera);
+    this.canvas.nativeElement.addEventListener('mousemove', this.onCanvasMouseMoveCamera);
+    this.canvas.nativeElement.addEventListener('mouseup', this.onCanvasMouseUpCamera);
+    this.canvas.nativeElement.addEventListener('mouseleave', this.onCanvasMouseUpCamera);
     // Apply initial focus state in case the page loaded without focus or in a background tab
     this.audioService.setFocusMuted(document.hidden || !document.hasFocus());
     this.sfxService.setFocusMuted(document.hidden || !document.hasFocus());
@@ -204,6 +215,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy() {
     cancelAnimationFrame(this.animationFrameId);
+    window.removeEventListener('mouseup', this.onWindowMouseUp);
+    window.removeEventListener('keydown', this.onWindowKeyDown);
+    window.removeEventListener('keyup', this.onWindowKeyUp);
     window.removeEventListener('blur', this.onWindowBlur);
     window.removeEventListener('focus', this.onWindowFocus);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -243,12 +257,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     this.bg.generateBgTreeInstances();
     this.ui.resetGameOverAnim();
     this.shieldAnimService.reset();
-
-    // Add mouse listeners for camera control
-    this.canvas.nativeElement.addEventListener('mousedown', (event) => this.onMouseDown(event));
-    this.canvas.nativeElement.addEventListener('mousemove', (event) => this.onMouseMove(event));
-    this.canvas.nativeElement.addEventListener('mouseup', () => this.onMouseUp());
-    this.canvas.nativeElement.addEventListener('mouseleave', () => this.onMouseUp());
   }
 
   private initCanvas() {
