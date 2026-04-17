@@ -54,7 +54,8 @@ export class CollisionService {
           enemy.terrainAngle = terrainAngle;
           if (tankBottom > terrainHeight - GROUNDED_ZONE) {
             // Same ceiling/wall guard as player: skip snap when surface is far above entity center.
-            const isCeilingOrDistantWall = terrainHeight < enemy.body.position.y - tankHalfHeight * 4;
+            const isCeilingOrDistantWall =
+              terrainHeight < enemy.body.position.y - tankHalfHeight * 4;
             if (!isCeilingOrDistantWall) {
               // Kill downward velocity near/at surface to prevent gravity-snap jitter
               if (enemy.body.velocity.y > 0) {

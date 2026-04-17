@@ -112,5 +112,4 @@ export class EnemyFactoryService {
     if (!setIds.every((id) => id === firstId)) return null;
     return sets.find((s) => s.id === firstId)?.bonus ?? null;
   }
-
 }

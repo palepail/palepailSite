@@ -63,7 +63,9 @@ export class TurnService {
 
     // Sort queue by entity.delay (lowest first); preserve insertion order for equal delays (FIFO).
     const initOrder = new Map(this._turnQueue.map((te, i) => [te, i]));
-    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay || initOrder.get(a)! - initOrder.get(b)!);
+    this._turnQueue.sort(
+      (a, b) => a.entity.delay - b.entity.delay || initOrder.get(a)! - initOrder.get(b)!,
+    );
     this.currentTurnIndex = 0;
     this.turnTime = 0;
   }
@@ -98,7 +100,9 @@ export class TurnService {
 
     // Resort queue by entity.delay; preserve existing queue order for equal delays (FIFO).
     const endOrder = new Map(this._turnQueue.map((te, i) => [te, i]));
-    this._turnQueue.sort((a, b) => a.entity.delay - b.entity.delay || endOrder.get(a)! - endOrder.get(b)!);
+    this._turnQueue.sort(
+      (a, b) => a.entity.delay - b.entity.delay || endOrder.get(a)! - endOrder.get(b)!,
+    );
 
     // Reset turn time
     this.turnTime = 0;

@@ -35,7 +35,10 @@ interface SpriteMetadataFile {
   spritesheets: Record<string, string>;
   sprites: SpriteDefinition[];
   panels?: Array<{ name: string; spritesheet: string; x: number; y: number; sectionSize: number }>;
-  emoteDefinitions?: Record<string, { frameCount: number; frameDurationMs: number; noFlip?: boolean }>;
+  emoteDefinitions?: Record<
+    string,
+    { frameCount: number; frameDurationMs: number; noFlip?: boolean }
+  >;
 }
 
 @Injectable({
@@ -55,7 +58,10 @@ export class MonkeysSpriteService {
   private panelDefinitions: Map<string, PanelDefinition> = new Map();
   private loadedAssets: Map<string, boolean> = new Map();
   private spriteDefinitions: SpriteDefinition[] = [];
-  private emoteDefinitions: Record<string, { frameCount: number; frameDurationMs: number; noFlip?: boolean }> = {};
+  private emoteDefinitions: Record<
+    string,
+    { frameCount: number; frameDurationMs: number; noFlip?: boolean }
+  > = {};
   private metadataLoadPromise: Promise<void> | null = null;
   private backgroundMetadataPromise: Promise<BackgroundMetadataFile> | null = null;
   private backgroundMetadataCache: BackgroundMetadataFile | null = null;
@@ -286,7 +292,9 @@ export class MonkeysSpriteService {
     return this.sprites.get(name) || null;
   }
 
-  getEmoteDefinition(name: string): { frameCount: number; frameDurationMs: number; noFlip?: boolean } | null {
+  getEmoteDefinition(
+    name: string,
+  ): { frameCount: number; frameDurationMs: number; noFlip?: boolean } | null {
     return this.emoteDefinitions[name] ?? null;
   }
 
@@ -301,5 +309,4 @@ export class MonkeysSpriteService {
   getSpritesheet(path: string): HTMLImageElement | HTMLCanvasElement | null {
     return this.spritesheets.get(path) || null;
   }
-
 }

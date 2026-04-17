@@ -115,7 +115,8 @@ export class DamageService {
             entity.vehicle.voicePack,
             event.source === 'fall' ? 'fall' : 'ochisou',
           );
-        }      } else if (actualAmount > 0) {
+        }
+      } else if (actualAmount > 0) {
         this.sfxService.playVo(entity, entity.vehicle.voicePack, 'bump');
       }
     }

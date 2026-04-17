@@ -1,5 +1,16 @@
 import { Injectable, inject } from '@angular/core';
-import { Player, Enemy, Projectile, Explosion, DamageText, FuseTimerModifier, ExplodeOnLowSpeedModifier, PlantedMine, PoisonZone, PoisonZoneModifier } from './monkeys.types';
+import {
+  Player,
+  Enemy,
+  Projectile,
+  Explosion,
+  DamageText,
+  FuseTimerModifier,
+  ExplodeOnLowSpeedModifier,
+  PlantedMine,
+  PoisonZone,
+  PoisonZoneModifier,
+} from './monkeys.types';
 import * as CONST from './monkeys.constants';
 import { MonkeysSfxService } from './monkeys-sfx.service';
 import { DamageService } from './damage.service';
@@ -50,11 +61,7 @@ export class ProjectileService {
       return;
     }
 
-    if (
-      !this.projectile.trajectory ||
-      this.projectile.trajectoryIndex === undefined
-    )
-      return;
+    if (!this.projectile.trajectory || this.projectile.trajectoryIndex === undefined) return;
 
     const index = this.projectile.trajectoryIndex;
     const positions = this.projectile.trajectory;
@@ -82,86 +89,86 @@ export class ProjectileService {
     }
 
     // Sweep the segment from previous position to current position to catch tunneling
-      const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
-      const segDx = this.projectile.x - prevX;
-      const segDy = this.projectile.y - prevY;
-      const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
-      const steps = Math.ceil(segLen);
-      let hitX = this.projectile.x;
-      let hitY = this.projectile.y;
-      let terrainHit = false;
-      for (let s = 0; s <= steps; s++) {
-        const t = steps === 0 ? 1 : s / steps;
-        const sx = Math.floor(prevX + segDx * t);
-        const sy = Math.floor(prevY + segDy * t);
-        const localY = sy - terrainY;
-        if (
-          sx >= 0 &&
-          sx < CONST.TERRAIN_WIDTH &&
-          localY >= 0 &&
-          localY < terrain[sx]?.length &&
-          terrain[sx][localY] === 1
-        ) {
-          hitX = sx;
-          hitY = sy;
-          terrainHit = true;
-          break;
-        }
+    const terrainY = CONST.CANVAS_HEIGHT - CONST.TERRAIN_BASE_Y_OFFSET;
+    const segDx = this.projectile.x - prevX;
+    const segDy = this.projectile.y - prevY;
+    const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+    const steps = Math.ceil(segLen);
+    let hitX = this.projectile.x;
+    let hitY = this.projectile.y;
+    let terrainHit = false;
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 1 : s / steps;
+      const sx = Math.floor(prevX + segDx * t);
+      const sy = Math.floor(prevY + segDy * t);
+      const localY = sy - terrainY;
+      if (
+        sx >= 0 &&
+        sx < CONST.TERRAIN_WIDTH &&
+        localY >= 0 &&
+        localY < terrain[sx]?.length &&
+        terrain[sx][localY] === 1
+      ) {
+        hitX = sx;
+        hitY = sy;
+        terrainHit = true;
+        break;
       }
-      if (terrainHit) {
-        this.projectile.x = hitX;
-        this.projectile.y = hitY;
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
-      }
+    }
+    if (terrainHit) {
+      this.projectile.x = hitX;
+      this.projectile.y = hitY;
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
 
-      // Check offset neighbours at current position for near-miss terrain
-      const px = Math.floor(this.projectile.x);
-      const py = Math.floor(this.projectile.y);
-      const terrainLocalY = py - terrainY;
+    // Check offset neighbours at current position for near-miss terrain
+    const px = Math.floor(this.projectile.x);
+    const py = Math.floor(this.projectile.y);
+    const terrainLocalY = py - terrainY;
+
+    if (
+      px >= 0 &&
+      px < CONST.TERRAIN_WIDTH &&
+      terrainLocalY >= 0 &&
+      terrainLocalY < terrain[px]?.length &&
+      terrain[px][terrainLocalY] === 1
+    ) {
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
+
+    // Check offsets for collision
+    const checkOffsets = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ];
+    let collided = false;
+    for (const [offsetX, offsetY] of checkOffsets) {
+      const checkX = px + offsetX;
+      const checkY = py + offsetY;
+      const terrainCheckY = checkY - terrainY;
 
       if (
-        px >= 0 &&
-        px < CONST.TERRAIN_WIDTH &&
-        terrainLocalY >= 0 &&
-        terrainLocalY < terrain[px]?.length &&
-        terrain[px][terrainLocalY] === 1
+        checkX >= 0 &&
+        checkX < CONST.TERRAIN_WIDTH &&
+        terrainCheckY >= 0 &&
+        terrainCheckY < terrain[checkX]?.length &&
+        terrain[checkX][terrainCheckY] === 1
       ) {
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
+        collided = true;
+        break;
       }
-
-      // Check offsets for collision
-      const checkOffsets = [
-        [-1, 0],
-        [1, 0],
-        [0, -1],
-        [0, 1],
-      ];
-      let collided = false;
-      for (const [offsetX, offsetY] of checkOffsets) {
-        const checkX = px + offsetX;
-        const checkY = py + offsetY;
-        const terrainCheckY = checkY - terrainY;
-
-        if (
-          checkX >= 0 &&
-          checkX < CONST.TERRAIN_WIDTH &&
-          terrainCheckY >= 0 &&
-          terrainCheckY < terrain[checkX]?.length &&
-          terrain[checkX][terrainCheckY] === 1
-        ) {
-          collided = true;
-          break;
-        }
-      }
-      if (collided) {
-        this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
-        return;
-      }
+    }
+    if (collided) {
+      this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
+      return;
+    }
 
     // Check shield boundary (skipped for ignore_shield bullets e.g. poison zone)
-    if (!this.projectile.bullet.modifiers?.some(m => m.type === 'ignore_shield')) {
+    if (!this.projectile.bullet.modifiers?.some((m) => m.type === 'ignore_shield')) {
       const shieldedEntities: (Player | Enemy)[] = [player, ...enemies];
       for (const entity of shieldedEntities) {
         if (!entity.active) continue;
@@ -179,16 +186,20 @@ export class ProjectileService {
           const scale = shield / Math.max(sdist, 0.001);
           this.projectile.x = entity.x + sdx * scale;
           this.projectile.y = entity.y + sdy * scale;
-          entity.currentShieldHealth = Math.max(0, (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage);
+          entity.currentShieldHealth = Math.max(
+            0,
+            (entity.currentShieldHealth ?? 0) - this.projectile.bullet.damage,
+          );
           entity.shieldHitAngle = Math.atan2(sdy, sdx);
           if ((entity.currentShieldHealth ?? 0) <= 0) {
             this.sfxService.play({ category: 'shield_break' });
             this.shieldBrokeEntities.push(entity);
           }
           // Shield deflects projectile whether it broke or held
-          const hasBounce = this.projectile.bullet.modifiers?.some(
-            m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
-          ) ?? false;
+          const hasBounce =
+            this.projectile.bullet.modifiers?.some(
+              (m) => m.type === 'bounce_entity' || m.type === 'bounce_terrain',
+            ) ?? false;
           if (hasBounce) {
             this.sfxService.play({ category: 'bounce' });
             // Reflect the trajectory off the shield normal
@@ -236,7 +247,7 @@ export class ProjectileService {
     const projectileSnapshot = this.projectile;
 
     // Stick-on-terrain: plant mine instead of exploding
-    if (projectileSnapshot.bullet.modifiers?.some(m => m.type === 'stick_on_terrain')) {
+    if (projectileSnapshot.bullet.modifiers?.some((m) => m.type === 'stick_on_terrain')) {
       this.plantedMines.push({
         x: explosionX,
         y: explosionY,
@@ -251,7 +262,9 @@ export class ProjectileService {
     }
 
     // Poison-zone: plant an animated poison cloud instead of exploding
-    const poisonMod = projectileSnapshot.bullet.modifiers?.find(m => m.type === 'poison_zone') as PoisonZoneModifier | undefined;
+    const poisonMod = projectileSnapshot.bullet.modifiers?.find((m) => m.type === 'poison_zone') as
+      | PoisonZoneModifier
+      | undefined;
     if (poisonMod) {
       this.sfxService.play({ category: projectileSnapshot.bullet.sfxImpact ?? 'explosion' });
       this.poisonZones.push({
@@ -340,7 +353,9 @@ export class ProjectileService {
     const weaponName = projectile.rootBulletName;
 
     /** Returns { inRange, effectiveDist } for an entity considering all hitbox spheres. */
-    const getExplosionHit = (entity: Player | Enemy): { inRange: boolean; effectiveDist: number } => {
+    const getExplosionHit = (
+      entity: Player | Enemy,
+    ): { inRange: boolean; effectiveDist: number } => {
       // Base hitbox
       const dx = entity.x - explosionX;
       const dy = entity.y - explosionY;
@@ -461,7 +476,11 @@ export class ProjectileService {
     return null;
   }
 
-  private findEntityCollision(child: Projectile, player: Player, enemies: Enemy[]): Player | Enemy | null {
+  private findEntityCollision(
+    child: Projectile,
+    player: Player,
+    enemies: Enemy[],
+  ): Player | Enemy | null {
     const entities: (Player | Enemy)[] = [player, ...enemies];
     const ownerGrace = Date.now() - (child.spawnTimeMs ?? 0) < 500;
     for (const entity of entities) {
@@ -484,7 +503,8 @@ export class ProjectileService {
 
   checkEntityCollisions(projectile: Projectile, player: Player, enemies: Enemy[]): boolean {
     const entities: (Player | Enemy)[] = [player, ...enemies];
-    const ignoresShield = projectile.bullet.modifiers?.some(m => m.type === 'ignore_shield') ?? false;
+    const ignoresShield =
+      projectile.bullet.modifiers?.some((m) => m.type === 'ignore_shield') ?? false;
 
     for (const entity of entities) {
       if (!entity.active) continue;
@@ -501,7 +521,7 @@ export class ProjectileService {
       for (const hb of entity.vehicle?.hitboxes ?? []) {
         const hbX = entity.x + entity.facing * (hb.offX ?? 0);
         const hbDx = hbX - projectile.x;
-        const hbDy = (entity.y + hb.offY) - projectile.y;
+        const hbDy = entity.y + hb.offY - projectile.y;
         if (Math.sqrt(hbDx * hbDx + hbDy * hbDy) < CONST.PROJECTILE_RADIUS + hb.radius) {
           return true;
         }
@@ -605,7 +625,9 @@ export class ProjectileService {
 
     // Explode when rolling average speed falls below threshold.
     // Using a 30-frame window prevents hang-time at the arc apex from triggering the explosion.
-    const lowSpeedModifier = proj.bullet.modifiers?.find(m => m.type === 'explode_on_low_speed') as ExplodeOnLowSpeedModifier | undefined;
+    const lowSpeedModifier = proj.bullet.modifiers?.find(
+      (m) => m.type === 'explode_on_low_speed',
+    ) as ExplodeOnLowSpeedModifier | undefined;
     if (lowSpeedModifier) {
       const vel = body.velocity;
       const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
@@ -637,36 +659,37 @@ export class ProjectileService {
         this.shieldBrokeEntities.push(shieldedTarget);
       }
       // Shield deflects projectile whether it broke or held
-      const hasBounce = proj.bullet.modifiers?.some(
-          m => m.type === 'bounce_entity' || m.type === 'bounce_terrain'
+      const hasBounce =
+        proj.bullet.modifiers?.some(
+          (m) => m.type === 'bounce_entity' || m.type === 'bounce_terrain',
         ) ?? false;
-        if (hasBounce) {
-          const nx = sdx / sdist;
-          const ny = sdy / sdist;
-          const vel = body.velocity;
-          const dot = vel.x * nx + vel.y * ny;
-          const restitution = 0.7;
-          physicsService.Body.setVelocity(body, {
-            x: (vel.x - 2 * dot * nx) * restitution,
-            y: (vel.y - 2 * dot * ny) * restitution,
-          });
-          // Push projectile out to the shield surface
-          const pushDist = (shieldedTarget.vehicle.shieldRadius ?? 0) + CONST.PROJECTILE_RADIUS + 2;
-          physicsService.Body.setPosition(body, {
-            x: shieldedTarget.x + nx * pushDist,
-            y: shieldedTarget.y + ny * pushDist,
-          });
-          this.sfxService.play({ category: 'bounce' });
-          return;
-        }
-        this.sfxService.play({ category: proj.bullet.sfxImpact ?? 'explosion' });
-        physicsService.World.remove(physicsService.world, body);
-        this.projectile = null;
+      if (hasBounce) {
+        const nx = sdx / sdist;
+        const ny = sdy / sdist;
+        const vel = body.velocity;
+        const dot = vel.x * nx + vel.y * ny;
+        const restitution = 0.7;
+        physicsService.Body.setVelocity(body, {
+          x: (vel.x - 2 * dot * nx) * restitution,
+          y: (vel.y - 2 * dot * ny) * restitution,
+        });
+        // Push projectile out to the shield surface
+        const pushDist = (shieldedTarget.vehicle.shieldRadius ?? 0) + CONST.PROJECTILE_RADIUS + 2;
+        physicsService.Body.setPosition(body, {
+          x: shieldedTarget.x + nx * pushDist,
+          y: shieldedTarget.y + ny * pushDist,
+        });
+        this.sfxService.play({ category: 'bounce' });
         return;
+      }
+      this.sfxService.play({ category: proj.bullet.sfxImpact ?? 'explosion' });
+      physicsService.World.remove(physicsService.world, body);
+      this.projectile = null;
+      return;
     }
 
     // Entity collision — bounce or explode
-    const hasBounceEntity = proj.bullet.modifiers?.some(m => m.type === 'bounce_entity') ?? false;
+    const hasBounceEntity = proj.bullet.modifiers?.some((m) => m.type === 'bounce_entity') ?? false;
     if (hasBounceEntity) {
       const hitEntity = this.findEntityCollision(proj, player, enemies);
       if (hitEntity) {
@@ -735,7 +758,9 @@ export class ProjectileService {
     const terrainHit = bottomHit || lateralHit;
 
     if (terrainHit) {
-      const bounceTerrainMod = proj.bullet.modifiers?.find(m => m.type === 'bounce_terrain') as import('./monkeys.types').BounceTerrainModifier | undefined;
+      const bounceTerrainMod = proj.bullet.modifiers?.find((m) => m.type === 'bounce_terrain') as
+        | import('./monkeys.types').BounceTerrainModifier
+        | undefined;
       if (!bounceTerrainMod) {
         this.destroyTrajectoryProjectile(terrain, player, enemies, physicsService, depthTerrain);
         return;
@@ -747,7 +772,10 @@ export class ProjectileService {
         // Scan downward from bullet center — finds floor below, not cliff top above.
         const startLY = Math.max(0, Math.floor(proj.y) - tbY);
         for (let ly = startLY; ly < colData.length; ly++) {
-          if (colData[ly] === 1) { surfaceWorldY = tbY + ly; break; }
+          if (colData[ly] === 1) {
+            surfaceWorldY = tbY + ly;
+            break;
+          }
         }
       }
       const getSY = (col: number): number => {
@@ -904,7 +932,15 @@ export class ProjectileService {
       // Trajectory-based child (no physics body — e.g. twin corn stick)
       if (!child.body) {
         if (child.trajectory && child.trajectoryIndex !== undefined) {
-          this.updateTrajectoryChild(i, child, terrain, player, enemies, physicsService, depthTerrain);
+          this.updateTrajectoryChild(
+            i,
+            child,
+            terrain,
+            player,
+            enemies,
+            physicsService,
+            depthTerrain,
+          );
         }
         continue;
       }
@@ -936,14 +972,18 @@ export class ProjectileService {
       }
 
       // Timer fuse: only explode if bullet has fuse_timer modifier
-      const fuseModifier = child.bullet.modifiers?.find(m => m.type === 'fuse_timer') as FuseTimerModifier | undefined;
+      const fuseModifier = child.bullet.modifiers?.find((m) => m.type === 'fuse_timer') as
+        | FuseTimerModifier
+        | undefined;
       if (fuseModifier && Date.now() - (child.spawnTimeMs ?? 0) >= fuseModifier.ms) {
         this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
         continue;
       }
 
       // Explode when rolling average speed falls below threshold (30-frame window, same hang-time guard as primary).
-      const lowSpeedModifier = child.bullet.modifiers?.find(m => m.type === 'explode_on_low_speed') as ExplodeOnLowSpeedModifier | undefined;
+      const lowSpeedModifier = child.bullet.modifiers?.find(
+        (m) => m.type === 'explode_on_low_speed',
+      ) as ExplodeOnLowSpeedModifier | undefined;
       if (lowSpeedModifier) {
         const vel = child.body.velocity;
         const spd = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
@@ -981,7 +1021,8 @@ export class ProjectileService {
       }
 
       // Entity collision — bounce if modifier, otherwise explode
-      const hasBounceEntity = child.bullet.modifiers?.some(m => m.type === 'bounce_entity') ?? false;
+      const hasBounceEntity =
+        child.bullet.modifiers?.some((m) => m.type === 'bounce_entity') ?? false;
       if (hasBounceEntity) {
         const hitEntity = this.findEntityCollision(child, player, enemies);
         if (hitEntity) {
@@ -1015,7 +1056,12 @@ export class ProjectileService {
           const isPlayer = (hitEntity as object) === (player as object);
           this.damageService.applyDamage(
             hitEntity,
-            { amount: rawDamage, source: 'explosion', attackerName, weaponName: child.rootBulletName },
+            {
+              amount: rawDamage,
+              source: 'explosion',
+              attackerName,
+              weaponName: child.rootBulletName,
+            },
             isPlayer ? 'player' : 'enemy',
           );
           physicsService.applyExplosionKnockback(
@@ -1059,7 +1105,9 @@ export class ProjectileService {
       const terrainHit = bottomHit || lateralHit;
 
       if (terrainHit) {
-        const bounceTerrainMod = child.bullet.modifiers?.find(m => m.type === 'bounce_terrain') as import('./monkeys.types').BounceTerrainModifier | undefined;
+        const bounceTerrainMod = child.bullet.modifiers?.find(
+          (m) => m.type === 'bounce_terrain',
+        ) as import('./monkeys.types').BounceTerrainModifier | undefined;
         if (!bounceTerrainMod) {
           this.destroyChildProjectile(i, terrain, player, enemies, physicsService, depthTerrain);
           continue;
@@ -1072,7 +1120,10 @@ export class ProjectileService {
         if (colData) {
           const startLY = Math.max(0, Math.floor(child.y) - tbY);
           for (let ly = startLY; ly < colData.length; ly++) {
-            if (colData[ly] === 1) { surfaceWorldY = tbY + ly; break; }
+            if (colData[ly] === 1) {
+              surfaceWorldY = tbY + ly;
+              break;
+            }
           }
         }
 
@@ -1198,8 +1249,10 @@ export class ProjectileService {
     const marginYBot = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_BOTTOM;
     const marginYTop = CONST.OFFSCREEN_EXPLODE_MARGIN_Y_TOP;
     if (
-      child.x < -marginX || child.x > CONST.TERRAIN_WIDTH + marginX ||
-      child.y > CONST.TERRAIN_HEIGHT + marginYBot || child.y < -marginYTop
+      child.x < -marginX ||
+      child.x > CONST.TERRAIN_WIDTH + marginX ||
+      child.y > CONST.TERRAIN_HEIGHT + marginYBot ||
+      child.y < -marginYTop
     ) {
       this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
       return;
@@ -1214,7 +1267,13 @@ export class ProjectileService {
       const sx = Math.floor(prevX + segDx * t);
       const sy = Math.floor(prevY + segDy * t);
       const ly = sy - tbY;
-      if (sx >= 0 && sx < CONST.TERRAIN_WIDTH && ly >= 0 && ly < (terrain[sx]?.length ?? 0) && terrain[sx][ly] === 1) {
+      if (
+        sx >= 0 &&
+        sx < CONST.TERRAIN_WIDTH &&
+        ly >= 0 &&
+        ly < (terrain[sx]?.length ?? 0) &&
+        terrain[sx][ly] === 1
+      ) {
         child.x = sx;
         child.y = sy;
         this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
@@ -1225,7 +1284,13 @@ export class ProjectileService {
     const px = Math.floor(child.x);
     const py = Math.floor(child.y);
     const ly2 = py - tbY;
-    if (px >= 0 && px < CONST.TERRAIN_WIDTH && ly2 >= 0 && ly2 < (terrain[px]?.length ?? 0) && terrain[px][ly2] === 1) {
+    if (
+      px >= 0 &&
+      px < CONST.TERRAIN_WIDTH &&
+      ly2 >= 0 &&
+      ly2 < (terrain[px]?.length ?? 0) &&
+      terrain[px][ly2] === 1
+    ) {
       this.destroyChildProjectile(index, terrain, player, enemies, physicsService, depthTerrain);
       return;
     }
@@ -1249,7 +1314,7 @@ export class ProjectileService {
     const child = this.childProjectiles[index];
 
     // Stick-on-terrain: plant mine instead of exploding
-    if (child.bullet.modifiers?.some(m => m.type === 'stick_on_terrain')) {
+    if (child.bullet.modifiers?.some((m) => m.type === 'stick_on_terrain')) {
       this.plantedMines.push({
         x: child.x,
         y: child.y,
@@ -1336,7 +1401,15 @@ export class ProjectileService {
       if (depthTerrain) {
         this.impactService.createCrater(mine.x, mine.y, depthTerrain, mine.bullet, 0.6);
       }
-      this.calculateExplosionDamage(mine.x, mine.y, fakeProjectile, player, enemies, physicsService, terrain);
+      this.calculateExplosionDamage(
+        mine.x,
+        mine.y,
+        fakeProjectile,
+        player,
+        enemies,
+        physicsService,
+        terrain,
+      );
       this.lastImpactPos = { x: mine.x, y: mine.y };
     }
   }
@@ -1366,5 +1439,4 @@ export class ProjectileService {
     }
     return null;
   }
-
 }

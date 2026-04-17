@@ -405,7 +405,6 @@ class CameraController {
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
     return { x: worldX - this.camera.x, y: worldY - this.camera.y };
   }
-
 }
 
 export { CameraController };

@@ -133,8 +133,10 @@ export class EquipmentService {
     }
     if (stats.fuel) vehicle.fuel = Math.max(10, vehicle.fuel + stats.fuel);
     if (stats.climbAngle) vehicle.climbAngle = Math.max(10, vehicle.climbAngle + stats.climbAngle);
-    if (stats.minAimAngle) vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + stats.minAimAngle);
-    if (stats.maxAimAngle) vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + stats.maxAimAngle);
+    if (stats.minAimAngle)
+      vehicle.minAimAngle = Math.max(0, vehicle.minAimAngle + stats.minAimAngle);
+    if (stats.maxAimAngle)
+      vehicle.maxAimAngle = Math.min(90, vehicle.maxAimAngle + stats.maxAimAngle);
     if (stats.lifesteal) vehicle.lifesteal = (vehicle.lifesteal ?? 0) + stats.lifesteal;
     if (stats.weight) vehicle.weight = (vehicle.weight ?? 10) + stats.weight;
     if (stats.shieldRadius) vehicle.shieldRadius = (vehicle.shieldRadius ?? 0) + stats.shieldRadius;

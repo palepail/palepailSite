@@ -283,7 +283,7 @@ export interface ActiveEmote {
   name: EmoteName;
   startTime: number;
   loop: boolean;
-  loopDelayMs?: number;  // ms to wait between animation cycles
+  loopDelayMs?: number; // ms to wait between animation cycles
   nextPlayTime?: number; // timestamp after which to restart the cycle
   zLayer: 'front' | 'behind';
 }
@@ -303,17 +303,50 @@ export interface Projectile {
   batchId?: number; // twin-fire batch id; all projectiles from one firing share a batchId
 }
 
-export type BulletModifierType = 'bounce_terrain' | 'bounce_entity' | 'fuse_timer' | 'explode_on_low_speed' | 'stick_on_terrain' | 'poison_zone' | 'ignore_shield';
+export type BulletModifierType =
+  | 'bounce_terrain'
+  | 'bounce_entity'
+  | 'fuse_timer'
+  | 'explode_on_low_speed'
+  | 'stick_on_terrain'
+  | 'poison_zone'
+  | 'ignore_shield';
 
-export interface BounceTerrainModifier { type: 'bounce_terrain'; restitution?: number; }
-export interface BounceEntityModifier { type: 'bounce_entity'; }
-export interface FuseTimerModifier { type: 'fuse_timer'; ms: number; }
-export interface ExplodeOnLowSpeedModifier { type: 'explode_on_low_speed'; threshold: number; }
-export interface StickOnTerrainModifier { type: 'stick_on_terrain'; }
-export interface PoisonZoneModifier { type: 'poison_zone'; radius: number; damage: number; }
-export interface IgnoreShieldModifier { type: 'ignore_shield'; }
+export interface BounceTerrainModifier {
+  type: 'bounce_terrain';
+  restitution?: number;
+}
+export interface BounceEntityModifier {
+  type: 'bounce_entity';
+}
+export interface FuseTimerModifier {
+  type: 'fuse_timer';
+  ms: number;
+}
+export interface ExplodeOnLowSpeedModifier {
+  type: 'explode_on_low_speed';
+  threshold: number;
+}
+export interface StickOnTerrainModifier {
+  type: 'stick_on_terrain';
+}
+export interface PoisonZoneModifier {
+  type: 'poison_zone';
+  radius: number;
+  damage: number;
+}
+export interface IgnoreShieldModifier {
+  type: 'ignore_shield';
+}
 
-export type BulletModifier = BounceTerrainModifier | BounceEntityModifier | FuseTimerModifier | ExplodeOnLowSpeedModifier | StickOnTerrainModifier | PoisonZoneModifier | IgnoreShieldModifier;
+export type BulletModifier =
+  | BounceTerrainModifier
+  | BounceEntityModifier
+  | FuseTimerModifier
+  | ExplodeOnLowSpeedModifier
+  | StickOnTerrainModifier
+  | PoisonZoneModifier
+  | IgnoreShieldModifier;
 
 export interface PoisonZone {
   x: number;
@@ -367,8 +400,8 @@ export interface Bullet {
 
 /** An additional hitbox sphere offset from the entity centre. offY is upward (negative = up), offX is forward (positive = forward in facing direction). */
 export interface VehicleHitbox {
-  offX?: number;  // world-space X offset in the entity's facing direction (positive = forward)
-  offY: number;   // world-space Y offset from entity.y (negative = upward)
+  offX?: number; // world-space X offset in the entity's facing direction (positive = forward)
+  offY: number; // world-space Y offset from entity.y (negative = upward)
   radius: number; // collision radius in px
 }
 

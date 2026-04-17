@@ -38,6 +38,12 @@ import { MonkeysSfxService } from './monkeys-sfx.service';
 import { ShieldAnimationService } from './shield-animation.service';
 import { CameraController } from './camera-controller';
 import { TerrainSpriteAnalyzer } from './terrain-sprite-analyzer';
+import { MonkeysRenderContext } from './monkeys-render-context';
+import { MonkeysBackgroundRenderer } from './monkeys-background.renderer';
+import { MonkeysEffectsRenderer } from './monkeys-effects.renderer';
+import { MonkeysEntityRenderer } from './monkeys-entity.renderer';
+import { MonkeysUIRenderer, isPointInsideButton } from './monkeys-ui.renderer';
+import { MonkeysDevToolsRenderer } from './monkeys-dev-tools.renderer';
 
 // Camera system
 
@@ -454,6 +460,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private draggingSlider: 'bg' | 'sfx' | null = null;
   private powerMarkerRatio: number | null = null;
   private draggingPowerMarker = false;
+  private wasCharging = false;
   private readonly TERRAIN_TOOL_BACK_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 48, 220, 44);
   private readonly TERRAIN_TOOL_RESCAN_BUTTON = this.mkBtn(CONST.CANVAS_WIDTH - 170, 102, 220, 44);
   private readonly TERRAIN_TOOL_COPY_ALL_BUTTON = this.mkBtn(
@@ -472,6 +479,32 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     private sfxService: MonkeysSfxService,
     private shieldAnimService: ShieldAnimationService,
   ) {}
+
+  // ── Renderer instances (initialized after canvas is ready) ────────────────
+  private rc!: MonkeysRenderContext;
+  private bg!: MonkeysBackgroundRenderer;
+  private effects!: MonkeysEffectsRenderer;
+  private entity!: MonkeysEntityRenderer;
+  private ui!: MonkeysUIRenderer;
+  private devTools!: MonkeysDevToolsRenderer;
+
+  private initRenderers(): void {
+    this.rc = {
+      ctx: this.ctx,
+      renderTime: 0,
+      queueDraw: (zIndex: number, fn: () => void) => this.queueDraw(zIndex, fn),
+      gameService: this.gameService,
+      spriteService: this.spriteService,
+      cameraController: this.cameraController,
+      shieldAnimService: this.shieldAnimService,
+      tintCache: this.tintCache,
+    };
+    this.bg = new MonkeysBackgroundRenderer(this.rc);
+    this.effects = new MonkeysEffectsRenderer(this.rc);
+    this.entity = new MonkeysEntityRenderer(this.rc, this.bg);
+    this.ui = new MonkeysUIRenderer(this.rc, this.audioService, this.bg);
+    this.devTools = new MonkeysDevToolsRenderer(this.rc, this.ui);
+  }
 
   ngOnInit() {
     this.loadingContext = 'menu';
@@ -520,6 +553,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit() {
     this.initCanvas();
+    this.initRenderers();
     this.canvas.nativeElement.addEventListener('click', (event) => this.onCanvasClick(event));
     this.canvas.nativeElement.addEventListener('mousedown', (event) =>
       this.onCanvasMouseDown(event),
@@ -575,13 +609,13 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     this.isLoading = false;
     this.cameraController.reset();
-    this.selectedBulletIndex = 0; // reset weapon selection on new game
+    this.ui.selectedBulletIndex = 0; // reset weapon selection on new game
     // Set up camera follow for player during setup
     this.cameraController.setFollowTarget(this.gameService.player);
     this.cameraController.enableFollow();
     this.setupStartTime = Date.now();
-    this.generateBgTreeInstances();
-    this.gameOverAnim.animStart = 0;
+    this.bg.generateBgTreeInstances();
+    this.ui.resetGameOverAnim();
     this.shieldAnimService.reset();
 
     // Add mouse listeners for camera control
@@ -614,53 +648,61 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private render() {
+    this.rc.renderTime = this.frozenTime ?? Date.now();
     this.renderFrame();
     // Mute button overlays every screen (terrain dev tools excluded)
     if (
       this.gameService.currentState !== GameState.TERRAIN_TOOL &&
       this.gameService.currentState !== GameState.LAYER_TOOL
     ) {
-      this.drawMuteButton();
+      this.ui.drawMuteButton();
     }
   }
 
   private renderFrame() {
     if (this.gameService.currentState === GameState.LOADING) {
-      this.drawLoadingScreen();
+      this.ui.drawLoadingScreen(this.loadingContext);
       return;
     }
     if (this.gameService.currentState === GameState.MENU) {
-      this.drawMenu();
+      this.ui.drawMenu(this.TERRAIN_TOOL_ENABLED, this.DEV_MODE);
       return;
     }
     if (this.gameService.currentState === GameState.EQUIPMENT_MENU) {
-      this.drawEquipmentMenu();
+      this.ui.drawEquipmentMenu();
       return;
     }
     if (this.gameService.currentState === GameState.OPTIONS) {
-      this.drawOptions();
+      this.ui.drawOptions();
       return;
     }
     if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
-      this.drawTerrainTool();
+      this.devTools.drawTerrainTool();
       return;
     }
     if (this.gameService.currentState === GameState.LAYER_TOOL) {
-      this.drawLayerTool();
+      this.devTools.drawLayerTool();
       return;
     }
 
     if (this.isLoading) {
-      this.drawLoadingScreen();
+      this.ui.drawLoadingScreen(this.loadingContext);
       return;
     }
 
     this.shieldAnimService.update(
       this.gameService.player,
       this.gameService.enemies,
-      this.renderTime,
+      this.rc.renderTime,
     );
-    this.updateHurtSpriteState();
+    this.entity.updateHurtSpriteState();
+
+    // Detect autofire (isCharging went false between frames, e.g. charge held to 100%)
+    const nowCharging = this.gameService.isCharging;
+    if (this.wasCharging && !nowCharging) {
+      this.powerMarkerRatio = this.gameService.lastFiredPowerRatio;
+    }
+    this.wasCharging = nowCharging;
 
     // Check if setup is complete: minimum 1s elapsed AND all vehicles have landed
     if (
@@ -782,19 +824,19 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // Draw sky (entire background)
     this.ctx.fillStyle = CONST.SKY_COLOR; // Sky blue
     this.ctx.fillRect(0, 0, CONST.CANVAS_WIDTH, CONST.CANVAS_HEIGHT);
-    this.drawParallaxBackground(this.cameraController.camera.x);
+    this.bg.drawParallaxBackground(this.cameraController.camera.x);
 
     // Reset render queue — all game-world sprite draws below are deferred until flush
     this.renderQueue = [];
 
     // Terrain is queued at layers 1–3, behind all entities
-    this.drawTerrain();
+    this.bg.drawTerrain();
     // Instance trees queued at layers 5 / 8 — appear over terrain, behind all entities
-    this.queueEnvironmentTrees(this.cameraController.camera.x);
+    this.bg.queueEnvironmentTrees(this.cameraController.camera.x);
 
     // Draw charge bars (behind tanks)
     if (this.gameService.isPlayerTurn() && this.gameService.player.active) {
-      this.drawChargeBar(
+      this.entity.drawChargeBar(
         this.gameService.player,
         this.gameService.player.maxPower,
         this.powerMarkerRatio ?? undefined,
@@ -802,37 +844,37 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     for (const enemy of this.gameService.enemies) {
       if (enemy.active && enemy.entityState === 'charging') {
-        this.drawChargeBar(enemy, enemy.vehicle.power);
+        this.entity.drawChargeBar(enemy, enemy.vehicle.power);
       }
     }
 
     // Draw player
-    this.drawPlayer();
+    this.entity.drawPlayer(this.showPrediction);
 
     // Draw enemies
-    this.drawEnemies();
+    this.entity.drawEnemies(this.showPrediction);
 
     // Draw poison zones (over entities)
-    this.drawPoisonZones();
+    this.effects.drawPoisonZones();
 
     // Draw projectile
     if (this.gameService.projectile) {
-      this.drawProjectile();
+      this.effects.drawProjectile();
     }
-    this.drawChildProjectiles();
-    this.drawPlantedMines();
-    this.drawExplosions();
+    this.effects.drawChildProjectiles();
+    this.effects.drawPlantedMines();
+    this.effects.drawExplosions();
 
     // Draw damage texts
-    this.drawDamageTexts();
+    this.effects.drawDamageTexts();
 
     // Flush all queued game-world sprite draws in z-index order
     this.flushRenderQueue();
 
     // Draw UI (naturally on top of all queued sprites)
-    this.drawUI();
-    this.drawTurnQueue();
-    this.drawCombatLog();
+    this.ui.drawUI(this.turnMessage, this.messageTimer);
+    this.ui.drawTurnQueue();
+    this.ui.drawCombatLog();
   }
 
   private drawChargeBar(entity: any, maxPower: number, markerRatio?: number) {
@@ -977,7 +1019,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     offCtx.globalCompositeOperation = 'source-over';
 
     // Queue terrain draws at low layers so they render behind all entities
-    const ty = terrainY, sx = startX, ex = endX;
+    const ty = terrainY,
+      sx = startX,
+      ex = endX;
     const spriteCv = this.terrainSpriteCanvas!;
 
     this.queueDraw(CONST.LAYER_TERRAIN_FILL, () => {
@@ -2574,7 +2618,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
   private selectWeapon(index: number): void {
     const options = this.vehicleBulletOptions;
     if (index < 0 || index >= options.length) return;
-    this.selectedBulletIndex = index;
+    this.ui.selectedBulletIndex = index;
     this.gameService.player.vehicle.bullet = { ...options[index] };
     this.gameService.clearTrajectoryCache();
   }
@@ -2654,9 +2698,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Name editing in equipment menu
-    if (this.isNameEditing && this.gameService.currentState === GameState.EQUIPMENT_MENU) {
+    if (this.ui.isNameEditing && this.gameService.currentState === GameState.EQUIPMENT_MENU) {
       if (event.key === 'Enter' || event.key === 'Escape') {
-        this.isNameEditing = false;
+        this.ui.isNameEditing = false;
       } else if (event.key === 'Backspace') {
         this.gameService.playerName = this.gameService.playerName.slice(0, -1);
       } else if (event.key.length === 1 && this.gameService.playerName.length < 10) {
@@ -2849,7 +2893,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const inst of this.bgTreeInstances.filter((i) => midNames.includes(i.name))) {
       const meta = byName.get(inst.name);
       if (!meta) continue;
-      const wx = inst.worldX, sc = inst.scale, off = cameraX * 0.55;
+      const wx = inst.worldX,
+        sc = inst.scale,
+        off = cameraX * 0.55;
       this.queueDraw(CONST.LAYER_ENV_TREE_MID, () => {
         this.drawBgInstance(sheet, meta, wx, off, sc);
       });
@@ -2858,7 +2904,9 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     for (const inst of this.bgTreeInstances.filter((i) => i.name === 'tree2_background')) {
       const meta = byName.get(inst.name);
       if (!meta) continue;
-      const wx = inst.worldX, sc = inst.scale, off = cameraX * 0.8;
+      const wx = inst.worldX,
+        sc = inst.scale,
+        off = cameraX * 0.8;
       this.queueDraw(CONST.LAYER_ENV_TREE_FRONT, () => {
         this.drawBgInstance(sheet, meta, wx, off, sc);
       });
@@ -2881,7 +2929,6 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     // z=4: tiled trees band — parallax 0.35
     const trees = byName.get('trees_background');
     if (trees) this.drawBgTiledBottom(sheet, trees, 1, cameraX * 0.35);
-
   }
 
   private drawBgCover(
@@ -5295,7 +5342,7 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gameService.currentState !== GameState.LAYER_TOOL &&
       this.gameService.currentState !== GameState.LOADING &&
       !this.isLoading &&
-      this.isPointInsideButton(x, y, this.MUTE_BUTTON)
+      isPointInsideButton(x, y, this.ui.MUTE_BUTTON)
     ) {
       this.audioService.toggleMute();
       this.sfxService.setMuted(this.audioService.isMuted);
@@ -5305,24 +5352,25 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.gameService.currentState === GameState.MENU) {
       this.handleMenuClick(x, y);
     } else if (this.gameService.currentState === GameState.EQUIPMENT_MENU) {
-      this.handleEquipmentMenuClick(x, y);
+      this.ui.handleEquipmentMenuClick(x, y);
     } else if (this.gameService.currentState === GameState.OPTIONS) {
       this.handleOptionsClick(x, y);
     } else if (this.gameService.currentState === GameState.TERRAIN_TOOL) {
-      this.handleTerrainToolClick(x, y);
+      this.devTools.handleTerrainToolClick(x, y);
     } else if (this.gameService.currentState === GameState.LAYER_TOOL) {
-      this.handleLayerToolClick(x, y);
+      this.devTools.handleLayerToolClick(x, y);
     } else if (
       this.gameService.currentState === GameState.PLAYING ||
       this.gameService.currentState === GameState.PAUSED ||
       this.gameService.currentState === GameState.AFTERMATH
     ) {
-      if (this.isPointInsideButton(x, y, this.combatLogToggleBtn)) {
-        this.combatLogMinimized = !this.combatLogMinimized;
+      if (isPointInsideButton(x, y, this.ui.combatLogToggleBtn)) {
+        this.ui.combatLogMinimized = !this.ui.combatLogMinimized;
         return;
       }
-      for (let i = 0; i < this.vehicleBulletOptions.length; i++) {
-        if (this.isPointInsideButton(x, y, this.getWeaponBtnRect(i))) {
+      const bullets = this.vehicleBulletOptions;
+      for (let i = 0; i < bullets.length; i++) {
+        if (isPointInsideButton(x, y, this.ui.getWeaponBtnRect(i, bullets.length))) {
           this.selectWeapon(i);
           return;
         }
@@ -5332,53 +5380,50 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private handleMenuClick(x: number, y: number) {
     // Check Start Game button
-    if (this.isPointInsideButton(x, y, this.MENU_START_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.MENU_START_BUTTON)) {
       void this.startGame();
       return;
     }
 
     // Check Loadout button
-    if (this.isPointInsideButton(x, y, this.MENU_LOADOUT_BUTTON)) {
-      this.initLoadoutScreen();
+    if (isPointInsideButton(x, y, this.ui.MENU_LOADOUT_BUTTON)) {
+      this.ui.initLoadoutScreen();
       this.gameService.currentState = GameState.EQUIPMENT_MENU;
       return;
     }
 
     // Check Options button
-    if (this.isPointInsideButton(x, y, this.MENU_OPTIONS_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.MENU_OPTIONS_BUTTON)) {
       this.gameService.currentState = GameState.OPTIONS;
       return;
     }
 
-    if (
-      this.TERRAIN_TOOL_ENABLED &&
-      this.isPointInsideButton(x, y, this.MENU_TERRAIN_TOOL_BUTTON)
-    ) {
-      void this.openTerrainTool();
+    if (this.TERRAIN_TOOL_ENABLED && isPointInsideButton(x, y, this.ui.MENU_TERRAIN_TOOL_BUTTON)) {
+      void this.devTools.openTerrainTool();
     }
 
-    if (this.DEV_MODE && this.isPointInsideButton(x, y, this.MENU_TOOLS_BUTTON)) {
-      this.openLayerTool();
+    if (this.DEV_MODE && isPointInsideButton(x, y, this.ui.MENU_TOOLS_BUTTON)) {
+      this.devTools.openLayerTool();
     }
   }
 
   private handleOptionsClick(x: number, y: number) {
-    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_EASY_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.OPTIONS_DIFFICULTY_EASY_BUTTON)) {
       this.gameService.difficulty = 'easy';
       this.gameService.saveDifficulty();
       return;
     }
-    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_NORMAL_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.OPTIONS_DIFFICULTY_NORMAL_BUTTON)) {
       this.gameService.difficulty = 'normal';
       this.gameService.saveDifficulty();
       return;
     }
-    if (this.isPointInsideButton(x, y, this.OPTIONS_DIFFICULTY_HARD_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.OPTIONS_DIFFICULTY_HARD_BUTTON)) {
       this.gameService.difficulty = 'hard';
       this.gameService.saveDifficulty();
       return;
     }
-    if (this.isPointInsideButton(x, y, this.OPTIONS_BACK_BUTTON)) {
+    if (isPointInsideButton(x, y, this.ui.OPTIONS_BACK_BUTTON)) {
       this.gameService.currentState = GameState.MENU;
     }
   }

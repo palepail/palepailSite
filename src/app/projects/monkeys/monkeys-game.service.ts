@@ -52,7 +52,10 @@ export class MonkeysGameService {
   difficulty: 'easy' | 'normal' | 'hard' = 'normal';
 
   // Mine detonation state machine
-  private pendingDetonationBatches: Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> = [];
+  private pendingDetonationBatches: Array<{
+    centroid: { x: number; y: number };
+    mines: PlantedMine[];
+  }> = [];
   private detonationPanMs = 0;
   private detonationPhase: 'panning' | 'exploding' = 'panning';
 
@@ -941,7 +944,7 @@ export class MonkeysGameService {
     const barrelEndX = enemy.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = enemy.y - Math.sin(angleRad) * barrelLength;
 
-    if (bullet.modifiers?.some(m => m.type === 'bounce_entity')) {
+    if (bullet.modifiers?.some((m) => m.type === 'bounce_entity')) {
       this.projectileService.spawnPhysicsPrimaryProjectile(
         barrelEndX,
         barrelEndY,
@@ -1262,11 +1265,15 @@ export class MonkeysGameService {
 
     // Tick emote expiry for all entities
     this.tickEmoteExpiry(this.player);
-    for (const e of this.enemies) { this.tickEmoteExpiry(e); }
+    for (const e of this.enemies) {
+      this.tickEmoteExpiry(e);
+    }
 
     // Continuous grumble check — every frame, regardless of whose turn it is
     this.updateGrumbleEmote(this.player);
-    for (const e of this.enemies) { if (e.active) this.updateGrumbleEmote(e); }
+    for (const e of this.enemies) {
+      if (e.active) this.updateGrumbleEmote(e);
+    }
 
     // Update turn queue (remove inactive enemies)
     this.turnService.updateTurnQueue(deltaTime);
@@ -1376,8 +1383,10 @@ export class MonkeysGameService {
     });
   }
 
-  private groupMinesByBatch(owner: Player | Enemy): Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> {
-    const ownerMines = this.projectileService.plantedMines.filter(m => m.owner === owner);
+  private groupMinesByBatch(
+    owner: Player | Enemy,
+  ): Array<{ centroid: { x: number; y: number }; mines: PlantedMine[] }> {
+    const ownerMines = this.projectileService.plantedMines.filter((m) => m.owner === owner);
     if (ownerMines.length === 0) return [];
     const groups = new Map<number, PlantedMine[]>();
     for (const mine of ownerMines) {
@@ -1386,7 +1395,9 @@ export class MonkeysGameService {
       groups.set(mine.batchId, arr);
     }
     // Remove owner's mines from the service list now (they're being dequeued for detonation)
-    this.projectileService.plantedMines = this.projectileService.plantedMines.filter(m => m.owner !== owner);
+    this.projectileService.plantedMines = this.projectileService.plantedMines.filter(
+      (m) => m.owner !== owner,
+    );
     return Array.from(groups.entries())
       .sort(([a], [b]) => a - b)
       .map(([, mines]) => ({
@@ -1405,7 +1416,7 @@ export class MonkeysGameService {
     const barrelEndX = this.player.x + Math.cos(angleRad) * barrelLength;
     const barrelEndY = this.player.y - Math.sin(angleRad) * barrelLength;
 
-    if (bullet.modifiers?.some(m => m.type === 'bounce_entity')) {
+    if (bullet.modifiers?.some((m) => m.type === 'bounce_entity')) {
       this.projectileService.spawnPhysicsPrimaryProjectile(
         barrelEndX,
         barrelEndY,
@@ -1625,7 +1636,11 @@ export class MonkeysGameService {
     return this.projectileService.poisonZones;
   }
 
-  playEmote(entity: Player | Enemy, name: EmoteName, opts?: { loop?: boolean; loopDelayMs?: number; zLayer?: 'front' | 'behind' }): void {
+  playEmote(
+    entity: Player | Enemy,
+    name: EmoteName,
+    opts?: { loop?: boolean; loopDelayMs?: number; zLayer?: 'front' | 'behind' },
+  ): void {
     entity.emote = {
       name,
       startTime: Date.now(),
@@ -1668,7 +1683,7 @@ export class MonkeysGameService {
   }
 
   private isInPoisonZone(entity: Player | Enemy): boolean {
-    return this.projectileService.poisonZones.some(z => {
+    return this.projectileService.poisonZones.some((z) => {
       const dx = entity.x - z.x;
       const dy = entity.y - z.y;
       return Math.sqrt(dx * dx + dy * dy) < z.radius;
@@ -1709,13 +1724,13 @@ export class MonkeysGameService {
       if (zone.owner === owner) zone.turnsUntilExpiry--;
     }
     this.projectileService.poisonZones = this.projectileService.poisonZones.filter(
-      z => z.turnsUntilExpiry > 0,
+      (z) => z.turnsUntilExpiry > 0,
     );
   }
 
   /** Returns true if a win/loss transition was triggered by poison damage. */
   private checkPoisonWinLoss(): boolean {
-    if (this.enemies.every(e => !e.active)) {
+    if (this.enemies.every((e) => !e.active)) {
       if (this.currentState !== GameState.WIN_DELAY && this.currentState !== GameState.WIN) {
         this.currentState = GameState.WIN_DELAY;
         this.winTimer = 1.5;
@@ -1728,7 +1743,10 @@ export class MonkeysGameService {
       return true;
     }
     if (this.player.health <= 0) {
-      if (this.currentState !== GameState.GAME_OVER_DELAY && this.currentState !== GameState.GAME_OVER) {
+      if (
+        this.currentState !== GameState.GAME_OVER_DELAY &&
+        this.currentState !== GameState.GAME_OVER
+      ) {
         this.currentState = GameState.GAME_OVER_DELAY;
         this.gameOverTimer = 2.0;
         this.keys = {};
