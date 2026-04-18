@@ -84,8 +84,8 @@ export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private canvasScale = 1;
   private readonly tintCache = new Map<string, HTMLCanvasElement>();
-  private readonly TERRAIN_TOOL_ENABLED = environment.devMode;
-  private readonly DEV_MODE = environment.devMode;
+  private readonly TERRAIN_TOOL_ENABLED = (environment as any).devMode ?? false;
+  private readonly DEV_MODE = (environment as any).devMode ?? false;
 
   private frozenTime: number | null = null; // set when paused to freeze sprite animations
   private animationFrameId = 0;
