@@ -54,3 +54,4 @@ src/environments/environment.prod.ts
 setup-env.ps1
 setup-env.sh
 firebase-debug.log
+firebase-debug.log
