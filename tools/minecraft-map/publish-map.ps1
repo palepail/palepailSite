@@ -48,14 +48,20 @@ param(
   [ValidateSet('jpeg', 'png', 'webp')]
   [string]$ImageFormat = 'jpeg',
 
-  # Hand-edited place markers, uploaded as-is if present.
-  [string]$MarkersFile = (Join-Path $PSScriptRoot 'markers.json'),
+  # Hand-edited place markers, uploaded as-is if present. Defaults to markers.json next to this script.
+  [string]$MarkersFile,
 
   # Display name on the site; defaults to the world's levelname.txt.
   [string]$WorldName
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty in param defaults, so resolve paths here.
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
+if (-not $MarkersFile) {
+  $MarkersFile = Join-Path $ScriptDir 'markers.json'
+}
 
 # Extra unmined-cli arguments per dimension. Without a top Y the Nether render is
 # just the bedrock roof. Check `unmined-cli help web render` if your version rejects these.
@@ -145,7 +151,7 @@ function Get-DimensionManifest([string]$RenderDir) {
 # --- Preflight ------------------------------------------------------------------------------
 if (-not $ProjectId) {
   $envFile = [System.IO.Path]::GetFullPath(
-    [System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'src', 'environments', 'environment.ts'))
+    [System.IO.Path]::Combine($ScriptDir, '..', '..', 'src', 'environments', 'environment.ts'))
   if ((Test-Path $envFile) -and ((Get-Content $envFile -Raw) -match 'projectId\s*:\s*[''"]([^''"]+)[''"]')) {
     $ProjectId = $Matches[1]
   } else {
