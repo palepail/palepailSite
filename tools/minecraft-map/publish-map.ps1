@@ -171,7 +171,8 @@ function Get-LastSeenPlayers([string]$DbPath) {
     if (-not (Test-Path (Join-Path $readerDir 'node_modules\leveldb-zlib'))) {
       Write-Step 'Installing the last-seen reader (first run only)'
       Push-Location $readerDir
-      try { Invoke-Checked 'npm' @('ci', '--omit=dev', '--no-audit', '--no-fund') } finally { Pop-Location }
+      # Out-Host: anything a function outputs becomes part of its return value.
+      try { Invoke-Checked 'npm' @('ci', '--omit=dev', '--no-audit', '--no-fund') | Out-Host } finally { Pop-Location }
     }
     $output = & node (Join-Path $readerDir 'read-last-seen.js') $DbPath
     if ($LASTEXITCODE -ne 0) {
@@ -180,7 +181,7 @@ function Get-LastSeenPlayers([string]$DbPath) {
     # Windows PowerShell 5.1's ConvertFrom-Json emits a JSON array as one object; assigning it
     # first and then wrapping with @() gives a flat list in both 5.1 and 7.
     $parsed = ($output -join "`n") | ConvertFrom-Json
-    $players = @($parsed)
+    $players = @(@($parsed) | Where-Object { $_.name })
     Update-LastSeenTimes $players
     Write-Step "Found $($players.Count) player(s) with a last-seen position"
     return , $players
