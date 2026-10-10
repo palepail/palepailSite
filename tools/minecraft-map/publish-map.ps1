@@ -1,18 +1,20 @@
 <#
 .SYNOPSIS
-  Renders the Bedrock world with uNmINeD and publishes the map tiles to Firebase Storage
+  Renders the Bedrock world with uNmINeD and publishes the map tiles to Firebase Hosting
   for the viewer at https://palepail.com/projects/interactable/minecraft-map.
 
 .DESCRIPTION
   1. Copies the world folder to a snapshot (so the live server's files aren't read mid-write).
-  2. Runs `unmined-cli web render` for each dimension.
+  2. Runs `unmined-cli web render` for each dimension into <WorkDir>\site\public\<dimension>.
   3. Scans the rendered tiles to build manifest.json (zoom range, block bounds, tile path).
-  4. Syncs tiles, manifest.json and markers.json to gs://<bucket>/minecraft-map/ with gcloud.
+  4. Deploys <WorkDir>\site to https://<HostingSite>.web.app with the Firebase CLI.
+     A Hosting deploy replaces the whole site, so the folder always holds every dimension;
+     only files that changed are uploaded.
 
   See README.md in this folder for one-time setup and scheduling.
 
 .EXAMPLE
-  .\publish-map.ps1 -WorldPath 'C:\bedrock-server\worlds\Bedrock level' -Bucket 'my-project.firebasestorage.app'
+  .\publish-map.ps1 -WorldPath 'C:\bedrock-server\worlds\Bedrock level' -ProjectId 'my-project'
 #>
 [CmdletBinding()]
 param(
@@ -20,14 +22,18 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$WorldPath,
 
-  # Firebase Storage bucket name, same as storageBucket in the site's Firebase config.
+  # Firebase project ID, same as projectId in the site's Firebase config.
   [Parameter(Mandatory = $true)]
-  [string]$Bucket,
+  [string]$ProjectId,
+
+  # Hosting site the map is deployed to; the default site's ID is the project ID.
+  # The viewer loads from https://<projectId>.web.app, so only change this together with it.
+  [string]$HostingSite = $ProjectId,
 
   # Path to unmined-cli.exe.
   [string]$UnminedCli = 'C:\unmined-cli\unmined-cli.exe',
 
-  # Working folder for the snapshot and rendered output. Keep it between runs.
+  # Working folder for the snapshot and the deployed site. Keep it between runs.
   [string]$WorkDir = 'C:\minecraft-map',
 
   [ValidateSet('overworld', 'nether', 'end')]
@@ -57,7 +63,6 @@ $DimensionArgs = @{
   end       = @()
 }
 
-$Destination = "gs://$Bucket/minecraft-map"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 function Write-Step([string]$Message) {
@@ -142,8 +147,8 @@ if (-not (Test-Path (Join-Path $WorldPath 'db'))) {
 if (-not (Test-Path $UnminedCli)) {
   throw "unmined-cli not found at '$UnminedCli'. Download it from https://unmined.net/downloads/"
 }
-if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
-  throw 'gcloud not found. Install the Google Cloud CLI and run `gcloud auth login`.'
+if (-not (Get-Command firebase -ErrorAction SilentlyContinue)) {
+  throw 'firebase not found. Install Node.js, then `npm install -g firebase-tools` and `firebase login`.'
 }
 if (-not $WorldName) {
   $levelName = Join-Path $WorldPath 'levelname.txt'
@@ -151,8 +156,9 @@ if (-not $WorldName) {
 }
 
 $snapshotDir = Join-Path $WorkDir 'snapshot'
-$renderRoot = Join-Path $WorkDir 'render'
-New-Item -ItemType Directory -Force -Path $snapshotDir, $renderRoot | Out-Null
+$siteDir = Join-Path $WorkDir 'site'
+$publicDir = Join-Path $siteDir 'public'
+New-Item -ItemType Directory -Force -Path $snapshotDir, $publicDir | Out-Null
 
 # --- 1. Snapshot the world ------------------------------------------------------------------
 Write-Step "Snapshotting '$WorldPath'"
@@ -163,12 +169,21 @@ if ($LASTEXITCODE -ge 8) {
 }
 
 # --- 2/3. Render each dimension and build the manifest --------------------------------------
-$manifestPath = Join-Path $WorkDir 'manifest.json'
-$previousManifest = if (Test-Path $manifestPath) { Get-Content $manifestPath -Raw | ConvertFrom-Json } else { $null }
+$manifestPath = Join-Path $publicDir 'manifest.json'
 $manifestDimensions = [ordered]@{}
+# Start from the last published entries: dimensions that fail or aren't rendered this run keep
+# their previous tiles (still in the site folder) and stay on the map.
+if (Test-Path $manifestPath) {
+  $previous = (Get-Content $manifestPath -Raw | ConvertFrom-Json).dimensions
+  foreach ($property in $previous.PSObject.Properties) {
+    if (Test-Path (Join-Path $publicDir $property.Name)) {
+      $manifestDimensions[$property.Name] = $property.Value
+    }
+  }
+}
 $failed = @()
 foreach ($dimension in $Dimensions) {
-  $renderDir = Join-Path $renderRoot $dimension
+  $renderDir = Join-Path $publicDir $dimension
   try {
     Write-Step "Rendering $dimension"
     $unminedArgs = @(
@@ -182,25 +197,10 @@ foreach ($dimension in $Dimensions) {
     ) + $DimensionArgs[$dimension]
     Invoke-Checked $UnminedCli $unminedArgs
 
-    $result = Get-DimensionManifest $renderDir
-    $manifestDimensions[$dimension] = $result.entry
-
-    # --- 4a. Upload tiles (only changed files are transferred) ---
-    $source = if ($result.tilesRel) { Join-Path $renderDir $result.tilesRel } else { $renderDir }
-    $target = if ($result.tilesRel) { "$Destination/$dimension/$($result.tilesRel)" } else { "$Destination/$dimension" }
-    Write-Step "Uploading $dimension tiles"
-    Invoke-Checked 'gcloud' @(
-      'storage', 'rsync', $source, $target,
-      '--recursive', '--checksums-only', '--delete-unmatched-destination-objects',
-      '--cache-control=public, max-age=3600'
-    )
+    $manifestDimensions[$dimension] = (Get-DimensionManifest $renderDir).entry
   } catch {
     Write-Warning "Skipping ${dimension}: $_"
     $failed += $dimension
-    # Keep the last good render of this dimension on the site.
-    if ($previousManifest -and $previousManifest.dimensions.$dimension) {
-      $manifestDimensions[$dimension] = $previousManifest.dimensions.$dimension
-    }
   }
 }
 
@@ -208,7 +208,7 @@ if ($failed.Count -eq $Dimensions.Count) {
   throw 'No dimensions rendered successfully; leaving the published map unchanged.'
 }
 
-# --- 4b. Upload manifest and markers --------------------------------------------------------
+# --- 4. Write manifest, markers and Hosting config, then deploy ----------------------------
 $manifest = [ordered]@{
   worldName  = $WorldName
   updatedAt  = (Get-Date).ToUniversalTime().ToString('o')
@@ -216,20 +216,47 @@ $manifest = [ordered]@{
 }
 [System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 6), $Utf8NoBom)
 
-Write-Step 'Uploading manifest'
-Invoke-Checked 'gcloud' @(
-  'storage', 'cp', $manifestPath, "$Destination/manifest.json",
-  '--cache-control=no-cache', '--content-type=application/json'
-)
-
+$markersTarget = Join-Path $publicDir 'markers.json'
 if (Test-Path $MarkersFile) {
   # Fail early on a typo rather than publishing a file the site can't parse.
   Get-Content $MarkersFile -Raw | ConvertFrom-Json | Out-Null
-  Write-Step 'Uploading markers'
-  Invoke-Checked 'gcloud' @(
-    'storage', 'cp', $MarkersFile, "$Destination/markers.json",
-    '--cache-control=no-cache', '--content-type=application/json'
+  Copy-Item $MarkersFile $markersTarget -Force
+} elseif (Test-Path $markersTarget) {
+  Remove-Item $markersTarget
+}
+
+# The viewer on palepail.com fetches the JSON files cross-origin; tiles are plain <img> loads.
+$hostingConfig = [ordered]@{
+  hosting = [ordered]@{
+    site    = $HostingSite
+    public  = 'public'
+    ignore  = @('**/.*')
+    headers = @(
+      [ordered]@{
+        source  = '**/*.json'
+        headers = @(
+          [ordered]@{ key = 'Access-Control-Allow-Origin'; value = '*' },
+          [ordered]@{ key = 'Cache-Control'; value = 'no-cache' }
+        )
+      },
+      [ordered]@{
+        source  = '**/tiles/**'
+        headers = @([ordered]@{ key = 'Cache-Control'; value = 'public, max-age=3600' })
+      }
+    )
+  }
+}
+[System.IO.File]::WriteAllText((Join-Path $siteDir 'firebase.json'), ($hostingConfig | ConvertTo-Json -Depth 8), $Utf8NoBom)
+
+Write-Step "Deploying to https://$HostingSite.web.app"
+Push-Location $siteDir
+try {
+  Invoke-Checked 'firebase' @(
+    'deploy', '--only', 'hosting', '--project', $ProjectId, '--non-interactive',
+    '--message', "Map render $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
   )
+} finally {
+  Pop-Location
 }
 
 if ($failed.Count -gt 0) {

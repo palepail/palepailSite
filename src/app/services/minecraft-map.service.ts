@@ -2,17 +2,17 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { MapManifest, MapMarker } from '../projects/minecraft-map/minecraft-map.types';
 
-/** Root folder in the Firebase Storage bucket that the publish script uploads to. */
-const MAP_ROOT = 'minecraft-map';
-
 @Injectable({ providedIn: 'root' })
 export class MinecraftMapService {
-  private readonly bucket = environment.firebase.storageBucket;
+  /**
+   * The map is published to the project's default Firebase Hosting site by
+   * tools/minecraft-map/publish-map.ps1 (Hosting is free on the Spark plan; Storage isn't).
+   */
+  private readonly baseUrl = `https://${environment.firebase.projectId}.web.app`;
 
-  /** Public download URL for an object in the map folder (requires the read rule in storage.rules). */
+  /** URL of a published map file, e.g. `manifest.json` or `overworld/tiles/...`. */
   objectUrl(path: string): string {
-    const objectPath = encodeURIComponent(`${MAP_ROOT}/${path}`);
-    return `https://firebasestorage.googleapis.com/v0/b/${this.bucket}/o/${objectPath}?alt=media`;
+    return `${this.baseUrl}/${path}`;
   }
 
   async getManifest(): Promise<MapManifest | null> {

@@ -38,7 +38,7 @@ function toLatLng(x: number, z: number): L.LatLngExpression {
   return [-z, x];
 }
 
-/** Tile layer that requests uNmINeD-style tile paths from Firebase Storage. */
+/** Tile layer that requests uNmINeD-style tile paths from the published map site. */
 class MinecraftTileLayer extends L.TileLayer {
   constructor(
     private readonly urlForPath: (path: string) => string,
