@@ -46,8 +46,10 @@ It renders `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level` and deploys 
 project in `src/environments/environment.ts`. Dimensions nobody has visited yet (no data in the
 world) are skipped and appear on a later run.
 
-The first render can take a long time on a big world. Keep `C:\minecraft-map\` between runs.
-Each run re-converts the whole world, so expect most of the map to re-render each time.
+The first render can take a long time on a big world. After that BlueMap only re-renders chunks
+that changed, so keep `C:\minecraft-map\` between runs. When a setting that's baked into the
+tiles changes (`-AmbientLight`, `-UseLightData`, `-MinecraftVersion`), the script automatically
+re-renders everything once.
 
 ### Schedule it
 
@@ -84,6 +86,7 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
 | `-ChunkerMemory`       | `4G`                                                      |
 | `-AmbientLight`        | `1` (fully lit; see below)                                |
 | `-UseLightData`        | off                                                       |
+| `-ForceRender`         | off; re-renders everything (automatic after a lighting/version change) |
 
 ## Troubleshooting
 

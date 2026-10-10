@@ -65,7 +65,11 @@ param(
   [double]$AmbientLight = 1,
 
   # Only render chunks that have light data (BlueMap's default).
-  [switch]$UseLightData
+  [switch]$UseLightData,
+
+  # Re-render every chunk instead of only changed ones. Happens automatically when a setting that
+  # is baked into the tiles (lighting, version, dimension settings) changed since the last run.
+  [switch]$ForceRender
 )
 
 $ErrorActionPreference = 'Stop'
@@ -276,11 +280,21 @@ $($markerLines -join "`n")
 "@
 }
 
+# BlueMap only re-renders chunks that changed, but lighting is baked into the low-detail tiles,
+# so a changed render setting needs a full re-render or distant areas keep the old look.
+$renderSettings = "version=$MinecraftVersion ambient=$AmbientLight lightData=$UseLightData " +
+  (($maps | ForEach-Object { "$_[$($Dimensions[$_].caves)|$($Dimensions[$_].extra)]" }) -join ' ')
+$renderSettingsFile = Join-Path $blueMapDir 'render-settings.txt'
+$previousRenderSettings = if (Test-Path $renderSettingsFile) { (Get-Content $renderSettingsFile -Raw).Trim() } else { '' }
+$blueMapArgs = @('-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
+if ($ForceRender -or $renderSettings -ne $previousRenderSettings) {
+  Write-Step 'Render settings changed (or -ForceRender); re-rendering everything'
+  $blueMapArgs += '-f'
+}
+
 Write-Step "Rendering $($maps -join ', ') with BlueMap (Minecraft $MinecraftVersion)"
-Invoke-Checked $JavaExe @(
-  '-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion,
-  '-g', '-s', '-r', '--markers'
-)
+Invoke-Checked $JavaExe $blueMapArgs
+Write-TextFile $renderSettingsFile $renderSettings
 
 # The webapp polls live player positions; there are none on a static site.
 foreach ($map in $maps) {
