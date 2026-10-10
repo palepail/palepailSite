@@ -14,24 +14,26 @@
   See README.md in this folder for one-time setup and scheduling.
 
 .EXAMPLE
-  .\publish-map.ps1 -WorldPath 'C:\bedrock-server\worlds\Bedrock level' -ProjectId 'my-project'
+  .\publish-map.ps1
+  Uses the defaults below; the project ID comes from the repo's src\environments\environment.ts.
+
+.EXAMPLE
+  .\publish-map.ps1 -WorldPath 'D:\other-server\worlds\My World' -ProjectId 'my-project'
 #>
 [CmdletBinding()]
 param(
   # Folder of the world (contains level.dat and db\).
-  [Parameter(Mandatory = $true)]
-  [string]$WorldPath,
+  [string]$WorldPath = 'E:\Games\Minecraft Bedrock Server\worlds\Bedrock level',
 
-  # Firebase project ID, same as projectId in the site's Firebase config.
-  [Parameter(Mandatory = $true)]
+  # Firebase project ID. Defaults to projectId in the repo's src\environments\environment.ts.
   [string]$ProjectId,
 
-  # Hosting site the map is deployed to; the default site's ID is the project ID.
+  # Hosting site the map is deployed to; defaults to the project ID (the default site).
   # The viewer loads from https://<projectId>.web.app, so only change this together with it.
-  [string]$HostingSite = $ProjectId,
+  [string]$HostingSite,
 
   # Path to unmined-cli.exe.
-  [string]$UnminedCli = 'C:\unmined-cli\unmined-cli.exe',
+  [string]$UnminedCli = 'X:\Programs\Unmined\unmined-cli_0.20.11-dev_win-64bit\unmined-cli.exe',
 
   # Working folder for the snapshot and the deployed site. Keep it between runs.
   [string]$WorkDir = 'C:\minecraft-map',
@@ -141,6 +143,18 @@ function Get-DimensionManifest([string]$RenderDir) {
 }
 
 # --- Preflight ------------------------------------------------------------------------------
+if (-not $ProjectId) {
+  $envFile = [System.IO.Path]::GetFullPath(
+    [System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'src', 'environments', 'environment.ts'))
+  if ((Test-Path $envFile) -and ((Get-Content $envFile -Raw) -match 'projectId\s*:\s*[''"]([^''"]+)[''"]')) {
+    $ProjectId = $Matches[1]
+  } else {
+    throw "No -ProjectId given and no projectId found in $envFile."
+  }
+}
+if (-not $HostingSite) {
+  $HostingSite = $ProjectId
+}
 if (-not (Test-Path (Join-Path $WorldPath 'db'))) {
   throw "WorldPath '$WorldPath' doesn't look like a Bedrock world (no db folder)."
 }
