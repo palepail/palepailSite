@@ -53,14 +53,14 @@ re-renders everything once.
 
 ### Schedule it
 
-Re-render every day at 2:30 PM. Run this from an **elevated** PowerShell:
+Re-render every day at 2:30 PM. Run this once:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\register-map-task.ps1
 ```
 
-It asks for your Windows password, so the task runs even when you're logged out, and registers
-the **Minecraft map** task. The task runs as you, so it uses your `firebase login`, Java and Node.
+It registers the **Minecraft map** task. It runs as you while you're logged in, so it uses your
+`firebase login`, Java and Node.
 Each run's output goes to `C:\minecraft-map\publish.log`. Useful extras:
 
 - Run it now: `Start-ScheduledTask -TaskName 'Minecraft map'`

@@ -7,8 +7,7 @@
   "Minecraft map players" runs it with -PlayersOnly every -PlayersEveryMinutes minutes.
   Each run's output goes to <LogDir>\publish.log (or publish-players.log), overwritten each time.
 
-  Run from an elevated PowerShell. You'll be asked for your Windows password so the tasks can run
-  whether or not you're logged in; they run as you, so they use your `firebase login`.
+  The tasks run as you, while you're logged in, so they use your `firebase login`, Java and Node.
   Re-running replaces the tasks.
 
 .EXAMPLE
@@ -41,10 +40,7 @@ function New-PublishAction([string]$ExtraArgs, [string]$LogFile) {
     -WorkingDirectory $ScriptDir
 }
 
-$credential = Get-Credential -UserName "$env:USERDOMAIN\$env:USERNAME" `
-  -Message 'Your Windows password, so the task can run when you are not logged in'
-$user = $credential.UserName
-$password = $credential.GetNetworkCredential().Password
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive
 # Renders can take a while; don't let Windows stop them early, and run a missed time on next boot.
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 12)
 
@@ -52,7 +48,7 @@ Register-ScheduledTask -TaskName 'Minecraft map' -Force `
   -Description 'Renders the Minecraft world with BlueMap and publishes it to palepail.com.' `
   -Action (New-PublishAction '' (Join-Path $LogDir 'publish.log')) `
   -Trigger (New-ScheduledTaskTrigger -Daily -At $At) `
-  -Settings $settings -User $user -Password $password | Out-Null
+  -Settings $settings -Principal $principal | Out-Null
 Write-Host "Registered 'Minecraft map': every day at $At (log: $(Join-Path $LogDir 'publish.log'))"
 
 if ($PlayersEveryMinutes -gt 0) {
@@ -61,7 +57,7 @@ if ($PlayersEveryMinutes -gt 0) {
   Register-ScheduledTask -TaskName 'Minecraft map players' -Force `
     -Description 'Refreshes player last-seen positions on the palepail.com Minecraft map.' `
     -Action (New-PublishAction '-PlayersOnly' (Join-Path $LogDir 'publish-players.log')) `
-    -Trigger $trigger -Settings $settings -User $user -Password $password | Out-Null
+    -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
   Write-Host "Registered 'Minecraft map players': every $PlayersEveryMinutes minutes"
 }
 
