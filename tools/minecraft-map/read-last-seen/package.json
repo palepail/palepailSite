@@ -4,6 +4,7 @@
   "description": "Reads player last-seen records from a Bedrock world for the palepail.com world map.",
   "main": "read-last-seen.js",
   "dependencies": {
-    "leveldb-zlib": "1.2.0"
+    "leveldb-zlib": "1.2.0",
+    "prismarine-nbt": "2.8.0"
   }
 }

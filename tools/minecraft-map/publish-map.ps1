@@ -168,8 +168,9 @@ function Update-LastSeenTimes($Players) {
 function Get-LastSeenPlayers([string]$DbPath) {
   $readerDir = Join-Path $ScriptDir 'read-last-seen'
   try {
-    if (-not (Test-Path (Join-Path $readerDir 'node_modules\leveldb-zlib'))) {
-      Write-Step 'Installing the last-seen reader (first run only)'
+    $installed = @('leveldb-zlib', 'prismarine-nbt') | Where-Object { Test-Path (Join-Path $readerDir "node_modules\$_") }
+    if ($installed.Count -lt 2) {
+      Write-Step 'Installing the last-seen reader and map tools (first run only)'
       Push-Location $readerDir
       # Out-Host: anything a function outputs becomes part of its return value.
       try { Invoke-Checked 'npm' @('ci', '--omit=dev', '--no-audit', '--no-fund') | Out-Host } finally { Pop-Location }

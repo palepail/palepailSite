@@ -140,5 +140,15 @@ prints a warning.
   it supports, and pass a matching `-MinecraftVersion` (e.g. `JAVA_1_21_11` → `1.21.11`).
 - **Map page says "hasn't been published yet":** nothing is deployed yet, or the default Hosting
   site ID isn't the project ID. The page loads `https://<projectId>.web.app/map-info.json`.
+- **Gaps in the map where people have been:** `read-last-seen\map-coverage.js` counts the
+  generated chunks in a Bedrock world and checks which made it into the converted Java world.
+  Run `npm ci` in `read-last-seen\` first if the publish script hasn't installed it yet. Then:
+  ```powershell
+  cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
+  node map-coverage.js "C:\minecraft-map\snapshot\db" "C:\minecraft-map\java-world"
+  ```
+  Run it on the live world's `db` too, with the server stopped. Fewer chunks in the snapshot than
+  in the live world means the copy missed data. Chunks missing from the Java world point at the
+  Chunker conversion. Chunks with status `empty` are skipped by BlueMap.
 - **Over the daily transfer limit:** on Spark, Hosting stops serving until the quota resets.
 - The old uNmINeD output in `C:\minecraft-map\site\` is no longer used and can be deleted.
