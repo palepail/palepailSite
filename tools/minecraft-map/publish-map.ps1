@@ -11,6 +11,11 @@
   4. Deploys that folder to https://<HostingSite>.web.app with the Firebase CLI. A Hosting deploy
      replaces the whole site; only files that changed are uploaded.
 
+  Player last-seen positions recorded by the "Palepail Last Seen" behavior pack (see
+  install-last-seen-pack.ps1) are read from the snapshot, shown as a "Players" marker set and
+  published as players.json for the page. -PlayersOnly refreshes just those, skipping the
+  conversion and render, so it takes seconds and can be scheduled often.
+
   BlueMap downloads the Minecraft Java client from Mojang for textures, which requires accepting
   Mojang's EULA and owning Minecraft Java Edition; pass -AcceptMinecraftEula to confirm that.
 
@@ -19,6 +24,10 @@
 .EXAMPLE
   .\publish-map.ps1 -AcceptMinecraftEula
   Uses the defaults below; the project ID comes from the repo's src\environments\environment.ts.
+
+.EXAMPLE
+  .\publish-map.ps1 -AcceptMinecraftEula -PlayersOnly
+  Updates only the players' last-seen pins and list (needs one full publish first).
 #>
 [CmdletBinding()]
 param(
@@ -73,7 +82,10 @@ param(
 
   # Re-render every chunk instead of only changed ones. Happens automatically when a setting that
   # is baked into the tiles (lighting, version, dimension settings) changed since the last run.
-  [switch]$ForceRender
+  [switch]$ForceRender,
+
+  # Only refresh players' last-seen positions: no conversion or render. Needs a previous full run.
+  [switch]$PlayersOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -127,6 +139,32 @@ function ConvertTo-Hocon([string]$Value) {
   return '"' + $Value.Replace('\', '/').Replace('"', '\"') + '"'
 }
 
+# Reads the players recorded by the last-seen behavior pack from a Bedrock world's db folder.
+# Returns an empty list (with a warning) rather than failing the publish.
+function Get-LastSeenPlayers([string]$DbPath) {
+  $readerDir = Join-Path $ScriptDir 'read-last-seen'
+  try {
+    if (-not (Test-Path (Join-Path $readerDir 'node_modules\leveldb-zlib'))) {
+      Write-Step 'Installing the last-seen reader (first run only)'
+      Push-Location $readerDir
+      try { Invoke-Checked 'npm' @('ci', '--omit=dev', '--no-audit', '--no-fund') } finally { Pop-Location }
+    }
+    $output = & node (Join-Path $readerDir 'read-last-seen.js') $DbPath
+    if ($LASTEXITCODE -ne 0) {
+      throw "read-last-seen exited with code $LASTEXITCODE"
+    }
+    # Windows PowerShell 5.1's ConvertFrom-Json emits a JSON array as one object; assigning it
+    # first and then wrapping with @() gives a flat list in both 5.1 and 7.
+    $parsed = ($output -join "`n") | ConvertFrom-Json
+    $players = @($parsed)
+    Write-Step "Found $($players.Count) player(s) with a last-seen position"
+    return , $players
+  } catch {
+    Write-Warning "Couldn't read player last-seen data; publishing without it. $_"
+    return , @()
+  }
+}
+
 # --- Preflight ------------------------------------------------------------------------------
 if (-not $AcceptMinecraftEula) {
   throw @'
@@ -150,7 +188,7 @@ if (-not $HostingSite) {
 if (-not (Test-Path (Join-Path $WorldPath 'db'))) {
   throw "WorldPath '$WorldPath' doesn't look like a Bedrock world (no db folder)."
 }
-foreach ($jar in @($BlueMapJar, $ChunkerJar)) {
+foreach ($jar in @($BlueMapJar) + @(if (-not $PlayersOnly) { $ChunkerJar })) {
   if (-not (Test-Path $jar)) {
     throw "'$jar' not found. See README.md for where to download BlueMap and Chunker."
   }
@@ -168,10 +206,14 @@ if (($javaVersion -join ' ') -match 'version "(\d+)' -and [int]$Matches[1] -lt 2
 if (-not (Get-Command firebase -ErrorAction SilentlyContinue)) {
   throw 'firebase not found. Install Node.js, then `npm install -g firebase-tools` and `firebase login`.'
 }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  throw 'node not found. Install Node.js (it is also needed for the Firebase CLI).'
+}
 $markers = @()
 if (Test-Path $MarkersFile) {
   # Fail early on a typo rather than publishing a broken config.
-  $markers = @(Get-Content $MarkersFile -Raw | ConvertFrom-Json)
+  $parsed = Get-Content $MarkersFile -Raw | ConvertFrom-Json
+  $markers = @($parsed)  # see Get-LastSeenPlayers for why this isn't one pipeline
 }
 if (-not $WorldName) {
   $levelName = Join-Path $WorldPath 'levelname.txt'
@@ -194,32 +236,43 @@ if ($LASTEXITCODE -ge 8) {
   throw "robocopy failed with code $LASTEXITCODE"
 }
 
-# --- 2. Convert to Java Edition ---------------------------------------------------------------
-$chunkerFormat = 'JAVA_' + $MinecraftVersion.Replace('.', '_')
-Write-Step "Converting to Java Edition ($chunkerFormat) with Chunker"
-if (Test-Path $javaWorldDir) {
-  Remove-Item -Recurse -Force $javaWorldDir
+$players = Get-LastSeenPlayers (Join-Path $snapshotDir 'db')
+$mapInfoPath = Join-Path $publicDir 'map-info.json'
+
+if ($PlayersOnly) {
+  # Reuse the maps from the last full publish.
+  if (-not (Test-Path $mapInfoPath)) {
+    throw '-PlayersOnly needs a previous full publish (no map-info.json yet). Run without it first.'
+  }
+  $maps = @((Get-Content $mapInfoPath -Raw | ConvertFrom-Json).maps)
+} else {
+  # --- 2. Convert to Java Edition -------------------------------------------------------------
+  $chunkerFormat = 'JAVA_' + $MinecraftVersion.Replace('.', '_')
+  Write-Step "Converting to Java Edition ($chunkerFormat) with Chunker"
+  if (Test-Path $javaWorldDir) {
+    Remove-Item -Recurse -Force $javaWorldDir
+  }
+  Invoke-Checked $JavaExe @(
+    "-Xmx$ChunkerMemory", '-jar', $ChunkerJar,
+    '-i', $snapshotDir, '-o', $javaWorldDir, '-f', $chunkerFormat
+  )
+
+  $maps = @($Dimensions.Keys | Where-Object {
+    $dimension = $Dimensions[$_]
+    @($dimension.folders | Where-Object { Test-Path (Join-Path $javaWorldDir $_) }).Count -gt 0
+  })
+  if ($maps.Count -eq 0) {
+    $found = Get-ChildItem -Path $javaWorldDir -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+      ForEach-Object { $_.FullName.Substring($javaWorldDir.Length) }
+    throw "Chunker produced no region folders in '$javaWorldDir'. Folders found:`n$($found -join "`n")"
+  }
+  $skipped = @($Dimensions.Keys | Where-Object { $maps -notcontains $_ })
+  if ($skipped.Count -gt 0) {
+    Write-Step "No data for $($skipped -join ', ') yet (nobody has been there); skipping."
+  }
 }
-Invoke-Checked $JavaExe @(
-  "-Xmx$ChunkerMemory", '-jar', $ChunkerJar,
-  '-i', $snapshotDir, '-o', $javaWorldDir, '-f', $chunkerFormat
-)
 
 # --- 3. Configure and render BlueMap --------------------------------------------------------
-$maps = @($Dimensions.Keys | Where-Object {
-  $dimension = $Dimensions[$_]
-  @($dimension.folders | Where-Object { Test-Path (Join-Path $javaWorldDir $_) }).Count -gt 0
-})
-if ($maps.Count -eq 0) {
-  $found = Get-ChildItem -Path $javaWorldDir -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
-    ForEach-Object { $_.FullName.Substring($javaWorldDir.Length) }
-  throw "Chunker produced no region folders in '$javaWorldDir'. Folders found:`n$($found -join "`n")"
-}
-$skipped = @($Dimensions.Keys | Where-Object { $maps -notcontains $_ })
-if ($skipped.Count -gt 0) {
-  Write-Step "No data for $($skipped -join ', ') yet (nobody has been there); skipping."
-}
-
 Write-TextFile (Join-Path $configDir 'core.conf') @"
 accept-download: true
 data: $(ConvertTo-Hocon (Join-Path $blueMapDir 'data'))
@@ -258,6 +311,13 @@ foreach ($map in $maps) {
     $detail = if ($marker.description) { ", detail: $(ConvertTo-Hocon ([System.Net.WebUtility]::HtmlEncode($marker.description)))" } else { '' }
     "      marker$($i): { type: ""poi"", label: $(ConvertTo-Hocon $marker.name), position: { x: $($marker.x), y: $y, z: $($marker.z) }$detail }"
   }
+  $mapPlayers = @($players | Where-Object { $_.dimension -eq $map })
+  $playerLines = for ($i = 0; $i -lt $mapPlayers.Count; $i++) {
+    $player = $mapPlayers[$i]
+    $seen = [DateTimeOffset]::FromUnixTimeMilliseconds([long]$player.lastSeen).ToLocalTime().ToString('MMM d, HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+    $label = "$($player.name) - last seen $seen"
+    "      player$($i): { type: ""poi"", label: $(ConvertTo-Hocon $label), detail: $(ConvertTo-Hocon ([System.Net.WebUtility]::HtmlEncode($label))), icon: ""assets/steve.png"", anchor: { x: 24, y: 24 }, position: { x: $($player.x), y: $($player.y), z: $($player.z) } }"
+  }
   Write-TextFile (Join-Path $mapsConfigDir "$map.conf") @"
 world: $(ConvertTo-Hocon $javaWorldDir)
 dimension: "$($dim.id)"
@@ -280,6 +340,15 @@ marker-sets: {
 $($markerLines -join "`n")
     }
   }
+  players: {
+    label: "Players"
+    toggleable: true
+    default-hidden: false
+    sorting: 1
+    markers: {
+$($playerLines -join "`n")
+    }
+  }
 }
 "@
 }
@@ -290,15 +359,20 @@ $renderSettings = "version=$MinecraftVersion ambient=$AmbientLight lightData=$Us
   (($maps | ForEach-Object { "$_[$($Dimensions[$_].caves)|$($Dimensions[$_].extra)]" }) -join ' ')
 $renderSettingsFile = Join-Path $blueMapDir 'render-settings.txt'
 $previousRenderSettings = if (Test-Path $renderSettingsFile) { (Get-Content $renderSettingsFile -Raw).Trim() } else { '' }
-$blueMapArgs = @('-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
-if ($ForceRender -or $renderSettings -ne $previousRenderSettings) {
-  Write-Step 'Render settings changed (or -ForceRender); re-rendering everything'
-  $blueMapArgs += '-f'
-}
+if ($PlayersOnly) {
+  Write-Step 'Updating map markers'
+  Invoke-Checked $JavaExe @('-jar', $BlueMapJar, '-c', $configDir, '--markers')
+} else {
+  $blueMapArgs = @('-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
+  if ($ForceRender -or $renderSettings -ne $previousRenderSettings) {
+    Write-Step 'Render settings changed (or -ForceRender); re-rendering everything'
+    $blueMapArgs += '-f'
+  }
 
-Write-Step "Rendering $($maps -join ', ') with BlueMap (Minecraft $MinecraftVersion)"
-Invoke-Checked $JavaExe $blueMapArgs
-Write-TextFile $renderSettingsFile $renderSettings
+  Write-Step "Rendering $($maps -join ', ') with BlueMap (Minecraft $MinecraftVersion)"
+  Invoke-Checked $JavaExe $blueMapArgs
+  Write-TextFile $renderSettingsFile $renderSettings
+}
 
 # The webapp polls live player positions; there are none on a static site.
 foreach ($map in $maps) {
@@ -306,12 +380,30 @@ foreach ($map in $maps) {
 }
 
 # --- 4. Deploy ------------------------------------------------------------------------------
-$mapInfo = [ordered]@{
-  worldName = $WorldName
-  updatedAt = (Get-Date).ToUniversalTime().ToString('o')
-  maps      = $maps
+if (-not $PlayersOnly) {
+  $mapInfo = [ordered]@{
+    worldName = $WorldName
+    updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    maps      = $maps
+  }
+  Write-TextFile $mapInfoPath ($mapInfo | ConvertTo-Json)
 }
-Write-TextFile (Join-Path $publicDir 'map-info.json') ($mapInfo | ConvertTo-Json)
+
+$playersInfo = [ordered]@{
+  updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+  players   = @($players | ForEach-Object {
+    [ordered]@{
+      name      = $_.name
+      dimension = $_.dimension
+      x         = $_.x
+      y         = $_.y
+      z         = $_.z
+      lastSeen  = [DateTimeOffset]::FromUnixTimeMilliseconds([long]$_.lastSeen).ToString('o')
+    }
+  })
+}
+# -InputObject keeps a one-element list as a JSON array on Windows PowerShell 5.1.
+Write-TextFile (Join-Path $publicDir 'players.json') (ConvertTo-Json -InputObject $playersInfo -Depth 4)
 
 $hostingConfig = [ordered]@{
   hosting = [ordered]@{
@@ -319,9 +411,9 @@ $hostingConfig = [ordered]@{
     public  = 'public'
     ignore  = @('**/.*', 'sql.php', '**/*.map')
     headers = @(
-      # map-info.json is fetched cross-origin by the page on palepail.com.
+      # map-info.json and players.json are fetched cross-origin by the page on palepail.com.
       [ordered]@{
-        source  = '/map-info.json'
+        source  = '/@(map-info|players).json'
         headers = @([ordered]@{ key = 'Access-Control-Allow-Origin'; value = '*' })
       },
       # Settings, markers and map metadata change on every render.
@@ -343,7 +435,7 @@ Push-Location $siteDir
 try {
   Invoke-Checked 'firebase' @(
     'deploy', '--only', 'hosting', '--project', $ProjectId, '--non-interactive',
-    '--message', "Map render $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+    '--message', "$(if ($PlayersOnly) { 'Players update' } else { 'Map render' }) $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
   )
 } finally {
   Pop-Location

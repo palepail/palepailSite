@@ -71,6 +71,39 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
   in-game Y of the place.
 - `description` is optional and shown when the pin is clicked.
 
+## Players (last seen)
+
+The **Palepail Last Seen** behavior pack (`last-seen-pack/`) records each player's name, position,
+dimension and time when they join and leave, and every minute while they're online. It uses only
+the stable Script API, so the world needs no experiments. It saves the data inside the world as
+dynamic properties. On every publish, `read-last-seen/` reads it from the snapshot, using Node.js
+and the `leveldb-zlib` package, which the script installs on first use. The publish then:
+
+- adds a **Players** marker set to the map, with pins labelled "name - last seen Oct 10, 14:32";
+- writes `players.json`, which the page shows as a list beside the map. Click a name to fly there.
+
+**Install once** (from this folder, then restart the server):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\install-last-seen-pack.ps1
+```
+
+It copies the pack to `E:\Games\Minecraft Bedrock Server\behavior_packs\` and enables it in
+the world's `world_behavior_packs.json`. Pass `-ServerPath` and `-WorldName` if those differ.
+Players appear once they've joined with the pack loaded, and the world has saved, which the server
+does every few minutes.
+
+**Keep it fresh:** `-PlayersOnly` re-reads players and updates just the pins and list, with no
+conversion or render, so it only takes seconds. Schedule it every 15 minutes:
+
+```powershell
+schtasks /Create /TN "Minecraft map players" /SC MINUTE /MO 15 /RU "$env:USERNAME" /RP `
+  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1 -AcceptMinecraftEula -PlayersOnly"
+```
+
+If the player data can't be read, the map still publishes, without players, and the script
+prints a warning.
+
 ## Options
 
 | Parameter              | Default                                                   |
@@ -88,6 +121,7 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
 | `-UseLightData`        | off                                                       |
 | `-HideCaves`           | off: caves are rendered so free-flight can go underground; on leaves out Overworld caves below Y 55 (smaller, faster render) |
 | `-ForceRender`         | off; re-renders everything (automatic after a lighting/version change) |
+| `-PlayersOnly`         | off; only refreshes player pins and `players.json` (needs one full publish first) |
 
 ## Troubleshooting
 

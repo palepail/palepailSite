@@ -1,0 +1,25 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Palepail Last Seen",
+    "description": "Records where and when each player was last seen, for the world map on palepail.com.",
+    "uuid": "41b2dedc-2626-424d-9ca1-f049e5045cbe",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 90]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "350bb49a-b5c6-4d7d-bfa3-973bc36eeffc",
+      "entry": "scripts/main.js",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    }
+  ]
+}

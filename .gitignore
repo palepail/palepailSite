@@ -55,3 +55,6 @@ setup-env.ps1
 setup-env.sh
 firebase-debug.log
 firebase-debug.log
+
+# Node dependencies of the map publishing tools
+/tools/minecraft-map/read-last-seen/node_modules

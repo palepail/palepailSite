@@ -19,22 +19,51 @@
     </div>
   </header>
 
-  <div class="map-frame">
-    @switch (state()) {
-      @case ('loading') {
-        <div class="map-overlay">Loading map…</div>
+  <div class="map-layout">
+    <div class="map-frame">
+      @switch (state()) {
+        @case ('loading') {
+          <div class="map-overlay">Loading map…</div>
+        }
+        @case ('unpublished') {
+          <div class="map-overlay">The map hasn't been published yet. Check back soon!</div>
+        }
+        @case ('ready') {
+          <iframe
+            class="map-viewer"
+            [src]="viewerSrc()"
+            title="3D map of the Minecraft world"
+            allow="fullscreen"
+          ></iframe>
+        }
       }
-      @case ('unpublished') {
-        <div class="map-overlay">The map hasn't been published yet. Check back soon!</div>
-      }
-      @case ('ready') {
-        <iframe
-          class="map-viewer"
-          [src]="safeViewerUrl"
-          title="3D map of the Minecraft world"
-          allow="fullscreen"
-        ></iframe>
-      }
+    </div>
+
+    @if (state() === 'ready' && playerRows().length) {
+      <aside class="player-list" aria-label="Players">
+        <h2>Players</h2>
+        <ul>
+          @for (row of playerRows(); track row.player.name) {
+            <li>
+              <button
+                type="button"
+                [class.selected]="selectedPlayer() === row.player.name"
+                [disabled]="!row.onMap"
+                [title]="row.onMap ? 'Show on map' : row.dimension + ' isn\'t on the map yet'"
+                (click)="showPlayer(row.player)"
+              >
+                <span class="player-name">{{ row.player.name }}</span>
+                <span class="player-seen">
+                  <time [attr.datetime]="row.player.lastSeen" [title]="row.seenExact">{{
+                    row.seen
+                  }}</time>
+                  · {{ row.dimension }}
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      </aside>
     }
   </div>
 </div>
