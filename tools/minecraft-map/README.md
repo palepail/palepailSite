@@ -145,8 +145,10 @@ prints a warning.
   Run `npm ci` in `read-last-seen\` first if the publish script hasn't installed it yet. Then:
   ```powershell
   cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
-  node map-coverage.js "C:\minecraft-map\snapshot\db" "C:\minecraft-map\java-world"
+  node map-coverage.js "C:\minecraft-map\snapshot\db" "C:\minecraft-map\java-world" "C:\minecraft-map\bluemap\site\public\maps"
   ```
+  It also writes `coverage-<dimension>.png`, one square per chunk with north up: green is
+  rendered, orange is converted but not rendered, red is lost in conversion.
   Run it on the live world's `db` too, with the server stopped. Fewer chunks in the snapshot than
   in the live world means the copy missed data. Chunks missing from the Java world point at the
   Chunker conversion. Chunks with status `empty` are skipped by BlueMap.
