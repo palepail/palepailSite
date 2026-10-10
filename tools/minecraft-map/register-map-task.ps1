@@ -1,0 +1,68 @@
+<#
+.SYNOPSIS
+  Registers Windows scheduled tasks that publish the Minecraft map automatically.
+
+.DESCRIPTION
+  "Minecraft map" runs publish-map.ps1 every day at -At (default 2:30 PM). Optionally,
+  "Minecraft map players" runs it with -PlayersOnly every -PlayersEveryMinutes minutes.
+  Each run's output goes to <LogDir>\publish.log (or publish-players.log), overwritten each time.
+
+  Run from an elevated PowerShell. You'll be asked for your Windows password so the tasks can run
+  whether or not you're logged in; they run as you, so they use your `firebase login`.
+  Re-running replaces the tasks.
+
+.EXAMPLE
+  .\register-map-task.ps1
+.EXAMPLE
+  .\register-map-task.ps1 -At 14:30 -PlayersEveryMinutes 15
+#>
+[CmdletBinding()]
+param(
+  # Time of day for the full map publish.
+  [string]$At = '14:30',
+
+  # Also refresh players' last-seen positions this often (minutes); 0 = don't.
+  [int]$PlayersEveryMinutes = 0,
+
+  [string]$LogDir = 'C:\minecraft-map'
+)
+
+$ErrorActionPreference = 'Stop'
+
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
+$publishScript = Join-Path $ScriptDir 'publish-map.ps1'
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+function New-PublishAction([string]$ExtraArgs, [string]$LogFile) {
+  # *> sends every output stream (including the tools' console output) to the log.
+  $command = "& '$publishScript' -AcceptMinecraftEula $ExtraArgs *> '$LogFile'"
+  New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$command`"" `
+    -WorkingDirectory $ScriptDir
+}
+
+$credential = Get-Credential -UserName "$env:USERDOMAIN\$env:USERNAME" `
+  -Message 'Your Windows password, so the task can run when you are not logged in'
+$user = $credential.UserName
+$password = $credential.GetNetworkCredential().Password
+# Renders can take a while; don't let Windows stop them early, and run a missed time on next boot.
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 12)
+
+Register-ScheduledTask -TaskName 'Minecraft map' -Force `
+  -Description 'Renders the Minecraft world with BlueMap and publishes it to palepail.com.' `
+  -Action (New-PublishAction '' (Join-Path $LogDir 'publish.log')) `
+  -Trigger (New-ScheduledTaskTrigger -Daily -At $At) `
+  -Settings $settings -User $user -Password $password | Out-Null
+Write-Host "Registered 'Minecraft map': every day at $At (log: $(Join-Path $LogDir 'publish.log'))"
+
+if ($PlayersEveryMinutes -gt 0) {
+  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes $PlayersEveryMinutes)
+  Register-ScheduledTask -TaskName 'Minecraft map players' -Force `
+    -Description 'Refreshes player last-seen positions on the palepail.com Minecraft map.' `
+    -Action (New-PublishAction '-PlayersOnly' (Join-Path $LogDir 'publish-players.log')) `
+    -Trigger $trigger -Settings $settings -User $user -Password $password | Out-Null
+  Write-Host "Registered 'Minecraft map players': every $PlayersEveryMinutes minutes"
+}
+
+Write-Host "Test it now with: Start-ScheduledTask -TaskName 'Minecraft map'"

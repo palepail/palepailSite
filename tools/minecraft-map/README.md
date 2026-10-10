@@ -53,14 +53,19 @@ re-renders everything once.
 
 ### Schedule it
 
-Re-render every night at 4 AM (run from an elevated prompt):
+Re-render every day at 2:30 PM. Run this from an **elevated** PowerShell:
 
 ```powershell
-schtasks /Create /TN "Minecraft map" /SC DAILY /ST 04:00 /RU "$env:USERNAME" /RP `
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1 -AcceptMinecraftEula"
+powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\register-map-task.ps1
 ```
 
-The task must run as the user that ran `firebase login`.
+It asks for your Windows password, so the task runs even when you're logged out, and registers
+the **Minecraft map** task. The task runs as you, so it uses your `firebase login`, Java and Node.
+Each run's output goes to `C:\minecraft-map\publish.log`. Useful extras:
+
+- Run it now: `Start-ScheduledTask -TaskName 'Minecraft map'`
+- Another time: `register-map-task.ps1 -At 09:00`
+- Remove it: `Unregister-ScheduledTask -TaskName 'Minecraft map'`
 
 ## Markers
 
@@ -94,11 +99,11 @@ Players appear once they've joined with the pack loaded, and the world has saved
 does every few minutes.
 
 **Keep it fresh:** `-PlayersOnly` re-reads players and updates just the pins and list, with no
-conversion or render, so it only takes seconds. Schedule it every 15 minutes:
+conversion or render, so it only takes seconds. To also schedule it every 15 minutes (log:
+`C:\minecraft-map\publish-players.log`):
 
 ```powershell
-schtasks /Create /TN "Minecraft map players" /SC MINUTE /MO 15 /RU "$env:USERNAME" /RP `
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1 -AcceptMinecraftEula -PlayersOnly"
+powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\register-map-task.ps1 -PlayersEveryMinutes 15
 ```
 
 If the player data can't be read, the map still publishes, without players, and the script

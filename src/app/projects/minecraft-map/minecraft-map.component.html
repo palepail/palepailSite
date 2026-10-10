@@ -1,7 +1,7 @@
 <div class="map-page">
   <header class="map-header">
     <div>
-      <h1>{{ info()?.worldName || 'Minecraft World' }}</h1>
+      <h1>Minecraft Map</h1>
       <p class="map-description">
         Explore the known world of our Bedrock server in 3D. Drag to look around, scroll to zoom,
         and use the menu to switch dimensions, views and places.
@@ -9,7 +9,12 @@
     </div>
     <div class="map-meta">
       @if (updatedAt()) {
-        <p class="map-updated">Last rendered {{ updatedAt() }}</p>
+        <p class="map-updated">
+          @if (info()?.worldName) {
+            {{ info()?.worldName }} ·
+          }
+          Last rendered {{ updatedAt() }}
+        </p>
       }
       @if (state() === 'ready') {
         <a class="map-fullscreen" [href]="viewerUrl" target="_blank" rel="noopener">
