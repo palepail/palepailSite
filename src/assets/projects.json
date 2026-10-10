@@ -31,8 +31,8 @@
         },
         {
           "title": "Minecraft World Map",
-          "description": "Interactive map of the known world on our Minecraft Bedrock server",
-          "technologies": ["Angular", "Leaflet", "Firebase", "uNmINeD"],
+          "description": "Interactive 3D map of the known world on our Minecraft Bedrock server",
+          "technologies": ["Angular", "BlueMap", "Chunker", "Firebase"],
           "image": "/resources/images/projects/minecraftMap/preview.svg",
           "link": "/projects/interactable/minecraft-map",
           "status": [{ "name": "In Development" }]

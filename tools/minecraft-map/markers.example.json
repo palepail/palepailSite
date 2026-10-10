@@ -12,7 +12,8 @@
     "dimension": "overworld",
     "x": 412,
     "z": -1280,
-    "color": "#e74c3c"
+    "color": "#e74c3c",
+    "y": 80
   },
   {
     "name": "Nether Hub",

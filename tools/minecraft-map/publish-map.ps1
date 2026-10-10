@@ -1,28 +1,31 @@
 <#
 .SYNOPSIS
-  Renders the Bedrock world with uNmINeD and publishes the map tiles to Firebase Hosting
-  for the viewer at https://palepail.com/projects/interactable/minecraft-map.
+  Renders the Bedrock world as a 3D BlueMap and publishes it to Firebase Hosting for the viewer at
+  https://palepail.com/projects/interactable/minecraft-map.
 
 .DESCRIPTION
   1. Copies the world folder to a snapshot (so the live server's files aren't read mid-write).
-  2. Runs `unmined-cli web render` for each dimension into <WorkDir>\site\public\<dimension>.
-  3. Scans the rendered tiles to build manifest.json (zoom range, block bounds, tile path).
-  4. Deploys <WorkDir>\site to https://<HostingSite>.web.app with the Firebase CLI.
-     A Hosting deploy replaces the whole site, so the folder always holds every dimension;
-     only files that changed are uploaded.
+  2. Converts the snapshot to a Java Edition world with Chunker (BlueMap only reads Java worlds).
+  3. Writes BlueMap's config (one map per dimension that exists, markers from markers.json) and
+     renders with the BlueMap CLI into <WorkDir>\bluemap\site\public, BlueMap's static webapp.
+  4. Deploys that folder to https://<HostingSite>.web.app with the Firebase CLI. A Hosting deploy
+     replaces the whole site; only files that changed are uploaded.
+
+  BlueMap downloads the Minecraft Java client from Mojang for textures, which requires accepting
+  Mojang's EULA and owning Minecraft Java Edition; pass -AcceptMinecraftEula to confirm that.
 
   See README.md in this folder for one-time setup and scheduling.
 
 .EXAMPLE
-  .\publish-map.ps1
+  .\publish-map.ps1 -AcceptMinecraftEula
   Uses the defaults below; the project ID comes from the repo's src\environments\environment.ts.
-
-.EXAMPLE
-  .\publish-map.ps1 -WorldPath 'D:\other-server\worlds\My World' -ProjectId 'my-project'
 #>
 [CmdletBinding()]
 param(
-  # Folder of the world (contains level.dat and db\).
+  # Confirms you accept Mojang's EULA and own Minecraft Java Edition (BlueMap's accept-download).
+  [switch]$AcceptMinecraftEula,
+
+  # Folder of the Bedrock world (contains level.dat and db\).
   [string]$WorldPath = 'E:\Games\Minecraft Bedrock Server\worlds\Bedrock level',
 
   # Firebase project ID. Defaults to projectId in the repo's src\environments\environment.ts.
@@ -32,28 +35,33 @@ param(
   # The viewer loads from https://<projectId>.web.app, so only change this together with it.
   [string]$HostingSite,
 
-  # Path to unmined-cli.exe.
-  [string]$UnminedCli = 'X:\Programs\Unmined\unmined-cli_0.20.11-dev_win-64bit\unmined-cli.exe',
+  # Java 25 or newer (BlueMap 5.28 requires it).
+  [string]$JavaExe = 'java',
+  [string]$BlueMapJar = 'X:\Programs\BlueMap\bluemap-5.28-cli.jar',
+  [string]$ChunkerJar = 'X:\Programs\Chunker\chunker-cli-1.20.0.jar',
 
-  # Working folder for the snapshot and the deployed site. Keep it between runs.
+  # Java Edition version the world is converted to and BlueMap renders with. Must be a version
+  # both tools support (Chunker: `-f ?` lists JAVA_* formats).
+  [string]$MinecraftVersion = '26.1',
+
+  # Working folder for the snapshot, converted world, BlueMap data and the deployed site.
+  # Keep it between runs: BlueMap stores its render state here.
   [string]$WorkDir = 'C:\minecraft-map',
 
-  [ValidateSet('overworld', 'nether', 'end')]
-  [string[]]$Dimensions = @('overworld', 'nether', 'end'),
-
-  # Zoom levels below/above 1 block = 1 pixel.
-  [int]$ZoomOut = 6,
-  [int]$ZoomIn = 2,
-
-  # PNG by default: unmined-cli 0.20.11-dev crashes encoding JPEG tiles when no quality is given.
-  [ValidateSet('jpeg', 'png', 'webp')]
-  [string]$ImageFormat = 'png',
-
-  # Hand-edited place markers, uploaded as-is if present. Defaults to markers.json next to this script.
+  # Hand-edited place markers. Defaults to markers.json next to this script.
   [string]$MarkersFile,
 
   # Display name on the site; defaults to the world's levelname.txt.
-  [string]$WorldName
+  [string]$WorldName,
+
+  [int]$RenderThreads = [Math]::Max(1, [Environment]::ProcessorCount - 1),
+
+  # Max heap for the Chunker conversion; raise it for very large worlds.
+  [string]$ChunkerMemory = '4G',
+
+  # Only render chunks that have light data. Chunker may not write lighting, in which case this
+  # renders nothing; without it, chunks render fully lit (no shadows, caves always shown).
+  [switch]$UseLightData
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,12 +72,23 @@ if (-not $MarkersFile) {
   $MarkersFile = Join-Path $ScriptDir 'markers.json'
 }
 
-# Extra unmined-cli arguments per dimension. Without a top Y the Nether render is
-# just the bedrock roof. Check `unmined-cli help web render` if your version rejects these.
-$DimensionArgs = @{
-  overworld = @()
-  nether    = @('--topY=110')
-  end       = @()
+# BlueMap map settings per dimension, from BlueMap's generated defaults. `folder` is where the
+# dimension's region files live in a Java world.
+$Dimensions = [ordered]@{
+  overworld = @{
+    folder = 'region'; id = 'minecraft:overworld'; name = 'Overworld'; sorting = 0
+    sky = '#7dabff'; void = '#000000'; ambient = 0.1; caves = 55; extra = ''
+  }
+  nether    = @{
+    folder = 'DIM-1/region'; id = 'minecraft:the_nether'; name = 'Nether'; sorting = 100
+    sky = '#290000'; void = '#150000'; ambient = 0.6; caves = -10000
+    # Hide the bedrock roof so the Nether is visible from above.
+    extra = "render-mask: [ {} { subtract: true, min-y: 90, max-y: 127 } ]"
+  }
+  end       = @{
+    folder = 'DIM1/region'; id = 'minecraft:the_end'; name = 'The End'; sorting = 200
+    sky = '#080010'; void = '#080010'; ambient = 0.6; caves = -10000; extra = ''
+  }
 }
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -85,71 +104,24 @@ function Invoke-Checked([string]$File, [string[]]$Arguments) {
   }
 }
 
-# Builds the manifest entry for one rendered dimension by scanning its tile files.
-# Expects uNmINeD's layout: <tilesRoot>\zoom.<z>\<floor(x/10)>\<floor(y/10)>\tile.<x>.<y>.<ext>
-function Get-DimensionManifest([string]$RenderDir) {
-  $zoomDir = Get-ChildItem -Path $RenderDir -Directory -Recurse |
-    Where-Object { $_.Name -match '^zoom\.-?\d+$' } |
-    Select-Object -First 1
-  if (-not $zoomDir) {
-    throw "No zoom.* tile folders found under $RenderDir"
-  }
-  $tilesRoot = $zoomDir.Parent.FullName
-  $tilesRel = $tilesRoot.Substring($RenderDir.TrimEnd('\', '/').Length).Trim('\', '/').Replace('\', '/')
+function Write-TextFile([string]$Path, [string]$Content) {
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path) | Out-Null
+  [System.IO.File]::WriteAllText($Path, $Content, $Utf8NoBom)
+}
 
-  $zoomLevels = @()
-  $bounds = $null
-  $extension = $null
-  $zoomDirs = Get-ChildItem -Path $tilesRoot -Directory |
-    Where-Object { $_.Name -match '^zoom\.-?\d+$' } |
-    Sort-Object { [int]($_.Name.Substring(5)) }
-  foreach ($dir in $zoomDirs) {
-    $z = [int]($dir.Name.Substring(5))
-    $zoomLevels += $z
-    $blocksPerTile = 256 / [Math]::Pow(2, $z)
-    $minX = [double]::MaxValue; $minY = [double]::MaxValue
-    $maxX = [double]::MinValue; $maxY = [double]::MinValue
-
-    foreach ($file in Get-ChildItem -Path $dir.FullName -File -Recurse) {
-      if ($file.Name -notmatch '^tile\.(-?\d+)\.(-?\d+)\.(\w+)$') { continue }
-      $x = [int]$Matches[1]; $y = [int]$Matches[2]; $extension = $Matches[3]
-
-      $expected = [System.IO.Path]::Combine($dir.FullName, [Math]::Floor($x / 10), [Math]::Floor($y / 10), $file.Name)
-      if ($file.FullName -ne $expected) {
-        throw "Unexpected tile layout: $($file.FullName) (expected $expected). The uNmINeD output format may have changed; update tilePath handling in this script."
-      }
-
-      if ($x -lt $minX) { $minX = $x }; if ($x -gt $maxX) { $maxX = $x }
-      if ($y -lt $minY) { $minY = $y }; if ($y -gt $maxY) { $maxY = $y }
-    }
-
-    # Levels are visited from least to most detailed; the most detailed gives the tightest bounds.
-    if ($minX -ne [double]::MaxValue) {
-      $bounds = [ordered]@{
-        minX = [int]($minX * $blocksPerTile)
-        minZ = [int]($minY * $blocksPerTile)
-        maxX = [int](($maxX + 1) * $blocksPerTile)
-        maxZ = [int](($maxY + 1) * $blocksPerTile)
-      }
-    }
-  }
-  if (-not $bounds) {
-    throw "No tiles found under $tilesRoot"
-  }
-
-  $prefix = if ($tilesRel) { "$tilesRel/" } else { '' }
-  return [ordered]@{
-    tilesRel = $tilesRel
-    entry    = [ordered]@{
-      minZoom  = [int]($zoomLevels | Measure-Object -Minimum).Minimum
-      maxZoom  = [int]($zoomLevels | Measure-Object -Maximum).Maximum
-      tilePath = "${prefix}zoom.{z}/{xd}/{yd}/tile.{x}.{y}.$extension"
-      bounds   = $bounds
-    }
-  }
+# HOCON strings: forward slashes avoid backslash escapes; quotes are escaped.
+function ConvertTo-Hocon([string]$Value) {
+  return '"' + $Value.Replace('\', '/').Replace('"', '\"') + '"'
 }
 
 # --- Preflight ------------------------------------------------------------------------------
+if (-not $AcceptMinecraftEula) {
+  throw @'
+BlueMap downloads the Minecraft Java Edition client from Mojang for block textures.
+Re-run with -AcceptMinecraftEula to confirm you accept Mojang's EULA
+(https://www.minecraft.net/eula) and own Minecraft Java Edition.
+'@
+}
 if (-not $ProjectId) {
   $envFile = [System.IO.Path]::GetFullPath(
     [System.IO.Path]::Combine($ScriptDir, '..', '..', 'src', 'environments', 'environment.ts'))
@@ -165,11 +137,28 @@ if (-not $HostingSite) {
 if (-not (Test-Path (Join-Path $WorldPath 'db'))) {
   throw "WorldPath '$WorldPath' doesn't look like a Bedrock world (no db folder)."
 }
-if (-not (Test-Path $UnminedCli)) {
-  throw "unmined-cli not found at '$UnminedCli'. Download it from https://unmined.net/downloads/"
+foreach ($jar in @($BlueMapJar, $ChunkerJar)) {
+  if (-not (Test-Path $jar)) {
+    throw "'$jar' not found. See README.md for where to download BlueMap and Chunker."
+  }
+}
+if (-not (Get-Command $JavaExe -ErrorAction SilentlyContinue)) {
+  throw "Java not found ('$JavaExe'). Install Java 25 or newer, or pass -JavaExe."
+}
+# `java -version` writes to stderr, which PowerShell 5.1 turns into an error under 'Stop'.
+$ErrorActionPreference = 'Continue'
+$javaVersion = & $JavaExe -version 2>&1 | ForEach-Object { "$_" }
+$ErrorActionPreference = 'Stop'
+if (($javaVersion -join ' ') -match 'version "(\d+)' -and [int]$Matches[1] -lt 25) {
+  throw "BlueMap needs Java 25 or newer; '$JavaExe' is Java $($Matches[1]). Install Java 25 or pass -JavaExe."
 }
 if (-not (Get-Command firebase -ErrorAction SilentlyContinue)) {
   throw 'firebase not found. Install Node.js, then `npm install -g firebase-tools` and `firebase login`.'
+}
+$markers = @()
+if (Test-Path $MarkersFile) {
+  # Fail early on a typo rather than publishing a broken config.
+  $markers = @(Get-Content $MarkersFile -Raw | ConvertFrom-Json)
 }
 if (-not $WorldName) {
   $levelName = Join-Path $WorldPath 'levelname.txt'
@@ -177,7 +166,10 @@ if (-not $WorldName) {
 }
 
 $snapshotDir = Join-Path $WorkDir 'snapshot'
-$siteDir = Join-Path $WorkDir 'site'
+$javaWorldDir = Join-Path $WorkDir 'java-world'
+$blueMapDir = Join-Path $WorkDir 'bluemap'
+$configDir = Join-Path $blueMapDir 'config'
+$siteDir = Join-Path $blueMapDir 'site'
 $publicDir = Join-Path $siteDir 'public'
 New-Item -ItemType Directory -Force -Path $snapshotDir, $publicDir | Out-Null
 
@@ -189,85 +181,134 @@ if ($LASTEXITCODE -ge 8) {
   throw "robocopy failed with code $LASTEXITCODE"
 }
 
-# --- 2/3. Render each dimension and build the manifest --------------------------------------
-$manifestPath = Join-Path $publicDir 'manifest.json'
-$manifestDimensions = [ordered]@{}
-# Start from the last published entries: dimensions that fail or aren't rendered this run keep
-# their previous tiles (still in the site folder) and stay on the map.
-if (Test-Path $manifestPath) {
-  $previous = (Get-Content $manifestPath -Raw | ConvertFrom-Json).dimensions
-  foreach ($property in $previous.PSObject.Properties) {
-    if (Test-Path (Join-Path $publicDir $property.Name)) {
-      $manifestDimensions[$property.Name] = $property.Value
+# --- 2. Convert to Java Edition ---------------------------------------------------------------
+$chunkerFormat = 'JAVA_' + $MinecraftVersion.Replace('.', '_')
+Write-Step "Converting to Java Edition ($chunkerFormat) with Chunker"
+if (Test-Path $javaWorldDir) {
+  Remove-Item -Recurse -Force $javaWorldDir
+}
+Invoke-Checked $JavaExe @(
+  "-Xmx$ChunkerMemory", '-jar', $ChunkerJar,
+  '-i', $snapshotDir, '-o', $javaWorldDir, '-f', $chunkerFormat
+)
+
+# --- 3. Configure and render BlueMap --------------------------------------------------------
+$maps = @($Dimensions.Keys | Where-Object { Test-Path (Join-Path $javaWorldDir $Dimensions[$_].folder) })
+if ($maps.Count -eq 0) {
+  throw "Chunker produced no region files in '$javaWorldDir'."
+}
+$skipped = @($Dimensions.Keys | Where-Object { $maps -notcontains $_ })
+if ($skipped.Count -gt 0) {
+  Write-Step "No data for $($skipped -join ', ') yet (nobody has been there); skipping."
+}
+
+Write-TextFile (Join-Path $configDir 'core.conf') @"
+accept-download: true
+data: $(ConvertTo-Hocon (Join-Path $blueMapDir 'data'))
+render-thread-count: $RenderThreads
+scan-for-mod-resources: false
+metrics: false
+log: { file: $(ConvertTo-Hocon (Join-Path $blueMapDir 'data\logs\debug.log')), append: false }
+"@
+Write-TextFile (Join-Path $configDir 'webapp.conf') @"
+enabled: true
+webroot: $(ConvertTo-Hocon $publicDir)
+update-settings-file: true
+use-cookies: false
+# Tiles are served gzip-compressed as plain files; the webapp decompresses them itself.
+client-decompression: true
+"@
+Write-TextFile (Join-Path $configDir 'webserver.conf') "enabled: false`n"
+Write-TextFile (Join-Path $configDir 'storages\file.conf') @"
+storage-type: file
+root: $(ConvertTo-Hocon (Join-Path $publicDir 'maps'))
+compression: gzip
+"@
+
+# Regenerate map configs so a removed dimension or marker doesn't linger.
+$mapsConfigDir = Join-Path $configDir 'maps'
+if (Test-Path $mapsConfigDir) {
+  Remove-Item -Recurse -Force $mapsConfigDir
+}
+foreach ($map in $maps) {
+  $dim = $Dimensions[$map]
+  $mapMarkers = @($markers | Where-Object { $_.dimension -eq $map })
+  $markerLines = for ($i = 0; $i -lt $mapMarkers.Count; $i++) {
+    $marker = $mapMarkers[$i]
+    $y = if ($null -ne $marker.y) { $marker.y } else { 64 }
+    # BlueMap shows `detail` as HTML; encode it so markers.json stays plain text.
+    $detail = if ($marker.description) { ", detail: $(ConvertTo-Hocon ([System.Net.WebUtility]::HtmlEncode($marker.description)))" } else { '' }
+    "      marker$($i): { type: ""poi"", label: $(ConvertTo-Hocon $marker.name), position: { x: $($marker.x), y: $y, z: $($marker.z) }$detail }"
+  }
+  Write-TextFile (Join-Path $mapsConfigDir "$map.conf") @"
+world: $(ConvertTo-Hocon $javaWorldDir)
+dimension: "$($dim.id)"
+name: "$($dim.name)"
+sorting: $($dim.sorting)
+start-pos: { x: 0, z: 0 }
+sky-color: "$($dim.sky)"
+void-color: "$($dim.void)"
+ambient-light: $($dim.ambient)
+remove-caves-below-y: $($dim.caves)
+ignore-missing-light-data: $((-not $UseLightData).ToString().ToLower())
+$($dim.extra)
+storage: "file"
+marker-sets: {
+  places: {
+    label: "Places"
+    toggleable: true
+    default-hidden: false
+    markers: {
+$($markerLines -join "`n")
     }
   }
 }
-$failed = @()
-foreach ($dimension in $Dimensions) {
-  $renderDir = Join-Path $publicDir $dimension
-  try {
-    Write-Step "Rendering $dimension"
-    $unminedArgs = @(
-      'web', 'render',
-      "--world=$snapshotDir",
-      "--output=$renderDir",
-      "--dimension=$dimension",
-      "--imageformat=$ImageFormat",
-      "--zoomout=$ZoomOut",
-      "--zoomin=$ZoomIn"
-    ) + $DimensionArgs[$dimension]
-    Invoke-Checked $UnminedCli $unminedArgs
-
-    $manifestDimensions[$dimension] = (Get-DimensionManifest $renderDir).entry
-  } catch {
-    Write-Warning "Skipping ${dimension}: $_"
-    $failed += $dimension
-  }
+"@
 }
 
-if ($failed.Count -eq $Dimensions.Count) {
-  throw 'No dimensions rendered successfully; leaving the published map unchanged.'
+Write-Step "Rendering $($maps -join ', ') with BlueMap (Minecraft $MinecraftVersion)"
+Invoke-Checked $JavaExe @(
+  '-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion,
+  '-g', '-s', '-r', '--markers'
+)
+
+# The webapp polls live player positions; there are none on a static site.
+foreach ($map in $maps) {
+  Write-TextFile (Join-Path $publicDir "maps\$map\live\players.json") '{"players":[]}'
 }
 
-# --- 4. Write manifest, markers and Hosting config, then deploy ----------------------------
-$manifest = [ordered]@{
-  worldName  = $WorldName
-  updatedAt  = (Get-Date).ToUniversalTime().ToString('o')
-  dimensions = $manifestDimensions
+# --- 4. Deploy ------------------------------------------------------------------------------
+$mapInfo = [ordered]@{
+  worldName = $WorldName
+  updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+  maps      = $maps
 }
-[System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 6), $Utf8NoBom)
+Write-TextFile (Join-Path $publicDir 'map-info.json') ($mapInfo | ConvertTo-Json)
 
-$markersTarget = Join-Path $publicDir 'markers.json'
-if (Test-Path $MarkersFile) {
-  # Fail early on a typo rather than publishing a file the site can't parse.
-  Get-Content $MarkersFile -Raw | ConvertFrom-Json | Out-Null
-  Copy-Item $MarkersFile $markersTarget -Force
-} elseif (Test-Path $markersTarget) {
-  Remove-Item $markersTarget
-}
-
-# The viewer on palepail.com fetches the JSON files cross-origin; tiles are plain <img> loads.
 $hostingConfig = [ordered]@{
   hosting = [ordered]@{
     site    = $HostingSite
     public  = 'public'
-    ignore  = @('**/.*')
+    ignore  = @('**/.*', 'sql.php', '**/*.map')
     headers = @(
+      # map-info.json is fetched cross-origin by the page on palepail.com.
       [ordered]@{
-        source  = '**/*.json'
-        headers = @(
-          [ordered]@{ key = 'Access-Control-Allow-Origin'; value = '*' },
-          [ordered]@{ key = 'Cache-Control'; value = 'no-cache' }
-        )
+        source  = '/map-info.json'
+        headers = @([ordered]@{ key = 'Access-Control-Allow-Origin'; value = '*' })
+      },
+      # Settings, markers and map metadata change on every render.
+      [ordered]@{
+        source  = '**/*.@(json|json.gz)'
+        headers = @([ordered]@{ key = 'Cache-Control'; value = 'no-cache' })
       },
       [ordered]@{
-        source  = '**/tiles/**'
+        source  = 'maps/*/tiles/**'
         headers = @([ordered]@{ key = 'Cache-Control'; value = 'public, max-age=3600' })
       }
     )
   }
 }
-[System.IO.File]::WriteAllText((Join-Path $siteDir 'firebase.json'), ($hostingConfig | ConvertTo-Json -Depth 8), $Utf8NoBom)
+Write-TextFile (Join-Path $siteDir 'firebase.json') ($hostingConfig | ConvertTo-Json -Depth 8)
 
 Write-Step "Deploying to https://$HostingSite.web.app"
 Push-Location $siteDir
@@ -278,10 +319,5 @@ try {
   )
 } finally {
   Pop-Location
-}
-
-if ($failed.Count -gt 0) {
-  Write-Step "Done with errors; failed: $($failed -join ', ')"
-  exit 1
 }
 Write-Step 'Done'

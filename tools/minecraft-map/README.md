@@ -1,53 +1,53 @@
 # Minecraft world map
 
-The viewer at `/projects/interactable/minecraft-map` loads map tiles from the Firebase project's
-default Hosting site, `https://<projectId>.web.app`. `publish-map.ps1` runs on the Windows machine
-hosting the Bedrock server. It snapshots the world, renders it with [uNmINeD](https://unmined.net),
-and deploys the tiles, `manifest.json` and `markers.json` with the Firebase CLI. The website never
-talks to the Minecraft server itself.
+The page at `/projects/interactable/minecraft-map` embeds a 3D [BlueMap](https://bluemap.bluecolored.de)
+of the Bedrock server's world, hosted on the Firebase project's default Hosting site,
+`https://<projectId>.web.app`. `publish-map.ps1` builds and deploys it from the server:
 
-Firebase Hosting is part of the free Spark plan: 10 GB stored and 360 MB transferred per day.
-Tiles are ordinary static files served from Google's CDN and cached by browsers. There is no
-per-file read quota, only that daily transfer limit (roughly 15,000 tiles a day).
+1. Snapshots the Bedrock world (so the running server's files aren't read mid-write).
+2. Converts the snapshot to a Java Edition world with [Chunker](https://github.com/HiveGamesOSS/Chunker),
+   because BlueMap only reads Java worlds.
+3. Renders it with the BlueMap CLI into a static copy of BlueMap's web viewer. There's one map per
+   dimension that exists, and your `markers.json` becomes a "Places" marker set.
+4. Deploys that folder with `firebase deploy --only hosting`.
 
-```
-https://<projectId>.web.app/
-  manifest.json                        world name, last render time, per-dimension zoom/bounds
-  markers.json                         named places (optional)
-  overworld|nether|end/tiles/zoom.{z}/{x/10}/{y/10}/tile.{x}.{y}.png
-```
+Map updates never go through git. Running the script updates palepail.com and `npm start`
+directly. Firebase Hosting is part of the free Spark plan: 10 GB stored, 360 MB transferred per day.
 
 ## One-time setup (on the server)
 
-1. **uNmINeD CLI**: download the Windows CLI from https://unmined.net/downloads/ and extract it.
-   The script expects `X:\Programs\Unmined\unmined-cli_0.20.11-dev_win-64bit\unmined-cli.exe`;
-   pass `-UnminedCli` if yours is elsewhere (e.g. after updating uNmINeD).
-2. **Firebase CLI**: install [Node.js](https://nodejs.org) LTS, then in a new PowerShell window:
+1. **Java 25** or newer, which BlueMap 5.28 requires. For example, Temurin 25 from
+   https://adoptium.net. Check with `java -version`.
+2. **BlueMap CLI**: download `bluemap-5.28-cli.jar` from
+   https://github.com/BlueMap-Minecraft/BlueMap/releases to `X:\Programs\BlueMap\`.
+3. **Chunker CLI**: download the latest `chunker-cli-<version>.jar` from
+   https://github.com/HiveGamesOSS/Chunker/releases to `X:\Programs\Chunker\`. The script
+   expects `chunker-cli-1.20.0.jar`; pass `-ChunkerJar` for another version.
+4. **Firebase CLI**: install [Node.js](https://nodejs.org) LTS, then:
    ```powershell
    npm install -g firebase-tools
    firebase login          # the Google account that owns the Firebase project
    ```
-3. In the [Firebase console](https://console.firebase.google.com), open the project's
-   **Hosting** page and click **Get started** if Hosting isn't set up yet (you can skip the
-   CLI steps it shows). Under **Release storage settings**, keep only 2 releases. Old releases
-   count toward the 10 GB.
+5. In the [Firebase console](https://console.firebase.google.com), open **Hosting**, click
+   **Get started** if needed, and under **Release storage settings** keep only 2 releases.
+
+**Minecraft EULA:** BlueMap downloads the Minecraft Java Edition client from Mojang for block
+textures. Passing `-AcceptMinecraftEula` confirms you accept
+[Mojang's EULA](https://www.minecraft.net/eula) and own Minecraft Java Edition. PC copies bought
+since 2022 include Java ("Java & Bedrock Edition").
 
 ## Publish
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1
+powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1 -AcceptMinecraftEula
 ```
 
-With no arguments it renders `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level` and
-deploys to the Firebase project in `src/environments/environment.ts` (`projectId`), so run it from
-this repo's copy of the script. See the options table to override either.
+It renders `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level` and deploys to the Firebase
+project in `src/environments/environment.ts`. Dimensions nobody has visited yet (no data in the
+world) are skipped and appear on a later run.
 
-The first run renders and uploads everything; later runs only upload tiles that changed. When it
-prints `Done`, the map is live on palepail.com and on `npm start` locally.
-
-The script keeps the full published site in `C:\minecraft-map\site\`. A Hosting deploy replaces
-the whole site, so don't delete that folder. If you do, the next run re-renders and re-uploads
-everything.
+The first render can take a long time on a big world. Keep `C:\minecraft-map\` between runs.
+Each run re-converts the whole world, so expect most of the map to re-render each time.
 
 ### Schedule it
 
@@ -55,41 +55,45 @@ Re-render every night at 4 AM (run from an elevated prompt):
 
 ```powershell
 schtasks /Create /TN "Minecraft map" /SC DAILY /ST 04:00 /RU "$env:USERNAME" /RP `
-  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1"
+  /TR "powershell -NoProfile -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\publish-map.ps1 -AcceptMinecraftEula"
 ```
 
 The task must run as the user that ran `firebase login`.
 
 ## Markers
 
-Copy `markers.example.json` to `markers.json` in this folder and edit it. `dimension` is
-`overworld`, `nether` or `end`, and `color` is optional. It is published on every run.
+Copy `markers.example.json` to `markers.json` in this folder and edit it:
 
-## Options and troubleshooting
+- `dimension` is `overworld`, `nether` or `end`.
+- `y` (height) is optional and defaults to 64. In 3D the pin sits at that height, so use the
+  in-game Y of the place.
+- `description` is optional and shown when the pin is clicked.
 
-| Parameter      | Default                          | Notes                                      |
-| -------------- | -------------------------------- | ------------------------------------------ |
-| `-WorldPath`   | `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level` |              |
-| `-ProjectId`   | `projectId` in `environment.ts`  |                                            |
-| `-UnminedCli`  | `X:\Programs\Unmined\unmined-cli_0.20.11-dev_win-64bit\unmined-cli.exe` | |
-| `-WorkDir`     | `C:\minecraft-map`               | Snapshot + published site; keep it         |
-| `-Dimensions`  | `overworld, nether, end`         | Others stay on the map with their last render |
-| `-ZoomOut`     | `6`                              | Levels below 1 block/pixel                 |
-| `-ZoomIn`      | `2`                              | Levels above 1 block/pixel                 |
-| `-ImageFormat` | `png`                            | `jpeg` is ~2-3x smaller but crashes uNmINeD 0.20.11-dev |
-| `-WorldName`   | world's `levelname.txt`          | Title shown on the site                    |
-| `-HostingSite` | the project ID                   | Only if the default site ID differs        |
+## Options
 
-- **Nether shows only the bedrock roof / unmined-cli rejects `--topY`:** the Nether is rendered
-  from below the roof via `$DimensionArgs` at the top of the script. Check
-  `unmined-cli help web render` for your version's flag name and adjust it there.
-- **End fails with "Cannot open dimension":** nobody has visited the End yet, so the world has
-  no data for it. It's skipped (exit code 1) and appears automatically once someone goes there;
-  use `-Dimensions overworld, nether` until then for a clean run.
-- **"Unexpected tile layout":** uNmINeD changed its output folder format. The script refuses to
-  publish rather than deploy tiles the viewer can't find.
-- If one dimension fails, the others are still published and the failed one keeps its last good
-  render; the script exits with code 1 so Task Scheduler shows the failure.
+| Parameter              | Default                                                   |
+| ---------------------- | --------------------------------------------------------- |
+| `-WorldPath`           | `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level`  |
+| `-ProjectId`           | `projectId` in `environment.ts`                           |
+| `-JavaExe`             | `java` (must be 25+)                                      |
+| `-BlueMapJar`          | `X:\Programs\BlueMap\bluemap-5.28-cli.jar`                |
+| `-ChunkerJar`          | `X:\Programs\Chunker\chunker-cli-1.20.0.jar`              |
+| `-MinecraftVersion`    | `26.1`: the Java version Chunker converts to and BlueMap renders |
+| `-WorkDir`             | `C:\minecraft-map`                                        |
+| `-RenderThreads`       | CPU cores - 1                                             |
+| `-ChunkerMemory`       | `4G`                                                      |
+| `-UseLightData`        | off (see below)                                           |
+
+## Troubleshooting
+
+- **Everything looks fully lit, with no shadows:** Chunker may not write lighting data, so by
+  default BlueMap renders without it. Try `-UseLightData`. If the map then comes out empty, the
+  converted world has no light data and you should leave it off.
+- **`UnsupportedClassVersionError`:** the `java` being used is older than 25. Install Java 25 or
+  pass `-JavaExe 'C:\path\to\jdk-25\bin\java.exe'`.
+- **Chunker rejects the format:** run `java -jar <chunker jar> -f ?` to list the `JAVA_*` formats
+  it supports, and pass a matching `-MinecraftVersion` (e.g. `JAVA_1_21_11` → `1.21.11`).
 - **Map page says "hasn't been published yet":** nothing is deployed yet, or the default Hosting
-  site ID isn't the project ID (check the Hosting page; the viewer uses `<projectId>.web.app`).
+  site ID isn't the project ID. The page loads `https://<projectId>.web.app/map-info.json`.
 - **Over the daily transfer limit:** on Spark, Hosting stops serving until the quota resets.
+- The old uNmINeD output in `C:\minecraft-map\site\` is no longer used and can be deleted.
