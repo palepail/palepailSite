@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Prints the players recorded by the "Palepail Last Seen" behavior pack as a JSON array:
-//   [{ "name", "dimension", "x", "y", "z", "lastSeen" (ms since epoch) }, ...]
+//   [{ "name", "dimension", "x", "y", "z", "tick", "lastSeen" (ms since epoch, may be 0) }, ...]
 //
 // Usage: node read-last-seen.js <path to a Bedrock world's db folder>
 //
@@ -39,13 +39,14 @@ function collect(buffer, players) {
     try {
       const entry = JSON.parse(buffer.subarray(at, end).toString('utf8'));
       const known = players.get(entry.name);
-      if (typeof entry.name === 'string' && (!known || entry.lastSeen > known.lastSeen)) {
+      if (typeof entry.name === 'string' && (!known || entry.lastSeen >= known.lastSeen)) {
         players.set(entry.name, {
           name: entry.name,
           dimension: entry.dimension,
           x: entry.x,
           y: entry.y,
           z: entry.z,
+          tick: entry.tick ?? null,
           lastSeen: entry.lastSeen,
         });
       }

@@ -58,7 +58,10 @@ export class MinecraftMapComponent implements OnInit, OnDestroy {
   readonly playerRows = computed(() => {
     const now = this.now();
     const rendered = this.info()?.maps ?? [];
-    return this.players().map((player) => ({
+    const newestFirst = [...this.players()].sort(
+      (a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime(),
+    );
+    return newestFirst.map((player) => ({
       player,
       dimension: DIMENSION_NAMES[player.dimension] ?? player.dimension,
       seen: this.formatSeen(new Date(player.lastSeen).getTime(), now),
@@ -96,6 +99,7 @@ export class MinecraftMapComponent implements OnInit, OnDestroy {
   }
 
   private formatSeen(time: number, now: number): string {
+    if (!Number.isFinite(time) || time < Date.UTC(2020, 0)) return 'unknown';
     const elapsed = time - now;
     for (const [unit, ms] of UNITS) {
       if (Math.abs(elapsed) >= ms) return relativeTime.format(Math.round(elapsed / ms), unit);

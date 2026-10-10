@@ -139,6 +139,30 @@ function ConvertTo-Hocon([string]$Value) {
   return '"' + $Value.Replace('\', '/').Replace('"', '\"') + '"'
 }
 
+# Bedrock's script engine may not have a real clock (Date.now() can return 0), so players are
+# time-stamped here: a record that changed since the last run (position or the pack's tick counter,
+# which changes on every save) means the player was online in between, so they get the current time.
+# Accurate to the interval between runs. A real time from the pack is kept as-is.
+function Update-LastSeenTimes($Players) {
+  $stateFile = Join-Path $WorkDir 'last-seen-state.json'
+  $state = @{}
+  if (Test-Path $stateFile) {
+    $parsed = Get-Content $stateFile -Raw | ConvertFrom-Json
+    foreach ($property in $parsed.PSObject.Properties) { $state[$property.Name] = $property.Value }
+  }
+  $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  $realClock = 1577836800000 # 2020-01-01; anything earlier didn't come from a working clock
+  foreach ($player in $Players) {
+    $key = "$($player.dimension)|$($player.x)|$($player.y)|$($player.z)|$($player.tick)"
+    $previous = $state[$player.name]
+    if ([long]$player.lastSeen -lt $realClock) {
+      $player.lastSeen = if ($previous -and $previous.key -eq $key) { [long]$previous.lastSeen } else { $now }
+    }
+    $state[$player.name] = [ordered]@{ key = $key; lastSeen = [long]$player.lastSeen }
+  }
+  Write-TextFile $stateFile (ConvertTo-Json -InputObject $state)
+}
+
 # Reads the players recorded by the last-seen behavior pack from a Bedrock world's db folder.
 # Returns an empty list (with a warning) rather than failing the publish.
 function Get-LastSeenPlayers([string]$DbPath) {
@@ -157,6 +181,7 @@ function Get-LastSeenPlayers([string]$DbPath) {
     # first and then wrapping with @() gives a flat list in both 5.1 and 7.
     $parsed = ($output -join "`n") | ConvertFrom-Json
     $players = @($parsed)
+    Update-LastSeenTimes $players
     Write-Step "Found $($players.Count) player(s) with a last-seen position"
     return , $players
   } catch {

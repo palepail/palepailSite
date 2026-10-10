@@ -19,6 +19,10 @@ function snapshot(player) {
       x: Math.floor(x),
       y: Math.floor(y),
       z: Math.floor(z),
+      // Changes on every save, so the publish script can tell the player was online since its last
+      // run. The publish script time-stamps players itself: Bedrock's script engine may not have a
+      // real clock (Date.now() can return 0).
+      tick: system.currentTick,
       lastSeen: Date.now(),
     }),
   };
