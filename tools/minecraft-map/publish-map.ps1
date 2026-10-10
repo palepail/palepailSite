@@ -67,6 +67,10 @@ param(
   # Only render chunks that have light data (BlueMap's default).
   [switch]$UseLightData,
 
+  # Leave out Overworld caves below Y 55 (BlueMap's default). Caves are included otherwise, so
+  # free-flight can explore underground; that makes the render larger and slower.
+  [switch]$HideCaves,
+
   # Re-render every chunk instead of only changed ones. Happens automatically when a setting that
   # is baked into the tiles (lighting, version, dimension settings) changed since the last run.
   [switch]$ForceRender
@@ -86,7 +90,7 @@ if (-not $MarkersFile) {
 $Dimensions = [ordered]@{
   overworld = @{
     folders = @('dimensions/minecraft/overworld/region', 'region'); id = 'minecraft:overworld'; name = 'Overworld'; sorting = 0
-    sky = '#7dabff'; void = '#000000'; caves = 55; extra = ''
+    sky = '#7dabff'; void = '#000000'; caves = $(if ($HideCaves) { 55 } else { -10000 }); extra = ''
   }
   nether    = @{
     folders = @('dimensions/minecraft/the_nether/region', 'DIM-1/region'); id = 'minecraft:the_nether'; name = 'Nether'; sorting = 100

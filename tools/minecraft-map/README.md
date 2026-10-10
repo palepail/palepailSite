@@ -48,7 +48,7 @@ world) are skipped and appear on a later run.
 
 The first render can take a long time on a big world. After that BlueMap only re-renders chunks
 that changed, so keep `C:\minecraft-map\` between runs. When a setting that's baked into the
-tiles changes (`-AmbientLight`, `-UseLightData`, `-MinecraftVersion`), the script automatically
+tiles changes (`-AmbientLight`, `-UseLightData`, `-HideCaves`, `-MinecraftVersion`), the script automatically
 re-renders everything once.
 
 ### Schedule it
@@ -86,6 +86,7 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
 | `-ChunkerMemory`       | `4G`                                                      |
 | `-AmbientLight`        | `1` (fully lit; see below)                                |
 | `-UseLightData`        | off                                                       |
+| `-HideCaves`           | off: caves are rendered so free-flight can go underground; on leaves out Overworld caves below Y 55 (smaller, faster render) |
 | `-ForceRender`         | off; re-renders everything (automatic after a lighting/version change) |
 
 ## Troubleshooting
