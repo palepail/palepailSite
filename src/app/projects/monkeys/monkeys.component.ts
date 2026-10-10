@@ -6,6 +6,7 @@ import {
   ElementRef,
   ViewChild,
   HostListener,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -35,6 +36,7 @@ import { MonkeysDevToolsRenderer } from './monkeys-dev-tools.renderer';
   selector: 'app-tmonkeys',
   imports: [RouterLink, CommonModule],
   templateUrl: './monkeys.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './monkeys.component.css',
 })
 export class MonkeysComponent implements OnInit, OnDestroy, AfterViewInit {

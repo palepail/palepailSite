@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NavigationTab, Subtab } from '../navigation';
@@ -7,6 +7,7 @@ import { NavigationTab, Subtab } from '../navigation';
   selector: 'app-projects',
   imports: [CommonModule],
   templateUrl: './projects.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './projects.css',
 })
 export class Projects implements OnInit {

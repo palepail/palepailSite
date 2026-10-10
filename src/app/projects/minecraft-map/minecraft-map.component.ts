@@ -7,6 +7,7 @@ import {
   computed,
   inject,
   signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { DOCUMENT, Location } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
@@ -62,6 +63,7 @@ class MinecraftTileLayer extends L.TileLayer {
 @Component({
   selector: 'app-minecraft-map',
   templateUrl: './minecraft-map.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './minecraft-map.component.css',
 })
 export class MinecraftMapComponent implements AfterViewInit, OnDestroy {

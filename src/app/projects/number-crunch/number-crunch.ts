@@ -6,6 +6,7 @@ import {
   ViewChild,
   HostListener,
   ChangeDetectorRef,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -76,6 +77,7 @@ interface ConfettiParticle {
   selector: 'app-number-crunch',
   imports: [RouterLink, CommonModule, FormsModule],
   templateUrl: './number-crunch.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './number-crunch.css',
 })
 export class NumberCrunch implements OnInit, OnDestroy {

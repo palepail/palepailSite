@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { NavigationTab } from '../navigation';
 
@@ -6,6 +6,7 @@ import { NavigationTab } from '../navigation';
   selector: 'app-contact',
   imports: [],
   templateUrl: './contact.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './contact.css',
 })
 export class Contact implements OnInit {

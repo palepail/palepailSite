@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NavigationService, NavigationTab, CarouselItem } from '../navigation';
@@ -7,6 +7,7 @@ import { NavigationService, NavigationTab, CarouselItem } from '../navigation';
   selector: 'app-home',
   imports: [CommonModule],
   templateUrl: './home.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './home.css',
 })
 export class Home implements OnInit, OnDestroy {

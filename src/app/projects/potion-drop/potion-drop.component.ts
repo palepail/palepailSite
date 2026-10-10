@@ -6,6 +6,7 @@ import {
   ViewChild,
   HostListener,
   ChangeDetectorRef,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -42,6 +43,7 @@ interface GameSettings {
   selector: 'app-potion-drop',
   imports: [RouterLink, CommonModule, FormsModule],
   templateUrl: './potion-drop.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './potion-drop.component.css',
 })
 export class PotionDropComponent implements OnInit, OnDestroy {
