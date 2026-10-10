@@ -1,0 +1,78 @@
+<div class="map-page">
+  <header class="map-header">
+    <div>
+      <h1>{{ manifest()?.worldName || 'Minecraft World' }}</h1>
+      <p class="map-description">
+        Explore the known world of our Bedrock server. Drag to pan, scroll to zoom.
+      </p>
+    </div>
+    @if (updatedAt()) {
+      <p class="map-updated">Last rendered {{ updatedAt() }}</p>
+    }
+  </header>
+
+  @if (state() === 'ready') {
+    <nav class="dimension-tabs" aria-label="Dimension">
+      @for (dim of dimensions(); track dim) {
+        <button
+          type="button"
+          class="dimension-tab"
+          [class.active]="dim === activeDimension()"
+          [attr.aria-pressed]="dim === activeDimension()"
+          (click)="selectDimension(dim)"
+        >
+          {{ dimensionLabels[dim] }}
+        </button>
+      }
+    </nav>
+  }
+
+  <div class="map-layout">
+    <div class="map-frame">
+      <div #mapContainer class="map-canvas"></div>
+
+      @switch (state()) {
+        @case ('loading') {
+          <div class="map-overlay">Loading map…</div>
+        }
+        @case ('unpublished') {
+          <div class="map-overlay">The map hasn't been published yet. Check back soon!</div>
+        }
+        @case ('error') {
+          <div class="map-overlay">Something went wrong loading the map.</div>
+        }
+        @case ('ready') {
+          <div class="map-hud">
+            <span class="map-coords">
+              @if (cursor(); as c) {
+                X {{ c.x }}, Z {{ c.z }}
+              } @else {
+                {{ dimensionLabels[activeDimension()] }}
+              }
+            </span>
+            <button type="button" class="map-share" (click)="copyLink()">
+              {{ copied() ? 'Copied!' : 'Copy link' }}
+            </button>
+          </div>
+        }
+      }
+    </div>
+
+    @if (state() === 'ready' && visibleMarkers().length) {
+      <aside class="marker-list" aria-label="Places">
+        <h2>Places</h2>
+        <ul>
+          @for (marker of visibleMarkers(); track marker.name + marker.x + marker.z) {
+            <li>
+              <button type="button" (click)="flyToMarker(marker)">
+                <span class="marker-dot" [style.background]="marker.color || '#f5c542'"></span>
+                <span class="marker-name">{{ marker.name }}</span>
+                <span class="marker-coords">{{ marker.x }}, {{ marker.z }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      </aside>
+    }
+  </div>
+</div>

@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Minecraft world map tiles, manifest and markers are public, read-only.
+    // Uploads come from tools/minecraft-map/publish-map.ps1 via gcloud (IAM), which bypasses these rules.
+    match /minecraft-map/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

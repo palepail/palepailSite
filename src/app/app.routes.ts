@@ -33,6 +33,13 @@ export const routes: Routes = [
       import('./projects/monkeys/monkeys.component').then((m) => m.MonkeysComponent),
   },
   {
+    path: 'projects/interactable/minecraft-map',
+    loadComponent: () =>
+      import('./projects/minecraft-map/minecraft-map.component').then(
+        (m) => m.MinecraftMapComponent,
+      ),
+  },
+  {
     path: 'hobbies',
     component: Hobbies,
     resolve: { navigationData: navigationResolver },

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Spawn",
+    "dimension": "overworld",
+    "x": 0,
+    "z": 0,
+    "description": "World spawn",
+    "color": "#f5c542"
+  },
+  {
+    "name": "Main Base",
+    "dimension": "overworld",
+    "x": 412,
+    "z": -1280,
+    "color": "#e74c3c"
+  },
+  {
+    "name": "Nether Hub",
+    "dimension": "nether",
+    "x": 51,
+    "z": -160,
+    "color": "#9b59b6"
+  }
+]
