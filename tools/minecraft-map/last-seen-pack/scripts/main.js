@@ -28,9 +28,16 @@ function snapshot(player) {
   };
 }
 
+// Logged once per player per server start, so the content log shows the pack is working.
+const logged = new Set();
+
 function save({ key, value }) {
   try {
     world.setDynamicProperty(key, value);
+    if (!logged.has(key)) {
+      logged.add(key);
+      console.warn(`[last-seen] recording ${JSON.parse(value).name}`);
+    }
   } catch (error) {
     console.warn(`[last-seen] could not save ${key}: ${error}`);
   }
@@ -42,6 +49,7 @@ function saveAll() {
   }
 }
 
+console.warn('[last-seen] loaded');
 system.runInterval(saveAll, SAVE_EVERY_TICKS);
 
 world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {

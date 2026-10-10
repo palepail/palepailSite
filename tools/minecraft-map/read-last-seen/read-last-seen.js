@@ -2,7 +2,9 @@
 // Prints the players recorded by the "Palepail Last Seen" behavior pack as a JSON array:
 //   [{ "name", "dimension", "x", "y", "z", "tick", "lastSeen" (ms since epoch, may be 0) }, ...]
 //
-// Usage: node read-last-seen.js <path to a Bedrock world's db folder>
+// Usage: node read-last-seen.js <path to a Bedrock world's db folder> [--keys]
+//   --keys  lists the database's named (non-chunk) keys and whether each holds pack data, to
+//           check whether anything was recorded.
 //
 // The pack stores each player as a world dynamic property whose value is JSON starting with
 // {"pp_lastseen":1, — so rather than decoding Bedrock's NBT layout, this looks for that marker in
@@ -71,6 +73,15 @@ async function main() {
   const db = new LevelDB(dbPath, { createIfMissing: false });
   await db.open();
   try {
+    if (process.argv.includes('--keys')) {
+      for await (const [key, value] of db.getIterator({ keyAsBuffer: true, valueAsBuffer: true })) {
+        if (!isTextKey(key)) continue;
+        const records = value.toString('latin1').split(MARKER.toString('latin1')).length - 1;
+        console.log(`${key.toString('latin1')}  ${value.length} bytes${records ? `  <- ${records} last-seen record(s)` : ''}`);
+      }
+      return;
+    }
+
     const players = new Map();
     const dynamicProperties = await db.get('DynamicProperties');
     if (dynamicProperties) collect(dynamicProperties, players);
