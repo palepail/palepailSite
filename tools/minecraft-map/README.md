@@ -22,7 +22,7 @@ directly. Firebase Hosting is part of the free Spark plan: 10 GB stored, 360 MB 
    https://github.com/BlueMap-Minecraft/BlueMap/releases to `X:\Programs\BlueMap\`.
 3. **Chunker CLI**: download the latest `chunker-cli-<version>.jar` from
    https://github.com/HiveGamesOSS/Chunker/releases to `X:\Programs\Chunker\`. The script
-   expects `chunker-cli-1.20.0.jar`; pass `-ChunkerJar` for another version.
+   expects `chunker-cli-1.21.0.jar`; pass `-ChunkerJar` for another version.
 4. **Firebase CLI**: install [Node.js](https://nodejs.org) LTS, then:
    ```powershell
    npm install -g firebase-tools
@@ -77,7 +77,7 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
 | `-ProjectId`           | `projectId` in `environment.ts`                           |
 | `-JavaExe`             | `java` (must be 25+)                                      |
 | `-BlueMapJar`          | `X:\Programs\BlueMap\bluemap-5.28-cli.jar`                |
-| `-ChunkerJar`          | `X:\Programs\Chunker\chunker-cli-1.20.0.jar`              |
+| `-ChunkerJar`          | `X:\Programs\Chunker\chunker-cli-1.21.0.jar`              |
 | `-MinecraftVersion`    | `26.1`: the Java version Chunker converts to and BlueMap renders |
 | `-WorkDir`             | `C:\minecraft-map`                                        |
 | `-RenderThreads`       | CPU cores - 1                                             |

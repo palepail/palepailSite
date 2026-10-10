@@ -38,7 +38,7 @@ param(
   # Java 25 or newer (BlueMap 5.28 requires it).
   [string]$JavaExe = 'java',
   [string]$BlueMapJar = 'X:\Programs\BlueMap\bluemap-5.28-cli.jar',
-  [string]$ChunkerJar = 'X:\Programs\Chunker\chunker-cli-1.20.0.jar',
+  [string]$ChunkerJar = 'X:\Programs\Chunker\chunker-cli-1.21.0.jar',
 
   # Java Edition version the world is converted to and BlueMap renders with. Must be a version
   # both tools support (Chunker: `-f ?` lists JAVA_* formats).
