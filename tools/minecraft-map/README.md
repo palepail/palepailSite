@@ -82,13 +82,15 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it:
 | `-WorkDir`             | `C:\minecraft-map`                                        |
 | `-RenderThreads`       | CPU cores - 1                                             |
 | `-ChunkerMemory`       | `4G`                                                      |
-| `-UseLightData`        | off (see below)                                           |
+| `-AmbientLight`        | `1` (fully lit; see below)                                |
+| `-UseLightData`        | off                                                       |
 
 ## Troubleshooting
 
-- **Everything looks fully lit, with no shadows:** Chunker may not write lighting data, so by
-  default BlueMap renders without it. Try `-UseLightData`. If the map then comes out empty, the
-  converted world has no light data and you should leave it off.
+- **Lighting / day-night toggle:** Chunker's command line doesn't calculate lighting; it writes
+  all-dark light data. With BlueMap's normal settings the map then looks like permanent night.
+  The script therefore sets `-AmbientLight 1`, which lights every block fully. Faces are still
+  shaded by direction, but there are no shadows, and the day/night slider has little effect.
 - **`UnsupportedClassVersionError`:** the `java` being used is older than 25. Install Java 25 or
   pass `-JavaExe 'C:\path\to\jdk-25\bin\java.exe'`.
 - **Chunker rejects the format:** run `java -jar <chunker jar> -f ?` to list the `JAVA_*` formats

@@ -59,8 +59,12 @@ param(
   # Max heap for the Chunker conversion; raise it for very large worlds.
   [string]$ChunkerMemory = '4G',
 
-  # Only render chunks that have light data. Chunker may not write lighting, in which case this
-  # renders nothing; without it, chunks render fully lit (no shadows, caves always shown).
+  # Brightness every block gets regardless of the world's light data, 0 to 1. Chunker's CLI
+  # doesn't calculate lighting (it writes all-dark light data), so anything below 1 renders the
+  # map as if it were night. Only lower it if the converted world has real lighting.
+  [double]$AmbientLight = 1,
+
+  # Only render chunks that have light data (BlueMap's default).
   [switch]$UseLightData
 )
 
@@ -78,17 +82,17 @@ if (-not $MarkersFile) {
 $Dimensions = [ordered]@{
   overworld = @{
     folders = @('dimensions/minecraft/overworld/region', 'region'); id = 'minecraft:overworld'; name = 'Overworld'; sorting = 0
-    sky = '#7dabff'; void = '#000000'; ambient = 0.1; caves = 55; extra = ''
+    sky = '#7dabff'; void = '#000000'; caves = 55; extra = ''
   }
   nether    = @{
     folders = @('dimensions/minecraft/the_nether/region', 'DIM-1/region'); id = 'minecraft:the_nether'; name = 'Nether'; sorting = 100
-    sky = '#290000'; void = '#150000'; ambient = 0.6; caves = -10000
+    sky = '#290000'; void = '#150000'; caves = -10000
     # Hide the bedrock roof so the Nether is visible from above.
     extra = "render-mask: [ {} { subtract: true, min-y: 90, max-y: 127 } ]"
   }
   end       = @{
     folders = @('dimensions/minecraft/the_end/region', 'DIM1/region'); id = 'minecraft:the_end'; name = 'The End'; sorting = 200
-    sky = '#080010'; void = '#080010'; ambient = 0.6; caves = -10000; extra = ''
+    sky = '#080010'; void = '#080010'; caves = -10000; extra = ''
   }
 }
 
@@ -254,7 +258,7 @@ sorting: $($dim.sorting)
 start-pos: { x: 0, z: 0 }
 sky-color: "$($dim.sky)"
 void-color: "$($dim.void)"
-ambient-light: $($dim.ambient)
+ambient-light: $AmbientLight
 remove-caves-below-y: $($dim.caves)
 ignore-missing-light-data: $((-not $UseLightData).ToString().ToLower())
 $($dim.extra)
