@@ -14,7 +14,7 @@ per-file read quota, only that daily transfer limit (roughly 15,000 tiles a day)
 https://<projectId>.web.app/
   manifest.json                        world name, last render time, per-dimension zoom/bounds
   markers.json                         named places (optional)
-  overworld|nether|end/tiles/zoom.{z}/{x/10}/{y/10}/tile.{x}.{y}.jpeg
+  overworld|nether|end/tiles/zoom.{z}/{x/10}/{y/10}/tile.{x}.{y}.png
 ```
 
 ## One-time setup (on the server)
@@ -76,13 +76,16 @@ Copy `markers.example.json` to `markers.json` in this folder and edit it. `dimen
 | `-Dimensions`  | `overworld, nether, end`         | Others stay on the map with their last render |
 | `-ZoomOut`     | `6`                              | Levels below 1 block/pixel                 |
 | `-ZoomIn`      | `2`                              | Levels above 1 block/pixel                 |
-| `-ImageFormat` | `jpeg`                           | `png`/`webp` are sharper but larger        |
+| `-ImageFormat` | `png`                            | `jpeg` is ~2-3x smaller but crashes uNmINeD 0.20.11-dev |
 | `-WorldName`   | world's `levelname.txt`          | Title shown on the site                    |
 | `-HostingSite` | the project ID                   | Only if the default site ID differs        |
 
 - **Nether shows only the bedrock roof / unmined-cli rejects `--topY`:** the Nether is rendered
   from below the roof via `$DimensionArgs` at the top of the script. Check
   `unmined-cli help web render` for your version's flag name and adjust it there.
+- **End fails with "Cannot open dimension":** nobody has visited the End yet, so the world has
+  no data for it. It's skipped (exit code 1) and appears automatically once someone goes there;
+  use `-Dimensions overworld, nether` until then for a clean run.
 - **"Unexpected tile layout":** uNmINeD changed its output folder format. The script refuses to
   publish rather than deploy tiles the viewer can't find.
 - If one dimension fails, the others are still published and the failed one keeps its last good

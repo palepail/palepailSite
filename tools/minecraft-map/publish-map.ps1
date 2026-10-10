@@ -45,8 +45,9 @@ param(
   [int]$ZoomOut = 6,
   [int]$ZoomIn = 2,
 
+  # PNG by default: unmined-cli 0.20.11-dev crashes encoding JPEG tiles when no quality is given.
   [ValidateSet('jpeg', 'png', 'webp')]
-  [string]$ImageFormat = 'jpeg',
+  [string]$ImageFormat = 'png',
 
   # Hand-edited place markers, uploaded as-is if present. Defaults to markers.json next to this script.
   [string]$MarkersFile,
