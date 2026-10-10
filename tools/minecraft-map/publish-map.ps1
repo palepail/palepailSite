@@ -72,21 +72,22 @@ if (-not $MarkersFile) {
   $MarkersFile = Join-Path $ScriptDir 'markers.json'
 }
 
-# BlueMap map settings per dimension, from BlueMap's generated defaults. `folder` is where the
-# dimension's region files live in a Java world.
+# BlueMap map settings per dimension, from BlueMap's generated defaults. `folders` are where the
+# dimension's region files live in a Java world: 26.1+ uses dimensions/minecraft/<name>/,
+# older versions region/, DIM-1/ and DIM1/.
 $Dimensions = [ordered]@{
   overworld = @{
-    folder = 'region'; id = 'minecraft:overworld'; name = 'Overworld'; sorting = 0
+    folders = @('dimensions/minecraft/overworld/region', 'region'); id = 'minecraft:overworld'; name = 'Overworld'; sorting = 0
     sky = '#7dabff'; void = '#000000'; ambient = 0.1; caves = 55; extra = ''
   }
   nether    = @{
-    folder = 'DIM-1/region'; id = 'minecraft:the_nether'; name = 'Nether'; sorting = 100
+    folders = @('dimensions/minecraft/the_nether/region', 'DIM-1/region'); id = 'minecraft:the_nether'; name = 'Nether'; sorting = 100
     sky = '#290000'; void = '#150000'; ambient = 0.6; caves = -10000
     # Hide the bedrock roof so the Nether is visible from above.
     extra = "render-mask: [ {} { subtract: true, min-y: 90, max-y: 127 } ]"
   }
   end       = @{
-    folder = 'DIM1/region'; id = 'minecraft:the_end'; name = 'The End'; sorting = 200
+    folders = @('dimensions/minecraft/the_end/region', 'DIM1/region'); id = 'minecraft:the_end'; name = 'The End'; sorting = 200
     sky = '#080010'; void = '#080010'; ambient = 0.6; caves = -10000; extra = ''
   }
 }
@@ -193,9 +194,14 @@ Invoke-Checked $JavaExe @(
 )
 
 # --- 3. Configure and render BlueMap --------------------------------------------------------
-$maps = @($Dimensions.Keys | Where-Object { Test-Path (Join-Path $javaWorldDir $Dimensions[$_].folder) })
+$maps = @($Dimensions.Keys | Where-Object {
+  $dimension = $Dimensions[$_]
+  @($dimension.folders | Where-Object { Test-Path (Join-Path $javaWorldDir $_) }).Count -gt 0
+})
 if ($maps.Count -eq 0) {
-  throw "Chunker produced no region files in '$javaWorldDir'."
+  $found = Get-ChildItem -Path $javaWorldDir -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+    ForEach-Object { $_.FullName.Substring($javaWorldDir.Length) }
+  throw "Chunker produced no region folders in '$javaWorldDir'. Folders found:`n$($found -join "`n")"
 }
 $skipped = @($Dimensions.Keys | Where-Object { $maps -notcontains $_ })
 if ($skipped.Count -gt 0) {
