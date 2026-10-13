@@ -264,7 +264,7 @@ try {
     Write-Step 'Another publish is running; skipping this players update.'
     exit 0
   }
-  throw 'Another publish is already running (C:\minecraft-map\publish.lock is in use). Wait for it to finish.'
+  throw "Another publish is already running ($(Join-Path $WorkDir 'publish.lock') is in use). Wait for it to finish."
 }
 
 # --- 1. Snapshot the world ------------------------------------------------------------------
