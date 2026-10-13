@@ -284,6 +284,19 @@ if ($PlayersOnly) {
     '-i', $snapshotDir, '-o', $javaWorldDir, '-f', $chunkerFormat
   )
 
+  # Chunker leaves every chunk's "last modified" time at 0, so BlueMap would never re-render
+  # anything after the first render. Stamp chunks whose data changed since the last run with the
+  # current time; if that fails, fall back to re-rendering everything.
+  Write-Step 'Marking changed chunks for BlueMap'
+  $stampScript = Join-Path $ScriptDir 'read-last-seen\stamp-regions.js'
+  $stampOutput = & node $stampScript $javaWorldDir (Join-Path $WorkDir 'chunk-stamps.json')
+  if ($LASTEXITCODE -eq 0) {
+    Write-Step ($stampOutput -join ' ')
+  } else {
+    Write-Warning "Couldn't mark changed chunks (stamp-regions exited with $LASTEXITCODE); re-rendering everything."
+    $ForceRender = $true
+  }
+
   $maps = @($Dimensions.Keys | Where-Object {
     $dimension = $Dimensions[$_]
     @($dimension.folders | Where-Object { Test-Path (Join-Path $javaWorldDir $_) }).Count -gt 0

@@ -47,7 +47,10 @@ project in `src/environments/environment.ts`. Dimensions nobody has visited yet 
 world) are skipped and appear on a later run.
 
 The first render can take a long time on a big world. After that BlueMap only re-renders chunks
-that changed, so keep `C:\minecraft-map\` between runs. When a setting that's baked into the
+that changed, so keep `C:\minecraft-map\` between runs. Chunker doesn't record when chunks
+changed, so `read-last-seen\stamp-regions.js` compares each chunk with the previous run (state in
+`chunk-stamps.json`) and marks only the changed ones for BlueMap. The log shows "N of M chunks
+changed". When a setting that's baked into the
 tiles changes (`-AmbientLight`, `-UseLightData`, `-HideCaves`, `-MinecraftVersion`), the script automatically
 re-renders everything once.
 
