@@ -44,14 +44,15 @@ param(
   # The viewer loads from https://<projectId>.web.app, so only change this together with it.
   [string]$HostingSite,
 
-  # Java 25 or newer (BlueMap 5.28 requires it).
+  # Java 25 or newer (BlueMap 5.28+ requires it).
   [string]$JavaExe = 'java',
-  [string]$BlueMapJar = 'X:\Programs\BlueMap\bluemap-5.28-cli.jar',
+  [string]$BlueMapJar = 'X:\Programs\BlueMap\bluemap-5.29-cli.jar',
   [string]$ChunkerJar = 'X:\Programs\Chunker\chunker-cli-1.21.0.jar',
 
   # Java Edition version the world is converted to and BlueMap renders with. Must be a version
   # both tools support (Chunker: `-f ?` lists JAVA_* formats).
-  [string]$MinecraftVersion = '26.1',
+  # Content newer than this (e.g. biomes) is replaced by older equivalents in the conversion.
+  [string]$MinecraftVersion = '26.3',
 
   # Working folder for the snapshot, converted world, BlueMap data and the deployed site.
   # Keep it between runs: BlueMap stores its render state here.

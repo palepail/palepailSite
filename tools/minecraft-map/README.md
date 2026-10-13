@@ -16,9 +16,9 @@ directly. Firebase Hosting is part of the free Spark plan: 10 GB stored, 360 MB 
 
 ## One-time setup (on the server)
 
-1. **Java 25** or newer, which BlueMap 5.28 requires. For example, Temurin 25 from
+1. **Java 25** or newer, which BlueMap 5.28+ requires. For example, Temurin 25 from
    https://adoptium.net. Check with `java -version`.
-2. **BlueMap CLI**: download `bluemap-5.28-cli.jar` from
+2. **BlueMap CLI**: download `bluemap-5.29-cli.jar` from
    https://github.com/BlueMap-Minecraft/BlueMap/releases to `X:\Programs\BlueMap\`.
 3. **Chunker CLI**: download the latest `chunker-cli-<version>.jar` from
    https://github.com/HiveGamesOSS/Chunker/releases to `X:\Programs\Chunker\`. The script
@@ -119,9 +119,9 @@ prints a warning.
 | `-WorldPath`           | `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level`  |
 | `-ProjectId`           | `projectId` in `environment.ts`                           |
 | `-JavaExe`             | `java` (must be 25+)                                      |
-| `-BlueMapJar`          | `X:\Programs\BlueMap\bluemap-5.28-cli.jar`                |
+| `-BlueMapJar`          | `X:\Programs\BlueMap\bluemap-5.29-cli.jar`                |
 | `-ChunkerJar`          | `X:\Programs\Chunker\chunker-cli-1.21.0.jar`              |
-| `-MinecraftVersion`    | `26.1`: the Java version Chunker converts to and BlueMap renders |
+| `-MinecraftVersion`    | `26.3`: the Java version Chunker converts to and BlueMap renders. Use the newest `JAVA_*` that Chunker lists (`-f ?`), or newer biomes and blocks are replaced by older ones |
 | `-WorkDir`             | `C:\minecraft-map`                                        |
 | `-RenderThreads`       | CPU cores - 1                                             |
 | `-ChunkerMemory`       | `4G`                                                      |
