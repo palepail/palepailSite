@@ -255,6 +255,18 @@ $siteDir = Join-Path $blueMapDir 'site'
 $publicDir = Join-Path $siteDir 'public'
 New-Item -ItemType Directory -Force -Path $snapshotDir, $publicDir | Out-Null
 
+# Only one publish at a time: two BlueMap processes writing the same tiles corrupt them. The lock
+# is an exclusively opened file that Windows releases when this process exits, even on a crash.
+try {
+  $publishLock = [System.IO.File]::Open((Join-Path $WorkDir 'publish.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+} catch {
+  if ($PlayersOnly) {
+    Write-Step 'Another publish is running; skipping this players update.'
+    exit 0
+  }
+  throw 'Another publish is already running (C:\minecraft-map\publish.lock is in use). Wait for it to finish.'
+}
+
 # --- 1. Snapshot the world ------------------------------------------------------------------
 Write-Step "Snapshotting '$WorldPath'"
 # LOCK is held open by the running server and isn't needed to read the world.
