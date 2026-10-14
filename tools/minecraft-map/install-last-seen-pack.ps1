@@ -42,8 +42,15 @@ if (Test-Path $listFile) {
   $packs = @(@($existing) | Where-Object { $_.pack_id -ne $packId })
 }
 $packs += [pscustomobject]@{ pack_id = $packId; version = $packVersion }
-# -InputObject keeps a one-element list as a JSON array on Windows PowerShell 5.1.
-$json = ConvertTo-Json -InputObject $packs -Depth 4
+# Written by hand: Windows PowerShell 5.1's ConvertTo-Json can turn the version arrays into
+# {"value":[1,0,0],"Count":3}, which Bedrock silently ignores.
+$entries = foreach ($pack in $packs) {
+  # Repairs entries an earlier run wrote in that broken form.
+  if ($null -ne $pack.version.value) { $pack.version = $pack.version.value }
+  "  { `"pack_id`": `"$($pack.pack_id)`", `"version`": [$(@($pack.version) -join ', ')] }"
+}
+$json = "[`n" + ($entries -join ",`n") + "`n]`n"
 [System.IO.File]::WriteAllText($listFile, $json, (New-Object System.Text.UTF8Encoding $false))
-Write-Host "Enabled it in $listFile"
+Write-Host "Enabled it in $listFile`:"
+Write-Host $json
 Write-Host 'Restart the server to load the pack. Players are recorded from then on.'
