@@ -112,6 +112,26 @@ powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minec
 If the player data can't be read, the map still publishes, without players, and the script
 prints a warning.
 
+## Find an item (offline players too)
+
+`/testfor @a[hasitem=...]` only checks players who are online. `read-last-seen\find-item.js` reads
+the saved world instead, so it covers everyone who has ever joined. It searches inventories,
+ender chests, armour and offhand, including items inside shulker boxes:
+
+```powershell
+cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
+node find-item.js "C:\minecraft-map\snapshot\db" enchanted_golden_apple
+```
+
+- Add `--containers` to also search chests, barrels, placed shulker boxes, chest minecarts,
+  donkeys, item frames and dropped items.
+- Any item ID works, e.g. `diamond` or `minecraft:totem_of_undying`.
+- Player names come from the Last Seen pack. Players it hasn't recorded show as "Unknown
+  player" with their saved position.
+- It shows the world as of the last snapshot (the last publish). For the current state, stop the
+  server and point it at the live world's `db` folder. Run `npm ci` here first if the publish
+  script hasn't installed the packages yet.
+
 ## Options
 
 | Parameter              | Default                                                   |
