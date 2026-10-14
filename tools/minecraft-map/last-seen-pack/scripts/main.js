@@ -2,6 +2,7 @@
 // tools/minecraft-map/read-last-seen reads these from the world files when the map is published.
 // Uses only the stable @minecraft/server API, so the world needs no experiments.
 import { system, world } from '@minecraft/server';
+import './activity.js';
 
 // Property names are `pp_lastseen:<player id>`; values are JSON starting with {"pp_lastseen":1,
 // which is what the reader looks for.

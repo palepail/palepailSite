@@ -132,6 +132,44 @@ node find-item.js "C:\minecraft-map\snapshot\db" enchanted_golden_apple
   server and point it at the live world's `db` folder. Run `npm ci` here first if the publish
   script hasn't installed the packages yet.
 
+## Container log (who took what)
+
+The same pack (version 1.1.0 and newer) logs container activity:
+
+- items put into or taken out of chests, barrels, shulker boxes, hoppers, furnaces and other
+  containers, with who did it;
+- containers broken by a player, and what was in them;
+- containers blown up, by what (creeper, TNT...), and what was in them.
+
+Each entry is printed to the server console as `[activity] Alice took 2 enchanted_golden_apple
+from chest at overworld 16 64 33`, and saved in the world. The world keeps about the latest 3 MB,
+which is tens of thousands of entries. To print it:
+
+```powershell
+cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
+node read-activity-log.js "C:\minecraft-map\snapshot\db"
+node read-activity-log.js "C:\minecraft-map\snapshot\db" --item enchanted_golden_apple
+node read-activity-log.js "C:\minecraft-map\snapshot\db" --player Alice
+node read-activity-log.js "C:\minecraft-map\snapshot\db" --near 16,33 --action took
+```
+
+`--near x,z,radius` defaults to a 10-block radius. The snapshot is only as fresh as the last
+publish. For up-to-the-minute entries, stop the server and point it at the live world's `db`.
+
+Limits:
+
+- There's no "container changed" event in the stable Script API. The pack checks an opened
+  container every half second while the player who opened it stays within 8 blocks. A hopper
+  filling or draining a chest while someone has it open is credited to them.
+- If two players have the same container open, the entry names both ("Alice or Bob").
+- Hoppers and other automatic changes aren't logged when nobody has the container open.
+- Ender chests are per-player, so they aren't logged.
+- Entries only have a real date if the server's script clock works. Otherwise they show the
+  in-game day, and the console line carries the real time. To keep the console, turn on
+  `content-log-file-enabled=true` in `server.properties`.
+
+After updating the pack, re-run `install-last-seen-pack.ps1` and restart the server.
+
 ## Options
 
 | Parameter              | Default                                                   |
