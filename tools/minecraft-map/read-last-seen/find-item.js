@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Finds an item in every player's saved inventory, including players who are offline.
 //
-// Usage: node find-item.js <Bedrock world db folder> <item> [--containers]
+// Usage: node find-item.js [world folder] <item> [--containers]
+//   world folder  defaults to E:\Games\Minecraft Bedrock Server\worlds\Bedrock level; the
+//                 db folder inside it works too
 //   <item>        e.g. enchanted_golden_apple or minecraft:diamond
 //   --containers  also searches chests, barrels, shulker boxes and other block containers, plus
 //                 entities (minecarts, donkeys, item frames, dropped items...)
@@ -11,9 +13,9 @@
 // in that data; they come from the "Palepail Last Seen" pack, so players it hasn't recorded are
 // shown by their position instead.
 //
-// Run it on the publish snapshot (C:\minecraft-map\snapshot\db) while the server runs, or on the
-// live world's db with the server stopped. It shows the world as it was last saved.
-const { LevelDB } = require('leveldb-zlib');
+// It can run while the server is up (see open-world.js) and shows the world as the server last
+// wrote it, normally a few seconds behind the game. Players who are online may be a little behind.
+const { openWorld } = require('./open-world');
 const nbt = require('prismarine-nbt');
 
 // Older names some worlds still have saved.
@@ -122,17 +124,17 @@ function namesFromPack(buffer) {
 async function main() {
   const args = process.argv.slice(2);
   const withContainers = args.includes('--containers');
-  const [dbPath, itemArg] = args.filter((a) => !a.startsWith('--'));
-  if (!dbPath || !itemArg) {
-    console.error('Usage: node find-item.js <world db folder> <item> [--containers]');
-    console.error('  e.g. node find-item.js "C:\\minecraft-map\\snapshot\\db" enchanted_golden_apple');
+  const positional = args.filter((a) => !a.startsWith('--'));
+  const [worldPath, itemArg] = positional.length > 1 ? positional : [undefined, positional[0]];
+  if (!itemArg) {
+    console.error('Usage: node find-item.js [world folder] <item> [--containers]');
+    console.error('  e.g. node find-item.js enchanted_golden_apple --containers');
     process.exit(2);
   }
   const item = (itemArg.includes(':') ? itemArg : `minecraft:${itemArg}`).toLowerCase();
   const names = new Set([item, ...(ALIASES[item] ?? [])]);
 
-  const db = new LevelDB(dbPath, { createIfMissing: false });
-  await db.open();
+  const { db, close } = await openWorld(worldPath);
   try {
     const dynamicProperties = await db.get('DynamicProperties');
     const playerNames = dynamicProperties ? namesFromPack(dynamicProperties) : new Map();
@@ -207,11 +209,11 @@ async function main() {
       console.log('\nUnknown players have no record from the Last Seen pack yet; use their position to tell who they are.');
     }
   } finally {
-    await db.close();
+    await close();
   }
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(error.message ?? error);
   process.exit(1);
 });

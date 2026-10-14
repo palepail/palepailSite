@@ -120,7 +120,7 @@ ender chests, armour and offhand, including items inside shulker boxes:
 
 ```powershell
 cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
-node find-item.js "C:\minecraft-map\snapshot\db" enchanted_golden_apple
+node find-item.js enchanted_golden_apple
 ```
 
 - Add `--containers` to also search chests, barrels, placed shulker boxes, chest minecarts,
@@ -128,9 +128,11 @@ node find-item.js "C:\minecraft-map\snapshot\db" enchanted_golden_apple
 - Any item ID works, e.g. `diamond` or `minecraft:totem_of_undying`.
 - Player names come from the Last Seen pack. Players it hasn't recorded show as "Unknown
   player" with their saved position.
-- It shows the world as of the last snapshot (the last publish). For the current state, stop the
-  server and point it at the live world's `db` folder. Run `npm ci` here first if the publish
-  script hasn't installed the packages yet.
+- It reads the live world, `E:\Games\Minecraft Bedrock Server\worlds\Bedrock level`, by default.
+  To read another world, pass its folder first: `node find-item.js "D:\backup\Bedrock level" diamond`.
+  The server can stay running: the script then reads a copy taken on the spot. That copy is as
+  current as the world on disk, usually a few seconds behind the game.
+- Run `npm ci` here first if the publish script hasn't installed the packages yet.
 
 ## Container log (who took what)
 
@@ -147,14 +149,14 @@ which is tens of thousands of entries. To print it:
 
 ```powershell
 cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
-node read-activity-log.js "C:\minecraft-map\snapshot\db"
-node read-activity-log.js "C:\minecraft-map\snapshot\db" --item enchanted_golden_apple
-node read-activity-log.js "C:\minecraft-map\snapshot\db" --player Alice
-node read-activity-log.js "C:\minecraft-map\snapshot\db" --near 16,33 --action took
+node read-activity-log.js
+node read-activity-log.js --item enchanted_golden_apple
+node read-activity-log.js --player Alice
+node read-activity-log.js --near 16,33 --action took
 ```
 
-`--near x,z,radius` defaults to a 10-block radius. The snapshot is only as fresh as the last
-publish. For up-to-the-minute entries, stop the server and point it at the live world's `db`.
+`--near x,z,radius` defaults to a 10-block radius. Like `find-item.js`, it reads the live world
+(the server can keep running), or the world folder you give it first.
 
 Limits:
 

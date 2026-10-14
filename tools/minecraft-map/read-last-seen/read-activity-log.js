@@ -2,17 +2,17 @@
 // Prints the container log recorded by the "Palepail Last Seen" pack: who put items into or took
 // them out of chests and other containers, and who broke or blew one up.
 //
-// Usage: node read-activity-log.js <Bedrock world db folder> [filters] [--json]
+// Usage: node read-activity-log.js [world folder] [filters] [--json]
+//   world folder       defaults to E:\Games\Minecraft Bedrock Server\worlds\Bedrock level
 //   --player <name>    only entries involving this player
 //   --item <item>      only entries with this item, e.g. enchanted_golden_apple
 //   --near <x,z[,r]>   only containers within r blocks (default 10) of x,z
 //   --action <action>  took, put, broke or exploded
 //   --json             print the matching entries as JSON instead
 //
-// The pack keeps the latest ~3 MB of entries. Run it on the publish snapshot
-// (C:\minecraft-map\snapshot\db) while the server runs, or on the live world's db with the server
-// stopped; it shows what had been saved by then.
-const { LevelDB } = require('leveldb-zlib');
+// The pack keeps the latest ~3 MB of entries. It can run while the server is up (see
+// open-world.js); entries from the last few seconds may not be written yet.
+const { openWorld } = require('./open-world');
 const nbt = require('prismarine-nbt');
 
 function parseArgs(argv) {
@@ -24,7 +24,7 @@ function parseArgs(argv) {
     else if (arg.startsWith('--')) options[arg.slice(2)] = argv[++i];
     else positional.push(arg);
   }
-  return { dbPath: positional[0], options };
+  return { worldPath: positional[0], options };
 }
 
 /** Every `pp_log:<page>` dynamic property, oldest page first. */
@@ -86,20 +86,19 @@ function matcher(options) {
 }
 
 async function main() {
-  const { dbPath, options } = parseArgs(process.argv.slice(2));
-  if (!dbPath) {
-    console.error('Usage: node read-activity-log.js <world db folder> [--player name] [--item id] [--near x,z[,r]] [--action took|put|broke|exploded] [--json]');
+  const { worldPath, options } = parseArgs(process.argv.slice(2));
+  if (options.help !== undefined || process.argv.includes('--help')) {
+    console.error('Usage: node read-activity-log.js [world folder] [--player name] [--item id] [--near x,z[,r]] [--action took|put|broke|exploded] [--json]');
     process.exit(2);
   }
 
-  const db = new LevelDB(dbPath, { createIfMissing: false });
-  await db.open();
+  const { db, close } = await openWorld(worldPath);
   let pages;
   try {
     const dynamicProperties = await db.get('DynamicProperties');
     pages = dynamicProperties ? logPages(dynamicProperties) : [];
   } finally {
-    await db.close();
+    await close();
   }
 
   const entries = [];
@@ -128,6 +127,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(error.message ?? error);
   process.exit(1);
 });
