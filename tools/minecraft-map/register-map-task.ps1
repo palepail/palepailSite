@@ -3,7 +3,7 @@
   Registers Windows scheduled tasks that publish the Minecraft map automatically.
 
 .DESCRIPTION
-  "Minecraft map" runs publish-map.ps1 every day at -At (default 2:30 PM). Optionally,
+  "Minecraft map" runs publish-map.ps1 every day at -At (default 8 PM). Optionally,
   "Minecraft map players" runs it with -PlayersOnly every -PlayersEveryMinutes minutes.
   Each run's output goes to <LogDir>\publish.log (or publish-players.log), overwritten each time.
 
@@ -13,12 +13,12 @@
 .EXAMPLE
   .\register-map-task.ps1
 .EXAMPLE
-  .\register-map-task.ps1 -At 14:30 -PlayersEveryMinutes 15
+  .\register-map-task.ps1 -At 20:00 -PlayersEveryMinutes 15
 #>
 [CmdletBinding()]
 param(
   # Time of day for the full map publish.
-  [string]$At = '14:30',
+  [string]$At = '20:00',
 
   # Also refresh players' last-seen positions this often (minutes); 0 = don't.
   [int]$PlayersEveryMinutes = 0,

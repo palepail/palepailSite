@@ -56,7 +56,7 @@ re-renders everything once.
 
 ### Schedule it
 
-Re-render every day at 2:30 PM. Run this once:
+Re-render every day at 8 PM. Run this once:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File X:\Development\palepailSite\tools\minecraft-map\register-map-task.ps1
