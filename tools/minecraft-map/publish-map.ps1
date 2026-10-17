@@ -474,9 +474,11 @@ $hostingConfig = [ordered]@{
         source  = '**/*.@(json|json.gz)'
         headers = @([ordered]@{ key = 'Cache-Control'; value = 'no-cache' })
       },
+      # Tiles change in place when an area is re-rendered, so browsers must check for a newer one
+      # (a cheap 304 when unchanged); with max-age a cached distant tile hid newly explored areas.
       [ordered]@{
         source  = 'maps/*/tiles/**'
-        headers = @([ordered]@{ key = 'Cache-Control'; value = 'public, max-age=3600' })
+        headers = @([ordered]@{ key = 'Cache-Control'; value = 'no-cache' })
       }
     )
   }

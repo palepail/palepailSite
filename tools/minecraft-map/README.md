@@ -215,5 +215,11 @@ After updating the pack, re-run `install-last-seen-pack.ps1` and restart the ser
   Run it on the live world's `db` too, with the server stopped. Fewer chunks in the snapshot than
   in the live world means the copy missed data. Chunks missing from the Java world point at the
   Chunker conversion. Chunks with status `empty` are skipped by BlueMap.
+- **New areas are black from far away but fine up close:** far away, the viewer uses the
+  low-detail tiles, and those cover big areas that change in place. First try a hard refresh
+  (Ctrl+F5), since your browser may still have the old version. If that doesn't help, search
+  `C:\minecraft-map\publish.log` for `Failed to load tile`, `Failed to save tile` or `Discarding
+  changes`. BlueMap couldn't update those low-detail tiles. Run once with `-ForceRender` to
+  rebuild them all.
 - **Over the daily transfer limit:** on Spark, Hosting stops serving until the quota resets.
 - The old uNmINeD output in `C:\minecraft-map\site\` is no longer used and can be deleted.
