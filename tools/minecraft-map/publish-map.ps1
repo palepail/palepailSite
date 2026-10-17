@@ -144,6 +144,35 @@ function ConvertTo-Hocon([string]$Value) {
 # time-stamped here: a record that changed since the last run (position or the pack's tick counter,
 # which changes on every save) means the player was online in between, so they get the current time.
 # Accurate to the interval between runs. A real time from the pack is kept as-is.
+function Remove-BrokenLowresTiles([string]$MapsDir) {
+  # Low-detail tiles (tiles\1, \2, ...) are PNGs that BlueMap reads back and updates on every render.
+  # A cut-off one ("Error skipping PNG metadata") makes BlueMap start that tile from empty, which
+  # leaves black holes in the zoomed-out map. Deletes them and returns how many there were.
+  $iend = [byte[]](0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82)
+  $broken = 0
+  if (-not (Test-Path $MapsDir)) { return 0 }
+  foreach ($file in Get-ChildItem -Path $MapsDir -Recurse -File -Filter '*.png') {
+    if ($file.FullName -notmatch '[\\/]tiles[\\/][1-9]') { continue }
+    $ok = $false
+    if ($file.Length -ge 8) {
+      $stream = [System.IO.File]::OpenRead($file.FullName)
+      try {
+        $tail = New-Object byte[] 8
+        [void]$stream.Seek(-8, [System.IO.SeekOrigin]::End)
+        [void]$stream.Read($tail, 0, 8)
+        $ok = $null -eq (Compare-Object $tail $iend -SyncWindow 0)
+      } finally {
+        $stream.Dispose()
+      }
+    }
+    if (-not $ok) {
+      Remove-Item -Force $file.FullName
+      $broken++
+    }
+  }
+  return $broken
+}
+
 function Update-LastSeenTimes($Players) {
   $stateFile = Join-Path $WorkDir 'last-seen-state.json'
   $state = @{}
@@ -417,7 +446,11 @@ if ($PlayersOnly) {
   Invoke-Checked $JavaExe @('-jar', $BlueMapJar, '-c', $configDir, '--markers')
 } else {
   $blueMapArgs = @('-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
-  if ($ForceRender -or $renderSettings -ne $previousRenderSettings) {
+  $brokenTiles = Remove-BrokenLowresTiles (Join-Path $publicDir 'maps')
+  if ($brokenTiles -gt 0) {
+    Write-Warning "Removed $brokenTiles damaged low-detail tile(s); re-rendering everything to rebuild them"
+  }
+  if ($ForceRender -or $brokenTiles -gt 0 -or $renderSettings -ne $previousRenderSettings) {
     Write-Step 'Render settings changed (or -ForceRender); re-rendering everything'
     $blueMapArgs += '-f'
   }

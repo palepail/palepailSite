@@ -217,9 +217,10 @@ After updating the pack, re-run `install-last-seen-pack.ps1` and restart the ser
   Chunker conversion. Chunks with status `empty` are skipped by BlueMap.
 - **New areas are black from far away but fine up close:** far away, the viewer uses the
   low-detail tiles, and those cover big areas that change in place. First try a hard refresh
-  (Ctrl+F5), since your browser may still have the old version. If that doesn't help, search
-  `C:\minecraft-map\publish.log` for `Failed to load tile`, `Failed to save tile` or `Discarding
-  changes`. BlueMap couldn't update those low-detail tiles. Run once with `-ForceRender` to
-  rebuild them all.
+  (Ctrl+F5), since your browser may still have the old version. If `publish.log` shows `Failed to
+  load tile ... Error skipping PNG metadata`, a low-detail tile file was cut off (for example
+  when a render was stopped part-way). BlueMap then rebuilds that tile with only the newly
+  rendered chunks. Each publish now checks for cut-off tiles, deletes them, and re-renders
+  everything once to rebuild them. The log then shows "Removed N damaged low-detail tile(s)".
 - **Over the daily transfer limit:** on Spark, Hosting stops serving until the quota resets.
 - The old uNmINeD output in `C:\minecraft-map\site\` is no longer used and can be deleted.
