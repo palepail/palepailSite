@@ -91,6 +91,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# A scheduled run sends output to a log, but an error that stops the script would otherwise go
+# to the task's hidden console instead. Print it so the log says why the run failed.
+trap {
+  Write-Host "ERROR: $_"
+  Write-Host $_.ScriptStackTrace
+  exit 1
+}
+
 # Windows PowerShell 5.1 leaves $PSScriptRoot empty in param defaults, so resolve paths here.
 $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 if (-not $MarkersFile) {
@@ -124,9 +132,20 @@ function Write-Step([string]$Message) {
 }
 
 function Invoke-Checked([string]$File, [string[]]$Arguments) {
-  & $File @Arguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "$File exited with code $LASTEXITCODE"
+  # When output is redirected (as in the scheduled task's log), Windows PowerShell turns every
+  # line a tool writes to stderr into an error, and with 'Stop' the first one ends the run. Java
+  # tools write warnings there, so only the exit code decides failure. Lines are printed with
+  # Write-Host so they land in the log, not in the function's return value.
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $File @Arguments 2>&1 | ForEach-Object { Write-Host "$_" }
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+  if ($exitCode -ne 0) {
+    throw "$File exited with code $exitCode"
   }
 }
 
@@ -331,11 +350,15 @@ if ($PlayersOnly) {
   # current time; if that fails, fall back to re-rendering everything.
   Write-Step 'Marking changed chunks for BlueMap'
   $stampScript = Join-Path $ScriptDir 'read-last-seen\stamp-regions.js'
-  $stampOutput = & node $stampScript $javaWorldDir (Join-Path $WorkDir 'chunk-stamps.json')
-  if ($LASTEXITCODE -eq 0) {
+  # 'Continue': see Invoke-Checked; a stderr line mustn't skip the fallback below.
+  $ErrorActionPreference = 'Continue'
+  $stampOutput = & node $stampScript $javaWorldDir (Join-Path $WorkDir 'chunk-stamps.json') 2>&1 | ForEach-Object { "$_" }
+  $stampExit = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($stampExit -eq 0) {
     Write-Step ($stampOutput -join ' ')
   } else {
-    Write-Warning "Couldn't mark changed chunks (stamp-regions exited with $LASTEXITCODE); re-rendering everything."
+    Write-Warning "Couldn't mark changed chunks (stamp-regions exited with $stampExit); re-rendering everything."
     $ForceRender = $true
   }
 
