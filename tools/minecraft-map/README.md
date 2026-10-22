@@ -54,7 +54,8 @@ changed". When a setting that's baked into the
 tiles changes (`-AmbientLight`, `-UseLightData`, `-HideCaves`, `-MinecraftVersion`), the script automatically
 re-renders everything once.
 
-To go easy on the PC, the publish runs at idle CPU priority on half the cores. It also skips the
+To go easy on the PC, the publish runs at idle CPU priority on a quarter of the cores, with BlueMap limited to 2 GB of
+memory. It also skips the
 conversion and render completely when no blocks or biomes changed since the last render, for
 example on a day nobody played. Then it only refreshes the players. `read-last-seen\world-hash.js`
 does that check, which takes seconds. Pass `-ForceRender` to render anyway.
@@ -188,7 +189,8 @@ After updating the pack, re-run `install-last-seen-pack.ps1` and restart the ser
 | `-ChunkerJar`          | `X:\Programs\Chunker\chunker-cli-1.21.0.jar`              |
 | `-MinecraftVersion`    | `26.3`: the Java version Chunker converts to and BlueMap renders. Use the newest `JAVA_*` that Chunker lists (`-f ?`), or newer biomes and blocks are replaced by older ones |
 | `-WorkDir`             | `C:\minecraft-map`                                        |
-| `-RenderThreads`       | half the CPU cores; also caps Chunker's threads           |
+| `-RenderThreads`       | a quarter of the CPU cores; also caps Chunker's threads   |
+| `-BlueMapMemory`       | `2G`: BlueMap's max memory                                |
 | `-Priority`            | `Idle`: the publish only uses CPU nothing else wants. `BelowNormal` or `Normal` finish sooner |
 | `-ChunkerMemory`       | `4G`                                                      |
 | `-AmbientLight`        | `1` (fully lit; see below)                                |

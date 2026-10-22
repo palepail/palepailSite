@@ -64,8 +64,12 @@ param(
   # Display name on the site; defaults to the world's levelname.txt.
   [string]$WorldName,
 
-  # CPU threads for Chunker and BlueMap. Half the cores leaves the rest for the server and you.
-  [int]$RenderThreads = [Math]::Max(1, [Math]::Floor([Environment]::ProcessorCount / 2)),
+  # CPU threads for Chunker and BlueMap. A quarter of the cores keeps the load (and heat) low;
+  # raise it for faster renders.
+  [int]$RenderThreads = [Math]::Max(1, [Math]::Floor([Environment]::ProcessorCount / 4)),
+
+  # Max heap for BlueMap. Java's default is a quarter of the PC's RAM, on top of the server's.
+  [string]$BlueMapMemory = '2G',
 
   # CPU priority for this run and the tools it starts. Idle only uses CPU nothing else wants.
   [ValidateSet('Idle', 'BelowNormal', 'Normal')]
@@ -495,9 +499,9 @@ $renderSettingsFile = Join-Path $blueMapDir 'render-settings.txt'
 $previousRenderSettings = if (Test-Path $renderSettingsFile) { (Get-Content $renderSettingsFile -Raw).Trim() } else { '' }
 if ($PlayersOnly) {
   Write-Step 'Updating map markers'
-  Invoke-Checked $JavaExe @("-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '--markers')
+  Invoke-Checked $JavaExe @("-Xmx$BlueMapMemory", "-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '--markers')
 } else {
-  $blueMapArgs = @("-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
+  $blueMapArgs = @("-Xmx$BlueMapMemory", "-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
   $brokenTiles = Remove-BrokenLowresTiles (Join-Path $publicDir 'maps')
   if ($brokenTiles -gt 0) {
     Write-Warning "Removed $brokenTiles damaged low-detail tile(s); re-rendering everything to rebuild them"
