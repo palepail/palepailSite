@@ -64,7 +64,12 @@ param(
   # Display name on the site; defaults to the world's levelname.txt.
   [string]$WorldName,
 
-  [int]$RenderThreads = [Math]::Max(1, [Environment]::ProcessorCount - 1),
+  # CPU threads for Chunker and BlueMap. Half the cores leaves the rest for the server and you.
+  [int]$RenderThreads = [Math]::Max(1, [Math]::Floor([Environment]::ProcessorCount / 2)),
+
+  # CPU priority for this run and the tools it starts. Idle only uses CPU nothing else wants.
+  [ValidateSet('Idle', 'BelowNormal', 'Normal')]
+  [string]$Priority = 'Idle',
 
   # Max heap for the Chunker conversion; raise it for very large worlds.
   [string]$ChunkerMemory = '4G',
@@ -98,6 +103,9 @@ trap {
   Write-Host $_.ScriptStackTrace
   exit 1
 }
+
+# Child processes (Java, Node) inherit this.
+(Get-Process -Id $PID).PriorityClass = $Priority
 
 # Windows PowerShell 5.1 leaves $PSScriptRoot empty in param defaults, so resolve paths here.
 $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
@@ -327,6 +335,27 @@ if ($LASTEXITCODE -ge 8) {
 $players = Get-LastSeenPlayers (Join-Path $snapshotDir 'db')
 $mapInfoPath = Join-Path $publicDir 'map-info.json'
 
+# Skip the conversion and render (the heavy part) when no blocks or biomes changed since the last
+# full publish and no render setting changed; players are still refreshed.
+$worldStateFile = Join-Path $WorkDir 'world-hash.txt'
+$worldState = $null
+if (-not $PlayersOnly -and -not $ForceRender) {
+  $ErrorActionPreference = 'Continue'
+  $hashOutput = & node (Join-Path $ScriptDir 'read-last-seen\world-hash.js') (Join-Path $snapshotDir 'db') 2>&1 | ForEach-Object { "$_" }
+  $hashExit = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($hashExit -eq 0) {
+    $worldState = "$($hashOutput -join ' ') version=$MinecraftVersion ambient=$AmbientLight lightData=$UseLightData hideCaves=$HideCaves"
+    $previousState = if (Test-Path $worldStateFile) { (Get-Content $worldStateFile -Raw).Trim() } else { '' }
+    if ($worldState -eq $previousState -and (Test-Path $mapInfoPath)) {
+      Write-Step 'No blocks changed since the last render; only updating players (-ForceRender to render anyway)'
+      $PlayersOnly = $true
+    }
+  } else {
+    Write-Warning "Couldn't check for world changes; rendering anyway. $($hashOutput -join ' ')"
+  }
+}
+
 if ($PlayersOnly) {
   # Reuse the maps from the last full publish.
   if (-not (Test-Path $mapInfoPath)) {
@@ -341,7 +370,7 @@ if ($PlayersOnly) {
     Remove-Item -Recurse -Force $javaWorldDir
   }
   Invoke-Checked $JavaExe @(
-    "-Xmx$ChunkerMemory", '-jar', $ChunkerJar,
+    "-Xmx$ChunkerMemory", "-XX:ActiveProcessorCount=$RenderThreads", '-jar', $ChunkerJar,
     '-i', $snapshotDir, '-o', $javaWorldDir, '-f', $chunkerFormat
   )
 
@@ -466,9 +495,9 @@ $renderSettingsFile = Join-Path $blueMapDir 'render-settings.txt'
 $previousRenderSettings = if (Test-Path $renderSettingsFile) { (Get-Content $renderSettingsFile -Raw).Trim() } else { '' }
 if ($PlayersOnly) {
   Write-Step 'Updating map markers'
-  Invoke-Checked $JavaExe @('-jar', $BlueMapJar, '-c', $configDir, '--markers')
+  Invoke-Checked $JavaExe @("-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '--markers')
 } else {
-  $blueMapArgs = @('-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
+  $blueMapArgs = @("-XX:ActiveProcessorCount=$RenderThreads", '-jar', $BlueMapJar, '-c', $configDir, '-v', $MinecraftVersion, '-g', '-s', '-r', '--markers')
   $brokenTiles = Remove-BrokenLowresTiles (Join-Path $publicDir 'maps')
   if ($brokenTiles -gt 0) {
     Write-Warning "Removed $brokenTiles damaged low-detail tile(s); re-rendering everything to rebuild them"
@@ -550,5 +579,8 @@ try {
   )
 } finally {
   Pop-Location
+}
+if ($worldState -and -not $PlayersOnly) {
+  Write-TextFile $worldStateFile $worldState
 }
 Write-Step 'Done'
