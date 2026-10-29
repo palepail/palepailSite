@@ -18,10 +18,12 @@
 //   - it has a block entity a player made or touched: chests, furnaces, signs, beds, hoppers...
 //     Loot chests nobody has opened yet, spawners, bee nests and other naturally generated ones
 //     don't count. Villages have beds and furnaces, so they're kept too;
+//   - it has torches, lanterns or glass anywhere in it (villages, strongholds, mansions and
+//     ancient cities generate some, so those are kept too);
 //   - the map publish saw it change since it started tracking (chunk-stamps.json);
 //   - it's near a player's saved position, the world spawn, a map marker or a --keep area;
 //   - it's within --buffer chunks of any of the above.
-// Builds that left no block entity (a dirt hut, a tunnel, a farm with no chests) are only kept if
+// Builds with none of those (a dirt hut, an unlit tunnel, a farm with no chests) are only kept if
 // they're near something else. Check the preview and add --keep areas before applying.
 //
 // --apply needs the server stopped: the running server locks the world.
@@ -53,6 +55,40 @@ const PLAYER_RADIUS_CHUNKS = 4;
 const MARKER_RADIUS_BLOCKS = 64;
 const VERSION_TAGS = new Set([0x2c, 0x76]); // one per generated chunk
 const BLOCK_ENTITY_TAG = 0x31;
+const SUBCHUNK_TAG = 0x2f;
+
+// Blocks that show a player was there: torches, lanterns and glass (Bedrock IDs, old and new).
+const COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray',
+  'light_gray', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
+const COPPER = ['', 'exposed_', 'weathered_', 'oxidized_'];
+const PLAYER_BLOCKS = new Map([
+  ...['torch', 'soul_torch', 'copper_torch', 'redstone_torch', 'unlit_redstone_torch',
+    'underwater_torch', 'colored_torch_rg', 'colored_torch_bp', 'colored_torch_red',
+    'colored_torch_green', 'colored_torch_blue', 'colored_torch_purple'].map((n) => [n, 'torch']),
+  ...['lantern', 'soul_lantern', ...COPPER.flatMap((c) => [`${c}copper_lantern`, `waxed_${c}copper_lantern`])]
+    .map((n) => [n, 'lantern']),
+  ...['glass', 'glass_pane', 'tinted_glass', 'stained_glass', 'stained_glass_pane', 'hard_glass',
+    'hard_glass_pane', 'hard_stained_glass', 'hard_stained_glass_pane',
+    ...COLORS.flatMap((c) => [`${c}_stained_glass`, `${c}_stained_glass_pane`,
+      `hard_${c}_stained_glass`, `hard_${c}_stained_glass_pane`])].map((n) => [n, 'glass']),
+].map(([n, kind]) => [`minecraft:${n}`, kind]));
+const NAMESPACE = Buffer.from('minecraft:');
+
+/**
+ * The first torch, lantern or glass block in a sub-chunk, or null. Sub-chunks list the blocks they
+ * contain in a palette of NBT compounds, whose names are length-prefixed strings; finding each
+ * "minecraft:" and reading the length before it avoids decoding the whole sub-chunk.
+ */
+function playerBlock(value) {
+  for (let at = value.indexOf(NAMESPACE); at !== -1; at = value.indexOf(NAMESPACE, at + 1)) {
+    if (at < 2) continue;
+    const length = value.readUInt16LE(at - 2);
+    if (length > 64 || at + length > value.length) continue;
+    const kind = PLAYER_BLOCKS.get(value.toString('latin1', at, at + length));
+    if (kind) return kind;
+  }
+  return null;
+}
 const BATCH_SIZE = 5000;
 
 // --- Arguments -----------------------------------------------------------------------------------
@@ -254,6 +290,10 @@ async function main() {
         if (VERSION_TAGS.has(chunk.tag)) existing[chunk.dimension].add(id(chunk.x, chunk.z));
         if (chunk.tag === BLOCK_ENTITY_TAG) {
           const reason = playerBlockEntity(value);
+          if (reason) used.add(chunk.dimension, chunk.x, chunk.z, reason);
+        } else if (chunk.tag === SUBCHUNK_TAG && targets.includes(chunk.dimension) &&
+            !used.chunks[chunk.dimension].has(id(chunk.x, chunk.z))) {
+          const reason = playerBlock(value);
           if (reason) used.add(chunk.dimension, chunk.x, chunk.z, reason);
         }
         continue;
