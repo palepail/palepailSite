@@ -189,14 +189,18 @@ so every chunk reads 0 and the filter would select the whole world.)
 A chunk is kept when there's evidence a player used it:
 
 - a block entity a player made or used: chests, furnaces, signs, beds, hoppers and so on. Loot chests
-  nobody has opened, spawners, bee nests and other natural ones don't count. Villages have beds
-  and furnaces, so they're kept;
-- torches (including soul, redstone and copper), lanterns (not sea lanterns) or glass of any kind.
-  Villages, strongholds, mansions and ancient cities generate some of these, so they're kept too;
+  nobody has opened, spawners, bee nests and other natural ones don't count;
+- torches (including soul, redstone and copper), lanterns (not sea lanterns) or glass of any kind;
 - the map publish saw it change since it started tracking (`C:\minecraft-map\chunk-stamps.json`);
 - it's near a player's saved position, the world spawn, a map marker (`markers.json`), or an
   area you name with `--keep`;
 - it's within `--buffer` chunks (default 4) of any of these.
+
+Natural structures generate torches, glass, beds, furnaces, lecterns and barrels too. Near a
+village bell, an unopened loot chest, a stronghold's end portal frame or an ancient city's sculk
+shriekers, those blocks don't count, so untouched villages and strongholds get regenerated as
+well. Things only a player makes or touches still count there: signs, hoppers, opened chests,
+shulker boxes and so on. The preview prints how many structure chunks it ignored.
 
 Builds with none of these, like a dirt hut, an unlit tunnel or a plain farm, are only safe if
 they're near something else. Add a `--keep x,z,radius` (block coordinates) for each of those.

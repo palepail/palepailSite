@@ -17,9 +17,12 @@
 // A chunk is kept when there's evidence a player used it:
 //   - it has a block entity a player made or touched: chests, furnaces, signs, beds, hoppers...
 //     Loot chests nobody has opened yet, spawners, bee nests and other naturally generated ones
-//     don't count. Villages have beds and furnaces, so they're kept too;
-//   - it has torches, lanterns or glass anywhere in it (villages, strongholds, mansions and
-//     ancient cities generate some, so those are kept too);
+//     don't count;
+//   - it has torches, lanterns or glass anywhere in it;
+//   Natural structures generate some of these too, so near a village bell, an unopened loot chest,
+//   a stronghold's portal frame or an ancient city's sculk shriekers, the ones structures make
+//   (torches, lanterns, glass, beds, furnaces, lecterns, barrels...) don't count. Signs, hoppers,
+//   opened chests and the like still do;
 //   - the map publish saw it change since it started tracking (chunk-stamps.json);
 //   - it's near a player's saved position, the world spawn, a map marker or a --keep area;
 //   - it's within --buffer chunks of any of the above.
@@ -50,6 +53,18 @@ const NATURAL_BLOCK_ENTITIES = new Set([
   'DecoratedPot', 'Bell', 'FlowerPot', 'Cauldron', 'PistonArm', 'MovingBlock', 'Dispenser',
   'CreakingHeart',
 ]);
+// Block entities that villages and other structures also generate: they only count away from one.
+const STRUCTURE_BLOCK_ENTITIES = new Set([
+  'Bed', 'Furnace', 'BlastFurnace', 'Smoker', 'Lectern', 'BrewingStand', 'Barrel', 'Campfire',
+  'ItemFrame', 'GlowItemFrame',
+]);
+// Signs of a natural structure, and how far (in chunks) its own torches, beds etc. can reach.
+const STRUCTURE_SIGNS = {
+  Bell: [8, 'village'],
+  SculkShrieker: [10, 'ancient city'],
+  lootChest: [6, 'structure with loot'],
+  'minecraft:end_portal_frame': [8, 'stronghold'],
+};
 const SPAWN_RADIUS_CHUNKS = 8;
 const PLAYER_RADIUS_CHUNKS = 4;
 const MARKER_RADIUS_BLOCKS = 64;
@@ -75,19 +90,22 @@ const PLAYER_BLOCKS = new Map([
 const NAMESPACE = Buffer.from('minecraft:');
 
 /**
- * The first torch, lantern or glass block in a sub-chunk, or null. Sub-chunks list the blocks they
- * contain in a palette of NBT compounds, whose names are length-prefixed strings; finding each
- * "minecraft:" and reading the length before it avoids decoding the whole sub-chunk.
+ * Looks through a sub-chunk's blocks for torches, lanterns or glass (`block`) and structure signs.
+ * Sub-chunks list the blocks they contain in a palette of NBT compounds, whose names are
+ * length-prefixed strings; finding each "minecraft:" and reading the length before it avoids
+ * decoding the whole sub-chunk.
  */
-function playerBlock(value) {
+function readBlocks(value) {
+  const result = { block: null, structures: [] };
   for (let at = value.indexOf(NAMESPACE); at !== -1; at = value.indexOf(NAMESPACE, at + 1)) {
     if (at < 2) continue;
     const length = value.readUInt16LE(at - 2);
     if (length > 64 || at + length > value.length) continue;
-    const kind = PLAYER_BLOCKS.get(value.toString('latin1', at, at + length));
-    if (kind) return kind;
+    const name = value.toString('latin1', at, at + length);
+    result.block ??= PLAYER_BLOCKS.get(name) ?? null;
+    if (STRUCTURE_SIGNS[name]) result.structures.push(STRUCTURE_SIGNS[name]);
   }
-  return null;
+  return result;
 }
 const BATCH_SIZE = 5000;
 
@@ -168,21 +186,34 @@ function parseAll(buffer) {
   return roots;
 }
 
-/** The first block entity in a chunk that shows a player made or used it, or null. */
-function playerBlockEntity(value) {
+/**
+ * What a chunk's block entities say: `strong` names one only a player makes or touches, `weak` one
+ * that structures generate too, and `structures` lists signs of a natural structure.
+ */
+function readBlockEntities(value) {
+  const result = { strong: null, weak: null, structures: [] };
   let entities;
   try {
     entities = parseAll(value);
   } catch {
-    return 'unreadable block entity'; // keep it to be safe
+    result.strong = 'unreadable block entity'; // keep it to be safe
+    return result;
   }
   for (const entity of entities) {
     const kind = String(entity.id ?? '');
-    if (NATURAL_BLOCK_ENTITIES.has(kind)) continue;
-    if (entity.LootTable) continue; // a loot chest nobody has opened
-    return kind || 'block entity';
+    if (entity.LootTable) {
+      result.structures.push(STRUCTURE_SIGNS.lootChest); // a loot chest nobody has opened
+    } else if (STRUCTURE_SIGNS[kind]) {
+      result.structures.push(STRUCTURE_SIGNS[kind]);
+    } else if (NATURAL_BLOCK_ENTITIES.has(kind)) {
+      continue;
+    } else if (STRUCTURE_BLOCK_ENTITIES.has(kind)) {
+      result.weak ??= kind;
+    } else {
+      result.strong ??= kind || 'block entity';
+    }
   }
-  return null;
+  return result;
 }
 
 class ChunkSet {
@@ -251,6 +282,9 @@ async function main() {
 
   // Evidence of use ("used"), and other reasons to keep a chunk ("protected").
   const used = new ChunkSet();
+  // Torches, beds and the like: they count unless they're in a natural structure's area.
+  const weak = new ChunkSet();
+  const structures = new ChunkSet();
   const protectedChunks = new ChunkSet();
   const existing = DIMENSIONS.map(() => new Set());
 
@@ -288,13 +322,17 @@ async function main() {
       const chunk = chunkKey(key);
       if (chunk) {
         if (VERSION_TAGS.has(chunk.tag)) existing[chunk.dimension].add(id(chunk.x, chunk.z));
+        let found;
         if (chunk.tag === BLOCK_ENTITY_TAG) {
-          const reason = playerBlockEntity(value);
-          if (reason) used.add(chunk.dimension, chunk.x, chunk.z, reason);
-        } else if (chunk.tag === SUBCHUNK_TAG && targets.includes(chunk.dimension) &&
-            !used.chunks[chunk.dimension].has(id(chunk.x, chunk.z))) {
-          const reason = playerBlock(value);
-          if (reason) used.add(chunk.dimension, chunk.x, chunk.z, reason);
+          found = readBlockEntities(value);
+          if (found.strong) used.add(chunk.dimension, chunk.x, chunk.z, found.strong);
+          if (found.weak) weak.add(chunk.dimension, chunk.x, chunk.z, found.weak);
+        } else if (chunk.tag === SUBCHUNK_TAG && targets.includes(chunk.dimension)) {
+          found = readBlocks(value);
+          if (found.block) weak.add(chunk.dimension, chunk.x, chunk.z, found.block);
+        }
+        for (const [radius, name] of found?.structures ?? []) {
+          structures.addSquare(chunk.dimension, chunk.x, chunk.z, radius, name);
         }
         continue;
       }
@@ -313,6 +351,18 @@ async function main() {
       }
     }
 
+    const ignored = new Map(); // structure kind -> chunks whose torches etc. were ignored
+    for (let dimension = 0; dimension < 3; dimension++) {
+      for (const [chunkId, reason] of weak.chunks[dimension]) {
+        const structure = structures.chunks[dimension].get(chunkId);
+        if (!structure) {
+          used.chunks[dimension].set(chunkId, reason);
+        } else if (targets.includes(dimension) && !used.chunks[dimension].has(chunkId)) {
+          ignored.set(structure, (ignored.get(structure) ?? 0) + 1);
+        }
+      }
+    }
+
     // Keep everything near a used chunk.
     const keep = new ChunkSet();
     for (let dimension = 0; dimension < 3; dimension++) {
@@ -325,6 +375,10 @@ async function main() {
 
     console.log(`World: ${worldDir}`);
     console.log(`Spawn ${spawn.x}, ${spawn.z}; ${players} player position(s); ${changed} chunk(s) changed since the map started tracking`);
+    if (ignored.size) {
+      const list = [...ignored].map(([kind, count]) => `${count} near a ${kind}`).join(', ');
+      console.log(`Ignored torches, glass, beds etc. that natural structures generate: ${list}`);
+    }
     const toDelete = DIMENSIONS.map(() => new Set());
     for (const dimension of targets) {
       const all = existing[dimension];
