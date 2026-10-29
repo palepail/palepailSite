@@ -22,8 +22,9 @@
 //     don't count;
 //   - it has torches, lanterns or glass anywhere in it;
 //   Natural structures generate some of these too, so near a village bell, an unopened loot chest,
-//   a stronghold's portal frame or an ancient city's sculk shriekers, the ones structures make
-//   (torches, lanterns, glass, beds, furnaces, lecterns, barrels...) don't count. Signs, hoppers,
+//   a stronghold's portal frame, an ancient city's sculk shriekers or a trial chamber's spawners,
+//   the ones structures make
+//   (torches, lanterns, glass, beds, furnaces, lecterns, barrels, hoppers...) don't count. Signs,
 //   opened chests and the like still do;
 //   - with --stamps, the map publish saw it change since it started tracking;
 //   - it's near a player's saved position, the world spawn, a map marker or a --keep area;
@@ -53,17 +54,19 @@ const NATURAL_BLOCK_ENTITIES = new Set([
   'MobSpawner', 'TrialSpawner', 'Vault', 'Beehive', 'BrushableBlock', 'SculkSensor',
   'CalibratedSculkSensor', 'SculkCatalyst', 'SculkShrieker', 'EndGateway', 'EndPortal',
   'DecoratedPot', 'Bell', 'FlowerPot', 'Cauldron', 'PistonArm', 'MovingBlock', 'Dispenser',
-  'CreakingHeart', 'SporeBlossom', 'Banner',
+  'CreakingHeart', 'SporeBlossom', 'Banner', 'PotentSulfurBlock',
 ]);
 // Block entities that villages and other structures also generate: they only count away from one.
 const STRUCTURE_BLOCK_ENTITIES = new Set([
   'Bed', 'Furnace', 'BlastFurnace', 'Smoker', 'Lectern', 'BrewingStand', 'Barrel', 'Campfire',
-  'ItemFrame', 'GlowItemFrame',
+  'ItemFrame', 'GlowItemFrame', 'Hopper',
 ]);
 // Signs of a natural structure, and how far (in chunks) its own torches, beds etc. can reach.
 const STRUCTURE_SIGNS = {
   Bell: [8, 'village'],
   SculkShrieker: [10, 'ancient city'],
+  TrialSpawner: [6, 'trial chamber'],
+  Vault: [6, 'trial chamber'],
   lootChest: [6, 'structure with loot'],
   'minecraft:end_portal_frame': [8, 'stronghold'],
 };

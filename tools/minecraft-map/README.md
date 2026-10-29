@@ -195,11 +195,11 @@ A chunk is kept when there's evidence a player used it:
   area you name with `--keep`;
 - it's within `--buffer` chunks (default 4) of any of these.
 
-Natural structures generate torches, glass, beds, furnaces, lecterns and barrels too. Near a
-village bell, an unopened loot chest, a stronghold's end portal frame or an ancient city's sculk
-shriekers, those blocks don't count, so untouched villages and strongholds get regenerated as
-well. Things only a player makes or touches still count there: signs, hoppers, opened chests,
-shulker boxes and so on. The preview prints how many structure chunks it ignored.
+Natural structures generate torches, glass, beds, furnaces, lecterns, barrels and hoppers too.
+Near a village bell, an unopened loot chest, a stronghold's end portal frame, an ancient city's
+sculk shriekers, or a trial chamber's spawners and vaults, those blocks don't count. Untouched
+villages, strongholds and trial chambers get regenerated as well. Things only a player makes or
+touches still count there: signs, opened chests, shulker boxes and so on. The preview prints how many structure chunks it ignored.
 
 Builds with none of these, like a dirt hut, an unlit tunnel or a plain farm, are only safe if
 they're near something else. Add a `--keep x,z,radius` (block coordinates) for each of those.
