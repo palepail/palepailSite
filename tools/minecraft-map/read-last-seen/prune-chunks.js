@@ -8,7 +8,9 @@
 //   --buffer <n>      also keep chunks within n chunks of anything kept (default 4)
 //   --keep <x,z,r>    also keep everything within r blocks of x,z (overworld; repeatable).
 //                     Use <dimension>:<x>,<z>,<r> for another dimension, e.g. nether:0,0,200
-//   --stamps <file>   the map publish's chunk-stamps.json (default C:\minecraft-map\chunk-stamps.json)
+//   --stamps <file>   also keep chunks the map publish saw change (e.g. C:\minecraft-map\chunk-stamps.json).
+//                     Off by default: chunks within view distance of a player change on their own
+//                     (grass, leaves, mobs), and a Chunker update changes every chunk
 //   --markers <file>  map markers to keep around (default ..\markers.json)
 //   --apply           actually delete. Without it, nothing is changed: it only reports and writes
 //                     prune-<dimension>.png (green: used, light green: kept nearby, red: delete)
@@ -23,7 +25,7 @@
 //   a stronghold's portal frame or an ancient city's sculk shriekers, the ones structures make
 //   (torches, lanterns, glass, beds, furnaces, lecterns, barrels...) don't count. Signs, hoppers,
 //   opened chests and the like still do;
-//   - the map publish saw it change since it started tracking (chunk-stamps.json);
+//   - with --stamps, the map publish saw it change since it started tracking;
 //   - it's near a player's saved position, the world spawn, a map marker or a --keep area;
 //   - it's within --buffer chunks of any of the above.
 // Builds with none of those (a dirt hut, an unlit tunnel, a farm with no chests) are only kept if
@@ -116,7 +118,7 @@ function parseArgs(argv) {
     dimension: 'overworld',
     buffer: 4,
     keep: [],
-    stamps: 'C:\\minecraft-map\\chunk-stamps.json',
+    stamps: null,
     markers: path.join(__dirname, '..', 'markers.json'),
     apply: false,
     backup: true,
@@ -374,7 +376,8 @@ async function main() {
     }
 
     console.log(`World: ${worldDir}`);
-    console.log(`Spawn ${spawn.x}, ${spawn.z}; ${players} player position(s); ${changed} chunk(s) changed since the map started tracking`);
+    console.log(`Spawn ${spawn.x}, ${spawn.z}; ${players} player position(s)` +
+      (options.stamps ? `; ${changed} chunk(s) changed since the map started tracking` : ''));
     if (ignored.size) {
       const list = [...ignored].map(([kind, count]) => `${count} near a ${kind}`).join(', ');
       console.log(`Ignored torches, glass, beds etc. that natural structures generate: ${list}`);
@@ -388,8 +391,15 @@ async function main() {
         else if (!keep.chunks[dimension].has(chunkId)) toDelete[dimension].add(chunkId);
       }
       const name = DIMENSIONS[dimension];
+      const reasons = new Map();
+      for (const chunkId of all) {
+        const reason = used.chunks[dimension].get(chunkId);
+        if (reason) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+      }
       console.log(`\n${name}: ${all.size} generated chunks`);
       console.log(`  ${usedCount} used, ${all.size - usedCount - toDelete[dimension].size} kept nearby, ${toDelete[dimension].size} to delete (${Math.round((100 * toDelete[dimension].size) / Math.max(1, all.size))}%)`);
+      const top = [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 10);
+      if (top.length) console.log(`  Used because of: ${top.map(([reason, count]) => `${reason} ${count}`).join(', ')}`);
       const file = `prune-${name}.png`;
       const extent = writeCoveragePng(file, all, (chunkId) =>
         used.chunks[dimension].has(chunkId) ? [40, 170, 60] : toDelete[dimension].has(chunkId) ? [200, 50, 40] : [150, 220, 150]);

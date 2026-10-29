@@ -191,7 +191,6 @@ A chunk is kept when there's evidence a player used it:
 - a block entity a player made or used: chests, furnaces, signs, beds, hoppers and so on. Loot chests
   nobody has opened, spawners, bee nests and other natural ones don't count;
 - torches (including soul, redstone and copper), lanterns (not sea lanterns) or glass of any kind;
-- the map publish saw it change since it started tracking (`C:\minecraft-map\chunk-stamps.json`);
 - it's near a player's saved position, the world spawn, a map marker (`markers.json`), or an
   area you name with `--keep`;
 - it's within `--buffer` chunks (default 4) of any of these.
