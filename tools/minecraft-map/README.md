@@ -178,6 +178,53 @@ Limits:
 
 After updating the pack, re-run `install-last-seen-pack.ps1` and restart the server.
 
+## Regenerate unused chunks (for new biomes)
+
+New biomes and terrain only appear in chunks generated after an update. `read-last-seen\prune-chunks.js`
+deletes the chunks nobody has used, so the game generates them again from the seed with the
+current terrain. It works directly on the Bedrock world. (Converting to Java and filtering on
+`InhabitedTime` in MCA Selector doesn't work here: Chunker doesn't carry `InhabitedTime` over,
+so every chunk reads 0 and the filter would select the whole world.)
+
+A chunk is kept when there's evidence a player used it:
+
+- a block entity a player made or used: chests, furnaces, signs, beds, hoppers and so on. Loot chests
+  nobody has opened, spawners, bee nests and other natural ones don't count. Villages have beds
+  and furnaces, so they're kept;
+- the map publish saw it change since it started tracking (`C:\minecraft-map\chunk-stamps.json`);
+- it's near a player's saved position, the world spawn, a map marker (`markers.json`), or an
+  area you name with `--keep`;
+- it's within `--buffer` chunks (default 4) of any of these.
+
+Builds with no block entity, like a dirt hut, a tunnel or a plain farm, are only safe if they're near
+something else. Add a `--keep x,z,radius` (block coordinates) for each of those.
+
+1. **Preview.** This changes nothing and can run while the server is up:
+   ```powershell
+   cd X:\Development\palepailSite\tools\minecraft-map\read-last-seen
+   node prune-chunks.js --keep 412,-1280,150
+   ```
+   It prints how many chunks it would delete and writes `prune-overworld.png`: dark green for used,
+   light green for kept nearby, red for deleted, with north up. Adjust `--keep` and `--buffer`
+   until everything you care about is green.
+2. **Apply.** Stop the server first; the script refuses while the world is locked. Then run the same
+   command with `--apply`:
+   ```powershell
+   node prune-chunks.js --keep 412,-1280,150 --apply
+   ```
+   It copies the `db` folder to `db-backup-<date>` next to it first. To undo, stop the server and
+   swap that copy back in as `db`.
+3. Start the server. Deleted chunks generate fresh when someone goes there.
+
+Notes:
+
+- Only the Overworld is pruned by default. `--dimension nether`, `end` or `all` do the others, but
+  in the Nether a portal with nothing else nearby has no block entity and would be deleted.
+- At the edge of the kept areas, new and old terrain will meet with visible seams.
+- The map keeps showing the old terrain in deleted areas until those tiles are rebuilt. To
+  clear them, delete `C:\minecraft-map\bluemap\site\public\maps` and run a publish. That is a full
+  re-render.
+
 ## Options
 
 | Parameter              | Default                                                   |

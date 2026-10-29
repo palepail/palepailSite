@@ -53,4 +53,4 @@ async function openWorld(input) {
   };
 }
 
-module.exports = { openWorld, DEFAULT_WORLD };
+module.exports = { openWorld, resolveDbPath, DEFAULT_WORLD };
