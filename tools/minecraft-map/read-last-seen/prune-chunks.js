@@ -53,7 +53,7 @@ const NATURAL_BLOCK_ENTITIES = new Set([
   'MobSpawner', 'TrialSpawner', 'Vault', 'Beehive', 'BrushableBlock', 'SculkSensor',
   'CalibratedSculkSensor', 'SculkCatalyst', 'SculkShrieker', 'EndGateway', 'EndPortal',
   'DecoratedPot', 'Bell', 'FlowerPot', 'Cauldron', 'PistonArm', 'MovingBlock', 'Dispenser',
-  'CreakingHeart',
+  'CreakingHeart', 'SporeBlossom', 'Banner',
 ]);
 // Block entities that villages and other structures also generate: they only count away from one.
 const STRUCTURE_BLOCK_ENTITIES = new Set([
