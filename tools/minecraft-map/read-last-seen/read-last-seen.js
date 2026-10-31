@@ -2,7 +2,11 @@
 // Prints the players recorded by the "Palepail Last Seen" behavior pack as a JSON array:
 //   [{ "name", "dimension", "x", "y", "z", "tick", "lastSeen" (ms since epoch, may be 0) }, ...]
 //
-// Usage: node read-last-seen.js <path to a Bedrock world's db folder> [--keys]
+// Usage: node read-last-seen.js [world folder] [--list] [--keys]
+//   world folder  defaults to the server's world; its db folder works too. It can run while the
+//                 server is up (see open-world.js).
+//   --list  prints one line per player instead of JSON, to check the pack is recording: "tick"
+//           grows each time the pack saves while the player is online
 //   --keys  lists the database's named (non-chunk) keys and whether each holds pack data, to
 //           check whether anything was recorded.
 //
@@ -10,7 +14,7 @@
 // {"pp_lastseen":1, — so rather than decoding Bedrock's NBT layout, this looks for that marker in
 // the stored bytes. World dynamic properties live under the "DynamicProperties" key; if nothing is
 // found there, every non-chunk key is scanned as a fallback.
-const { LevelDB } = require('leveldb-zlib');
+const { openWorld } = require('./open-world');
 
 const MARKER = Buffer.from('{"pp_lastseen":1,');
 
@@ -64,14 +68,8 @@ function isTextKey(key) {
 }
 
 async function main() {
-  const dbPath = process.argv[2];
-  if (!dbPath) {
-    console.error('Usage: node read-last-seen.js <world db folder>');
-    process.exit(2);
-  }
-
-  const db = new LevelDB(dbPath, { createIfMissing: false });
-  await db.open();
+  const worldPath = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
+  const { db, close } = await openWorld(worldPath);
   try {
     if (process.argv.includes('--keys')) {
       for await (const [key, value] of db.getIterator({ keyAsBuffer: true, valueAsBuffer: true })) {
@@ -93,9 +91,17 @@ async function main() {
     }
 
     const list = [...players.values()].sort((a, b) => b.lastSeen - a.lastSeen);
+    if (process.argv.includes('--list')) {
+      if (list.length === 0) console.log('No players recorded. Is the Last Seen pack loaded?');
+      for (const p of list) {
+        const when = p.lastSeen > 1e12 ? new Date(p.lastSeen).toLocaleString() : 'no clock';
+        console.log(`${p.name}: ${p.dimension} ${p.x} ${p.y} ${p.z}  tick ${p.tick}  (${when})`);
+      }
+      return;
+    }
     process.stdout.write(JSON.stringify(list));
   } finally {
-    await db.close();
+    await close();
   }
 }
 
